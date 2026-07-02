@@ -1,14 +1,14 @@
 using demo1.DTOs;
 using demo1.Entity;
-using demo1.Mapper;
 using demo1.Services.Interfaces;
 using demo1.Validator;
+using AutoMapper;
 
 namespace demo1.Services.Implements;
 
 public class ContractService : InMemoryCrudService<Contract, ContractDto, CreateContractDto, UpdateContractDto>, IContractService
 {
-    public ContractService()
+    public ContractService(IMapper mapper) : base(mapper)
     {
         Seed(
             new Contract
@@ -41,17 +41,15 @@ public class ContractService : InMemoryCrudService<Contract, ContractDto, Create
             });
     }
 
-    protected override ContractDto ToDto(Contract entity) => ContractMapper.ToDto(entity);
-
     protected override Contract CreateEntity(CreateContractDto dto)
     {
         ContractValidator.EnsureValid(dto.ContractValue, dto.EffectiveDate, dto.ExpiredDate);
-        return ContractMapper.ToEntity(dto);
+        return base.CreateEntity(dto);
     }
 
     protected override void UpdateEntity(Contract entity, UpdateContractDto dto)
     {
         ContractValidator.EnsureValid(dto.ContractValue, dto.EffectiveDate, dto.ExpiredDate);
-        ContractMapper.ApplyUpdate(entity, dto);
+        base.UpdateEntity(entity, dto);
     }
 }

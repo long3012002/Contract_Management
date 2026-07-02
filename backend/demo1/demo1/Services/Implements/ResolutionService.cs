@@ -1,14 +1,14 @@
 using demo1.DTOs;
 using demo1.Entity;
-using demo1.Mapper;
 using demo1.Services.Interfaces;
 using demo1.Validator;
+using AutoMapper;
 
 namespace demo1.Services.Implements;
 
 public class ResolutionService : InMemoryCrudService<Resolution, ResolutionDto, CreateResolutionDto, UpdateResolutionDto>, IResolutionService
 {
-    public ResolutionService()
+    public ResolutionService(IMapper mapper) : base(mapper)
     {
         Seed(new Resolution
         {
@@ -20,17 +20,15 @@ public class ResolutionService : InMemoryCrudService<Resolution, ResolutionDto, 
         });
     }
 
-    protected override ResolutionDto ToDto(Resolution entity) => ResolutionMapper.ToDto(entity);
-
     protected override Resolution CreateEntity(CreateResolutionDto dto)
     {
         ResolutionValidator.EnsureValidDates(dto.IssuedDate, dto.EffectiveDate);
-        return ResolutionMapper.ToEntity(dto);
+        return base.CreateEntity(dto);
     }
 
     protected override void UpdateEntity(Resolution entity, UpdateResolutionDto dto)
     {
         ResolutionValidator.EnsureValidDates(dto.IssuedDate, dto.EffectiveDate);
-        ResolutionMapper.ApplyUpdate(entity, dto);
+        base.UpdateEntity(entity, dto);
     }
 }

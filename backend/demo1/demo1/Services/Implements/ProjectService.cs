@@ -1,14 +1,14 @@
 using demo1.DTOs;
 using demo1.Entity;
-using demo1.Mapper;
 using demo1.Services.Interfaces;
 using demo1.Validator;
+using AutoMapper;
 
 namespace demo1.Services.Implements;
 
 public class ProjectService : InMemoryCrudService<Project, ProjectDto, CreateProjectDto, UpdateProjectDto>, IProjectService
 {
-    public ProjectService()
+    public ProjectService(IMapper mapper) : base(mapper)
     {
         Seed(new Project
         {
@@ -20,17 +20,15 @@ public class ProjectService : InMemoryCrudService<Project, ProjectDto, CreatePro
         });
     }
 
-    protected override ProjectDto ToDto(Project entity) => ProjectMapper.ToDto(entity);
-
     protected override Project CreateEntity(CreateProjectDto dto)
     {
         ProjectValidator.EnsureValidBudget(dto.TotalBudget);
-        return ProjectMapper.ToEntity(dto);
+        return base.CreateEntity(dto);
     }
 
     protected override void UpdateEntity(Project entity, UpdateProjectDto dto)
     {
         ProjectValidator.EnsureValidBudget(dto.TotalBudget);
-        ProjectMapper.ApplyUpdate(entity, dto);
+        base.UpdateEntity(entity, dto);
     }
 }

@@ -1,14 +1,14 @@
 using demo1.DTOs;
 using demo1.Entity;
-using demo1.Mapper;
 using demo1.Services.Interfaces;
 using demo1.Validator;
+using AutoMapper;
 
 namespace demo1.Services.Implements;
 
 public class PartnerService : InMemoryCrudService<Partner, PartnerDto, CreatePartnerDto, UpdatePartnerDto>, IPartnerService
 {
-    public PartnerService()
+    public PartnerService(IMapper mapper) : base(mapper)
     {
         Seed(new Partner
         {
@@ -21,17 +21,15 @@ public class PartnerService : InMemoryCrudService<Partner, PartnerDto, CreatePar
         });
     }
 
-    protected override PartnerDto ToDto(Partner entity) => PartnerMapper.ToDto(entity);
-
     protected override Partner CreateEntity(CreatePartnerDto dto)
     {
         PartnerValidator.EnsureValidEmail(dto.Email);
-        return PartnerMapper.ToEntity(dto);
+        return base.CreateEntity(dto);
     }
 
     protected override void UpdateEntity(Partner entity, UpdatePartnerDto dto)
     {
         PartnerValidator.EnsureValidEmail(dto.Email);
-        PartnerMapper.ApplyUpdate(entity, dto);
+        base.UpdateEntity(entity, dto);
     }
 }

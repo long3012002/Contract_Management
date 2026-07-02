@@ -1,6 +1,28 @@
-namespace demo1.Data;
+using Microsoft.EntityFrameworkCore;
+using demo1.Entity;
 
-public sealed class AppDbContext
+namespace demo1.Data
 {
-    // Phase 1 chua dung database. Class nay de danh dau vi tri se dat DbContext o phase sau.
+    public class AppDbContext : DbContext
+    {
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        {
+        }
+
+        public DbSet<Project> Projects { get; set; } = null!;
+        public DbSet<BidPackage> BidPackages { get; set; } = null!;
+        public DbSet<Contract> Contracts { get; set; } = null!;
+        public DbSet<Partner> Partners { get; set; } = null!;
+        public DbSet<ContractPartner> ContractPartners { get; set; } = null!;
+        public DbSet<Resolution> Resolutions { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configure composite key for ContractPartner
+            modelBuilder.Entity<ContractPartner>()
+                .HasKey(cp => new { cp.ContractId, cp.PartnerId });
+        }
+    }
 }

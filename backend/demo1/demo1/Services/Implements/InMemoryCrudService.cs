@@ -1,6 +1,7 @@
 using demo1.DTOs;
 using demo1.Entity;
 using demo1.Services.Interfaces;
+using AutoMapper;
 
 namespace demo1.Services.Implements;
 
@@ -9,6 +10,13 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     where TEntity : BaseEntity
     where TDto : IHasId
 {
+    protected readonly IMapper Mapper;
+
+    protected InMemoryCrudService(IMapper mapper)
+    {
+        Mapper = mapper;
+    }
+
     private readonly List<TEntity> _items = new();
     private readonly object _syncRoot = new();
     private int _nextId = 1;
@@ -129,9 +137,9 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         return $"{entity.Code} {entity.Name} {entity.Description}";
     }
 
-    protected abstract TDto ToDto(TEntity entity);
-    protected abstract TEntity CreateEntity(TCreateDto dto);
-    protected abstract void UpdateEntity(TEntity entity, TUpdateDto dto);
+    protected virtual TDto ToDto(TEntity entity) => Mapper.Map<TDto>(entity);
+    protected virtual TEntity CreateEntity(TCreateDto dto) => Mapper.Map<TEntity>(dto);
+    protected virtual void UpdateEntity(TEntity entity, TUpdateDto dto) => Mapper.Map(dto, entity);
 
     private void EnsureCodeIsUnique(string code)
     {
