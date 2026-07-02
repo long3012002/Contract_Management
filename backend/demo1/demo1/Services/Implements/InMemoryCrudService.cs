@@ -19,7 +19,6 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
 
     private readonly List<TEntity> _items = new();
     private readonly object _syncRoot = new();
-    private int _nextId = 1;
 
     public Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize)
     {
@@ -63,7 +62,7 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
-    public Task<TDto?> GetByIdAsync(int id)
+    public Task<TDto?> GetByIdAsync(Guid id)
     {
         lock (_syncRoot)
         {
@@ -79,7 +78,7 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             var entity = CreateEntity(dto);
             EnsureCodeIsUnique(entity.Code);
 
-            entity.Id = _nextId++;
+            entity.Id = Guid.NewGuid();
             entity.CreatedAt = DateTime.UtcNow;
             _items.Add(entity);
 
@@ -87,7 +86,7 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
-    public Task<bool> UpdateAsync(int id, TUpdateDto dto)
+    public Task<bool> UpdateAsync(Guid id, TUpdateDto dto)
     {
         lock (_syncRoot)
         {
@@ -104,7 +103,7 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
-    public Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(Guid id)
     {
         lock (_syncRoot)
         {
@@ -125,7 +124,11 @@ public abstract class InMemoryCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         {
             foreach (var entity in entities)
             {
-                entity.Id = _nextId++;
+                if (entity.Id == Guid.Empty)
+                {
+                    entity.Id = Guid.NewGuid();
+                }
+
                 entity.CreatedAt = DateTime.UtcNow;
                 _items.Add(entity);
             }

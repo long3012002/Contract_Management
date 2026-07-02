@@ -15,8 +15,6 @@ public class ContractService : InMemoryCrudService<Contract, ContractDto, Create
             {
                 Code = "HD-001",
                 Name = "Hop dong trien khai he thong",
-                ProjectId = 1,
-                BidPackageId = 1,
                 ContractValue = 750_000_000,
                 SignedDate = DateTime.Today.AddDays(-20),
                 EffectiveDate = DateTime.Today.AddDays(-15),
@@ -29,8 +27,6 @@ public class ContractService : InMemoryCrudService<Contract, ContractDto, Create
             {
                 Code = "HD-002",
                 Name = "Hop dong sap het hieu luc",
-                ProjectId = 1,
-                BidPackageId = 1,
                 ContractValue = 850_000_000,
                 SignedDate = DateTime.Today.AddDays(-90),
                 EffectiveDate = DateTime.Today.AddDays(-85),

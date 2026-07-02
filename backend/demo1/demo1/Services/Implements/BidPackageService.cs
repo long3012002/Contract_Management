@@ -14,7 +14,6 @@ public class BidPackageService : InMemoryCrudService<BidPackage, BidPackageDto, 
         {
             Code = "GT-001",
             Name = "Goi thau trien khai phan mem",
-            ProjectId = 1,
             EstimatedValue = 800_000_000,
             WarningThresholdPercent = 100
         });

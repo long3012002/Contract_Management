@@ -2,7 +2,7 @@ namespace demo1.DTOs;
 
 public class ResolutionDto : IHasId
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Summary { get; set; }

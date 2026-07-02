@@ -2,7 +2,7 @@
 {
     public class BudgetWarningDto
     {
-        public int ContractId { get; set; }
+        public Guid ContractId { get; set; }
         public string ContractNumber { get; set; } = string.Empty;
         public decimal EstimatedValue { get; set; }
         public decimal ContractValue { get; set; }

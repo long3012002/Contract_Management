@@ -7,8 +7,8 @@ public interface ICrudService<TDto, in TCreateDto, in TUpdateDto>
 {
     Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize);
     Task<IReadOnlyList<TDto>> GetAllItemsAsync();
-    Task<TDto?> GetByIdAsync(int id);
+    Task<TDto?> GetByIdAsync(Guid id);
     Task<TDto> CreateAsync(TCreateDto dto);
-    Task<bool> UpdateAsync(int id, TUpdateDto dto);
-    Task<bool> DeleteAsync(int id);
+    Task<bool> UpdateAsync(Guid id, TUpdateDto dto);
+    Task<bool> DeleteAsync(Guid id);
 }

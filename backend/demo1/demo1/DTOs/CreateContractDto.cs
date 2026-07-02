@@ -15,8 +15,8 @@ public class CreateContractDto
     [StringLength(1000)]
     public string? Description { get; set; }
 
-    public int? ProjectId { get; set; }
-    public int? BidPackageId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? BidPackageId { get; set; }
 
     [Range(0, double.MaxValue)]
     public decimal ContractValue { get; set; }

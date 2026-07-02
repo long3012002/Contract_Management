@@ -2,11 +2,11 @@ namespace demo1.DTOs;
 
 public class BidPackageDto : IHasId
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public int? ProjectId { get; set; }
+    public Guid? ProjectId { get; set; }
     public decimal EstimatedValue { get; set; }
     public decimal WarningThresholdPercent { get; set; }
     public bool IsActive { get; set; }

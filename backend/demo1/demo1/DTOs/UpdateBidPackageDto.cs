@@ -11,7 +11,7 @@ public class UpdateBidPackageDto
     [StringLength(1000)]
     public string? Description { get; set; }
 
-    public int? ProjectId { get; set; }
+    public Guid? ProjectId { get; set; }
 
     [Range(0, double.MaxValue)]
     public decimal EstimatedValue { get; set; }
