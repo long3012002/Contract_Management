@@ -1,32 +1,50 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using demo1;
+using demo1.Services;
+using demo1.Services.Implements;
+using demo1.Services.Interfaces;
 
-namespace demo1
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddCors(options =>
 {
-    public class Program
+    options.AddPolicy("DefaultCors", policy =>
     {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+        policy.AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
-            // Call Program.ConfigureServices to configure app services
-            ConfigureServices(builder.Services, builder.Configuration);
+builder.Services.AddSingleton<IProjectService, ProjectService>();
+builder.Services.AddSingleton<IPartnerService, PartnerService>();
+builder.Services.AddSingleton<IBidPackageService, BidPackageService>();
+builder.Services.AddSingleton<IContractService, ContractService>();
+builder.Services.AddSingleton<IResolutionService, ResolutionService>();
+builder.Services.AddSingleton<IWarningService, WarningService>();
 
-            var app = builder.Build();
+builder.Services.AddScoped<IRadiusClient>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var server = config["Radius:Server"] ?? "127.0.0.1";
+    var port = int.TryParse(config["Radius:Port"], out var parsedPort) ? parsedPort : 1812;
+    var sharedSecret = config["Radius:SharedSecret"] ?? string.Empty;
 
-            var startup = new Startup(builder.Configuration);
-            startup.Configure(app, app.Environment);
+    return new RawRadiusClient(server, port, sharedSecret);
+});
 
-            app.Run();
-        }
+var app = builder.Build();
 
-        public static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
-        {
-            var startup = new Startup(configuration);
-            startup.ConfigureServices(services);
-        }
-    }
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
+
+app.UseHttpsRedirection();
+app.UseCors("DefaultCors");
+app.MapControllers();
+
+app.Run();

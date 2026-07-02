@@ -1,6 +1,24 @@
 @demo1_HostAddress = http://localhost:5063
 
-GET {{demo1_HostAddress}}/weatherforecast/
+GET {{demo1_HostAddress}}/api/projects
 Accept: application/json
 
 ###
+
+GET {{demo1_HostAddress}}/api/contracts
+Accept: application/json
+
+###
+
+GET {{demo1_HostAddress}}/api/warnings/contracts-expiring-soon
+Accept: application/json
+
+###
+
+POST {{demo1_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "demo",
+  "password": "demo"
+}

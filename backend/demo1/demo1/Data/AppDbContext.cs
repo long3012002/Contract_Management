@@ -1,21 +1,6 @@
-using Microsoft.EntityFrameworkCore;
-using demo1.Entities;
+namespace demo1.Data;
 
-namespace demo1.Data
+public sealed class AppDbContext
 {
-    public class AppDbContext : DbContext
-    {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-        {
-        }
-
-        public DbSet<Product> Products { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-            
-            // Customize table mappings or seed data if needed
-        }
-    }
+    // Phase 1 chua dung database. Class nay de danh dau vi tri se dat DbContext o phase sau.
 }
