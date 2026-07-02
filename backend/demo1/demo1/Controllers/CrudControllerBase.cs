@@ -1,0 +1,77 @@
+using demo1.DTOs;
+using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+
+namespace demo1.Controllers;
+
+[ApiController]
+public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : ControllerBase
+    where TDto : IHasId
+{
+    private readonly ICrudService<TDto, TCreateDto, TUpdateDto> _service;
+
+    protected CrudControllerBase(ICrudService<TDto, TCreateDto, TUpdateDto> service)
+    {
+        _service = service;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
+    {
+        var result = await _service.GetAllAsync(search, page, pageSize);
+        return Ok(result);
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var result = await _service.GetByIdAsync(id);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] TCreateDto dto)
+    {
+        try
+        {
+            var result = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] TUpdateDto dto)
+    {
+        try
+        {
+            var success = await _service.UpdateAsync(id, dto);
+            return success ? NoContent() : NotFound();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var success = await _service.DeleteAsync(id);
+        return success ? NoContent() : NotFound();
+    }
+}
