@@ -1,13 +1,15 @@
+using System;
+
 namespace demo1.DTOs;
 
 public class ContractDto : IHasId
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string ContractNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public int? ProjectId { get; set; }
-    public int? BidPackageId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? BidPackageId { get; set; }
     public decimal ContractValue { get; set; }
     public DateTime? SignedDate { get; set; }
     public DateTime? EffectiveDate { get; set; }

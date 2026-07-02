@@ -1,8 +1,10 @@
-﻿namespace demo1.DTOs;
+using System;
+
+namespace demo1.DTOs;
 
 public class ContractWarningDto
 {
-    public int ContractId { get; set; }
+    public Guid ContractId { get; set; }
     public string ContractNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public DateTime? ExpiredDate { get; set; }

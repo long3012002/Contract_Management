@@ -1,8 +1,10 @@
+using System;
+
 namespace demo1.Entity;
 
 public abstract class BaseEntity
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

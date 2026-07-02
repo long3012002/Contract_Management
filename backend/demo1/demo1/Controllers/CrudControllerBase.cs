@@ -1,3 +1,4 @@
+using System;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -25,8 +26,8 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         return Ok(result);
     }
 
-    [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
         return result is null ? NotFound() : Ok(result);
@@ -50,8 +51,8 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         }
     }
 
-    [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] TUpdateDto dto)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] TUpdateDto dto)
     {
         try
         {
@@ -68,8 +69,8 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         }
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
     {
         var success = await _service.DeleteAsync(id);
         return success ? NoContent() : NotFound();

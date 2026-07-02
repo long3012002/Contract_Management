@@ -31,12 +31,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<IProjectService, ProjectService>();
-builder.Services.AddSingleton<IPartnerService, PartnerService>();
-builder.Services.AddSingleton<IBidPackageService, BidPackageService>();
-builder.Services.AddSingleton<IContractService, ContractService>();
-builder.Services.AddSingleton<IResolutionService, ResolutionService>();
-builder.Services.AddSingleton<IWarningService, WarningService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IPartnerService, PartnerService>();
+builder.Services.AddScoped<IBidPackageService, BidPackageService>();
+builder.Services.AddScoped<IContractService, ContractService>();
+builder.Services.AddScoped<IResolutionService, ResolutionService>();
+builder.Services.AddScoped<IWarningService, WarningService>();
 
 builder.Services.AddScoped<IRadiusClient>(sp =>
 {
@@ -59,5 +59,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.EnsureDeleted();
+    context.Database.EnsureCreated();
+}
 
 app.Run();

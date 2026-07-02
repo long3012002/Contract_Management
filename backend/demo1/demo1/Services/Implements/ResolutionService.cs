@@ -3,21 +3,14 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using demo1.Validator;
 using AutoMapper;
+using demo1.Data;
 
 namespace demo1.Services.Implements;
 
-public class ResolutionService : InMemoryCrudService<Resolution, ResolutionDto, CreateResolutionDto, UpdateResolutionDto>, IResolutionService
+public class ResolutionService : DbCrudService<Resolution, ResolutionDto, CreateResolutionDto, UpdateResolutionDto>, IResolutionService
 {
-    public ResolutionService(IMapper mapper) : base(mapper)
+    public ResolutionService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
-        Seed(new Resolution
-        {
-            Code = "NQ-001",
-            Name = "Nghi quyet phe duyet chu truong",
-            Description = "Ho so mau cho giai doan 1",
-            IssuedDate = DateTime.Today.AddDays(-30),
-            EffectiveDate = DateTime.Today.AddDays(-25)
-        });
     }
 
     protected override Resolution CreateEntity(CreateResolutionDto dto)

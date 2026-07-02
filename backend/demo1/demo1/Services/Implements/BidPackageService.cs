@@ -3,21 +3,14 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using demo1.Validator;
 using AutoMapper;
+using demo1.Data;
 
 namespace demo1.Services.Implements;
 
-public class BidPackageService : InMemoryCrudService<BidPackage, BidPackageDto, CreateBidPackageDto, UpdateBidPackageDto>, IBidPackageService
+public class BidPackageService : DbCrudService<BidPackage, BidPackageDto, CreateBidPackageDto, UpdateBidPackageDto>, IBidPackageService
 {
-    public BidPackageService(IMapper mapper) : base(mapper)
+    public BidPackageService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
-        Seed(new BidPackage
-        {
-            Code = "GT-001",
-            Name = "Goi thau trien khai phan mem",
-            ProjectId = 1,
-            EstimatedValue = 800_000_000,
-            WarningThresholdPercent = 100
-        });
     }
 
     protected override BidPackage CreateEntity(CreateBidPackageDto dto)

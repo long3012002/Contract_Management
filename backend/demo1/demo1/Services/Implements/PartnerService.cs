@@ -3,22 +3,14 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using demo1.Validator;
 using AutoMapper;
+using demo1.Data;
 
 namespace demo1.Services.Implements;
 
-public class PartnerService : InMemoryCrudService<Partner, PartnerDto, CreatePartnerDto, UpdatePartnerDto>, IPartnerService
+public class PartnerService : DbCrudService<Partner, PartnerDto, CreatePartnerDto, UpdatePartnerDto>, IPartnerService
 {
-    public PartnerService(IMapper mapper) : base(mapper)
+    public PartnerService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
-        Seed(new Partner
-        {
-            Code = "NCC-001",
-            Name = "Cong ty TNHH Minh Hoa",
-            TaxCode = "0100000001",
-            Phone = "0900000001",
-            Email = "contact@minhhoa.example",
-            Address = "Ha Noi"
-        });
     }
 
     protected override Partner CreateEntity(CreatePartnerDto dto)

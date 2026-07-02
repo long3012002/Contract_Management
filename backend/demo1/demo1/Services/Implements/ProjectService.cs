@@ -3,21 +3,14 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using demo1.Validator;
 using AutoMapper;
+using demo1.Data;
 
 namespace demo1.Services.Implements;
 
-public class ProjectService : InMemoryCrudService<Project, ProjectDto, CreateProjectDto, UpdateProjectDto>, IProjectService
+public class ProjectService : DbCrudService<Project, ProjectDto, CreateProjectDto, UpdateProjectDto>, IProjectService
 {
-    public ProjectService(IMapper mapper) : base(mapper)
+    public ProjectService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
-        Seed(new Project
-        {
-            Code = "PRJ-001",
-            Name = "Du an quan ly hop dong",
-            Description = "Du an mau cho giai doan 1",
-            TotalBudget = 1_000_000_000,
-            Status = "Active"
-        });
     }
 
     protected override Project CreateEntity(CreateProjectDto dto)
