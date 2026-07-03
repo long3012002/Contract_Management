@@ -1,10 +1,12 @@
 using System;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
+[Authorize]
 [ApiController]
 public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : ControllerBase
     where TDto : IHasId
@@ -17,7 +19,7 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(
+    public async Task<ActionResult<PagedResult<TDto>>> GetAll(
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
@@ -27,19 +29,19 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<ActionResult<TDto>> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
         return result is null ? NotFound() : Ok(result);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] TCreateDto dto)
+    public async Task<ActionResult<IEnumerable<TDto>>> Create([FromBody] IEnumerable<TCreateDto> dtos)
     {
         try
         {
-            var result = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+            var result = await _service.CreateRangeAsync(dtos);
+            return Ok(result);
         }
         catch (ArgumentException ex)
         {

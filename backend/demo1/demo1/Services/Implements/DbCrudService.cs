@@ -78,6 +78,21 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         return Mapper.Map<TDto>(entity);
     }
 
+    public virtual async Task<IEnumerable<TDto>> CreateRangeAsync(IEnumerable<TCreateDto> dtos)
+    {
+        var entities = new List<TEntity>();
+        foreach (var dto in dtos)
+        {
+            var entity = CreateEntity(dto);
+            await EnsureCodeIsUniqueAsync(entity.Code);
+            entity.CreatedAt = DateTime.UtcNow;
+            entities.Add(entity);
+        }
+        await DbSet.AddRangeAsync(entities);
+        await DbContext.SaveChangesAsync();
+        return Mapper.Map<List<TDto>>(entities);
+    }
+
     public virtual async Task<bool> UpdateAsync(Guid id, TUpdateDto dto)
     {
         var entity = await DbSet.FindAsync(id);

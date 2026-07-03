@@ -10,6 +10,7 @@ public interface ICrudService<TDto, in TCreateDto, in TUpdateDto>
     Task<IReadOnlyList<TDto>> GetAllItemsAsync();
     Task<TDto?> GetByIdAsync(Guid id);
     Task<TDto> CreateAsync(TCreateDto dto);
+    Task<IEnumerable<TDto>> CreateRangeAsync(IEnumerable<TCreateDto> dtos);
     Task<bool> UpdateAsync(Guid id, TUpdateDto dto);
     Task<bool> DeleteAsync(Guid id);
 }

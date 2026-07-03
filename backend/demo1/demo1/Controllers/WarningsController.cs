@@ -1,8 +1,10 @@
 using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/warnings")]
 public class WarningsController : ControllerBase
