@@ -4,8 +4,11 @@ using demo1.Services;
 using demo1.Services.Implements;
 using demo1.Services.Interfaces;
 using demo1.Mapper;
+using demo1.Middleware;
+using demo1.DTOs;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -27,6 +30,23 @@ builder.Services.AddAutoMapper(cfg =>
 });
 
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(item => item.Value?.Errors.Count > 0)
+            .ToDictionary(
+                item => item.Key,
+                item => item.Value!.Errors.Select(error => error.ErrorMessage).ToArray());
+
+        return new BadRequestObjectResult(new ApiErrorResponse
+        {
+            Message = "Validation failed.",
+            Errors = errors
+        });
+    };
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -56,9 +76,22 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCors", policy =>
     {
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? Array.Empty<string>();
+
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
+        else
+        {
+            policy.AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        }
     });
 });
 
@@ -87,17 +120,27 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("DefaultCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
+if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
+    app.Configuration.GetValue<bool>("Database:SeedSampleData"))
 {
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.Migrate();
+    if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
+    {
+        context.Database.Migrate();
+    }
+
+    if (app.Configuration.GetValue<bool>("Database:SeedSampleData"))
+    {
+        await DatabaseSeeder.SeedAsync(context);
+    }
 }
 
 app.Run();

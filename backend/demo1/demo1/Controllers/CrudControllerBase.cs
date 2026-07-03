@@ -38,37 +38,15 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     [HttpPost]
     public async Task<ActionResult<IEnumerable<TDto>>> Create([FromBody] IEnumerable<TCreateDto> dtos)
     {
-        try
-        {
-            var result = await _service.CreateRangeAsync(dtos);
-            return Ok(result);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(ex.Message);
-        }
+        var result = await _service.CreateRangeAsync(dtos);
+        return Ok(result);
     }
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] TUpdateDto dto)
     {
-        try
-        {
-            var success = await _service.UpdateAsync(id, dto);
-            return success ? NoContent() : NotFound();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Conflict(ex.Message);
-        }
+        var success = await _service.UpdateAsync(id, dto);
+        return success ? NoContent() : NotFound();
     }
 
     [HttpDelete("{id:guid}")]
