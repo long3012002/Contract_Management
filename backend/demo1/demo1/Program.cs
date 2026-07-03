@@ -43,8 +43,9 @@ builder.Services.AddSingleton<RadiusClient>(sp =>
     var server = config["Radius:Server"] ?? "127.0.0.1";
     var port = int.TryParse(config["Radius:Port"], out var parsedPort) ? parsedPort : 1812;
     var sharedSecret = config["Radius:SharedSecret"] ?? string.Empty;
+    var timeout = int.TryParse(config["Radius:Timeout"], out var parsedTimeout) ? parsedTimeout : 3000;
 
-    return new RadiusClient(server, port, sharedSecret);
+    return new RadiusClient(server, port, sharedSecret, timeout);
 });
 
 var app = builder.Build();
