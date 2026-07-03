@@ -9,9 +9,9 @@ namespace demo1.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly IRadiusClient _radiusClient;
+        private readonly RadiusClient _radiusClient;
 
-        public AuthController(IRadiusClient radiusClient)
+        public AuthController(RadiusClient radiusClient)
         {
             _radiusClient = radiusClient;
         }
@@ -27,6 +27,20 @@ namespace demo1.Controllers
             bool isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password);
 
             if (isAuthenticated)
+            {
+                return Ok(new { Message = "Đăng nhập thành công" });
+            }
+            else
+            {
+                return Unauthorized(new { Message = "Sai tài khoản hoặc mật khẩu" });
+            }
+        }
+        [HttpPost("test")]
+        public async Task<IActionResult> TestLogin()
+        {
+            bool result = await _radiusClient.AuthenticateAsync("quangmd", "XianWang072026");
+
+            if (result)
             {
                 return Ok(new { Message = "Đăng nhập thành công" });
             }

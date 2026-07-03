@@ -37,15 +37,14 @@ builder.Services.AddScoped<IBidPackageService, BidPackageService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
-
-builder.Services.AddScoped<IRadiusClient>(sp =>
+builder.Services.AddSingleton<RadiusClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var server = config["Radius:Server"] ?? "127.0.0.1";
     var port = int.TryParse(config["Radius:Port"], out var parsedPort) ? parsedPort : 1812;
     var sharedSecret = config["Radius:SharedSecret"] ?? string.Empty;
 
-    return new RawRadiusClient(server, port, sharedSecret);
+    return new RadiusClient(server, port, sharedSecret);
 });
 
 var app = builder.Build();
