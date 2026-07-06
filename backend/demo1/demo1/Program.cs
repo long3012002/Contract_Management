@@ -166,9 +166,7 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
                 RoleId = adminRole.Id,
                 FeatureId = feature.Id,
                 CanAccess = true,
-                CanCreate = true,
-                CanUpdate = true,
-                CanDelete = true
+                Permissions = "Create;Update;Delete"
             });
 
             // Manager: Access, Create, Update
@@ -177,9 +175,7 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
                 RoleId = managerRole.Id,
                 FeatureId = feature.Id,
                 CanAccess = true,
-                CanCreate = true,
-                CanUpdate = true,
-                CanDelete = false
+                Permissions = "Create;Update"
             });
 
             // Staff: Access, Create
@@ -188,9 +184,7 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
                 RoleId = staffRole.Id,
                 FeatureId = feature.Id,
                 CanAccess = true,
-                CanCreate = true,
-                CanUpdate = false,
-                CanDelete = false
+                Permissions = "Create"
             });
         }
         context.SaveChanges();

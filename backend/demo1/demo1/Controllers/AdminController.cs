@@ -182,9 +182,7 @@ namespace demo1.Controllers
                     FeatureCode = f.Code,
                     FeatureName = f.Name,
                     CanAccess = perm?.CanAccess ?? false,
-                    CanCreate = perm?.CanCreate ?? false,
-                    CanUpdate = perm?.CanUpdate ?? false,
-                    CanDelete = perm?.CanDelete ?? false
+                    Permissions = perm?.Permissions ?? string.Empty
                 };
             }).ToList();
 
@@ -210,9 +208,7 @@ namespace demo1.Controllers
                     RoleId = roleId,
                     FeatureId = perm.FeatureId,
                     CanAccess = perm.CanAccess,
-                    CanCreate = perm.CanCreate,
-                    CanUpdate = perm.CanUpdate,
-                    CanDelete = perm.CanDelete,
+                    Permissions = perm.Permissions ?? string.Empty,
                     UpdatedAt = DateTime.UtcNow
                 });
             }
@@ -316,18 +312,14 @@ namespace demo1.Controllers
         public string FeatureCode { get; set; } = string.Empty;
         public string FeatureName { get; set; } = string.Empty;
         public bool CanAccess { get; set; }
-        public bool CanCreate { get; set; }
-        public bool CanUpdate { get; set; }
-        public bool CanDelete { get; set; }
+        public string Permissions { get; set; } = string.Empty;
     }
 
     public class UpdateRolePermissionDto
     {
         public Guid FeatureId { get; set; }
         public bool CanAccess { get; set; }
-        public bool CanCreate { get; set; }
-        public bool CanUpdate { get; set; }
-        public bool CanDelete { get; set; }
+        public string Permissions { get; set; } = string.Empty;
     }
 
     public class UserWithRolesDto

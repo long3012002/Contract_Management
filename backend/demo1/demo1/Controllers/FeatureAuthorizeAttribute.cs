@@ -80,15 +80,21 @@ namespace demo1.Controllers
             }
             else if (httpMethod == "POST")
             {
-                isAuthorized = permissions.Any(rp => rp.CanCreate);
+                isAuthorized = permissions.Any(rp => !string.IsNullOrEmpty(rp.Permissions) && 
+                    rp.Permissions.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Any(p => p.Trim().Equals("Create", StringComparison.OrdinalIgnoreCase)));
             }
             else if (httpMethod == "PUT" || httpMethod == "PATCH")
             {
-                isAuthorized = permissions.Any(rp => rp.CanUpdate);
+                isAuthorized = permissions.Any(rp => !string.IsNullOrEmpty(rp.Permissions) && 
+                    rp.Permissions.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Any(p => p.Trim().Equals("Update", StringComparison.OrdinalIgnoreCase)));
             }
             else if (httpMethod == "DELETE")
             {
-                isAuthorized = permissions.Any(rp => rp.CanDelete);
+                isAuthorized = permissions.Any(rp => !string.IsNullOrEmpty(rp.Permissions) && 
+                    rp.Permissions.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                        .Any(p => p.Trim().Equals("Delete", StringComparison.OrdinalIgnoreCase)));
             }
 
             if (!isAuthorized)
