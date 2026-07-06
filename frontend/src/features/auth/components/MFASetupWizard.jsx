@@ -17,6 +17,7 @@ export default function MFASetupWizard() {
     isLoading,
     trustDevice,
     secretKey,
+    qrCodeUrl,
     setOtp,
     setTrustDevice,
     handleNextStep,
@@ -79,6 +80,7 @@ export default function MFASetupWizard() {
         {step === 3 && (
           <StepScanQr
             secretKey={secretKey}
+            qrCodeUrl={qrCodeUrl}
             onCopyKey={handleCopyKey}
             onNext={handleNextStep}
             onBack={handlePrevStep}

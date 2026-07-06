@@ -20,3 +20,26 @@ export const refreshTokenApi = async (refreshToken) => {
   const response = await axiosClient.post('/api/Auth/refresh', { refreshToken });
   return response.data;
 };
+
+/**
+ * Xác thực 2FA OTP sau khi đã đăng nhập thành công bước 1.
+ * @param {string} username
+ * @param {string} code
+ * @returns {Promise<any>}
+ */
+export const verify2faApi = async (username, code) => {
+  const response = await axiosClient.post('/api/Auth/verify-2fa', { username, code });
+  return response.data;
+};
+
+/**
+ * Kích hoạt 2FA OTP lần đầu tiên đăng nhập.
+ * @param {string} username
+ * @param {string} code
+ * @returns {Promise<any>}
+ */
+export const enable2faApi = async (username, code) => {
+  const response = await axiosClient.post('/api/Auth/enable-2fa', { username, code });
+  return response.data;
+};
+

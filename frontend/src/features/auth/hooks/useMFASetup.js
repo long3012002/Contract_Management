@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
-
-export const secretKey = 'COOP BANK PROJ SECR KEY 2026';
+import { enable2faApi } from '../api/authApi';
 
 export default function useMFASetup() {
   const { tempUser, completeMfa, cancelMfa } = useAuthStore();
@@ -11,6 +10,10 @@ export default function useMFASetup() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [trustDevice, setTrustDevice] = useState(false);
+  const [verifiedUser, setVerifiedUser] = useState(null);
+
+  const secretKey = tempUser?.twoFactorSecret || '';
+  const qrCodeUrl = tempUser?.qrCodeUrl || '';
 
   const handleNextStep = useCallback(() => {
     setStep((prev) => prev + 1);
@@ -21,27 +24,35 @@ export default function useMFASetup() {
   }, []);
 
   const handleCopyKey = useCallback(() => {
-    navigator.clipboard.writeText(secretKey);
-    toast.success('Đã sao chép Secret Key vào bộ nhớ tạm.');
-  }, []);
+    if (secretKey) {
+      navigator.clipboard.writeText(secretKey);
+      toast.success('Đã sao chép Secret Key vào bộ nhớ tạm.');
+    }
+  }, [secretKey]);
 
   const verifyCode = useCallback((codeToVerify) => {
     setIsLoading(true);
     setError('');
 
-    // Simulate OTP verification API call
-    setTimeout(() => {
-      if (codeToVerify === '123456') {
+    enable2faApi(tempUser?.username, codeToVerify)
+      .then((data) => {
         setIsLoading(false);
         toast.success('Mã OTP chính xác. Kích hoạt 2FA thành công!');
+        setVerifiedUser({
+          username: data.username,
+          name: data.username,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
         setStep(5);
-      } else {
+      })
+      .catch((err) => {
         setIsLoading(false);
-        setError('Mã xác thực OTP không chính xác hoặc đã hết hạn.');
+        const errMsg = err.response?.data?.message || err.message || 'Mã xác thực OTP không chính xác hoặc đã hết hạn.';
+        setError(errMsg);
         setOtp('');
-      }
-    }, 1200);
-  }, []);
+      });
+  }, [tempUser]);
 
   const handleVerify = useCallback((e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -56,12 +67,15 @@ export default function useMFASetup() {
   }, [otp, step, verifyCode]);
 
   const handleFinish = useCallback(() => {
-    completeMfa({
-      ...tempUser,
-      mfaSetup: true,
-      trustedDevice: trustDevice,
-    });
-  }, [completeMfa, tempUser, trustDevice]);
+    if (verifiedUser) {
+      completeMfa({
+        ...verifiedUser,
+        mfaSetup: true,
+        trustedDevice: trustDevice,
+      });
+    }
+  }, [completeMfa, verifiedUser, trustDevice]);
+
 
   return {
     tempUser,
@@ -72,6 +86,7 @@ export default function useMFASetup() {
     isLoading,
     trustDevice,
     secretKey,
+    qrCodeUrl,
     setTrustDevice,
     handleNextStep,
     handlePrevStep,

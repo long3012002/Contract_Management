@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
+import { verify2faApi } from '../api/authApi';
 
 // Mask username: admin -> a***n, newuser -> n*****r
 export const maskUsername = (username) => {
@@ -32,18 +33,23 @@ export default function useMFAVerify() {
     setIsLoading(true);
     setError('');
 
-    // Simulate OTP verification API call
-    setTimeout(() => {
-      if (codeToVerify === '123456') {
+    verify2faApi(tempUser?.username, codeToVerify)
+      .then((data) => {
         setIsLoading(false);
         toast.success('Xác thực OTP thành công!');
-        completeMfa(tempUser);
-      } else {
+        completeMfa({
+          username: data.username,
+          name: data.username,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+      })
+      .catch((err) => {
         setIsLoading(false);
-        setError('Mã xác thực OTP không chính xác hoặc đã hết hạn.');
+        const errMsg = err.response?.data?.message || err.message || 'Mã xác thực OTP không chính xác hoặc đã hết hạn.';
+        setError(errMsg);
         setOtp('');
-      }
-    }, 1200);
+      });
   }, [tempUser, completeMfa]);
 
   const handleVerify = useCallback((e) => {

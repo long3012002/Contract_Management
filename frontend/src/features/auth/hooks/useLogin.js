@@ -27,18 +27,28 @@ export default function useLogin() {
       return loginApi(username, password);
     },
     onSuccess: (data) => {
-      // Save tokens temporarily, or prepare them for after MFA completion
-      const user = {
-        username: data.username,
-        name: data.username,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-
-      // Since they successfully authenticated, they proceed to 2FA verification.
-      // We assume MFA is already set up (mfaSetup: true) for the user.
-      setMfaPending(user, true);
-      toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
+      // Backend now returns require2FAVerification or require2FASetup
+      if (data.require2FAVerification || data.Require2FAVerification) {
+        setMfaPending({ username: data.username }, true);
+        toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
+      } else if (data.require2FASetup || data.Require2FASetup) {
+        setMfaPending({
+          username: data.username,
+          qrCodeUrl: data.qrCodeUrl || data.QrCodeUrl,
+          twoFactorSecret: data.twoFactorSecret || data.TwoFactorSecret
+        }, false);
+        toast.info("Đăng nhập thành công lần đầu. Vui lòng thiết lập xác thực 2 lớp (2FA).");
+      } else {
+        // Fallback if 2FA is bypassed/not required
+        const user = {
+          username: data.username,
+          name: data.username,
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        };
+        setMfaPending(user, true);
+        toast.info("Đăng nhập thành công.");
+      }
     },
     onError: (error) => {
       const errorMessage = error.response?.data?.message || error.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
