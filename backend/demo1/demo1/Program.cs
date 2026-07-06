@@ -62,6 +62,7 @@ builder.Services.AddScoped<IBidPackageService, BidPackageService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
+builder.Services.AddSingleton<TotpService>();
 builder.Services.AddSingleton<RadiusClient>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
@@ -90,8 +91,94 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureDeleted();
+    // context.Database.EnsureDeleted(); // Removed to prevent wiping data on restart
     context.Database.EnsureCreated();
+
+    if (!context.Features.Any())
+    {
+        // 1. Seed Features
+        var features = new List<demo1.Entity.Feature>
+        {
+            new() { Code = "PROJECT", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
+            new() { Code = "BID_PACKAGE", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
+            new() { Code = "CONTRACT", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
+            new() { Code = "PARTNER", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
+            new() { Code = "RESOLUTION", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
+        };
+        context.Features.AddRange(features);
+        context.SaveChanges();
+
+        // 2. Seed Roles
+        var adminRole = new demo1.Entity.Role { Name = "Admin", Description = "Quyền quản trị toàn hệ thống" };
+        var managerRole = new demo1.Entity.Role { Name = "Manager", Description = "Quản lý dự án, hợp đồng" };
+        var staffRole = new demo1.Entity.Role { Name = "Staff", Description = "Nhân viên xem và cập nhật thông tin" };
+        context.Roles.AddRange(adminRole, managerRole, staffRole);
+        context.SaveChanges();
+
+        // 3. Seed RolePermissions
+        foreach (var feature in features)
+        {
+            // Admin: Full permissions
+            context.RolePermissions.Add(new demo1.Entity.RolePermission
+            {
+                RoleId = adminRole.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                CanCreate = true,
+                CanUpdate = true,
+                CanDelete = true
+            });
+
+            // Manager: Access, Create, Update
+            context.RolePermissions.Add(new demo1.Entity.RolePermission
+            {
+                RoleId = managerRole.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                CanCreate = true,
+                CanUpdate = true,
+                CanDelete = false
+            });
+
+            // Staff: Access, Create
+            context.RolePermissions.Add(new demo1.Entity.RolePermission
+            {
+                RoleId = staffRole.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                CanCreate = true,
+                CanUpdate = false,
+                CanDelete = false
+            });
+        }
+        context.SaveChanges();
+
+        // 4. Seed Admin User
+        var adminUser = new demo1.Entity.User
+        {
+            Username = "admin",
+            FullName = "System Administrator",
+            IsActive = true,
+            IsSystemAdmin = true
+        };
+        var normalUser = new demo1.Entity.User
+        {
+            Username = "quangmd",
+            FullName = "Mai Duy Quang",
+            IsActive = true,
+            IsSystemAdmin = true // also system admin for testing
+        };
+        context.Users.AddRange(adminUser, normalUser);
+        context.SaveChanges();
+
+        // Assign Admin role to normalUser (though system admin bypasses permission check)
+        context.UserRoles.Add(new demo1.Entity.UserRole
+        {
+            UserId = normalUser.Id,
+            RoleId = adminRole.Id
+        });
+        context.SaveChanges();
+    }
 }
 
 app.Run();
