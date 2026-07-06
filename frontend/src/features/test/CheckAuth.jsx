@@ -1,8 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "../auth/store/authStore";
 
 function CheckAuth() {
-  const isAuth = false;
-  return isAuth ? <Outlet /> : <Navigate to="/login" replace />;
+  const { isAuthenticated } = useAuthStore();
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 export default CheckAuth

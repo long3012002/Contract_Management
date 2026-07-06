@@ -13,11 +13,17 @@ const axiosClient = axios.create({
 });
 
 // ── Request Interceptor ─────────────────────────────────────────────────────
-// Tự động đính kèm Access Token vào header Authorization trên mỗi request
+// Tự động đính kèm Access Token hoặc Temporary Token vào header Authorization trên mỗi request
 axiosClient.interceptors.request.use(
   (config) => {
-    const user = useAuthStore.getState().user;
-    const accessToken = user?.accessToken;
+    const state = useAuthStore.getState();
+    let accessToken = state.user?.accessToken;
+    if (config.url?.includes('/api/Auth/verify-2fa') || config.url?.includes('/api/Auth/enable-2fa')) {
+      accessToken = state.tempUser?.accessToken || accessToken;
+    } else {
+      accessToken = accessToken || state.tempUser?.accessToken;
+    }
+    console.log('[Axios Interceptor] URL:', config.url, 'Token:', accessToken ? `${accessToken.substring(0, 15)}...` : 'None');
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }

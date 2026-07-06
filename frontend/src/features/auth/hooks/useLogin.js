@@ -29,22 +29,26 @@ export default function useLogin() {
     onSuccess: (data) => {
       // Backend now returns require2FAVerification or require2FASetup
       if (data.require2FAVerification || data.Require2FAVerification) {
-        setMfaPending({ username: data.username }, true);
+        setMfaPending({
+          username: data.username || data.Username,
+          accessToken: data.accessToken || data.AccessToken
+        }, true);
         toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
       } else if (data.require2FASetup || data.Require2FASetup) {
         setMfaPending({
-          username: data.username,
+          username: data.username || data.Username,
           qrCodeUrl: data.qrCodeUrl || data.QrCodeUrl,
-          twoFactorSecret: data.twoFactorSecret || data.TwoFactorSecret
+          twoFactorSecret: data.twoFactorSecret || data.TwoFactorSecret,
+          accessToken: data.accessToken || data.AccessToken
         }, false);
         toast.info("Đăng nhập thành công lần đầu. Vui lòng thiết lập xác thực 2 lớp (2FA).");
       } else {
         // Fallback if 2FA is bypassed/not required
         const user = {
-          username: data.username,
-          name: data.username,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
+          username: data.username || data.Username,
+          name: data.username || data.Username,
+          accessToken: data.accessToken || data.AccessToken,
+          refreshToken: data.refreshToken || data.RefreshToken,
         };
         setMfaPending(user, true);
         toast.info("Đăng nhập thành công.");
