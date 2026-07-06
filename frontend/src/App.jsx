@@ -4,6 +4,9 @@ import Test from "./features/test/Test";
 import Permissions from "./pages/Permissions";
 import Index from "./pages/Index";
 import ContractManagement from "./pages/ContractManagement";
+import ProjectManagement from "./pages/ProjectManagement";
+import PartnerManagement from "./pages/PartnerManagement";
+import CheckAuth from "./features/test/CheckAuth";
 
 function App() {
   return (
@@ -14,6 +17,8 @@ function App() {
         <Route path="/test" element={<Test />} />
         <Route path="/permissions" element={<Permissions />} />
         <Route path="/contracts" element={<ContractManagement />} />
+        <Route path="/projects" element={<ProjectManagement />} />
+        <Route path="/partners" element={<PartnerManagement />} />
       </Route>
     </Routes>
   )

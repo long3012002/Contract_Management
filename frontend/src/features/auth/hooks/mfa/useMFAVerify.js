@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/authStore';
 import { toast } from 'sonner';
 import { verify2faApi } from '../../api/authApi';
 import { useOTPTimer } from '../useOTPTimer';
-import { maskUsername } from '../../../utils/formatters';
+import { maskUsername } from '../../../../utils/formatters';
 
 export default function useMFAVerify() {
   const tempUser = useAuthStore((state) => state.tempUser);

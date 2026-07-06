@@ -8,6 +8,8 @@ const PREDEFINED_PAGES = [
   { code: 'DASHBOARD', name: 'Trang chủ Dashboard', description: 'Trang tổng quan thông tin, chỉ số hoạt động hệ thống.' },
   { code: 'SYSTEM_PERMISSIONS', name: 'Quản lý phân quyền', description: 'Thiết lập nhóm vai trò, cấu hình ma trận quyền hạn và gán quyền cho tài khoản.' },
   { code: 'SYSTEM_TEST', name: 'Kiểm thử hệ thống', description: 'Giao diện thực hiện các bài test API và xác thực token JWT.' },
+  { code: 'PROJECT', name: 'Quản lý dự án', description: 'Quản lý danh sách các dự án công nghệ thông tin và ngân sách đầu tư.' },
+  { code: 'PARTNER', name: 'Quản lý đối tác', description: 'Quản lý thông tin nhà cung cấp dịch vụ, thiết bị công nghệ thông tin.' },
   { code: 'CONTRACT_MANAGEMENT', name: 'Quản lý hợp đồng', description: 'Quản lý thông tin hợp đồng CNTT, phụ lục và tiến độ thực hiện.' },
   { code: 'REPORT_STATISTICS', name: 'Báo cáo thống kê', description: 'Xem biểu đồ phân tích số liệu, thống kê doanh thu hợp đồng.' }
 ];
