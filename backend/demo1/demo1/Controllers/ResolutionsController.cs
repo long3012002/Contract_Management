@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 [Route("api/resolutions")]
+[FeatureAuthorize("RESOLUTION")]
 public class ResolutionsController : CrudControllerBase<ResolutionDto, CreateResolutionDto, UpdateResolutionDto>
 {
     public ResolutionsController(IResolutionService service) : base(service)
