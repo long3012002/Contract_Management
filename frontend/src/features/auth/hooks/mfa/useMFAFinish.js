@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 export default function useMFAFinish(verifiedUser) {
   const completeMfa = useAuthStore((state) => state.completeMfa);

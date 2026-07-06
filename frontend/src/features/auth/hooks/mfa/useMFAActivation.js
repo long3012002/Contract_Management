@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { enable2faApi } from '../api/authApi';
+import { enable2faApi } from '../../api/authApi';
 
 export default function useMFAActivation(username, { onSuccess }) {
   const [otp, setOtp] = useState('');

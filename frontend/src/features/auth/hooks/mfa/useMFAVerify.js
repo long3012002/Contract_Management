@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 import { toast } from 'sonner';
-import { verify2faApi } from '../api/authApi';
-import { useOTPTimer } from './useOTPTimer';
+import { verify2faApi } from '../../api/authApi';
+import { useOTPTimer } from '../useOTPTimer';
 import { maskUsername } from '../../../utils/formatters';
 
 export default function useMFAVerify() {
