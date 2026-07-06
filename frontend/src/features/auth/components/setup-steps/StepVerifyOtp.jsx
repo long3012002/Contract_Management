@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import Button from '../../../../components/Button/Button';
 import OTPInput from '../../../../components/OTPInput/OTPInput';
+import { useMFASetupContext } from '../../context/MFASetupContext';
 
 const QrIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-12 h-12 text-primary">
@@ -8,14 +9,9 @@ const QrIcon = (
   </svg>
 );
 
-const StepVerifyOtp = memo(function StepVerifyOtp({
-  otp,
-  error,
-  isLoading,
-  onInputChange,
-  onVerify,
-  onBack,
-}) {
+const StepVerifyOtp = memo(() => {
+  const { otpActivation, navigation } = useMFASetupContext();
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex justify-center p-3 bg-primary/5 rounded-full w-20 h-20 mx-auto items-center">
@@ -28,26 +24,26 @@ const StepVerifyOtp = memo(function StepVerifyOtp({
         </p>
       </div>
 
-      <form id="wizard-otp-form" onSubmit={onVerify} className="space-y-5">
-        {error ? (
+      <form id="wizard-otp-form" onSubmit={otpActivation.verify} className="space-y-5">
+        {otpActivation.error ? (
           <div className="p-3 bg-red-50 border border-destructive/20 text-destructive text-sm rounded-custom flex items-center gap-2 animate-shake">
-            <span className="shrink-0">{error}</span>
+            <span className="shrink-0">{otpActivation.error}</span>
           </div>
         ) : null}
 
         {/* 6 horizontal inputs */}
         <OTPInput
-          value={otp}
-          onChange={onInputChange}
-          disabled={isLoading}
-          error={!!error}
+          value={otpActivation.otp}
+          onChange={otpActivation.setOtp}
+          disabled={otpActivation.isLoading}
+          error={!!otpActivation.error}
         />
 
         <div className="flex gap-3 pt-2">
           <button
             type="button"
-            onClick={onBack}
-            disabled={isLoading}
+            onClick={navigation.back}
+            disabled={otpActivation.isLoading}
             className="flex-1 py-2.5 px-4 bg-muted hover:bg-slate-200 text-muted-foreground font-semibold rounded-custom transition-all text-sm cursor-pointer"
           >
             Quay lại
@@ -55,9 +51,9 @@ const StepVerifyOtp = memo(function StepVerifyOtp({
           <Button
             type="submit"
             className="flex-1"
-            isLoading={isLoading}
+            isLoading={otpActivation.isLoading}
             loadingText="Đang kích hoạt..."
-            disabled={otp.length !== 6}
+            disabled={otpActivation.otp.length !== 6}
           >
             Kích hoạt
           </Button>

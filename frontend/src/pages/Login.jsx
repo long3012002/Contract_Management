@@ -17,7 +17,13 @@ export default function Login() {
     onSubmit,
   } = useLogin();
 
-  const { isAuthenticated, mfaPending, isMfaSetup, logout } = useAuthStore();
+  // Granular Zustand subscriptions — mỗi selector độc lập
+  // Component chỉ re-render khi đúng field đó thay đổi (rerender-defer-reads)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const mfaPending = useAuthStore((state) => state.mfaPending);
+  const isMfaSetup = useAuthStore((state) => state.isMfaSetup);
+  const logout = useAuthStore((state) => state.logout);
+
 
   const handleForgotPassword = useCallback((e) => {
     e.preventDefault();

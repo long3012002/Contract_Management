@@ -1,6 +1,5 @@
 import { Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
-import CheckAuth from "./features/test/CheckAuth";
 import Test from "./features/test/Test";
 import Permissions from "./pages/Permissions";
 import Index from "./pages/Index";

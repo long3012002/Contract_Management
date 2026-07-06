@@ -34,7 +34,7 @@ export default function useLogin() {
           accessToken: data.accessToken || data.AccessToken
         }, true);
         toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
-      } else if (data.require2FASetup || data.Require2FASetup) {
+      } else if (require2FASetup) {
         setMfaPending({
           username: data.username || data.Username,
           qrCodeUrl: data.qrCodeUrl || data.QrCodeUrl,
@@ -55,7 +55,7 @@ export default function useLogin() {
       }
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
+      const errorMessage = error.hasServerMessage ? error.message : 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       toast.error(errorMessage);
     },
   });
@@ -68,7 +68,7 @@ export default function useLogin() {
     register,
     handleSubmit,
     errors,
-    error: loginMutation.error?.response?.data?.message || loginMutation.error?.message || '',
+    error: loginMutation.error ? (loginMutation.error.hasServerMessage ? loginMutation.error.message : 'Tên đăng nhập hoặc mật khẩu không chính xác.') : '',
     isLoading: loginMutation.isPending,
     isSuccess: loginMutation.isSuccess,
     setIsSuccess: (status) => {

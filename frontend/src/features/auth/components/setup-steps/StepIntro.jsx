@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import Button from '../../../../components/Button/Button';
+import { useMFASetupContext } from '../../context/MFASetupContext';
 
 const SecurityIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-12 h-12 text-primary">
@@ -7,7 +8,9 @@ const SecurityIcon = (
   </svg>
 );
 
-const StepIntro = memo(function StepIntro({ onNext, onCancel }) {
+const StepIntro = memo(function StepIntro() {
+  const { navigation } = useMFASetupContext();
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex justify-center p-3 bg-primary/5 rounded-full w-20 h-20 mx-auto items-center">
@@ -20,10 +23,10 @@ const StepIntro = memo(function StepIntro({ onNext, onCancel }) {
         </p>
       </div>
       <div className="space-y-2.5 pt-2">
-        <Button onClick={onNext}>Bắt đầu thiết lập</Button>
+        <Button onClick={navigation.next}>Bắt đầu thiết lập</Button>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={navigation.cancel}
           className="w-full text-center text-sm font-medium text-muted-foreground hover:text-card-foreground py-1.5 focus:outline-none cursor-pointer"
         >
           Hủy bỏ và quay lại

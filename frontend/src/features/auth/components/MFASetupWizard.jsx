@@ -1,4 +1,4 @@
-import useMFASetup from '../hooks/useMFASetup';
+import { MFASetupProvider, useMFASetupContext } from '../context/MFASetupContext';
 import logo from '../../../assets/logo/logo_Co-opBank.png';
 
 // Import step components
@@ -8,25 +8,11 @@ import StepScanQr from './setup-steps/StepScanQr';
 import StepVerifyOtp from './setup-steps/StepVerifyOtp';
 import StepSuccess from './setup-steps/StepSuccess';
 
-export default function MFASetupWizard() {
-  const {
-    tempUser,
-    step,
-    otp,
-    error,
-    isLoading,
-    trustDevice,
-    secretKey,
-    qrCodeUrl,
-    setOtp,
-    setTrustDevice,
-    handleNextStep,
-    handlePrevStep,
-    handleCopyKey,
-    handleVerify,
-    handleFinish,
-    cancelMfa,
-  } = useMFASetup();
+// Hoist static data ra module level — tránh tạo lại array mỗi render (rendering-hoist-jsx)
+const STEP_NUMBERS = [1, 2, 3, 4];
+
+function MFASetupWizardContent() {
+  const { tempUser, step } = useMFASetupContext();
 
   return (
     <div className="relative z-10 w-full max-w-[400px] bg-white/90 backdrop-blur-md rounded-custom border border-white/30 shadow-2xl overflow-hidden transition-all duration-300 hover:shadow-slate-950/30">
@@ -49,7 +35,7 @@ export default function MFASetupWizard() {
         {/* Stepper progress */}
         {step < 5 ? (
           <div className="flex justify-between items-center mb-4 px-4">
-            {[1, 2, 3, 4].map((num) => (
+            {STEP_NUMBERS.map((num) => (
               <div key={num} className="flex items-center flex-1 last:flex-initial">
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
@@ -74,36 +60,21 @@ export default function MFASetupWizard() {
           </div>
         ) : null}
 
-        {/* Dynamic step component rendering */}
-        {step === 1 && <StepIntro onNext={handleNextStep} onCancel={cancelMfa} />}
-        {step === 2 && <StepDownloadApp onNext={handleNextStep} onBack={handlePrevStep} />}
-        {step === 3 && (
-          <StepScanQr
-            secretKey={secretKey}
-            qrCodeUrl={qrCodeUrl}
-            onCopyKey={handleCopyKey}
-            onNext={handleNextStep}
-            onBack={handlePrevStep}
-          />
-        )}
-        {step === 4 && (
-          <StepVerifyOtp
-            otp={otp}
-            error={error}
-            isLoading={isLoading}
-            onInputChange={setOtp}
-            onVerify={handleVerify}
-            onBack={handlePrevStep}
-          />
-        )}
-        {step === 5 && (
-          <StepSuccess
-            trustDevice={trustDevice}
-            onTrustChange={setTrustDevice}
-            onFinish={handleFinish}
-          />
-        )}
+        {/* Dynamic step component rendering — dùng ternary thay vị && để tránh render số nguyên 0 (rendering-conditional-render) */}
+        {step === 1 ? <StepIntro /> : null}
+        {step === 2 ? <StepDownloadApp /> : null}
+        {step === 3 ? <StepScanQr /> : null}
+        {step === 4 ? <StepVerifyOtp /> : null}
+        {step === 5 ? <StepSuccess /> : null}
       </div>
     </div>
+  );
+}
+
+export default function MFASetupWizard() {
+  return (
+    <MFASetupProvider>
+      <MFASetupWizardContent />
+    </MFASetupProvider>
   );
 }

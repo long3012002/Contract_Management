@@ -67,9 +67,11 @@ const Input = React.forwardRef(({
           </button>
         )}
       </div>
-      {error && (
+      {/* Dùng ternary thay vì && để tránh render số 0 nếu error là falsy number (rendering-conditional-render) */}
+      {error ? (
         <span className="block text-xs text-destructive animate-fade-in">{error}</span>
-      )}
+      ) : null}
+
     </div>
   );
 });
