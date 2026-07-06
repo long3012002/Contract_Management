@@ -99,6 +99,7 @@ namespace demo1.Data
         private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)
             where TEntity : BaseEntity
         {
+            builder.HasKey(e => e.Id);
             builder.Property(entity => entity.Code)
                 .HasMaxLength(50)
                 .IsRequired();
@@ -109,11 +110,6 @@ namespace demo1.Data
                 .HasMaxLength(1000);
             builder.HasIndex(entity => entity.Code)
                 .IsUnique();
-        }
-
-        private void ConfigureBaseEntity<T>(EntityTypeBuilder<T> builder) where T : BaseEntity
-        {
-            builder.HasKey(e => e.Id);
         }
     }
 }
