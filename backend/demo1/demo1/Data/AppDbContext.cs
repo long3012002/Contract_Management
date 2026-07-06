@@ -96,5 +96,19 @@ namespace demo1.Data
             modelBuilder.Entity<RolePermission>()
                 .HasKey(rp => new { rp.RoleId, rp.FeatureId });
         }
+        private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)
+            where TEntity : BaseEntity
+        {
+            builder.Property(entity => entity.Code)
+                .HasMaxLength(50)
+                .IsRequired();
+            builder.Property(entity => entity.Name)
+                .HasMaxLength(255)
+                .IsRequired();
+            builder.Property(entity => entity.Description)
+                .HasMaxLength(1000);
+            builder.HasIndex(entity => entity.Code)
+                .IsUnique();
+        }
     }
 }

@@ -12,8 +12,8 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260703091656_AddBackendOperationalDefaults")]
-    partial class AddBackendOperationalDefaults
+    [Migration("20260706021034_create")]
+    partial class create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -156,14 +156,39 @@ namespace demo1.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("ContractId", "PartnerId");
 
-                    b.HasIndex("PartnerId");
-
                     b.ToTable("ContractPartners");
+                });
+
+            modelBuilder.Entity("demo1.Entity.Feature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Features");
                 });
 
             modelBuilder.Entity("demo1.Entity.Partner", b =>
@@ -312,6 +337,127 @@ namespace demo1.Migrations
                     b.ToTable("Resolutions");
                 });
 
+            modelBuilder.Entity("demo1.Entity.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Roles");
+                });
+
+            modelBuilder.Entity("demo1.Entity.RolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FeatureId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("CanAccess")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("CanCreate")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("CanDelete")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("CanUpdate")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("RoleId", "FeatureId");
+
+                    b.HasIndex("FeatureId");
+
+                    b.ToTable("RolePermissions");
+                });
+
+            modelBuilder.Entity("demo1.Entity.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsSystemAdmin")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsTwoFactorEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TwoFactorSecret")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("demo1.Entity.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserRoles");
+                });
+
             modelBuilder.Entity("demo1.Entity.BidPackage", b =>
                 {
                     b.HasOne("demo1.Entity.Project", null)
@@ -333,19 +479,42 @@ namespace demo1.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 
-            modelBuilder.Entity("demo1.Entity.ContractPartner", b =>
+            modelBuilder.Entity("demo1.Entity.RolePermission", b =>
                 {
-                    b.HasOne("demo1.Entity.Contract", null)
+                    b.HasOne("demo1.Entity.Feature", "Feature")
                         .WithMany()
-                        .HasForeignKey("ContractId")
+                        .HasForeignKey("FeatureId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("demo1.Entity.Partner", null)
+                    b.HasOne("demo1.Entity.Role", "Role")
                         .WithMany()
-                        .HasForeignKey("PartnerId")
+                        .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Feature");
+
+                    b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("demo1.Entity.UserRole", b =>
+                {
+                    b.HasOne("demo1.Entity.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("demo1.Entity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }
