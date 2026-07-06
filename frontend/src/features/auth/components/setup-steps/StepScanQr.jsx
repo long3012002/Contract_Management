@@ -1,14 +1,17 @@
 import { memo } from 'react';
 import Button from '../../../../components/Button/Button';
+import { useMFASetupContext } from '../../context/MFASetupContext';
 
-const StepScanQr = memo(function StepScanQr({ secretKey, qrCodeUrl, onCopyKey, onNext, onBack }) {
+const StepScanQr = memo(function StepScanQr() {
+  const { qrSetup, navigation } = useMFASetupContext();
+
   return (
     <div className="space-y-3.5 animate-fade-in">
       {/* QR Code Container - Compacted to 112px (w-28 h-28) */}
       <div className="flex justify-center p-1 bg-white border border-border rounded-custom w-28 h-28 mx-auto items-center shadow-inner relative group">
-        {qrCodeUrl ? (
+        {qrSetup.qrCodeUrl ? (
           <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=112x112&data=${encodeURIComponent(qrCodeUrl)}`}
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=112x112&data=${encodeURIComponent(qrSetup.qrCodeUrl)}`}
             alt="Mã QR 2FA Co-opBank"
             className="w-24 h-24 object-contain"
           />
@@ -32,11 +35,11 @@ const StepScanQr = memo(function StepScanQr({ secretKey, qrCodeUrl, onCopyKey, o
         </div>
         <div className="flex items-center gap-1.5 bg-slate-50 border border-border px-3 py-1.5 rounded-custom justify-between">
           <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
-            {secretKey}
+            {qrSetup.secretKey}
           </span>
           <button
             type="button"
-            onClick={onCopyKey}
+            onClick={qrSetup.copyKey}
             className="text-primary hover:text-primary-foreground hover:bg-primary px-2 py-0.5 rounded text-[11px] font-medium border border-primary/20 transition-all cursor-pointer"
           >
             Copy
@@ -59,12 +62,12 @@ const StepScanQr = memo(function StepScanQr({ secretKey, qrCodeUrl, onCopyKey, o
       <div className="flex gap-3 pt-1">
         <button
           type="button"
-          onClick={onBack}
+          onClick={navigation.back}
           className="flex-1 py-2 px-4 bg-muted hover:bg-slate-200 text-muted-foreground font-semibold rounded-custom transition-all text-sm cursor-pointer"
         >
           Quay lại
         </button>
-        <Button className="flex-1" onClick={onNext}>Tiếp tục</Button>
+        <Button className="flex-1" onClick={navigation.next}>Tiếp tục</Button>
       </div>
     </div>
   );

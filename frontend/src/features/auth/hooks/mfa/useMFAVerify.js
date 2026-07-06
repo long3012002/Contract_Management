@@ -1,39 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'sonner';
 import { verify2faApi } from '../api/authApi';
-
-// Mask username: admin -> a***n, newuser -> n*****r
-export const maskUsername = (username) => {
-  if (!username) return '***';
-  if (username.length <= 2) return username;
-  return username[0] + '*'.repeat(username.length - 2) + username[username.length - 1];
-};
+import { useOTPTimer } from './useOTPTimer';
+import { maskUsername } from '../../../utils/formatters';
 
 export default function useMFAVerify() {
-  const { tempUser, completeMfa, cancelMfa } = useAuthStore();
+  const tempUser = useAuthStore((state) => state.tempUser);
+  const completeMfa = useAuthStore((state) => state.completeMfa);
+  const cancelMfa = useAuthStore((state) => state.cancelMfa);
+
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(30);
 
-  // Countdown timer
-  useEffect(() => {
-    if (secondsLeft <= 0) {
-      setSecondsLeft(30);
-      return;
-    }
-    const timer = setTimeout(() => {
-      setSecondsLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft]);
+  const { secondsLeft } = useOTPTimer();
+
+  const username = tempUser?.username;
 
   const verifyCode = useCallback((codeToVerify) => {
     setIsLoading(true);
     setError('');
 
-    verify2faApi(tempUser?.username, codeToVerify)
+    verify2faApi(username, codeToVerify)
       .then((data) => {
         setIsLoading(false);
         toast.success('Xác thực OTP thành công!');
@@ -46,23 +35,25 @@ export default function useMFAVerify() {
       })
       .catch((err) => {
         setIsLoading(false);
-        const errMsg = err.response?.data?.message || err.message || 'Mã xác thực OTP không chính xác hoặc đã hết hạn.';
+        const errMsg = err.hasServerMessage ? err.message : 'Mã xác thực OTP không chính xác hoặc đã hết hạn.';
         setError(errMsg);
         setOtp('');
       });
-  }, [tempUser, completeMfa]);
+  }, [username, completeMfa]);
 
   const handleVerify = useCallback((e) => {
     if (e && e.preventDefault) e.preventDefault();
     verifyCode(otp);
   }, [otp, verifyCode]);
 
-  // Auto-verify when otp length reaches 6
-  useEffect(() => {
-    if (otp.length === 6) {
-      verifyCode(otp);
+  // Auto-verify khi nhập đủ 6 ký tự — đặt logic trong event handler
+  // thay vì useEffect để tránh chạy lại không cần thiết (rerender-move-effect-to-event)
+  const handleSetOtp = useCallback((newOtp) => {
+    setOtp(newOtp);
+    if (newOtp.length === 6) {
+      verifyCode(newOtp);
     }
-  }, [otp, verifyCode]);
+  }, [verifyCode]);
 
   const handleContactAdmin = useCallback((e) => {
     e.preventDefault();
@@ -72,7 +63,7 @@ export default function useMFAVerify() {
   return {
     tempUser,
     otp,
-    setOtp,
+    setOtp: handleSetOtp,
     error,
     setError,
     isLoading,

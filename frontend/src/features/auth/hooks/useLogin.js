@@ -27,31 +27,30 @@ export default function useLogin() {
       return loginApi(username, password);
     },
     onSuccess: (data) => {
-      // Backend now returns require2FAVerification or require2FASetup
-      if (data.require2FAVerification || data.Require2FAVerification) {
+      // Normalize response keys một lần — backend có thể trả về camelCase hoặc PascalCase
+      // Tránh check cả 2 dạng ở nhiều điểm trong code (code quality)
+      const require2FAVerification = data.require2FAVerification ?? data.Require2FAVerification;
+      const require2FASetup = data.require2FASetup ?? data.Require2FASetup;
+      const qrCodeUrl = data.qrCodeUrl ?? data.QrCodeUrl;
+      const twoFactorSecret = data.twoFactorSecret ?? data.TwoFactorSecret;
+
+      if (require2FAVerification) {
         setMfaPending({ username: data.username }, true);
         toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
-      } else if (data.require2FASetup || data.Require2FASetup) {
+      } else if (require2FASetup) {
         setMfaPending({
           username: data.username,
-          qrCodeUrl: data.qrCodeUrl || data.QrCodeUrl,
-          twoFactorSecret: data.twoFactorSecret || data.TwoFactorSecret
+          qrCodeUrl,
+          twoFactorSecret,
         }, false);
         toast.info("Đăng nhập thành công lần đầu. Vui lòng thiết lập xác thực 2 lớp (2FA).");
       } else {
-        // Fallback if 2FA is bypassed/not required
-        const user = {
-          username: data.username,
-          name: data.username,
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-        };
-        setMfaPending(user, true);
-        toast.info("Đăng nhập thành công.");
+        // Không chấp nhận đăng nhập thẳng bypass 2FA
+        toast.error("Hệ thống yêu cầu xác thực 2 lớp. Vui lòng liên hệ Quản trị viên.");
       }
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
+      const errorMessage = error.hasServerMessage ? error.message : 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       toast.error(errorMessage);
     },
   });
@@ -64,7 +63,7 @@ export default function useLogin() {
     register,
     handleSubmit,
     errors,
-    error: loginMutation.error?.response?.data?.message || loginMutation.error?.message || '',
+    error: loginMutation.error ? (loginMutation.error.hasServerMessage ? loginMutation.error.message : 'Tên đăng nhập hoặc mật khẩu không chính xác.') : '',
     isLoading: loginMutation.isPending,
     isSuccess: loginMutation.isSuccess,
     setIsSuccess: (status) => {

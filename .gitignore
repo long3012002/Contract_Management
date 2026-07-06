@@ -50,3 +50,8 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Agent skills
+.agents/
+skill-lock.json
+

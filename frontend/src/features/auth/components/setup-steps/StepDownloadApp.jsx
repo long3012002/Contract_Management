@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import Button from '../../../../components/Button/Button';
 import ggAuthIcon from '../../../../assets/icon/gg_auth.webp';
+import { useMFASetupContext } from '../../context/MFASetupContext';
 
 const MobileIcon = (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-12 h-12 text-primary">
@@ -8,7 +9,9 @@ const MobileIcon = (
   </svg>
 );
 
-const StepDownloadApp = memo(function StepDownloadApp({ onNext, onBack }) {
+const StepDownloadApp = memo(function StepDownloadApp() {
+  const { navigation } = useMFASetupContext();
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex justify-center p-3 bg-primary/5 rounded-full w-20 h-20 mx-auto items-center">
@@ -38,12 +41,12 @@ const StepDownloadApp = memo(function StepDownloadApp({ onNext, onBack }) {
       <div className="flex gap-3 pt-2">
         <button
           type="button"
-          onClick={onBack}
+          onClick={navigation.back}
           className="flex-1 py-2.5 px-4 bg-muted hover:bg-slate-200 text-muted-foreground font-semibold rounded-custom transition-all text-sm cursor-pointer"
         >
           Quay lại
         </button>
-        <Button className="flex-1" onClick={onNext}>Tôi đã cài đặt</Button>
+        <Button className="flex-1" onClick={navigation.next}>Tôi đã cài đặt</Button>
       </div>
     </div>
   );
