@@ -14,6 +14,8 @@ namespace demo1.Entity
         public bool IsSystemAdmin { get; set; } = false;
         public bool IsTwoFactorEnabled { get; set; } = false;
         public string? TwoFactorSecret { get; set; }
+        public string? RefreshTokenHash { get; set; }
+        public DateTime? RefreshTokenExpiryTime { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
     }

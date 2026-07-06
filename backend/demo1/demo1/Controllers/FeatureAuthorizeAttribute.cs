@@ -61,23 +61,16 @@ namespace demo1.Controllers
             // Check specific feature authorization
             var httpMethod = context.HttpContext.Request.Method;
             
-            // Query to see if any role assigned to the user has the required permission
-            var userRoleIds = await _dbContext.UserRoles
-                .Where(ur => ur.UserId == dbUser.Id)
-                .Select(ur => ur.RoleId)
+            // Query to see if any active role assigned to the user has the required permission for the active feature
+            var permissions = await _dbContext.UserRoles
+                .Include(ur => ur.Role)
+                .Where(ur => ur.UserId == dbUser.Id && ur.Role != null && ur.Role.IsActive)
+                .Join(_dbContext.RolePermissions.Include(rp => rp.Feature),
+                    ur => ur.RoleId,
+                    rp => rp.RoleId,
+                    (ur, rp) => rp)
+                .Where(rp => rp.Feature != null && rp.Feature.Code == _featureCode && rp.Feature.IsActive)
                 .ToListAsync();
-
-            if (!userRoleIds.Any())
-            {
-                context.Result = new ForbidResult();
-                return;
-            }
-
-            var permissionsQuery = _dbContext.RolePermissions
-                .Include(rp => rp.Feature)
-                .Where(rp => userRoleIds.Contains(rp.RoleId) && rp.Feature != null && rp.Feature.Code == _featureCode && rp.Feature.IsActive);
-
-            var permissions = await permissionsQuery.ToListAsync();
 
             bool isAuthorized = false;
 

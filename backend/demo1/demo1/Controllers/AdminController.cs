@@ -93,6 +93,71 @@ namespace demo1.Controllers
             return Ok(features);
         }
 
+        [HttpPost("features")]
+        public async Task<IActionResult> CreateFeature([FromBody] CreateFeatureDto dto)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            if (string.IsNullOrWhiteSpace(dto.Code)) return BadRequest("Feature code is required.");
+            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Feature name is required.");
+
+            var exists = await _dbContext.Features.AnyAsync(f => f.Code.ToLower() == dto.Code.ToLower());
+            if (exists) return Conflict("Feature code already exists.");
+
+            var feature = new Feature
+            {
+                Code = dto.Code.Trim(),
+                Name = dto.Name.Trim(),
+                Description = dto.Description,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.Features.Add(feature);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(feature);
+        }
+
+        [HttpPut("features/{featureId:guid}")]
+        public async Task<IActionResult> UpdateFeature(Guid featureId, [FromBody] UpdateFeatureDto dto)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            var feature = await _dbContext.Features.FindAsync(featureId);
+            if (feature == null) return NotFound("Feature not found.");
+
+            if (string.IsNullOrWhiteSpace(dto.Code)) return BadRequest("Feature code is required.");
+            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Feature name is required.");
+
+            var exists = await _dbContext.Features.AnyAsync(f => f.Id != featureId && f.Code.ToLower() == dto.Code.ToLower());
+            if (exists) return Conflict("Feature code already exists.");
+
+            feature.Code = dto.Code.Trim();
+            feature.Name = dto.Name.Trim();
+            feature.Description = dto.Description;
+            feature.IsActive = dto.IsActive;
+
+            _dbContext.Features.Update(feature);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(feature);
+        }
+
+        [HttpDelete("features/{featureId:guid}")]
+        public async Task<IActionResult> DeleteFeature(Guid featureId)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            var feature = await _dbContext.Features.FindAsync(featureId);
+            if (feature == null) return NotFound("Feature not found.");
+
+            var relatedPermissions = await _dbContext.RolePermissions.Where(rp => rp.FeatureId == featureId).ToListAsync();
+            _dbContext.RolePermissions.RemoveRange(relatedPermissions);
+
+            _dbContext.Features.Remove(feature);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { Message = "Feature deleted successfully." });
+        }
+
         [HttpGet("roles/{roleId:guid}/permissions")]
         [ProducesResponseType(typeof(IEnumerable<RolePermissionDto>), 200)]
         public async Task<IActionResult> GetRolePermissions(Guid roleId)
@@ -281,4 +346,20 @@ namespace demo1.Controllers
     {
         public List<Guid> RoleIds { get; set; } = new();
     }
+
+    public class CreateFeatureDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
+    public class UpdateFeatureDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsActive { get; set; }
+    }
 }
+

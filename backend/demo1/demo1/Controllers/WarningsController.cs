@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 [Authorize]
+[FeatureAuthorize("CONTRACT")]
 [ApiController]
 [Route("api/warnings")]
 public class WarningsController : ControllerBase

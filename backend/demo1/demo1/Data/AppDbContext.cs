@@ -110,5 +110,10 @@ namespace demo1.Data
             builder.HasIndex(entity => entity.Code)
                 .IsUnique();
         }
+
+        private void ConfigureBaseEntity<T>(EntityTypeBuilder<T> builder) where T : BaseEntity
+        {
+            builder.HasKey(e => e.Id);
+        }
     }
 }

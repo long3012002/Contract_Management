@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -59,6 +61,9 @@ namespace demo1.Controllers
                     _dbContext.SaveChanges();
                 }
 
+                // Generate short-lived Temporary Token (3 minutes) for 2FA validation
+                var tempToken = GenerateJwtToken(request.Username, 3, isTemp: true);
+
                 // If user is not system admin (or system admin too - we require 2FA for all users as requested)
                 // Check if Google Authenticator 2FA is enabled
                 if (!dbUser.IsTwoFactorEnabled)
@@ -77,8 +82,9 @@ namespace demo1.Controllers
                         Message = "Yêu cầu bật xác thực 2 lớp (lần đầu đăng nhập)",
                         Username = request.Username,
                         Require2FASetup = true,
-                        TwoFactorSecret = dbUser.TwoFactorSecret,
-                        QrCodeUrl = qrUrl
+                        TwoFactorSecret = null, // Do not expose raw secret key in login response
+                        QrCodeUrl = qrUrl,
+                        AccessToken = tempToken
                     });
                 }
 
@@ -87,7 +93,8 @@ namespace demo1.Controllers
                 {
                     Message = "Yêu cầu mã xác thực 2 lớp (2FA)",
                     Username = request.Username,
-                    Require2FAVerification = true
+                    Require2FAVerification = true,
+                    AccessToken = tempToken
                 });
             }
             else
@@ -95,30 +102,6 @@ namespace demo1.Controllers
                 return Unauthorized(new { Message = "Sai tài khoản hoặc mật khẩu" });
             }
         }
-
-        //[HttpPost("test")]
-        //[ProducesResponseType(typeof(LoginResponse), 200)]
-        //public async Task<IActionResult> TestLogin()
-        //{
-        //    bool result = await _radiusClient.AuthenticateAsync("quangmd", "XianWang072026");
-
-        //    if (result)
-        //    {
-        //        var accessToken = GenerateJwtToken("quangmd", 180);
-        //        var refreshToken = GenerateJwtToken("quangmd", 10080);
-        //        return Ok(new LoginResponse 
-        //        { 
-        //            Message = "Đăng nhập thành công", 
-        //            AccessToken = accessToken, 
-        //            RefreshToken = refreshToken, 
-        //            Username = "quangmd" 
-        //        });
-        //    }
-        //    else
-        //    {
-        //        return Unauthorized(new { Message = "Sai tài khoản hoặc mật khẩu" });
-        //    }
-        //}
 
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(LoginResponse), 200)]
@@ -156,8 +139,25 @@ namespace demo1.Controllers
                     return Unauthorized(new { Message = "Invalid token payload." });
                 }
 
+                var dbUser = _dbContext.Users.FirstOrDefault(u => u.Username == username && u.IsActive);
+                if (dbUser == null)
+                {
+                    return Unauthorized(new { Message = "User is inactive or not found." });
+                }
+
+                var incomingHash = ComputeHash(request.RefreshToken);
+                if (dbUser.RefreshTokenHash != incomingHash || dbUser.RefreshTokenExpiryTime == null || dbUser.RefreshTokenExpiryTime < DateTime.UtcNow)
+                {
+                    return Unauthorized(new { Message = "Refresh token has been revoked or expired." });
+                }
+
                 var newAccessToken = GenerateJwtToken(username, 180);
                 var newRefreshToken = GenerateJwtToken(username, 10080);
+
+                // Update database with the new refresh token hash
+                dbUser.RefreshTokenHash = ComputeHash(newRefreshToken);
+                dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+                _dbContext.SaveChanges();
 
                 return Ok(new LoginResponse
                 {
@@ -182,6 +182,13 @@ namespace demo1.Controllers
                 return BadRequest(new { Message = "Username and code are required." });
             }
 
+            var authHeader = Request.Headers["Authorization"].ToString();
+            var usernameFromToken = ValidateTemporaryToken(authHeader);
+            if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+            {
+                return Unauthorized(new { Message = "Yêu cầu mã tạm thời (Temporary Token) hợp lệ." });
+            }
+
             var dbUser = _dbContext.Users.FirstOrDefault(u => u.Username == request.Username && u.IsActive);
             if (dbUser == null)
             {
@@ -201,10 +208,14 @@ namespace demo1.Controllers
 
             dbUser.IsTwoFactorEnabled = true;
             dbUser.UpdatedAt = DateTime.UtcNow;
-            _dbContext.SaveChanges();
 
             var accessToken = GenerateJwtToken(dbUser.Username, 180);
             var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+
+            // Store refresh token hash in DB
+            dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+            dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+            _dbContext.SaveChanges();
 
             return Ok(new LoginResponse
             {
@@ -222,6 +233,13 @@ namespace demo1.Controllers
             if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Code))
             {
                 return BadRequest(new { Message = "Username and code are required." });
+            }
+
+            var authHeader = Request.Headers["Authorization"].ToString();
+            var usernameFromToken = ValidateTemporaryToken(authHeader);
+            if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+            {
+                return Unauthorized(new { Message = "Yêu cầu mã tạm thời (Temporary Token) hợp lệ." });
             }
 
             var dbUser = _dbContext.Users.FirstOrDefault(u => u.Username == request.Username && u.IsActive);
@@ -244,6 +262,11 @@ namespace demo1.Controllers
             var accessToken = GenerateJwtToken(dbUser.Username, 180);
             var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
 
+            // Store refresh token hash in DB
+            dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+            dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+            _dbContext.SaveChanges();
+
             return Ok(new LoginResponse
             {
                 Message = "Đăng nhập xác thực 2 lớp thành công",
@@ -253,36 +276,106 @@ namespace demo1.Controllers
             });
         }
 
-        private string GenerateJwtToken(string username, double expiryInMinutes)
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized();
+            }
+
+            var dbUser = _dbContext.Users.FirstOrDefault(u => u.Username == username);
+            if (dbUser != null)
+            {
+                dbUser.RefreshTokenHash = null;
+                dbUser.RefreshTokenExpiryTime = null;
+                await _dbContext.SaveChangesAsync();
+            }
+
+            return Ok(new { Message = "Đăng xuất thành công" });
+        }
+
+        private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
-            var issuer = jwtSettings["Issuer"] ?? "ContractManagementBackend";
-            var audience = jwtSettings["Audience"] ?? "ContractManagementFrontend";
-
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
+                new Claim(ClaimTypes.Name, username),
                 new Claim(JwtRegisteredClaimNames.Sub, username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Name, username)
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if (isTemp || expiryInMinutes <= 5)
+            {
+                claims.Add(new Claim("is_temp", "true"));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddMinutes(expiryInMinutes),
-                Issuer = issuer,
-                Audience = audience,
-                SigningCredentials = creds
+                Issuer = jwtSettings["Issuer"] ?? "ContractManagementBackend",
+                Audience = jwtSettings["Audience"] ?? "ContractManagementFrontend",
+                SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
             };
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var token = tokenHandler.CreateToken(tokenDescriptor);
-
             return tokenHandler.WriteToken(token);
+        }
+
+        private string? ValidateTemporaryToken(string authorizationHeader)
+        {
+            if (string.IsNullOrWhiteSpace(authorizationHeader) || !authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var token = authorizationHeader.Substring(7);
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
+            var key = Encoding.UTF8.GetBytes(secretKey);
+
+            try
+            {
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    RequireExpirationTime = false,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+                var jwtToken = validatedToken as JwtSecurityToken;
+
+                if (jwtToken == null || jwtToken.Payload.TryGetValue("is_temp", out var isTemp) && isTemp.ToString() != "true")
+                {
+                    return null;
+                }
+
+                return principal.Identity?.Name ?? principal.FindFirst(ClaimTypes.Name)?.Value ?? jwtToken.Subject;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private string ComputeHash(string input)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+                return Convert.ToBase64String(bytes);
+            }
         }
     }
 }
