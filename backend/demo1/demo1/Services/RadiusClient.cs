@@ -81,50 +81,6 @@ namespace demo1.Services
                 var responseCode = result.Buffer[0];
                 Console.WriteLine($"[RADIUS] Nhận phản hồi: code={responseCode} ({(responseCode == 2 ? "Access-Accept" : responseCode == 3 ? "Access-Reject" : "Unknown")})");
 
-                // Giải mã các attributes từ byte thứ 20
-                int index = 20;
-                while (index < result.Buffer.Length)
-                {
-                    if (index + 2 > result.Buffer.Length) break;
-
-                    byte attrType = result.Buffer[index];
-                    byte attrLength = result.Buffer[index + 1];
-
-                    if (attrLength < 2 || index + attrLength > result.Buffer.Length) break;
-
-                    byte[] attrValue = result.Buffer.Skip(index + 2).Take(attrLength - 2).ToArray();
-
-                    switch (attrType)
-                    {
-                        case 18: // Reply-Message
-                            string replyMsg = Encoding.UTF8.GetString(attrValue);
-                            Console.WriteLine($"[RADIUS Attribute] Reply-Message (Type 18): {replyMsg}");
-                            break;
-                        case 8: // Framed-IP-Address
-                            if (attrValue.Length == 4)
-                            {
-                                var ip = new System.Net.IPAddress(attrValue);
-                                Console.WriteLine($"[RADIUS Attribute] Framed-IP-Address (Type 8): {ip}");
-                            }
-                            break;
-                        case 27: // Session-Timeout
-                            if (attrValue.Length == 4)
-                            {
-                                if (BitConverter.IsLittleEndian) Array.Reverse(attrValue);
-                                uint timeout = BitConverter.ToUInt32(attrValue, 0);
-                                Console.WriteLine($"[RADIUS Attribute] Session-Timeout (Type 27): {timeout} seconds");
-                            }
-                            break;
-                        default:
-                            // In dạng hex cho các attribute khác
-                            string hexValue = BitConverter.ToString(attrValue);
-                            Console.WriteLine($"[RADIUS Attribute] Type {attrType} (Length {attrLength}): Hex={hexValue}");
-                            break;
-                    }
-
-                    index += attrLength;
-                }
-
                 return responseCode == 2; // Access-Accept
             }
             catch (SocketException ex)

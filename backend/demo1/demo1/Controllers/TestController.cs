@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 
-namespace ContractManagement.Api.Controllers;
+namespace demo1.Controllers;
 
 [ApiController]
 [Route("api/test")]
@@ -11,7 +11,7 @@ public class TestController : ControllerBase
     {
         return Ok(new
         {
-            Message = "API hoạt động bình thường!",
+            Message = "API is running.",
             Time = DateTime.UtcNow,
             Status = "Success"
         });

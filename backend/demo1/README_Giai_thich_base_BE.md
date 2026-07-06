@@ -6,7 +6,7 @@ Tai lieu nay giai thich ngan gon cau truc code hien tai de team co the doc, hieu
 
 Base nay dang dung de len khung backend cho he thong quan ly hop dong, van ban va giay to.
 
-Hien tai **chua dung database**. Du lieu dang duoc luu tam trong memory de co the test CRUD tren Swagger. Sau nay khi them SQL Server/EF Core, ta se thay phan luu tru trong service, con Controller, DTO, Mapper van co the giu lai.
+Hien tai backend **dang dung MySQL thong qua EF Core + Pomelo**. Du lieu CRUD duoc luu qua `AppDbContext` va `DbCrudService`, khong con luu tam trong memory. Xem them `MYSQL_SETUP.md` de biet cach restore tool, apply migration va chay API tren may moi.
 
 ## Cau Truc Thu Muc
 
@@ -18,7 +18,7 @@ Mapper/               Chuyen doi giua Entity va DTO
 Services/Interfaces/  Khai bao service co nhung chuc nang gi
 Services/Implements/  Noi viet logic xu ly that
 Validator/            Cac rule kiem tra nghiep vu don gian
-Data/                 Cho de dat AppDbContext khi co database
+Data/                 AppDbContext ket noi MySQL/EF Core
 Program.cs            Dang ky service, Swagger, CORS, pipeline
 ```
 
@@ -138,9 +138,7 @@ ProjectService
 PartnerService
 ```
 
-Hien tai cac service dang ke thua `InMemoryCrudService`, nghia la du lieu duoc luu tam trong RAM. Khi tat app, du lieu them moi se mat.
-
-Sau nay khi co database, ta co the thay logic trong service bang EF Core.
+Hien tai cac service dang ke thua `DbCrudService`, nghia la CRUD duoc thuc hien bang EF Core tren MySQL.
 
 ### Validator
 
@@ -166,7 +164,7 @@ Frontend/Swagger
     -> ContractService
     -> ContractValidator
     -> ContractMapper
-    -> InMemoryCrudService
+    -> DbCrudService/AppDbContext
     -> Tra ve ContractDto
 ```
 
@@ -177,7 +175,7 @@ Giai thich don gian:
 3. Controller goi service.
 4. Service kiem tra nghiep vu bang Validator.
 5. Mapper chuyen DTO thanh Entity.
-6. InMemoryCrudService luu du lieu tam.
+6. DbCrudService luu du lieu vao MySQL qua AppDbContext.
 7. Mapper chuyen Entity thanh DTO tra ve.
 8. Controller tra response cho frontend.
 
