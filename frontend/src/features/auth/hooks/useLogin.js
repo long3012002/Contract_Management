@@ -4,6 +4,7 @@ import { loginSchema } from '../../../utils/validationSchemas';
 import { useAuthStore } from '../store/authStore';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { loginApi } from '../api/authApi';
 
 export default function useLogin() {
   const setMfaPending = useAuthStore((state) => state.setMfaPending);
@@ -23,29 +24,25 @@ export default function useLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }) => {
-      // Simulate API call
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (username === 'admin' && password === 'admin123') {
-            resolve({ username, name: 'Quản trị viên', mfaSetup: true });
-          } else if (username === 'newuser' && password === 'user123') {
-            resolve({ username, name: 'Nhân viên Mới', mfaSetup: false });
-          } else {
-            reject(new Error('Tên đăng nhập hoặc mật khẩu không chính xác.'));
-          }
-        }, 1500);
-      });
+      return loginApi(username, password);
     },
-    onSuccess: (user) => {
-      setMfaPending(user, user.mfaSetup);
-      if (user.mfaSetup) {
-        toast.info("Xác thực thành công. Vui lòng nhập mã xác thực OTP.");
-      } else {
-        toast.info("Lần đầu đăng nhập. Vui lòng thiết lập bảo mật 2 lớp (2FA).");
-      }
+    onSuccess: (data) => {
+      // Save tokens temporarily, or prepare them for after MFA completion
+      const user = {
+        username: data.username,
+        name: data.username,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+
+      // Since they successfully authenticated, they proceed to 2FA verification.
+      // We assume MFA is already set up (mfaSetup: true) for the user.
+      setMfaPending(user, true);
+      toast.info("Xác thực thông tin tài khoản thành công. Vui lòng nhập mã OTP để hoàn tất đăng nhập.");
     },
     onError: (error) => {
-      toast.error(error.message);
+      const errorMessage = error.response?.data?.message || error.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
+      toast.error(errorMessage);
     },
   });
 
@@ -57,7 +54,7 @@ export default function useLogin() {
     register,
     handleSubmit,
     errors,
-    error: loginMutation.error?.message || '',
+    error: loginMutation.error?.response?.data?.message || loginMutation.error?.message || '',
     isLoading: loginMutation.isPending,
     isSuccess: loginMutation.isSuccess,
     setIsSuccess: (status) => {
@@ -68,4 +65,5 @@ export default function useLogin() {
     onSubmit,
   };
 }
+
 
