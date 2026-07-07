@@ -64,11 +64,6 @@ namespace demo1.Controllers
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(dto.FullName))
-                {
-                    rowErrors.Add("Họ tên không được để trống.");
-                }
-
                 if (!string.IsNullOrWhiteSpace(dto.Role))
                 {
                     var roleNameLower = dto.Role.Trim().ToLower();
@@ -76,10 +71,6 @@ namespace demo1.Controllers
                     {
                         rowErrors.Add($"Role '{dto.Role}' không hợp lệ hoặc không tồn tại trong hệ thống.");
                     }
-                }
-                else
-                {
-                    rowErrors.Add("Role không được để trống.");
                 }
 
                 if (rowErrors.Any())
@@ -243,12 +234,20 @@ namespace demo1.Controllers
                         }
                     }
 
-                    var targetRole = roleMap[dto.Role!.Trim().ToLower()];
+                    Role? targetRole = null;
+                    if (!string.IsNullOrWhiteSpace(dto.Role))
+                    {
+                        var roleKey = dto.Role.Trim().ToLower();
+                        if (roleMap.TryGetValue(roleKey, out var role))
+                        {
+                            targetRole = role;
+                        }
+                    }
 
                     if (existingUserMap.TryGetValue(lowerUsername, out var user))
                     {
                         // Update
-                        user.FullName = dto.FullName.Trim();
+                        user.FullName = dto.FullName?.Trim() ?? string.Empty;
                         user.Email = email;
                         user.Phone = dto.Phone?.Trim();
                         user.IdPhongBan = idPhongBan;
@@ -261,18 +260,21 @@ namespace demo1.Controllers
 
                         _dbContext.Users.Update(user);
 
-                        // Cập nhật Role
-                        var currentRoles = existingUserRoles.Where(ur => ur.UserId == user.Id).ToList();
-                        if (currentRoles.Any())
+                        // Cập nhật Role chỉ khi targetRole không null
+                        if (targetRole != null)
                         {
-                            _dbContext.UserRoles.RemoveRange(currentRoles);
+                            var currentRoles = existingUserRoles.Where(ur => ur.UserId == user.Id).ToList();
+                            if (currentRoles.Any())
+                            {
+                                _dbContext.UserRoles.RemoveRange(currentRoles);
+                            }
+                            _dbContext.UserRoles.Add(new UserRole
+                            {
+                                UserId = user.Id,
+                                RoleId = targetRole.Id,
+                                CreatedAt = DateTime.UtcNow
+                            });
                         }
-                        _dbContext.UserRoles.Add(new UserRole
-                        {
-                            UserId = user.Id,
-                            RoleId = targetRole.Id,
-                            CreatedAt = DateTime.UtcNow
-                        });
 
                         updatedCount++;
                     }
@@ -283,7 +285,7 @@ namespace demo1.Controllers
                         {
                             Id = Guid.NewGuid(),
                             Username = trimmedUsername,
-                            FullName = dto.FullName.Trim(),
+                            FullName = dto.FullName?.Trim() ?? string.Empty,
                             Email = email,
                             Phone = dto.Phone?.Trim(),
                             IdPhongBan = idPhongBan,
@@ -298,12 +300,15 @@ namespace demo1.Controllers
 
                         _dbContext.Users.Add(newUser);
 
-                        _dbContext.UserRoles.Add(new UserRole
+                        if (targetRole != null)
                         {
-                            UserId = newUser.Id,
-                            RoleId = targetRole.Id,
-                            CreatedAt = DateTime.UtcNow
-                        });
+                            _dbContext.UserRoles.Add(new UserRole
+                            {
+                                UserId = newUser.Id,
+                                RoleId = targetRole.Id,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
 
                         addedCount++;
                     }
