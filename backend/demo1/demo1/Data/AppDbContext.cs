@@ -21,6 +21,10 @@ namespace demo1.Data
         public DbSet<UserRole> UserRoles { get; set; } = null!;
         public DbSet<Feature> Features { get; set; } = null!;
         public DbSet<RolePermission> RolePermissions { get; set; } = null!;
+        public DbSet<PhongBan> PhongBans { get; set; } = null!;
+        public DbSet<ChucVu> ChucVus { get; set; } = null!;
+        public DbSet<PhongBanPermission> PhongBanPermissions { get; set; } = null!;
+        public DbSet<ChucVuPermission> ChucVuPermissions { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -95,6 +99,14 @@ namespace demo1.Data
             // Configure composite key for RolePermission
             modelBuilder.Entity<RolePermission>()
                 .HasKey(rp => new { rp.RoleId, rp.FeatureId });
+
+            // Configure composite key for PhongBanPermission
+            modelBuilder.Entity<PhongBanPermission>()
+                .HasKey(pbp => new { pbp.PhongBanId, pbp.FeatureId });
+
+            // Configure composite key for ChucVuPermission
+            modelBuilder.Entity<ChucVuPermission>()
+                .HasKey(cvp => new { cvp.ChucVuId, cvp.FeatureId });
         }
         private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)
             where TEntity : BaseEntity

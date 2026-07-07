@@ -45,20 +45,15 @@ namespace demo1.Controllers
 
             if (isAuthenticated)
             {
-                // Sync user with local database
                 var dbUser = _dbContext.Users.FirstOrDefault(u => u.Username == request.Username);
                 if (dbUser == null)
                 {
-                    dbUser = new User
-                    {
-                        Username = request.Username,
-                        FullName = request.Username, // Default to username as name
-                        IsActive = true,
-                        IsSystemAdmin = request.Username.ToLower() == "quangmd" || request.Username.ToLower() == "admin",
-                        IsTwoFactorEnabled = false
-                    };
-                    _dbContext.Users.Add(dbUser);
-                    _dbContext.SaveChanges();
+                    return StatusCode(StatusCodes.Status403Forbidden, new { Message = "Tài khoản chưa được cấp quyền sử dụng hệ thống." });
+                }
+
+                if (!dbUser.IsActive)
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new { Message = "Tài khoản đang bị khóa hoặc ngưng hoạt động." });
                 }
 
                 // Generate short-lived Temporary Token (3 minutes) for 2FA validation
@@ -331,8 +326,17 @@ namespace demo1.Controllers
 
         private string? ValidateTemporaryToken(string authorizationHeader)
         {
-            if (string.IsNullOrWhiteSpace(authorizationHeader) || !authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            Console.WriteLine($"[ValidateTemporaryToken] Received Header: '{authorizationHeader}'");
+            if (string.IsNullOrWhiteSpace(authorizationHeader))
+            {
+                Console.WriteLine("[ValidateTemporaryToken Error]: Authorization header is empty or null.");
                 return null;
+            }
+            if (!authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[ValidateTemporaryToken Error]: Authorization header does not start with 'Bearer '.");
+                return null;
+            }
 
             var token = authorizationHeader.Substring(7);
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -363,8 +367,9 @@ namespace demo1.Controllers
 
                 return principal.Identity?.Name ?? principal.FindFirst(ClaimTypes.Name)?.Value ?? jwtToken.Subject;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Console.WriteLine($"[ValidateTemporaryToken Error]: {ex.Message}");
                 return null;
             }
         }

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,17 +10,17 @@ namespace demo1.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "CanCreate",
-                table: "RolePermissions");
+            // migrationBuilder.DropColumn(
+            //     name: "CanCreate",
+            //     table: "RolePermissions");
 
-            migrationBuilder.DropColumn(
-                name: "CanDelete",
-                table: "RolePermissions");
+            // migrationBuilder.DropColumn(
+            //     name: "CanDelete",
+            //     table: "RolePermissions");
 
-            migrationBuilder.DropColumn(
-                name: "CanUpdate",
-                table: "RolePermissions");
+            // migrationBuilder.DropColumn(
+            //     name: "CanUpdate",
+            //     table: "RolePermissions");
 
             migrationBuilder.AddColumn<string>(
                 name: "Permissions",
