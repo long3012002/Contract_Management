@@ -50,6 +50,19 @@ namespace demo1.Controllers
             var exists = await _dbContext.Roles.AnyAsync(r => r.Name.ToLower() == dto.Name.ToLower());
             if (exists) return Conflict("Role already exists.");
 
+            if (dto.IsInherit == true)
+            {
+                if (!dto.InheritRoleId.HasValue)
+                {
+                    return BadRequest("InheritRoleId is required when IsInherit is true.");
+                }
+                var parentExists = await _dbContext.Roles.AnyAsync(r => r.Id == dto.InheritRoleId.Value);
+                if (!parentExists)
+                {
+                    return BadRequest("Role to inherit from does not exist.");
+                }
+            }
+
             var role = new Role
             {
                 Name = dto.Name,
@@ -59,6 +72,26 @@ namespace demo1.Controllers
             };
 
             _dbContext.Roles.Add(role);
+
+            if (dto.IsInherit == true && dto.InheritRoleId.HasValue)
+            {
+                var parentPermissions = await _dbContext.RolePermissions
+                    .Where(rp => rp.RoleId == dto.InheritRoleId.Value)
+                    .ToListAsync();
+
+                foreach (var parentPermission in parentPermissions)
+                {
+                    _dbContext.RolePermissions.Add(new RolePermission
+                    {
+                        RoleId = role.Id,
+                        FeatureId = parentPermission.FeatureId,
+                        CanAccess = parentPermission.CanAccess,
+                        Permissions = parentPermission.Permissions,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
             await _dbContext.SaveChangesAsync();
 
             return Ok(role);
@@ -297,6 +330,8 @@ namespace demo1.Controllers
     {
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public bool? IsInherit { get; set; }
+        public Guid? InheritRoleId { get; set; }
     }
 
     public class UpdateRoleDto
