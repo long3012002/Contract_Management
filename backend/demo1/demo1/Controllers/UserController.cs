@@ -58,31 +58,33 @@ namespace demo1.Controllers
                     var rows = stream.Query(useHeaderRow: true).Cast<IDictionary<string, object>>();
                     foreach (var row in rows)
                     {
+                        var rowDict = new Dictionary<string, object>(row, StringComparer.OrdinalIgnoreCase);
+
                         var dto = new CreateUserDto
                         {
-                            Username = row.ContainsKey("Username") ? row["Username"]?.ToString() ?? string.Empty : string.Empty,
-                            FullName = row.ContainsKey("Họ tên") ? row["Họ tên"]?.ToString() ?? string.Empty : (row.ContainsKey("FullName") ? row["FullName"]?.ToString() ?? string.Empty : string.Empty),
-                            Email = row.ContainsKey("Email") ? row["Email"]?.ToString() : null,
-                            Phone = row.ContainsKey("Số điện thoại") ? row["Số điện thoại"]?.ToString() : (row.ContainsKey("Phone") ? row["Phone"]?.ToString() : null),
-                            TenPhongBan = row.ContainsKey("Phòng ban") ? row["Phòng ban"]?.ToString() : (row.ContainsKey("TenPhongBan") ? row["TenPhongBan"]?.ToString() : null),
-                            TenChucVu = row.ContainsKey("Chức vụ") ? row["Chức vụ"]?.ToString() : (row.ContainsKey("TenChucVu") ? row["TenChucVu"]?.ToString() : null),
-                            Role = row.ContainsKey("Role") ? row["Role"]?.ToString() : (row.ContainsKey("Vai trò") ? row["Vai trò"]?.ToString() : null),
+                            Username = rowDict.ContainsKey("Username") ? rowDict["Username"]?.ToString() ?? string.Empty : string.Empty,
+                            FullName = rowDict.ContainsKey("Họ tên") ? rowDict["Họ tên"]?.ToString() ?? string.Empty : (rowDict.ContainsKey("FullName") ? rowDict["FullName"]?.ToString() ?? string.Empty : string.Empty),
+                            Email = rowDict.ContainsKey("Email") ? rowDict["Email"]?.ToString() : null,
+                            Phone = rowDict.ContainsKey("Số điện thoại") ? rowDict["Số điện thoại"]?.ToString() : (rowDict.ContainsKey("Phone") ? rowDict["Phone"]?.ToString() : null),
+                            TenPhongBan = rowDict.ContainsKey("Phòng ban") ? rowDict["Phòng ban"]?.ToString() : (rowDict.ContainsKey("TenPhongBan") ? rowDict["TenPhongBan"]?.ToString() : null),
+                            TenChucVu = rowDict.ContainsKey("Chức vụ") ? rowDict["Chức vụ"]?.ToString() : (rowDict.ContainsKey("TenChucVu") ? rowDict["TenChucVu"]?.ToString() : null),
+                            Role = rowDict.ContainsKey("Role") ? rowDict["Role"]?.ToString() : (rowDict.ContainsKey("Vai trò") ? rowDict["Vai trò"]?.ToString() : null),
                             IsActive = true,
                             IsSystemAdmin = false
                         };
 
-                        if (row.ContainsKey("Trạng thái"))
+                        if (rowDict.ContainsKey("Trạng thái"))
                         {
-                            var activeStr = row["Trạng thái"]?.ToString()?.Trim()?.ToLower();
+                            var activeStr = rowDict["Trạng thái"]?.ToString()?.Trim()?.ToLower();
                             if (activeStr == "khóa" || activeStr == "khoa" || activeStr == "0" || activeStr == "false")
                             {
                                 dto.IsActive = false;
                             }
                         }
 
-                        if (row.ContainsKey("Admin"))
+                        if (rowDict.ContainsKey("Admin"))
                         {
-                            var adminStr = row["Admin"]?.ToString()?.Trim()?.ToLower();
+                            var adminStr = rowDict["Admin"]?.ToString()?.Trim()?.ToLower();
                             if (adminStr == "có" || adminStr == "co" || adminStr == "1" || adminStr == "true")
                             {
                                 dto.IsSystemAdmin = true;

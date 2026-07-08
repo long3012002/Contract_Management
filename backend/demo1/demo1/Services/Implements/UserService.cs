@@ -60,15 +60,6 @@ namespace demo1.Services.Implements
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(dto.Role))
-                {
-                    var roleNameLower = dto.Role.Trim().ToLower();
-                    if (!roleMap.ContainsKey(roleNameLower))
-                    {
-                        rowErrors.Add($"Role '{dto.Role}' không hợp lệ hoặc không tồn tại trong hệ thống.");
-                    }
-                }
-
                 if (rowErrors.Any())
                 {
                     errors.Add(new UserImportErrorDto
@@ -92,7 +83,7 @@ namespace demo1.Services.Implements
                 };
             }
 
-            // Bước 2: Tự động xử lý Phòng ban và Chức vụ (tạo mới nếu chưa tồn tại)
+            // Bước 2: Tự động xử lý Phòng ban, Chức vụ và Vai trò (tạo mới nếu chưa tồn tại)
             var inputPhongBans = dtos
                 .Where(d => !string.IsNullOrWhiteSpace(d.TenPhongBan))
                 .Select(d => d.TenPhongBan!.Trim())
@@ -105,6 +96,12 @@ namespace demo1.Services.Implements
                 .Distinct()
                 .ToList();
 
+            var inputRoles = dtos
+                .Where(d => !string.IsNullOrWhiteSpace(d.Role))
+                .Select(d => d.Role!.Trim())
+                .Distinct()
+                .ToList();
+
             var dbPhongBans = await _dbContext.PhongBans.ToListAsync();
             var dbChucVus = await _dbContext.ChucVus.ToListAsync();
 
@@ -113,6 +110,7 @@ namespace demo1.Services.Implements
 
             var newPhongBans = new List<PhongBan>();
             var newChucVus = new List<ChucVu>();
+            var newRoles = new List<Role>();
 
             foreach (var pbName in inputPhongBans)
             {
@@ -146,6 +144,24 @@ namespace demo1.Services.Implements
                 }
             }
 
+            foreach (var rName in inputRoles)
+            {
+                var lowerName = rName.ToLower();
+                if (!roleMap.ContainsKey(lowerName))
+                {
+                    var role = new Role
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = rName,
+                        Description = $"Mô tả cho vai trò {rName} (Tạo tự động khi import)",
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    newRoles.Add(role);
+                    roleMap[lowerName] = role;
+                }
+            }
+
             if (newPhongBans.Any())
             {
                 _dbContext.PhongBans.AddRange(newPhongBans);
@@ -173,7 +189,12 @@ namespace demo1.Services.Implements
                 _dbContext.ChucVus.AddRange(newChucVus);
             }
 
-            if (newPhongBans.Any() || newChucVus.Any())
+            if (newRoles.Any())
+            {
+                _dbContext.Roles.AddRange(newRoles);
+            }
+
+            if (newPhongBans.Any() || newChucVus.Any() || newRoles.Any())
             {
                 await _dbContext.SaveChangesAsync();
             }
