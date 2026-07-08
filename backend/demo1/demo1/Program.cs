@@ -101,6 +101,9 @@ builder.Services.AddScoped<IBidPackageService, BidPackageService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddSingleton<TotpService>();
 builder.Services.AddSingleton<RadiusClient>(sp =>
 {

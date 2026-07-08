@@ -1,33 +1,24 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using demo1.Data;
+using demo1.DTOs;
 using demo1.Entity;
+using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class AdminController : ControllerBase
+    public class AdminController(IAdminService adminService) : ControllerBase
     {
-        private readonly AppDbContext _dbContext;
-
-        public AdminController(AppDbContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
-
         private async Task<bool> IsAdminAsync()
         {
             var username = User.Identity?.Name;
             if (string.IsNullOrEmpty(username)) return false;
-            var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
-            return dbUser?.IsSystemAdmin == true;
+            return await adminService.IsSystemAdminAsync(username);
         }
 
         // --- ROLES MANAGEMENT ---
@@ -37,7 +28,7 @@ namespace demo1.Controllers
         public async Task<IActionResult> GetRoles()
         {
             if (!await IsAdminAsync()) return Forbid();
-            var roles = await _dbContext.Roles.OrderBy(r => r.Name).ToListAsync();
+            var roles = await adminService.GetRolesAsync();
             return Ok(roles);
         }
 
@@ -45,55 +36,7 @@ namespace demo1.Controllers
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
-            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Role name is required.");
-
-            var exists = await _dbContext.Roles.AnyAsync(r => r.Name.ToLower() == dto.Name.ToLower());
-            if (exists) return Conflict("Role already exists.");
-
-            if (dto.IsInherit == true)
-            {
-                if (!dto.InheritRoleId.HasValue)
-                {
-                    return BadRequest("InheritRoleId is required when IsInherit is true.");
-                }
-                var parentExists = await _dbContext.Roles.AnyAsync(r => r.Id == dto.InheritRoleId.Value);
-                if (!parentExists)
-                {
-                    return BadRequest("Role to inherit from does not exist.");
-                }
-            }
-
-            var role = new Role
-            {
-                Name = dto.Name,
-                Description = dto.Description,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _dbContext.Roles.Add(role);
-
-            if (dto.IsInherit == true && dto.InheritRoleId.HasValue)
-            {
-                var parentPermissions = await _dbContext.RolePermissions
-                    .Where(rp => rp.RoleId == dto.InheritRoleId.Value)
-                    .ToListAsync();
-
-                foreach (var parentPermission in parentPermissions)
-                {
-                    _dbContext.RolePermissions.Add(new RolePermission
-                    {
-                        RoleId = role.Id,
-                        FeatureId = parentPermission.FeatureId,
-                        CanAccess = parentPermission.CanAccess,
-                        Permissions = parentPermission.Permissions,
-                        UpdatedAt = DateTime.UtcNow
-                    });
-                }
-            }
-
-            await _dbContext.SaveChangesAsync();
-
+            var role = await adminService.CreateRoleAsync(dto);
             return Ok(role);
         }
 
@@ -101,18 +44,15 @@ namespace demo1.Controllers
         public async Task<IActionResult> UpdateRole(Guid roleId, [FromBody] UpdateRoleDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var role = await _dbContext.Roles.FindAsync(roleId);
-            if (role == null) return NotFound("Role not found.");
-
-            role.Name = dto.Name;
-            role.Description = dto.Description;
-            role.IsActive = dto.IsActive;
-            role.UpdatedAt = DateTime.UtcNow;
-
-            _dbContext.Roles.Update(role);
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(role);
+            try
+            {
+                var role = await adminService.UpdateRoleAsync(roleId, dto);
+                return Ok(role);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         // --- PERMISSIONS MANAGEMENT ---
@@ -122,7 +62,7 @@ namespace demo1.Controllers
         public async Task<IActionResult> GetFeatures()
         {
             if (!await IsAdminAsync()) return Forbid();
-            var features = await _dbContext.Features.OrderBy(f => f.Name).ToListAsync();
+            var features = await adminService.GetFeaturesAsync();
             return Ok(features);
         }
 
@@ -130,24 +70,7 @@ namespace demo1.Controllers
         public async Task<IActionResult> CreateFeature([FromBody] CreateFeatureDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
-            if (string.IsNullOrWhiteSpace(dto.Code)) return BadRequest("Feature code is required.");
-            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Feature name is required.");
-
-            var exists = await _dbContext.Features.AnyAsync(f => f.Code.ToLower() == dto.Code.ToLower());
-            if (exists) return Conflict("Feature code already exists.");
-
-            var feature = new Feature
-            {
-                Code = dto.Code.Trim(),
-                Name = dto.Name.Trim(),
-                Description = dto.Description,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _dbContext.Features.Add(feature);
-            await _dbContext.SaveChangesAsync();
-
+            var feature = await adminService.CreateFeatureAsync(dto);
             return Ok(feature);
         }
 
@@ -155,40 +78,30 @@ namespace demo1.Controllers
         public async Task<IActionResult> UpdateFeature(Guid featureId, [FromBody] UpdateFeatureDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var feature = await _dbContext.Features.FindAsync(featureId);
-            if (feature == null) return NotFound("Feature not found.");
-
-            if (string.IsNullOrWhiteSpace(dto.Code)) return BadRequest("Feature code is required.");
-            if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Feature name is required.");
-
-            var exists = await _dbContext.Features.AnyAsync(f => f.Id != featureId && f.Code.ToLower() == dto.Code.ToLower());
-            if (exists) return Conflict("Feature code already exists.");
-
-            feature.Code = dto.Code.Trim();
-            feature.Name = dto.Name.Trim();
-            feature.Description = dto.Description;
-            feature.IsActive = dto.IsActive;
-
-            _dbContext.Features.Update(feature);
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(feature);
+            try
+            {
+                var feature = await adminService.UpdateFeatureAsync(featureId, dto);
+                return Ok(feature);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         [HttpDelete("features/{featureId:guid}")]
         public async Task<IActionResult> DeleteFeature(Guid featureId)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var feature = await _dbContext.Features.FindAsync(featureId);
-            if (feature == null) return NotFound("Feature not found.");
-
-            var relatedPermissions = await _dbContext.RolePermissions.Where(rp => rp.FeatureId == featureId).ToListAsync();
-            _dbContext.RolePermissions.RemoveRange(relatedPermissions);
-
-            _dbContext.Features.Remove(feature);
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(new { Message = "Feature deleted successfully." });
+            try
+            {
+                await adminService.DeleteFeatureAsync(featureId);
+                return Ok(new { Message = "Feature deleted successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         [HttpGet("roles/{roleId:guid}/permissions")]
@@ -196,58 +109,30 @@ namespace demo1.Controllers
         public async Task<IActionResult> GetRolePermissions(Guid roleId)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var role = await _dbContext.Roles.FindAsync(roleId);
-            if (role == null) return NotFound("Role not found.");
-
-            // Get existing permissions
-            var existingPermissions = await _dbContext.RolePermissions
-                .Where(rp => rp.RoleId == roleId)
-                .ToListAsync();
-
-            var features = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
-
-            var result = features.Select(f =>
+            try
             {
-                var perm = existingPermissions.FirstOrDefault(p => p.FeatureId == f.Id);
-                return new RolePermissionDto
-                {
-                    FeatureId = f.Id,
-                    FeatureCode = f.Code,
-                    FeatureName = f.Name,
-                    CanAccess = perm?.CanAccess ?? false,
-                    Permissions = perm?.Permissions ?? string.Empty
-                };
-            }).ToList();
-
-            return Ok(result);
+                var result = await adminService.GetRolePermissionsAsync(roleId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         [HttpPut("roles/{roleId:guid}/permissions")]
         public async Task<IActionResult> UpdateRolePermissions(Guid roleId, [FromBody] List<UpdateRolePermissionDto> permissions)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var role = await _dbContext.Roles.FindAsync(roleId);
-            if (role == null) return NotFound("Role not found.");
-
-            // Remove existing permissions
-            var existing = await _dbContext.RolePermissions.Where(rp => rp.RoleId == roleId).ToListAsync();
-            _dbContext.RolePermissions.RemoveRange(existing);
-
-            // Add new permissions
-            foreach (var perm in permissions)
+            try
             {
-                _dbContext.RolePermissions.Add(new RolePermission
-                {
-                    RoleId = roleId,
-                    FeatureId = perm.FeatureId,
-                    CanAccess = perm.CanAccess,
-                    Permissions = perm.Permissions ?? string.Empty,
-                    UpdatedAt = DateTime.UtcNow
-                });
+                await adminService.UpdateRolePermissionsAsync(roleId, permissions);
+                return Ok(new { Message = "Permissions updated successfully." });
             }
-
-            await _dbContext.SaveChangesAsync();
-            return Ok(new { Message = "Permissions updated successfully." });
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         // --- USER ROLES MANAGEMENT ---
@@ -257,25 +142,7 @@ namespace demo1.Controllers
         public async Task<IActionResult> GetUsers()
         {
             if (!await IsAdminAsync()) return Forbid();
-            
-            var users = await _dbContext.Users.OrderBy(u => u.Username).ToListAsync();
-            
-            var userRoles = await _dbContext.UserRoles
-                .Include(ur => ur.Role)
-                .ToListAsync();
-
-            var result = users.Select(u => new UserWithRolesDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                FullName = u.FullName,
-                Email = u.Email,
-                Phone = u.Phone,
-                IsActive = u.IsActive,
-                IsSystemAdmin = u.IsSystemAdmin,
-                Roles = userRoles.Where(ur => ur.UserId == u.Id && ur.Role != null).Select(ur => ur.Role!.Name).ToList()
-            }).ToList();
-
+            var result = await adminService.GetUsersWithRolesAsync();
             return Ok(result);
         }
 
@@ -284,109 +151,30 @@ namespace demo1.Controllers
         public async Task<IActionResult> GetUserRoles(Guid userId)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var user = await _dbContext.Users.FindAsync(userId);
-            if (user == null) return NotFound("User not found.");
-
-            var assignedRoleIds = await _dbContext.UserRoles
-                .Where(ur => ur.UserId == userId)
-                .Select(ur => ur.RoleId)
-                .ToListAsync();
-
-            return Ok(assignedRoleIds);
+            try
+            {
+                var assignedRoleIds = await adminService.GetUserRolesAsync(userId);
+                return Ok(assignedRoleIds);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
 
         [HttpPut("users/{userId:guid}/roles")]
         public async Task<IActionResult> UpdateUserRoles(Guid userId, [FromBody] UserRolesUpdateDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var user = await _dbContext.Users.FindAsync(userId);
-            if (user == null) return NotFound("User not found.");
-
-            // Remove existing user roles
-            var existing = await _dbContext.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
-            _dbContext.UserRoles.RemoveRange(existing);
-
-            // Add new user roles
-            if (dto.RoleIds != null)
+            try
             {
-                foreach (var roleId in dto.RoleIds)
-                {
-                    _dbContext.UserRoles.Add(new UserRole
-                    {
-                        UserId = userId,
-                        RoleId = roleId
-                    });
-                }
+                await adminService.UpdateUserRolesAsync(userId, dto);
+                return Ok(new { Message = "User roles updated successfully." });
             }
-
-            await _dbContext.SaveChangesAsync();
-            return Ok(new { Message = "User roles updated successfully." });
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
         }
     }
-
-    // --- DTO CLASSES ---
-
-    public class CreateRoleDto
-    {
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public bool? IsInherit { get; set; }
-        public Guid? InheritRoleId { get; set; }
-    }
-
-    public class UpdateRoleDto
-    {
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public bool IsActive { get; set; }
-    }
-
-    public class RolePermissionDto
-    {
-        public Guid FeatureId { get; set; }
-        public string FeatureCode { get; set; } = string.Empty;
-        public string FeatureName { get; set; } = string.Empty;
-        public bool CanAccess { get; set; }
-        public string Permissions { get; set; } = string.Empty;
-    }
-
-    public class UpdateRolePermissionDto
-    {
-        public Guid FeatureId { get; set; }
-        public bool CanAccess { get; set; }
-        public string Permissions { get; set; } = string.Empty;
-    }
-
-    public class UserWithRolesDto
-    {
-        public Guid Id { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
-        public string? Email { get; set; }
-        public string? Phone { get; set; }
-        public bool IsActive { get; set; }
-        public bool IsSystemAdmin { get; set; }
-        public List<string> Roles { get; set; } = new();
-    }
-
-    public class UserRolesUpdateDto
-    {
-        public List<Guid> RoleIds { get; set; } = new();
-    }
-
-    public class CreateFeatureDto
-    {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-    }
-
-    public class UpdateFeatureDto
-    {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public bool IsActive { get; set; }
-    }
 }
-
