@@ -167,7 +167,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        DbSet.Update(entity);
         await DbContext.SaveChangesAsync();
 
         return true;

@@ -275,8 +275,6 @@ namespace demo1.Services.Implements
                         user.IsSystemAdmin = dto.IsSystemAdmin;
                         user.UpdatedAt = DateTime.UtcNow;
 
-                        _dbContext.Users.Update(user);
-
                         // Cập nhật Role chỉ khi targetRole không null
                         if (targetRole != null)
                         {

@@ -104,6 +104,8 @@ builder.Services.AddScoped<IWarningService, WarningService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IPhongBanService, PhongBanService>();
+builder.Services.AddScoped<IChucVuService, ChucVuService>();
 builder.Services.AddSingleton<TotpService>();
 builder.Services.AddSingleton<RadiusClient>(sp =>
 {

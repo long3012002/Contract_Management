@@ -166,7 +166,6 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         UpdateEntity(entity, dto);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        DbSet.Update(entity);
         await DbContext.SaveChangesAsync();
 
         return true;

@@ -103,7 +103,6 @@ namespace demo1.Services.Implements
             role.IsActive = dto.IsActive;
             role.UpdatedAt = DateTime.UtcNow;
 
-            _dbContext.Roles.Update(role);
             await _dbContext.SaveChangesAsync();
             return role;
         }
@@ -172,7 +171,6 @@ namespace demo1.Services.Implements
             feature.Description = dto.Description;
             feature.IsActive = dto.IsActive;
 
-            _dbContext.Features.Update(feature);
             await _dbContext.SaveChangesAsync();
             return feature;
         }

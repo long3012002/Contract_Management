@@ -181,7 +181,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        DbSet.Update(entity);
         await DbContext.SaveChangesAsync();
 
         return true;
@@ -237,7 +236,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
                 ip.DuToanPheDuyet = totalAggregatedBudget;
                 ip.UpdatedAt = DateTime.UtcNow;
-                DbSet.Update(ip);
             }
         }
         await DbContext.SaveChangesAsync();
