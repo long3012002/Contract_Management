@@ -147,7 +147,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
 
         if (exists)
         {
-            throw new InvalidOperationException($"Ma '{code}' da ton tai.");
+            throw new InvalidOperationException($"Mã '{code}' đã tồn tại.");
         }
     }
 }

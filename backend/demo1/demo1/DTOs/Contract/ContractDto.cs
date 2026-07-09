@@ -8,8 +8,8 @@ public class ContractDto : IHasId
     public string ContractNumber { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public Guid? ProjectId { get; set; }
-    public Guid? BidPackageId { get; set; }
+    public Guid? DuAnId { get; set; }
+    public Guid? GoiThauId { get; set; }
     public decimal ContractValue { get; set; }
     public DateTime? SignedDate { get; set; }
     public DateTime? EffectiveDate { get; set; }

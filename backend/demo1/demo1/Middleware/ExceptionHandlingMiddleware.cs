@@ -23,21 +23,25 @@ public class ExceptionHandlingMiddleware
         }
         catch (ArgumentException ex)
         {
-            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Invalid request.", ex.Message);
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Yêu cầu không hợp lệ.", ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            await WriteErrorAsync(context, HttpStatusCode.NotFound, "Không tìm thấy tài nguyên.", ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Operation conflict.", ex.Message);
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Thao tác xung đột hoặc không hợp lệ.", ex.Message);
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Database update failed.");
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Database update failed.", "Please check duplicated or related data.");
+            _logger.LogError(ex, "Cập nhật cơ sở dữ liệu thất bại.");
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", "Vui lòng kiểm tra lại dữ liệu trùng lặp hoặc các ràng buộc liên quan.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled API error.");
-            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Internal server error.");
+            _logger.LogError(ex, "Lỗi hệ thống không xác định.");
+            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Lỗi hệ thống nội bộ.");
         }
     }
 

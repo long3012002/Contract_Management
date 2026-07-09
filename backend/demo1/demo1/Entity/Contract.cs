@@ -4,8 +4,8 @@ namespace demo1.Entity;
 
 public class Contract : BaseEntity
 {
-    public Guid? ProjectId { get; set; }
-    public Guid? BidPackageId { get; set; }
+    public Guid? DuAnId { get; set; }
+    public Guid? GoiThauId { get; set; }
     public decimal ContractValue { get; set; }
     public DateTime? SignedDate { get; set; }
     public DateTime? EffectiveDate { get; set; }

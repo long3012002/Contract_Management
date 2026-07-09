@@ -10,8 +10,9 @@ namespace demo1.Data
         {
         }
 
-        public DbSet<Project> Projects { get; set; } = null!;
-        public DbSet<BidPackage> BidPackages { get; set; } = null!;
+        public DbSet<DuAn> DuAns { get; set; } = null!;
+        public DbSet<GoiThau> GoiThaus { get; set; } = null!;
+        public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
         public DbSet<Contract> Contracts { get; set; } = null!;
         public DbSet<Partner> Partners { get; set; } = null!;
         public DbSet<ContractPartner> ContractPartners { get; set; } = null!;
@@ -30,29 +31,60 @@ namespace demo1.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            ConfigureBaseEntity(modelBuilder.Entity<Project>());
-            ConfigureBaseEntity(modelBuilder.Entity<BidPackage>());
+            ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<Contract>());
             ConfigureBaseEntity(modelBuilder.Entity<Partner>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
 
-            modelBuilder.Entity<Project>()
-                .Property(project => project.TotalBudget)
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.DuToanPheDuyet)
                 .HasPrecision(18, 2);
-            modelBuilder.Entity<Project>()
-                .Property(project => project.Status)
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.TrangThai)
                 .HasMaxLength(50);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.ChuDauTu)
+                .HasMaxLength(255);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.DiaDiemThucHien)
+                .HasMaxLength(500);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.ThoiGianThucHien)
+                .HasMaxLength(255);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.NguonDuAnIds)
+                .HasMaxLength(2000);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.NoiDung)
+                .HasMaxLength(2000);
+            modelBuilder.Entity<DuAn>()
+                .Property(da => da.ToChucThucHien)
+                .HasMaxLength(500);
 
-            modelBuilder.Entity<BidPackage>()
-                .Property(bidPackage => bidPackage.EstimatedValue)
+            modelBuilder.Entity<DieuChinhDuAn>()
+                .Property(dc => dc.GiaTriDieuChinh)
                 .HasPrecision(18, 2);
-            modelBuilder.Entity<BidPackage>()
-                .Property(bidPackage => bidPackage.WarningThresholdPercent)
+            modelBuilder.Entity<DieuChinhDuAn>()
+                .Property(dc => dc.LyDoDieuChinh)
+                .HasMaxLength(1000);
+            modelBuilder.Entity<DieuChinhDuAn>()
+                .HasOne(dc => dc.DuAn)
+                .WithMany(da => da.DieuChinhs)
+                .HasForeignKey(dc => dc.DuAnId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<GoiThau>()
+                .Property(gt => gt.GiaTriGoiThau)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<GoiThau>()
+                .Property(gt => gt.NguongCanhBaoPercent)
                 .HasPrecision(5, 2);
-            modelBuilder.Entity<BidPackage>()
-                .HasOne<Project>()
-                .WithMany()
-                .HasForeignKey(bidPackage => bidPackage.ProjectId)
+            modelBuilder.Entity<GoiThau>()
+                .HasOne(gt => gt.DuAn)
+                .WithMany(da => da.GoiThaus)
+                .HasForeignKey(gt => gt.DuAnId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Contract>()
@@ -62,14 +94,14 @@ namespace demo1.Data
                 .Property(contract => contract.Status)
                 .HasMaxLength(50);
             modelBuilder.Entity<Contract>()
-                .HasOne<Project>()
+                .HasOne<DuAn>()
                 .WithMany()
-                .HasForeignKey(contract => contract.ProjectId)
+                .HasForeignKey(contract => contract.DuAnId)
                 .OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Contract>()
-                .HasOne<BidPackage>()
+                .HasOne<GoiThau>()
                 .WithMany()
-                .HasForeignKey(contract => contract.BidPackageId)
+                .HasForeignKey(contract => contract.GoiThauId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Partner>()

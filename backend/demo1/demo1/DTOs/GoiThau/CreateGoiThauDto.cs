@@ -1,8 +1,9 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace demo1.DTOs;
 
-public class CreateProjectDto
+public class CreateGoiThauDto
 {
     [Required]
     [StringLength(50)]
@@ -15,9 +16,11 @@ public class CreateProjectDto
     [StringLength(1000)]
     public string? Description { get; set; }
 
-    [Range(0, double.MaxValue)]
-    public decimal TotalBudget { get; set; }
+    public Guid? DuAnId { get; set; }
 
-    [StringLength(50)]
-    public string Status { get; set; } = "Planning";
+    [Range(0, double.MaxValue)]
+    public decimal GiaTriGoiThau { get; set; }
+
+    [Range(0, 100)]
+    public decimal NguongCanhBaoPercent { get; set; } = 100;
 }

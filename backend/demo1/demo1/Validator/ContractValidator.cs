@@ -6,12 +6,12 @@ public static class ContractValidator
     {
         if (contractValue < 0)
         {
-            throw new ArgumentException("Gia tri hop dong khong duoc am.");
+            throw new ArgumentException("Giá trị hợp đồng không được âm.");
         }
 
         if (effectiveDate.HasValue && expiredDate.HasValue && expiredDate.Value.Date < effectiveDate.Value.Date)
         {
-            throw new ArgumentException("Ngay het han khong duoc nho hon ngay hieu luc.");
+            throw new ArgumentException("Ngày hết hạn không được nhỏ hơn ngày hiệu lực.");
         }
     }
 }

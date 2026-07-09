@@ -8,25 +8,44 @@ namespace demo1.Mapper
     {
         public MappingProfile()
         {
-            // Project mappings
-            CreateMap<Project, ProjectDto>();
-            CreateMap<CreateProjectDto, Project>()
+            // DuAn mappings
+            CreateMap<DuAn, DuAnDto>()
+                .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
+                    src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));
+            CreateMap<CreateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Status)));
-            CreateMap<UpdateProjectDto, Project>()
+                .ForMember(dest => dest.TrangThai, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.TrangThai)))
+                .ForMember(dest => dest.ChuDauTu, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ChuDauTu)))
+                .ForMember(dest => dest.DiaDiemThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.DiaDiemThucHien)))
+                .ForMember(dest => dest.ThoiGianThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiGianThucHien)))
+                .ForMember(dest => dest.NoiDung, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.NoiDung)))
+                .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
+                .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
+                .ForMember(dest => dest.NguonDuAnIds, opt => opt.Ignore()); // Will be set in service
+            CreateMap<UpdateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
-                .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Status)));
+                .ForMember(dest => dest.TrangThai, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.TrangThai)))
+                .ForMember(dest => dest.ChuDauTu, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ChuDauTu)))
+                .ForMember(dest => dest.DiaDiemThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.DiaDiemThucHien)))
+                .ForMember(dest => dest.ThoiGianThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiGianThucHien)))
+                .ForMember(dest => dest.NoiDung, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.NoiDung)))
+                .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
+                .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)));
 
-            // BidPackage mappings
-            CreateMap<BidPackage, BidPackageDto>();
-            CreateMap<CreateBidPackageDto, BidPackage>()
+            // DieuChinhDuAn mappings
+            CreateMap<DieuChinhDuAn, DieuChinhDuAnDto>();
+
+            // GoiThau mappings
+            CreateMap<GoiThau, GoiThauDto>()
+                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null));
+            CreateMap<CreateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
-            CreateMap<UpdateBidPackageDto, BidPackage>()
+            CreateMap<UpdateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 

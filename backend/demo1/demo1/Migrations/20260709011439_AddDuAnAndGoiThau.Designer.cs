@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260709011439_AddDuAnAndGoiThau")]
+    partial class AddDuAnAndGoiThau
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -240,9 +243,6 @@ namespace demo1.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("HinhThucQuanLy")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
@@ -270,17 +270,9 @@ namespace demo1.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
-                    b.Property<string>("NoiDung")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
                     b.Property<string>("ThoiGianThucHien")
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
-
-                    b.Property<string>("ToChucThucHien")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("TrangThai")
                         .IsRequired()

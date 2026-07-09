@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
 using demo1.Validator;
@@ -8,12 +12,12 @@ public class WarningService : IWarningService
 {
     private const int ExpiringSoonDays = 30;
     private readonly IContractService _contractService;
-    private readonly IBidPackageService _bidPackageService;
+    private readonly IGoiThauService _goiThauService;
 
-    public WarningService(IContractService contractService, IBidPackageService bidPackageService)
+    public WarningService(IContractService contractService, IGoiThauService goiThauService)
     {
         _contractService = contractService;
-        _bidPackageService = bidPackageService;
+        _goiThauService = goiThauService;
     }
 
     public async Task<List<ContractWarningDto>> GetContractsExpiringSoonAsync()
@@ -25,7 +29,7 @@ public class WarningService : IWarningService
             .Where(contract => contract.IsActive
                 && contract.IsRenewalRequired
                 && RenewalValidator.IsExpiringSoon(contract.ExpiredDate, today, ExpiringSoonDays))
-            .Select(contract => ToContractWarning(contract, today, "Hop dong sap het han."))
+            .Select(contract => ToContractWarning(contract, today, "Hợp đồng sắp hết hạn."))
             .ToList();
     }
 
@@ -36,38 +40,38 @@ public class WarningService : IWarningService
 
         return contracts
             .Where(contract => contract.IsActive && RenewalValidator.IsExpired(contract.ExpiredDate, today))
-            .Select(contract => ToContractWarning(contract, today, "Hop dong da het han."))
+            .Select(contract => ToContractWarning(contract, today, "Hợp đồng đã hết hạn."))
             .ToList();
     }
 
     public async Task<List<BudgetWarningDto>> GetOverBudgetContractsAsync()
     {
         var contracts = await _contractService.GetAllItemsAsync();
-        var bidPackages = await _bidPackageService.GetAllItemsAsync();
+        var goiThaus = await _goiThauService.GetAllItemsAsync();
 
         return contracts
-            .Where(contract => contract.IsActive && contract.BidPackageId.HasValue)
+            .Where(contract => contract.IsActive && contract.GoiThauId.HasValue)
             .Select(contract => new
             {
                 Contract = contract,
-                BidPackage = bidPackages.FirstOrDefault(item => item.Id == contract.BidPackageId.GetValueOrDefault())
+                GoiThau = goiThaus.FirstOrDefault(item => item.Id == contract.GoiThauId.GetValueOrDefault())
             })
-            .Where(item => item.BidPackage is not null
+            .Where(item => item.GoiThau is not null
                 && BudgetValidator.IsOverBudget(
                     item.Contract.ContractValue,
-                    item.BidPackage.EstimatedValue,
-                    item.BidPackage.WarningThresholdPercent))
+                    item.GoiThau.GiaTriGoiThau,
+                    item.GoiThau.NguongCanhBaoPercent))
             .Select(item => new BudgetWarningDto
             {
                 ContractId = item.Contract.Id,
                 ContractNumber = item.Contract.ContractNumber,
-                EstimatedValue = item.BidPackage!.EstimatedValue,
+                EstimatedValue = item.GoiThau!.GiaTriGoiThau,
                 ContractValue = item.Contract.ContractValue,
-                OverValue = item.Contract.ContractValue - item.BidPackage.EstimatedValue,
+                OverValue = item.Contract.ContractValue - item.GoiThau.GiaTriGoiThau,
                 UsedPercent = BudgetValidator.CalculateUsedPercent(
                     item.Contract.ContractValue,
-                    item.BidPackage.EstimatedValue),
-                WarningMessage = "Gia tri hop dong vuot nguong goi thau."
+                    item.GoiThau.GiaTriGoiThau),
+                WarningMessage = "Giá trị hợp đồng vượt ngưỡng gói thầu."
             })
             .ToList();
     }

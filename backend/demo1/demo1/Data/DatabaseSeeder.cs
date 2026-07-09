@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using demo1.Entity;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,31 +17,33 @@ public static class DatabaseSeeder
         var contractId = Guid.Parse("44444444-4444-4444-4444-444444444444");
         var resolutionId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
-        if (!await context.Projects.AnyAsync(project => project.Code == "PRJ-DEMO-001"))
+        if (!await context.DuAns.AnyAsync(da => da.Code == "PRJ-DEMO-001"))
         {
-            await context.Projects.AddAsync(new Project
+            await context.DuAns.AddAsync(new DuAn
             {
                 Id = projectId,
                 Code = "PRJ-DEMO-001",
                 Name = "Demo project",
                 Description = "Sample project for frontend integration.",
-                TotalBudget = 500000000,
-                Status = "Active",
+                DuToanPheDuyet = 500000000,
+                TrangThai = "Active",
+                LoaiDuAn = 1,
+                DaKetThuc = false,
                 CreatedAt = now
             });
         }
 
-        if (!await context.BidPackages.AnyAsync(bidPackage => bidPackage.Code == "BID-DEMO-001"))
+        if (!await context.GoiThaus.AnyAsync(gt => gt.Code == "BID-DEMO-001"))
         {
-            await context.BidPackages.AddAsync(new BidPackage
+            await context.GoiThaus.AddAsync(new GoiThau
             {
                 Id = bidPackageId,
-                ProjectId = projectId,
+                DuAnId = projectId,
                 Code = "BID-DEMO-001",
                 Name = "Demo bid package",
                 Description = "Sample bid package for API testing.",
-                EstimatedValue = 300000000,
-                WarningThresholdPercent = 90,
+                GiaTriGoiThau = 300000000,
+                NguongCanhBaoPercent = 90,
                 CreatedAt = now
             });
         }
@@ -64,8 +69,8 @@ public static class DatabaseSeeder
             await context.Contracts.AddAsync(new Contract
             {
                 Id = contractId,
-                ProjectId = projectId,
-                BidPackageId = bidPackageId,
+                DuAnId = projectId,
+                GoiThauId = bidPackageId,
                 Code = "CTR-DEMO-001",
                 Name = "Demo contract",
                 Description = "Sample contract for frontend screens.",

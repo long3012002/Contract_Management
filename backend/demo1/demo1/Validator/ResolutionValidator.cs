@@ -6,7 +6,7 @@ public static class ResolutionValidator
     {
         if (issuedDate.HasValue && effectiveDate.HasValue && effectiveDate.Value.Date < issuedDate.Value.Date)
         {
-            throw new ArgumentException("Ngay hieu luc khong duoc nho hon ngay ban hanh.");
+            throw new ArgumentException("Ngày hiệu lực không được nhỏ hơn ngày ban hành.");
         }
     }
 }

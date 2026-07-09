@@ -6,7 +6,7 @@ public static class PartnerValidator
     {
         if (!string.IsNullOrWhiteSpace(email) && !email.Contains('@'))
         {
-            throw new ArgumentException("Email doi tac khong hop le.");
+            throw new ArgumentException("Email đối tác không hợp lệ.");
         }
     }
 }

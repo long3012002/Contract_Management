@@ -95,9 +95,9 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IDuAnService, DuAnService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
-builder.Services.AddScoped<IBidPackageService, BidPackageService>();
+builder.Services.AddScoped<IGoiThauService, GoiThauService>();
 builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
@@ -217,6 +217,23 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
             RoleId = adminRole.Id
         });
         context.SaveChanges();
+
+        // Check and seed user anhld2 if not exists
+        if (!context.Users.Any(u => u.Username == "anhld2"))
+        {
+            var anhldUser = new demo1.Entity.User
+            {
+                Id = Guid.NewGuid(),
+                Username = "anhld2",
+                FullName = "Lê Đức Anh",
+                IsActive = true,
+                IsSystemAdmin = true,
+                IsTwoFactorEnabled = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.Users.Add(anhldUser);
+            context.SaveChanges();
+        }
     }
 }
 

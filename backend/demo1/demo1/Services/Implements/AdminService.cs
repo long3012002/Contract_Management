@@ -35,25 +35,25 @@ namespace demo1.Services.Implements
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
-                throw new ArgumentException("Role name is required.");
+                throw new ArgumentException("Tên vai trò là bắt buộc.");
             }
 
             var exists = await _dbContext.Roles.AnyAsync(r => r.Name.ToLower() == dto.Name.ToLower());
             if (exists)
             {
-                throw new InvalidOperationException("Role already exists.");
+                throw new InvalidOperationException("Vai trò đã tồn tại.");
             }
 
             if (dto.IsInherit == true)
             {
                 if (!dto.InheritRoleId.HasValue)
                 {
-                    throw new ArgumentException("InheritRoleId is required when IsInherit is true.");
+                    throw new ArgumentException("InheritRoleId là bắt buộc khi chọn kế thừa.");
                 }
                 var parentExists = await _dbContext.Roles.AnyAsync(r => r.Id == dto.InheritRoleId.Value);
                 if (!parentExists)
                 {
-                    throw new ArgumentException("Role to inherit from does not exist.");
+                    throw new ArgumentException("Vai trò kế thừa không tồn tại.");
                 }
             }
 
@@ -95,7 +95,7 @@ namespace demo1.Services.Implements
             var role = await _dbContext.Roles.FindAsync(roleId);
             if (role == null)
             {
-                throw new KeyNotFoundException("Role not found.");
+                throw new KeyNotFoundException("Không tìm thấy vai trò.");
             }
 
             role.Name = dto.Name;
@@ -117,17 +117,17 @@ namespace demo1.Services.Implements
         {
             if (string.IsNullOrWhiteSpace(dto.Code))
             {
-                throw new ArgumentException("Feature code is required.");
+                throw new ArgumentException("Mã tính năng là bắt buộc.");
             }
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
-                throw new ArgumentException("Feature name is required.");
+                throw new ArgumentException("Tên tính năng là bắt buộc.");
             }
 
             var exists = await _dbContext.Features.AnyAsync(f => f.Code.ToLower() == dto.Code.ToLower());
             if (exists)
             {
-                throw new InvalidOperationException("Feature code already exists.");
+                throw new InvalidOperationException("Mã tính năng đã tồn tại.");
             }
 
             var feature = new Feature
@@ -149,22 +149,22 @@ namespace demo1.Services.Implements
             var feature = await _dbContext.Features.FindAsync(featureId);
             if (feature == null)
             {
-                throw new KeyNotFoundException("Feature not found.");
+                throw new KeyNotFoundException("Không tìm thấy tính năng.");
             }
 
             if (string.IsNullOrWhiteSpace(dto.Code))
             {
-                throw new ArgumentException("Feature code is required.");
+                throw new ArgumentException("Mã tính năng là bắt buộc.");
             }
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
-                throw new ArgumentException("Feature name is required.");
+                throw new ArgumentException("Tên tính năng là bắt buộc.");
             }
 
             var exists = await _dbContext.Features.AnyAsync(f => f.Id != featureId && f.Code.ToLower() == dto.Code.ToLower());
             if (exists)
             {
-                throw new InvalidOperationException("Feature code already exists.");
+                throw new InvalidOperationException("Mã tính năng đã tồn tại.");
             }
 
             feature.Code = dto.Code.Trim();
@@ -182,7 +182,7 @@ namespace demo1.Services.Implements
             var feature = await _dbContext.Features.FindAsync(featureId);
             if (feature == null)
             {
-                throw new KeyNotFoundException("Feature not found.");
+                throw new KeyNotFoundException("Không tìm thấy tính năng.");
             }
 
             var relatedPermissions = await _dbContext.RolePermissions.Where(rp => rp.FeatureId == featureId).ToListAsync();
@@ -197,7 +197,7 @@ namespace demo1.Services.Implements
             var role = await _dbContext.Roles.FindAsync(roleId);
             if (role == null)
             {
-                throw new KeyNotFoundException("Role not found.");
+                throw new KeyNotFoundException("Không tìm thấy vai trò.");
             }
 
             var existingPermissions = await _dbContext.RolePermissions
@@ -227,7 +227,7 @@ namespace demo1.Services.Implements
             var role = await _dbContext.Roles.FindAsync(roleId);
             if (role == null)
             {
-                throw new KeyNotFoundException("Role not found.");
+                throw new KeyNotFoundException("Không tìm thấy vai trò.");
             }
 
             var existing = await _dbContext.RolePermissions.Where(rp => rp.RoleId == roleId).ToListAsync();
@@ -276,7 +276,7 @@ namespace demo1.Services.Implements
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                throw new KeyNotFoundException("User not found.");
+                throw new KeyNotFoundException("Không tìm thấy người dùng.");
             }
 
             var assignedRoleIds = await _dbContext.UserRoles
@@ -292,7 +292,7 @@ namespace demo1.Services.Implements
             var user = await _dbContext.Users.FindAsync(userId);
             if (user == null)
             {
-                throw new KeyNotFoundException("User not found.");
+                throw new KeyNotFoundException("Không tìm thấy người dùng.");
             }
 
             var existing = await _dbContext.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
