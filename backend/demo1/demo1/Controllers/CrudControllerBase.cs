@@ -22,9 +22,10 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     public async Task<ActionResult<PagedResult<TDto>>> GetAll(
         [FromQuery] string? search,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? cursor = null)
     {
-        var result = await _service.GetAllAsync(search, page, pageSize);
+        var result = await _service.GetAllAsync(search, page, pageSize, cursor);
         return Ok(result);
     }
 

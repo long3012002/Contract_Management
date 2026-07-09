@@ -94,6 +94,20 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Title)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Status)));
+
+            // PhongBan mappings
+            CreateMap<PhongBan, PhongBanDto>();
+            CreateMap<CreatePhongBanDto, PhongBan>();
+            CreateMap<UpdatePhongBanDto, PhongBan>();
+            CreateMap<PhongBanPermission, PhongBanPermissionDto>();
+            CreateMap<UpdatePhongBanPermissionDto, PhongBanPermission>();
+
+            // ChucVu mappings
+            CreateMap<ChucVu, ChucVuDto>();
+            CreateMap<CreateChucVuDto, ChucVu>();
+            CreateMap<UpdateChucVuDto, ChucVu>();
+            CreateMap<ChucVuPermission, ChucVuPermissionDto>();
+            CreateMap<UpdateChucVuPermissionDto, ChucVuPermission>();
         }
     }
 }

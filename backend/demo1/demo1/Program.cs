@@ -104,6 +104,8 @@ builder.Services.AddScoped<IWarningService, WarningService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IPhongBanService, PhongBanService>();
+builder.Services.AddScoped<IChucVuService, ChucVuService>();
 builder.Services.AddSingleton<TotpService>();
 builder.Services.AddSingleton<RadiusClient>(sp =>
 {
@@ -115,6 +117,10 @@ builder.Services.AddSingleton<RadiusClient>(sp =>
 
     return new RadiusClient(server, port, sharedSecret, timeout);
 });
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddHostedService<AuditLogRetentionWorker>();
 
 var app = builder.Build();
 

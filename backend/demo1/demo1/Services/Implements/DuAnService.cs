@@ -18,12 +18,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
     }
 
-    public override async Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize)
+    public override async Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        IQueryable<DuAn> query = DbSet.Include(da => da.DieuChinhs);
+        IQueryable<DuAn> query = DbSet.AsNoTracking().Include(da => da.DieuChinhs);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -32,11 +32,41 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         }
 
         var totalItems = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(item => item.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+
+        List<DuAn> items;
+        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+
+        if (isKeyset)
+        {
+            items = await query
+                .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+        else
+        {
+            items = await query
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        string? nextCursor = null;
+        if (items.Any())
+        {
+            var lastItem = items.Last();
+            var hasMore = await query
+                .Where(item => item.CreatedAt < lastItem.CreatedAt || (item.CreatedAt == lastItem.CreatedAt && item.Id.CompareTo(lastItem.Id) < 0))
+                .AnyAsync();
+            if (hasMore)
+            {
+                nextCursor = EncodeCursor(lastItem.CreatedAt, lastItem.Id);
+            }
+        }
 
         var dtos = Mapper.Map<List<DuAnDto>>(items);
 
@@ -45,7 +75,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             Items = dtos,
             Page = page,
             PageSize = pageSize,
-            TotalItems = totalItems
+            TotalItems = totalItems,
+            NextCursor = nextCursor
         };
     }
 
@@ -150,7 +181,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        DbSet.Update(entity);
         await DbContext.SaveChangesAsync();
 
         return true;
@@ -206,7 +236,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
                 ip.DuToanPheDuyet = totalAggregatedBudget;
                 ip.UpdatedAt = DateTime.UtcNow;
-                DbSet.Update(ip);
             }
         }
         await DbContext.SaveChangesAsync();
