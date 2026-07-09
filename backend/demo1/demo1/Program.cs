@@ -116,6 +116,10 @@ builder.Services.AddSingleton<RadiusClient>(sp =>
     return new RadiusClient(server, port, sharedSecret, timeout);
 });
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddHostedService<AuditLogRetentionWorker>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
