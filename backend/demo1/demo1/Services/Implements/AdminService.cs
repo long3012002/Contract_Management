@@ -248,15 +248,38 @@ namespace demo1.Services.Implements
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<UserWithRolesDto>> GetUsersWithRolesAsync()
+        public async Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize)
         {
-            var users = await _dbContext.Users.OrderBy(u => u.Username).ToListAsync();
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<User> query = _dbContext.Users.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                query = query.Where(u => 
+                    EF.Functions.Like(u.Username, $"%{keyword}%") || 
+                    EF.Functions.Like(u.FullName, $"%{keyword}%") ||
+                    (u.Email != null && EF.Functions.Like(u.Email, $"%{keyword}%"))
+                );
+            }
+
+            var totalItems = await query.CountAsync();
+            var users = await query
+                .OrderBy(u => u.Username)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
             
+            var userIds = users.Select(u => u.Id).ToList();
             var userRoles = await _dbContext.UserRoles
+                .AsNoTracking()
                 .Include(ur => ur.Role)
+                .Where(ur => userIds.Contains(ur.UserId))
                 .ToListAsync();
 
-            var result = users.Select(u => new UserWithRolesDto
+            var dtos = users.Select(u => new UserWithRolesDto
             {
                 Id = u.Id,
                 Username = u.Username,
@@ -268,7 +291,13 @@ namespace demo1.Services.Implements
                 Roles = userRoles.Where(ur => ur.UserId == u.Id && ur.Role != null).Select(ur => ur.Role!.Name).ToList()
             }).ToList();
 
-            return result;
+            return new PagedResult<UserWithRolesDto>
+            {
+                Items = dtos,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            };
         }
 
         public async Task<IEnumerable<Guid>> GetUserRolesAsync(Guid userId)

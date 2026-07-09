@@ -18,7 +18,7 @@ namespace demo1.Services.Interfaces
         Task DeleteFeatureAsync(Guid featureId);
         Task<IEnumerable<RolePermissionDto>> GetRolePermissionsAsync(Guid roleId);
         Task UpdateRolePermissionsAsync(Guid roleId, List<UpdateRolePermissionDto> permissions);
-        Task<IEnumerable<UserWithRolesDto>> GetUsersWithRolesAsync();
+        Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize);
         Task<IEnumerable<Guid>> GetUserRolesAsync(Guid userId);
         Task UpdateUserRolesAsync(Guid userId, UserRolesUpdateDto dto);
     }

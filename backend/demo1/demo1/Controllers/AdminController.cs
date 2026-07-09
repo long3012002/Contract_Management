@@ -138,11 +138,14 @@ namespace demo1.Controllers
         // --- USER ROLES MANAGEMENT ---
 
         [HttpGet("users")]
-        [ProducesResponseType(typeof(IEnumerable<UserWithRolesDto>), 200)]
-        public async Task<IActionResult> GetUsers()
+        [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), 200)]
+        public async Task<IActionResult> GetUsers(
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             if (!await IsAdminAsync()) return Forbid();
-            var result = await adminService.GetUsersWithRolesAsync();
+            var result = await adminService.GetUsersWithRolesAsync(search, page, pageSize);
             return Ok(result);
         }
 

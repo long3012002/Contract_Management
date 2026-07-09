@@ -18,12 +18,12 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
     }
 
-    public override async Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize)
+    public override async Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        IQueryable<GoiThau> query = DbSet.Include(gt => gt.DuAn);
+        IQueryable<GoiThau> query = DbSet.AsNoTracking().Include(gt => gt.DuAn);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -32,11 +32,41 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         }
 
         var totalItems = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(item => item.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+
+        List<GoiThau> items;
+        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+
+        if (isKeyset)
+        {
+            items = await query
+                .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+        else
+        {
+            items = await query
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        string? nextCursor = null;
+        if (items.Any())
+        {
+            var lastItem = items.Last();
+            var hasMore = await query
+                .Where(item => item.CreatedAt < lastItem.CreatedAt || (item.CreatedAt == lastItem.CreatedAt && item.Id.CompareTo(lastItem.Id) < 0))
+                .AnyAsync();
+            if (hasMore)
+            {
+                nextCursor = EncodeCursor(lastItem.CreatedAt, lastItem.Id);
+            }
+        }
 
         var dtos = Mapper.Map<List<GoiThauDto>>(items);
 
@@ -45,7 +75,8 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             Items = dtos,
             Page = page,
             PageSize = pageSize,
-            TotalItems = totalItems
+            TotalItems = totalItems,
+            NextCursor = nextCursor
         };
     }
 
