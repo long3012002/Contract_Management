@@ -5,16 +5,19 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using demo1.Data;
+using Microsoft.Extensions.Logging;
 
 namespace demo1.Middleware
 {
     public class AuditLogActionFilter : IAsyncActionFilter
     {
         private readonly AppDbContext _dbContext;
+        private readonly ILogger<AuditLogActionFilter> _logger;
 
-        public AuditLogActionFilter(AppDbContext dbContext)
+        public AuditLogActionFilter(AppDbContext dbContext, ILogger<AuditLogActionFilter> logger)
         {
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
@@ -68,10 +71,12 @@ namespace demo1.Middleware
 
                         _dbContext.AuditLogs.Add(auditLog);
                         await _dbContext.SaveChangesAsync();
+
+                        _logger.LogInformation($"[AuditLog] User '{username}' accessed {controllerName}.{actionName} | Method: {httpMethod} | Path: {path} | IP: {ipAddress} | Result: {(isSuccess ? "Success" : "Denied")}");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[AuditLogActionFilter Error]: {ex.Message}");
+                        _logger.LogError(ex, $"[AuditLog] Error auditing access for user '{username}'");
                     }
                 }
             }
@@ -79,23 +84,6 @@ namespace demo1.Middleware
 
         private string? GetClientIpAddress(Microsoft.AspNetCore.Http.HttpContext context)
         {
-            // 1. Try X-Forwarded-For
-            if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor) && !string.IsNullOrEmpty(forwardedFor))
-            {
-                var ip = forwardedFor.ToString().Split(',').FirstOrDefault()?.Trim();
-                if (!string.IsNullOrEmpty(ip))
-                {
-                    return CleanIpAddress(ip);
-                }
-            }
-
-            // 2. Try X-Real-IP
-            if (context.Request.Headers.TryGetValue("X-Real-IP", out var realIp) && !string.IsNullOrEmpty(realIp))
-            {
-                return CleanIpAddress(realIp.ToString().Trim());
-            }
-
-            // 3. Fallback to Connection Remote IP
             var remoteIp = context.Connection?.RemoteIpAddress;
             if (remoteIp != null)
             {
@@ -107,15 +95,6 @@ namespace demo1.Middleware
             }
 
             return null;
-        }
-
-        private string CleanIpAddress(string ip)
-        {
-            if (ip.StartsWith("::ffff:", StringComparison.OrdinalIgnoreCase))
-            {
-                return ip.Substring(7);
-            }
-            return ip;
         }
     }
 }

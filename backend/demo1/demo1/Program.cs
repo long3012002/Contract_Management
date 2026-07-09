@@ -12,8 +12,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
+using demo1.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddFile(Path.Combine(builder.Environment.ContentRootPath, "debug.log"));
 
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

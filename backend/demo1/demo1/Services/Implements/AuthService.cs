@@ -10,9 +10,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using demo1.Data;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
 
 namespace demo1.Services.Implements
 {
@@ -23,19 +24,22 @@ namespace demo1.Services.Implements
         private readonly AppDbContext _dbContext;
         private readonly TotpService _totpService;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             RadiusClient radiusClient,
             IConfiguration configuration,
             AppDbContext dbContext,
             TotpService totpService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            ILogger<AuthService> logger)
         {
             _radiusClient = radiusClient;
             _configuration = configuration;
             _dbContext = dbContext;
             _totpService = totpService;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public async Task<AuthResult> LoginAsync(LoginRequest request)
@@ -431,12 +435,17 @@ namespace demo1.Services.Implements
             var context = _httpContextAccessor.HttpContext;
             if (context == null) return null;
 
-            if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+            var remoteIp = context.Connection?.RemoteIpAddress;
+            if (remoteIp != null)
             {
-                return forwardedFor.FirstOrDefault();
+                if (remoteIp.IsIPv4MappedToIPv6)
+                {
+                    return remoteIp.MapToIPv4().ToString();
+                }
+                return remoteIp.ToString();
             }
 
-            return context.Connection?.RemoteIpAddress?.ToString();
+            return null;
         }
 
         private async Task LogAuthEventAsync(string username, string action, string details, string? userId = null)
@@ -458,10 +467,12 @@ namespace demo1.Services.Implements
 
                 _dbContext.AuditLogs.Add(auditLog);
                 await _dbContext.SaveChangesAsync();
+
+                _logger.LogInformation($"[AuthEvent] {action} | User: '{username}' | IP: {ipAddress} | Details: {details}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[LogAuthEventAsync Error]: {ex.Message}");
+                _logger.LogError(ex, $"[AuthEvent] Error logging auth event for user '{username}'");
             }
         }
     }
