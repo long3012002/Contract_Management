@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend:
+    image: qlda-backend:latest
+    build:
+      context: .
+      dockerfile: demo1/Dockerfile
+    container_name: qlda-backend-container
+    ports:
+      - "64950:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    restart: always

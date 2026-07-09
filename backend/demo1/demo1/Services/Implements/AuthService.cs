@@ -12,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace demo1.Services.Implements
 {
@@ -21,17 +22,20 @@ namespace demo1.Services.Implements
         private readonly IConfiguration _configuration;
         private readonly AppDbContext _dbContext;
         private readonly TotpService _totpService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public AuthService(
             RadiusClient radiusClient,
             IConfiguration configuration,
             AppDbContext dbContext,
-            TotpService totpService)
+            TotpService totpService,
+            IHttpContextAccessor httpContextAccessor)
         {
             _radiusClient = radiusClient;
             _configuration = configuration;
             _dbContext = dbContext;
             _totpService = totpService;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<AuthResult> LoginAsync(LoginRequest request)
@@ -63,12 +67,14 @@ namespace demo1.Services.Implements
                     }
                     else
                     {
+                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
                         return AuthResult.Fail(403, "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
                     }
                 }
 
                 if (!dbUser.IsActive)
                 {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản đang bị khóa hoặc ngưng hoạt động.", dbUser.Id.ToString());
                     return AuthResult.Fail(403, "Tài khoản đang bị khóa hoặc ngưng hoạt động.");
                 }
 
@@ -80,6 +86,8 @@ namespace demo1.Services.Implements
                     dbUser.RefreshTokenHash = ComputeHash(refreshToken);
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                     await _dbContext.SaveChangesAsync();
+
+                    await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Bypass Login Success (Dev Mode)", dbUser.Id.ToString());
 
                     return AuthResult.Success(new LoginResponse
                     {
@@ -128,6 +136,7 @@ namespace demo1.Services.Implements
             }
             else
             {
+                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Sai tài khoản hoặc mật khẩu");
                 return AuthResult.Fail(401, "Sai tài khoản hoặc mật khẩu");
             }
         }
@@ -227,6 +236,7 @@ namespace demo1.Services.Implements
             bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
             if (!isValid)
             {
+                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Kích hoạt 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
                 return AuthResult.Fail(400, "Mã OTP không chính xác.");
             }
 
@@ -240,6 +250,8 @@ namespace demo1.Services.Implements
             dbUser.RefreshTokenHash = ComputeHash(refreshToken);
             dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
             await _dbContext.SaveChangesAsync();
+
+            await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Kích hoạt xác thực 2 lớp thành công", dbUser.Id.ToString());
 
             return AuthResult.Success(new LoginResponse
             {
@@ -277,6 +289,7 @@ namespace demo1.Services.Implements
             bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
             if (!isValid)
             {
+                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Xác thực 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
                 return AuthResult.Fail(400, "Mã OTP không chính xác.");
             }
 
@@ -287,6 +300,8 @@ namespace demo1.Services.Implements
             dbUser.RefreshTokenHash = ComputeHash(refreshToken);
             dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
             await _dbContext.SaveChangesAsync();
+
+            await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập xác thực 2 lớp thành công", dbUser.Id.ToString());
 
             return AuthResult.Success(new LoginResponse
             {
@@ -310,6 +325,11 @@ namespace demo1.Services.Implements
                 dbUser.RefreshTokenHash = null;
                 dbUser.RefreshTokenExpiryTime = null;
                 await _dbContext.SaveChangesAsync();
+                await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công", dbUser.Id.ToString());
+            }
+            else
+            {
+                await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công");
             }
 
             return AuthResult.Success(new LoginResponse { Message = "Đăng xuất thành công" });
@@ -403,6 +423,45 @@ namespace demo1.Services.Implements
             {
                 var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
                 return Convert.ToBase64String(bytes);
+            }
+        }
+
+        private string? GetClientIpAddress()
+        {
+            var context = _httpContextAccessor.HttpContext;
+            if (context == null) return null;
+
+            if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+            {
+                return forwardedFor.FirstOrDefault();
+            }
+
+            return context.Connection?.RemoteIpAddress?.ToString();
+        }
+
+        private async Task LogAuthEventAsync(string username, string action, string details, string? userId = null)
+        {
+            try
+            {
+                var ipAddress = GetClientIpAddress();
+                var auditLog = new demo1.Entity.AuditLog
+                {
+                    UserId = userId,
+                    Username = username,
+                    Action = action,
+                    TableName = "Users",
+                    EntityId = username,
+                    Timestamp = DateTime.UtcNow,
+                    IpAddress = ipAddress,
+                    NewValues = details
+                };
+
+                _dbContext.AuditLogs.Add(auditLog);
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LogAuthEventAsync Error]: {ex.Message}");
             }
         }
     }
