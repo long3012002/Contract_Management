@@ -179,5 +179,19 @@ namespace demo1.Controllers
                 return NotFound(new { Message = ex.Message });
             }
         }
+
+        [HttpGet("audit-logs")]
+        [ProducesResponseType(typeof(PagedResult<AuditLog>), 200)]
+        public async Task<IActionResult> GetAuditLogs(
+            [FromQuery] string? userId,
+            [FromQuery] DateTime? date,
+            [FromQuery] string? tableName,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            var result = await adminService.GetAuditLogsAsync(userId, date, tableName, page, pageSize);
+            return Ok(result);
+        }
     }
 }

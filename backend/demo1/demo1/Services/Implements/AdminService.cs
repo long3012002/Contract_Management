@@ -339,5 +339,46 @@ namespace demo1.Services.Implements
 
             await _dbContext.SaveChangesAsync();
         }
+
+        public async Task<PagedResult<AuditLog>> GetAuditLogsAsync(string? userId, DateTime? date, string? tableName, int page, int pageSize)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<AuditLog> query = _dbContext.AuditLogs.AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                query = query.Where(a => a.UserId == userId);
+            }
+
+            if (date.HasValue)
+            {
+                var startDate = date.Value.Date;
+                var endDate = startDate.AddDays(1);
+                query = query.Where(a => a.Timestamp >= startDate && a.Timestamp < endDate);
+            }
+
+            if (!string.IsNullOrWhiteSpace(tableName))
+            {
+                var nameLower = tableName.Trim().ToLower();
+                query = query.Where(a => a.TableName.ToLower() == nameLower);
+            }
+
+            var totalItems = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(a => a.Timestamp)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<AuditLog>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            };
+        }
     }
 }

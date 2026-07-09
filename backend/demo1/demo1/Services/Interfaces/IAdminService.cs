@@ -21,5 +21,6 @@ namespace demo1.Services.Interfaces
         Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize);
         Task<IEnumerable<Guid>> GetUserRolesAsync(Guid userId);
         Task UpdateUserRolesAsync(Guid userId, UserRolesUpdateDto dto);
+        Task<PagedResult<AuditLog>> GetAuditLogsAsync(string? userId, DateTime? date, string? tableName, int page, int pageSize);
     }
 }
