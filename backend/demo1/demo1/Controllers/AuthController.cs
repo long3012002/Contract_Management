@@ -21,9 +21,10 @@ namespace demo1.Controllers
 
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(LoginResponse), 200)]
-        public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+        public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request)
         {
-            var result = await authService.RefreshAsync(request);
+            var token = Request.Cookies["refreshToken"] ?? request?.RefreshToken;
+            var result = await authService.RefreshAsync(new RefreshRequest { RefreshToken = token ?? "" });
             return HandleResult(result);
         }
 
@@ -56,6 +57,10 @@ namespace demo1.Controllers
             }
 
             var result = await authService.LogoutAsync(username);
+            if (result.IsSuccess)
+            {
+                Response.Cookies.Delete("refreshToken");
+            }
             return HandleResult(result);
         }
 
@@ -63,6 +68,20 @@ namespace demo1.Controllers
         {
             if (result.IsSuccess)
             {
+                if (result.Response != null && !string.IsNullOrEmpty(result.Response.RefreshToken))
+                {
+                    var cookieOptions = new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = false, // Set to false to support local testing on HTTP/Localhost
+                        SameSite = SameSiteMode.Lax,
+                        Expires = DateTimeOffset.UtcNow.AddMinutes(10080)
+                    };
+                    Response.Cookies.Append("refreshToken", result.Response.RefreshToken, cookieOptions);
+                    
+                    // Clear the token in the JSON body so frontend script cannot access it
+                    result.Response.RefreshToken = null;
+                }
                 return Ok(result.Response);
             }
 
