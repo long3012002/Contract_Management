@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
 
@@ -11,6 +12,7 @@ namespace demo1.Controllers
     [Route("api/[controller]")]
     public class AuthController(IAuthService authService) : ControllerBase
     {
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("login")]
         [ProducesResponseType(typeof(LoginResponse), 200)]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)

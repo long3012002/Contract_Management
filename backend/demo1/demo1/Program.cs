@@ -13,6 +13,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.HttpOverrides;
 using demo1.Logging;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -139,6 +141,37 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new ApiErrorResponse
+        {
+            Message = "Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau 1 phút.",
+            Detail = "Too many login attempts. Please try again after 1 minute."
+        }, token);
+    };
+
+    options.AddPolicy("LoginPolicy", httpContext =>
+    {
+        var loginPermitLimit = builder.Configuration.GetValue<int>("RateLimiting:Login:PermitLimit", 5);
+        var loginWindowMinutes = builder.Configuration.GetValue<int>("RateLimiting:Login:WindowMinutes", 1);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: partition => new FixedWindowRateLimiterOptions
+            {
+                AutoReplenishment = true,
+                PermitLimit = loginPermitLimit,
+                QueueLimit = 0,
+                Window = TimeSpan.FromMinutes(loginWindowMinutes)
+            });
+    });
+});
+
 var app = builder.Build();
 
 app.UseForwardedHeaders();
@@ -151,6 +184,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("DefaultCors");
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
