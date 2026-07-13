@@ -46,4 +46,57 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         var result = await _duAnService.GetAdjustmentsAsync(id);
         return Ok(result);
     }
+
+    [HttpPost("{id}/advance-status")]
+    public async Task<ActionResult<DuAnDto>> AdvanceStatus(Guid id)
+    {
+        try
+        {
+            var result = await _duAnService.AdvanceStatusAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/close")]
+    public async Task<ActionResult<DuAnDto>> CloseProject(Guid id)
+    {
+        try
+        {
+            var result = await _duAnService.CloseProjectAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("{id}/goi-thau")]
+    public async Task<ActionResult<IReadOnlyList<GoiThauDto>>> GetGoiThaus(Guid id)
+    {
+        var result = await _duAnService.GetGoiThausByProjectIdAsync(id);
+        return Ok(result);
+    }
+
+    [HttpGet("{id}/hop-dong")]
+    public async Task<ActionResult<IReadOnlyList<HopDongDto>>> GetHopDongs(Guid id)
+    {
+        var result = await _duAnService.GetHopDongsByProjectIdAsync(id);
+        return Ok(result);
+    }
+
+    [HttpGet("{id}/audit-log")]
+    public async Task<ActionResult<IReadOnlyList<demo1.Entity.AuditLog>>> GetAuditLogs(Guid id)
+    {
+        var result = await _duAnService.GetAuditLogsByProjectIdAsync(id);
+        return Ok(result);
+    }
 }

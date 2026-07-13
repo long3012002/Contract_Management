@@ -251,4 +251,93 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                                          .ToListAsync();
         return Mapper.Map<List<DieuChinhDuAnDto>>(adjustments);
     }
+
+    public async Task<DuAnDto> AdvanceStatusAsync(Guid id)
+    {
+        var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        if (entity.TrangThai >= (int)TrangThaiDuAn.HoanThanh)
+        {
+            throw new InvalidOperationException("Dự án đã ở trạng thái hoàn thành hoặc cao hơn, không thể chuyển tiếp.");
+        }
+
+        entity.TrangThai += 1;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await DbContext.SaveChangesAsync();
+
+        return Mapper.Map<DuAnDto>(entity);
+    }
+
+    public async Task<DuAnDto> CloseProjectAsync(Guid id)
+    {
+        var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        entity.TrangThai = (int)TrangThaiDuAn.HoanThanh;
+        entity.DaKetThuc = true;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await DbContext.SaveChangesAsync();
+
+        return Mapper.Map<DuAnDto>(entity);
+    }
+
+    public async Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id)
+    {
+        var items = await DbContext.GoiThaus
+                                   .Where(gt => gt.DuAnId == id)
+                                   .ToListAsync();
+        return Mapper.Map<List<GoiThauDto>>(items);
+    }
+
+    public async Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id)
+    {
+        var items = await DbContext.HopDongs
+                                   .Include(hd => hd.GoiThau)
+                                   .Where(hd => hd.GoiThau != null && hd.GoiThau.DuAnId == id)
+                                   .ToListAsync();
+        return Mapper.Map<List<HopDongDto>>(items);
+    }
+
+    public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
+    {
+        var projectIdStr = id.ToString();
+
+        var dieuChinhIds = await DbContext.DieuChinhDuAns
+                                          .Where(dc => dc.DuAnId == id)
+                                          .Select(dc => dc.Id.ToString())
+                                          .ToListAsync();
+
+        var goiThauIds = await DbContext.GoiThaus
+                                        .Where(gt => gt.DuAnId == id)
+                                        .Select(gt => gt.Id.ToString())
+                                        .ToListAsync();
+
+        var hopDongIds = await DbContext.HopDongs
+                                        .Include(hd => hd.GoiThau)
+                                        .Where(hd => hd.GoiThau != null && hd.GoiThau.DuAnId == id)
+                                        .Select(hd => hd.Id.ToString())
+                                        .ToListAsync();
+
+        var logs = await DbContext.AuditLogs
+                                  .Where(log => 
+                                      (log.TableName == nameof(AppDbContext.DuAns) && log.EntityId == projectIdStr) ||
+                                      (log.TableName == nameof(AppDbContext.DieuChinhDuAns) && dieuChinhIds.Contains(log.EntityId)) ||
+                                      (log.TableName == nameof(AppDbContext.GoiThaus) && goiThauIds.Contains(log.EntityId)) ||
+                                      (log.TableName == nameof(AppDbContext.HopDongs) && hopDongIds.Contains(log.EntityId))
+                                  )
+                                  .OrderByDescending(log => log.Timestamp)
+                                  .ToListAsync();
+
+        return logs;
+    }
 }
+
