@@ -35,6 +35,8 @@ namespace demo1.Data
         public DbSet<ChucVu> ChucVus { get; set; } = null!;
         public DbSet<PhongBanPermission> PhongBanPermissions { get; set; } = null!;
         public DbSet<ChucVuPermission> ChucVuPermissions { get; set; } = null!;
+        public DbSet<Notification> Notifications { get; set; } = null!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -203,6 +205,19 @@ namespace demo1.Data
                 entity.Property(e => e.Username).HasMaxLength(255);
                 entity.Property(e => e.UserId).HasMaxLength(255);
                 entity.Property(e => e.IpAddress).HasMaxLength(100);
+            });
+
+            // Configure Notification entity
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Title).HasMaxLength(255).IsRequired();
+                entity.Property(e => e.Content).HasMaxLength(1000).IsRequired();
+                entity.Property(e => e.Link).HasMaxLength(500);
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
         private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)

@@ -114,6 +114,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.Configure<demo1.DTOs.Common.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IPhongBanService, PhongBanService>();
@@ -133,6 +135,7 @@ builder.Services.AddSingleton<RadiusClient>(sp =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddHostedService<AuditLogRetentionWorker>();
+builder.Services.AddHostedService<ContractScanWorker>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -300,5 +303,12 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
         await DatabaseSeeder.SeedAsync(context);
     }
 }
+
+//if (app.Environment.IsDevelopment())
+//{
+//    using var scope = app.Services.CreateScope();
+//    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+//    context.Database.ExecuteSqlRaw("DELETE FROM Notifications");
+//}
 
 app.Run();
