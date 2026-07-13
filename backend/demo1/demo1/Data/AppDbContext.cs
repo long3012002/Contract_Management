@@ -127,6 +127,12 @@ namespace demo1.Data
                 .HasForeignKey(hd => hd.NhaThauId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<HopDong>()
+                .HasOne(hd => hd.DuAn)
+                .WithMany()
+                .HasForeignKey(hd => hd.DuAnId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<DoiTac>()
                 .Property(dt => dt.TaxCode)
                 .HasMaxLength(50);

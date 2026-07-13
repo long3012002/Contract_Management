@@ -14,6 +14,7 @@ public class UpdateHopDongDto
     public string? Description { get; set; }
 
     public Guid? GoiThauId { get; set; }
+    public Guid? DuAnId { get; set; }
     public Guid? ChuDauTuId { get; set; }
     public Guid? NhaThauId { get; set; }
 

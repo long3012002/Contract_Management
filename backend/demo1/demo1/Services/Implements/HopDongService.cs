@@ -25,6 +25,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         IQueryable<HopDong> query = DbSet.AsNoTracking()
             .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans);
@@ -91,6 +92,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     {
         var items = await DbSet
             .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
@@ -102,6 +104,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     {
         var entity = await DbSet
             .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
@@ -112,6 +115,16 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     public override async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
     {
         HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
+
+        // Check DuAn existence
+        if (dto.DuAnId.HasValue)
+        {
+            var duAnExists = await DbContext.DuAns.AnyAsync(da => da.Id == dto.DuAnId.Value);
+            if (!duAnExists)
+            {
+                throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
+            }
+        }
 
         // Check GoiThau uniqueness for contracts
         if (dto.GoiThauId.HasValue)
@@ -170,6 +183,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         var reloaded = await DbSet
             .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
@@ -187,6 +201,16 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
+
+        // Check DuAn existence
+        if (dto.DuAnId.HasValue)
+        {
+            var duAnExists = await DbContext.DuAns.AnyAsync(da => da.Id == dto.DuAnId.Value);
+            if (!duAnExists)
+            {
+                throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
+            }
+        }
 
         // Check GoiThau uniqueness for contracts
         if (dto.GoiThauId.HasValue)

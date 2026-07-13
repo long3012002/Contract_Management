@@ -8,6 +8,9 @@ public class HopDong : BaseEntity
     public Guid? GoiThauId { get; set; }
     public virtual GoiThau? GoiThau { get; set; }
 
+    public Guid? DuAnId { get; set; }
+    public virtual DuAn? DuAn { get; set; }
+
     public Guid? ChuDauTuId { get; set; }
     public virtual DoiTac? ChuDauTu { get; set; }
 
