@@ -2,7 +2,7 @@ using System;
 
 namespace demo1.DTOs;
 
-public class PartnerDto : IHasId
+public class DoiTacDto : IHasId
 {
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
@@ -12,6 +12,9 @@ public class PartnerDto : IHasId
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Address { get; set; }
+    public string? Account { get; set; }
+    public string? Representative { get; set; }
+    public string? Position { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

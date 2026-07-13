@@ -107,10 +107,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<IDuAnService, DuAnService>();
-builder.Services.AddScoped<IPartnerService, PartnerService>();
-builder.Services.AddScoped<IGoiThauService, GoiThauService>();
-builder.Services.AddScoped<IContractService, ContractService>();
+    builder.Services.AddScoped<IDuAnService, DuAnService>();
+    builder.Services.AddScoped<IDoiTacService, DoiTacService>();
+    builder.Services.AddScoped<IGoiThauService, GoiThauService>();
+    builder.Services.AddScoped<IHopDongService, HopDongService>();
 builder.Services.AddScoped<IResolutionService, ResolutionService>();
 builder.Services.AddScoped<IWarningService, WarningService>();
 builder.Services.AddScoped<IUserService, UserService>();

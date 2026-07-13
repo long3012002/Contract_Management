@@ -22,9 +22,9 @@ namespace demo1.Data
         public DbSet<DuAn> DuAns { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
-        public DbSet<Contract> Contracts { get; set; } = null!;
-        public DbSet<Partner> Partners { get; set; } = null!;
-        public DbSet<ContractPartner> ContractPartners { get; set; } = null!;
+        public DbSet<HopDong> HopDongs { get; set; } = null!;
+        public DbSet<DoiTac> DoiTacs { get; set; } = null!;
+        public DbSet<DotThanhToan> DotThanhToans { get; set; } = null!;
         public DbSet<Resolution> Resolutions { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
@@ -43,16 +43,14 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
-            ConfigureBaseEntity(modelBuilder.Entity<Contract>());
-            ConfigureBaseEntity(modelBuilder.Entity<Partner>());
+            ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
+            ConfigureBaseEntity(modelBuilder.Entity<DoiTac>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
 
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.DuToanPheDuyet)
                 .HasPrecision(18, 2);
-            modelBuilder.Entity<DuAn>()
-                .Property(da => da.TrangThai)
-                .HasMaxLength(50);
+
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.ChuDauTu)
                 .HasMaxLength(255);
@@ -96,42 +94,82 @@ namespace demo1.Data
                 .HasForeignKey(gt => gt.DuAnId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Contract>()
-                .Property(contract => contract.ContractValue)
+            modelBuilder.Entity<HopDong>()
+                .Property(hd => hd.GiaTriHopDong)
                 .HasPrecision(18, 2);
-            modelBuilder.Entity<Contract>()
-                .Property(contract => contract.Status)
-                .HasMaxLength(50);
-            modelBuilder.Entity<Contract>()
-                .HasOne<DuAn>()
+            modelBuilder.Entity<HopDong>()
+                .Property(hd => hd.ThoiHanThucHien)
+                .HasMaxLength(255);
+            modelBuilder.Entity<HopDong>()
+                .Property(hd => hd.DiaDiemThucHien)
+                .HasMaxLength(500);
+
+            // Configure unique index on GoiThauId for 1-to-1 relationship
+            modelBuilder.Entity<HopDong>()
+                .HasIndex(hd => hd.GoiThauId)
+                .IsUnique();
+
+            modelBuilder.Entity<HopDong>()
+                .HasOne(hd => hd.GoiThau)
                 .WithMany()
-                .HasForeignKey(contract => contract.DuAnId)
-                .OnDelete(DeleteBehavior.SetNull);
-            modelBuilder.Entity<Contract>()
-                .HasOne<GoiThau>()
-                .WithMany()
-                .HasForeignKey(contract => contract.GoiThauId)
+                .HasForeignKey(hd => hd.GoiThauId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Partner>()
-                .Property(partner => partner.TaxCode)
+            modelBuilder.Entity<HopDong>()
+                .HasOne(hd => hd.ChuDauTu)
+                .WithMany()
+                .HasForeignKey(hd => hd.ChuDauTuId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<HopDong>()
+                .HasOne(hd => hd.NhaThau)
+                .WithMany()
+                .HasForeignKey(hd => hd.NhaThauId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.TaxCode)
                 .HasMaxLength(50);
-            modelBuilder.Entity<Partner>()
-                .Property(partner => partner.Phone)
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Phone)
                 .HasMaxLength(30);
-            modelBuilder.Entity<Partner>()
-                .Property(partner => partner.Email)
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Email)
                 .HasMaxLength(255);
-            modelBuilder.Entity<Partner>()
-                .Property(partner => partner.Address)
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Address)
                 .HasMaxLength(500);
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Account)
+                .HasMaxLength(100);
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Representative)
+                .HasMaxLength(255);
+            modelBuilder.Entity<DoiTac>()
+                .Property(dt => dt.Position)
+                .HasMaxLength(255);
+
+            modelBuilder.Entity<DotThanhToan>()
+                .HasKey(d => d.Id);
+            modelBuilder.Entity<DotThanhToan>()
+                .Property(d => d.TenDot)
+                .HasMaxLength(255)
+                .IsRequired();
+            modelBuilder.Entity<DotThanhToan>()
+                .Property(d => d.TyLeThanhToan)
+                .HasPrecision(5, 2);
+            modelBuilder.Entity<DotThanhToan>()
+                .Property(d => d.GiaTriThanhToan)
+                .HasPrecision(18, 2);
+            modelBuilder.Entity<DotThanhToan>()
+                .HasOne(d => d.HopDong)
+                .WithMany(h => h.DotThanhToans)
+                .HasForeignKey(d => d.HopDongId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Resolution>()
                 .Property(resolution => resolution.FileUrl)
                 .HasMaxLength(1000);
-
-            modelBuilder.Entity<ContractPartner>()
-                .HasKey(cp => new { cp.ContractId, cp.PartnerId });
 
             // Configure composite key for UserRole
             modelBuilder.Entity<UserRole>()

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260710091855_UpdateTrangThaiToInt")]
+    partial class UpdateTrangThaiToInt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -114,6 +117,94 @@ namespace demo1.Migrations
                     b.ToTable("ChucVuPermissions");
                 });
 
+            modelBuilder.Entity("demo1.Entity.Contract", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<decimal>("ContractValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<Guid?>("DuAnId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("EffectiveDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ExpiredDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("GoiThauId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRenewalRequired")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("RenewalReminderDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("SignedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("DuAnId");
+
+                    b.HasIndex("GoiThauId");
+
+                    b.ToTable("Contracts");
+                });
+
+            modelBuilder.Entity("demo1.Entity.ContractPartner", b =>
+                {
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("ContractId", "PartnerId");
+
+                    b.ToTable("ContractPartners");
+                });
+
             modelBuilder.Entity("demo1.Entity.DieuChinhDuAn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -166,106 +257,6 @@ namespace demo1.Migrations
                     b.HasIndex("DuAnId");
 
                     b.ToTable("DieuChinhDuAns");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DoiTac", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Account")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(30)
-                        .HasColumnType("varchar(30)");
-
-                    b.Property<string>("Position")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Representative")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("TaxCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("DoiTacs");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DotThanhToan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<decimal>("GiaTriThanhToan")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("HopDongId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("TenDot")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<decimal>("TyLeThanhToan")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("HopDongId");
-
-                    b.ToTable("DotThanhToans");
                 });
 
             modelBuilder.Entity("demo1.Entity.DuAn", b =>
@@ -435,14 +426,15 @@ namespace demo1.Migrations
                     b.ToTable("GoiThaus");
                 });
 
-            modelBuilder.Entity("demo1.Entity.HopDong", b =>
+            modelBuilder.Entity("demo1.Entity.Partner", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("ChuDauTuId")
-                        .HasColumnType("char(36)");
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -456,66 +448,35 @@ namespace demo1.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
 
-                    b.Property<string>("DiaDiemThucHien")
-                        .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<DateTime?>("ExpiredDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<decimal>("GiaTriHopDong")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("GoiThauId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("HinhThucThanhToan")
-                        .HasColumnType("int");
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsRenewalRequired")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("LoaiHopDong")
-                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)");
 
-                    b.Property<DateTime?>("NgayHieuLuc")
-                        .HasColumnType("datetime(6)");
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
 
-                    b.Property<Guid?>("NhaThauId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("RenewalReminderDate")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("ThoiHanThucHien")
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
+                    b.Property<string>("TaxCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChuDauTuId");
-
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.HasIndex("GoiThauId")
-                        .IsUnique();
-
-                    b.HasIndex("NhaThauId");
-
-                    b.ToTable("HopDongs");
+                    b.ToTable("Partners");
                 });
 
             modelBuilder.Entity("demo1.Entity.PhongBan", b =>
@@ -761,6 +722,19 @@ namespace demo1.Migrations
                     b.Navigation("Feature");
                 });
 
+            modelBuilder.Entity("demo1.Entity.Contract", b =>
+                {
+                    b.HasOne("demo1.Entity.DuAn", null)
+                        .WithMany()
+                        .HasForeignKey("DuAnId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("demo1.Entity.GoiThau", null)
+                        .WithMany()
+                        .HasForeignKey("GoiThauId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
             modelBuilder.Entity("demo1.Entity.DieuChinhDuAn", b =>
                 {
                     b.HasOne("demo1.Entity.DuAn", "DuAn")
@@ -772,17 +746,6 @@ namespace demo1.Migrations
                     b.Navigation("DuAn");
                 });
 
-            modelBuilder.Entity("demo1.Entity.DotThanhToan", b =>
-                {
-                    b.HasOne("demo1.Entity.HopDong", "HopDong")
-                        .WithMany("DotThanhToans")
-                        .HasForeignKey("HopDongId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("HopDong");
-                });
-
             modelBuilder.Entity("demo1.Entity.GoiThau", b =>
                 {
                     b.HasOne("demo1.Entity.DuAn", "DuAn")
@@ -791,30 +754,6 @@ namespace demo1.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("DuAn");
-                });
-
-            modelBuilder.Entity("demo1.Entity.HopDong", b =>
-                {
-                    b.HasOne("demo1.Entity.DoiTac", "ChuDauTu")
-                        .WithMany()
-                        .HasForeignKey("ChuDauTuId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("demo1.Entity.GoiThau", "GoiThau")
-                        .WithMany()
-                        .HasForeignKey("GoiThauId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("demo1.Entity.DoiTac", "NhaThau")
-                        .WithMany()
-                        .HasForeignKey("NhaThauId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("ChuDauTu");
-
-                    b.Navigation("GoiThau");
-
-                    b.Navigation("NhaThau");
                 });
 
             modelBuilder.Entity("demo1.Entity.PhongBanPermission", b =>
@@ -879,11 +818,6 @@ namespace demo1.Migrations
                     b.Navigation("DieuChinhs");
 
                     b.Navigation("GoiThaus");
-                });
-
-            modelBuilder.Entity("demo1.Entity.HopDong", b =>
-                {
-                    b.Navigation("DotThanhToans");
                 });
 #pragma warning restore 612, 618
         }

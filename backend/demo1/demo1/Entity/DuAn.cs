@@ -6,7 +6,7 @@ namespace demo1.Entity;
 public class DuAn : BaseEntity
 {
     public decimal DuToanPheDuyet { get; set; }
-    public string TrangThai { get; set; } = "Planning";
+    public int TrangThai { get; set; } = 1;
     
     // 1 = Du An Nguon, 2 = Du An Trien Khai
     public int LoaiDuAn { get; set; }

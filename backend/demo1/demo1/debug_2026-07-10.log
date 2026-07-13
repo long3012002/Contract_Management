@@ -1,0 +1,118 @@
+[2026-07-10 16:19:07] [Information] Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+[2026-07-10 16:19:07] [Information] Executed DbCommand (6ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT GET_LOCK('__QLDA_EFMigrationsLock', 259200)
+[2026-07-10 16:19:07] [Information] Executed DbCommand (20ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
+    `MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+    `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+    CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+) CHARACTER SET=utf8mb4;
+[2026-07-10 16:19:07] [Information] Executed DbCommand (26ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='QLDA' AND TABLE_NAME='__EFMigrationsHistory';
+[2026-07-10 16:19:07] [Information] Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT `MigrationId`, `ProductVersion`
+FROM `__EFMigrationsHistory`
+ORDER BY `MigrationId`;
+[2026-07-10 16:19:07] [Information] Applying migration '20260710091855_UpdateTrangThaiToInt'.
+[2026-07-10 16:19:07] [Information] Executed DbCommand (73ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+ALTER TABLE `DuAns` MODIFY COLUMN `TrangThai` int NOT NULL;
+[2026-07-10 16:19:07] [Information] Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20260710091855_UpdateTrangThaiToInt', '9.0.0');
+[2026-07-10 16:19:07] [Information] Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT RELEASE_LOCK('__QLDA_EFMigrationsLock')
+[2026-07-10 16:59:52] [Information] Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+[2026-07-10 16:59:52] [Information] Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT GET_LOCK('__QLDA_EFMigrationsLock', 259200)
+[2026-07-10 16:59:52] [Information] Executed DbCommand (7ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
+    `MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+    `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+    CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+) CHARACTER SET=utf8mb4;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (11ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='QLDA' AND TABLE_NAME='__EFMigrationsHistory';
+[2026-07-10 16:59:52] [Information] Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT `MigrationId`, `ProductVersion`
+FROM `__EFMigrationsHistory`
+ORDER BY `MigrationId`;
+[2026-07-10 16:59:52] [Information] Applying migration '20260710095940_RedesignContractFeature'.
+[2026-07-10 16:59:52] [Information] Executed DbCommand (33ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+DROP TABLE `ContractPartners`;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (21ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+DROP TABLE `Contracts`;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (13ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+DROP TABLE `Partners`;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (22ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE `DoiTacs` (
+    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+    `TaxCode` varchar(50) CHARACTER SET utf8mb4 NULL,
+    `Phone` varchar(30) CHARACTER SET utf8mb4 NULL,
+    `Email` varchar(255) CHARACTER SET utf8mb4 NULL,
+    `Address` varchar(500) CHARACTER SET utf8mb4 NULL,
+    `Account` varchar(100) CHARACTER SET utf8mb4 NULL,
+    `Representative` varchar(255) CHARACTER SET utf8mb4 NULL,
+    `Position` varchar(255) CHARACTER SET utf8mb4 NULL,
+    `Code` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+    `Name` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+    `Description` varchar(1000) CHARACTER SET utf8mb4 NULL,
+    `IsActive` tinyint(1) NOT NULL,
+    `CreatedAt` datetime(6) NOT NULL,
+    `UpdatedAt` datetime(6) NULL,
+    CONSTRAINT `PK_DoiTacs` PRIMARY KEY (`Id`)
+) CHARACTER SET=utf8mb4;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (45ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE `HopDongs` (
+    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+    `GoiThauId` char(36) COLLATE ascii_general_ci NULL,
+    `ChuDauTuId` char(36) COLLATE ascii_general_ci NULL,
+    `NhaThauId` char(36) COLLATE ascii_general_ci NULL,
+    `LoaiHopDong` int NOT NULL,
+    `ThoiHanThucHien` varchar(255) CHARACTER SET utf8mb4 NULL,
+    `DiaDiemThucHien` varchar(500) CHARACTER SET utf8mb4 NULL,
+    `GiaTriHopDong` decimal(18,2) NOT NULL,
+    `HinhThucThanhToan` int NOT NULL,
+    `NgayHieuLuc` datetime(6) NULL,
+    `ExpiredDate` datetime(6) NULL,
+    `RenewalReminderDate` datetime(6) NULL,
+    `IsRenewalRequired` tinyint(1) NOT NULL,
+    `Code` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+    `Name` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+    `Description` varchar(1000) CHARACTER SET utf8mb4 NULL,
+    `IsActive` tinyint(1) NOT NULL,
+    `CreatedAt` datetime(6) NOT NULL,
+    `UpdatedAt` datetime(6) NULL,
+    CONSTRAINT `PK_HopDongs` PRIMARY KEY (`Id`),
+    CONSTRAINT `FK_HopDongs_DoiTacs_ChuDauTuId` FOREIGN KEY (`ChuDauTuId`) REFERENCES `DoiTacs` (`Id`) ON DELETE RESTRICT,
+    CONSTRAINT `FK_HopDongs_DoiTacs_NhaThauId` FOREIGN KEY (`NhaThauId`) REFERENCES `DoiTacs` (`Id`) ON DELETE RESTRICT,
+    CONSTRAINT `FK_HopDongs_GoiThaus_GoiThauId` FOREIGN KEY (`GoiThauId`) REFERENCES `GoiThaus` (`Id`) ON DELETE SET NULL
+) CHARACTER SET=utf8mb4;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (20ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE `DotThanhToans` (
+    `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+    `HopDongId` char(36) COLLATE ascii_general_ci NOT NULL,
+    `TenDot` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+    `TyLeThanhToan` decimal(5,2) NOT NULL,
+    `GiaTriThanhToan` decimal(18,2) NOT NULL,
+    `CreatedAt` datetime(6) NOT NULL,
+    `UpdatedAt` datetime(6) NULL,
+    CONSTRAINT `PK_DotThanhToans` PRIMARY KEY (`Id`),
+    CONSTRAINT `FK_DotThanhToans_HopDongs_HopDongId` FOREIGN KEY (`HopDongId`) REFERENCES `HopDongs` (`Id`) ON DELETE CASCADE
+) CHARACTER SET=utf8mb4;
+[2026-07-10 16:59:52] [Information] Executed DbCommand (30ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE UNIQUE INDEX `IX_DoiTacs_Code` ON `DoiTacs` (`Code`);
+[2026-07-10 16:59:52] [Information] Executed DbCommand (16ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE INDEX `IX_DotThanhToans_HopDongId` ON `DotThanhToans` (`HopDongId`);
+[2026-07-10 16:59:53] [Information] Executed DbCommand (22ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE INDEX `IX_HopDongs_ChuDauTuId` ON `HopDongs` (`ChuDauTuId`);
+[2026-07-10 16:59:53] [Information] Executed DbCommand (17ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE UNIQUE INDEX `IX_HopDongs_Code` ON `HopDongs` (`Code`);
+[2026-07-10 16:59:53] [Information] Executed DbCommand (23ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE UNIQUE INDEX `IX_HopDongs_GoiThauId` ON `HopDongs` (`GoiThauId`);
+[2026-07-10 16:59:53] [Information] Executed DbCommand (18ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE INDEX `IX_HopDongs_NhaThauId` ON `HopDongs` (`NhaThauId`);
+[2026-07-10 16:59:53] [Information] Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20260710095940_RedesignContractFeature', '9.0.0');
+[2026-07-10 16:59:53] [Information] Executed DbCommand (1ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT RELEASE_LOCK('__QLDA_EFMigrationsLock')

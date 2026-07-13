@@ -20,8 +20,7 @@ public class CreateDuAnDto
     [Range(0, double.MaxValue)]
     public decimal DuToanPheDuyet { get; set; }
 
-    [StringLength(50)]
-    public string TrangThai { get; set; } = "Planning";
+    public int TrangThai { get; set; } = 1;
 
     [Range(1, 2)]
     public int LoaiDuAn { get; set; } = 1; // 1 = Nguon, 2 = Trien khai

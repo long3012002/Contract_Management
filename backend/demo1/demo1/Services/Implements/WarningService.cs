@@ -11,19 +11,19 @@ namespace demo1.Services.Implements;
 public class WarningService : IWarningService
 {
     private const int ExpiringSoonDays = 30;
-    private readonly IContractService _contractService;
+    private readonly IHopDongService _hopDongService;
     private readonly IGoiThauService _goiThauService;
 
-    public WarningService(IContractService contractService, IGoiThauService goiThauService)
+    public WarningService(IHopDongService hopDongService, IGoiThauService goiThauService)
     {
-        _contractService = contractService;
+        _hopDongService = hopDongService;
         _goiThauService = goiThauService;
     }
 
     public async Task<List<ContractWarningDto>> GetContractsExpiringSoonAsync()
     {
         var today = DateTime.Today;
-        var contracts = await _contractService.GetAllItemsAsync();
+        var contracts = await _hopDongService.GetAllItemsAsync();
 
         return contracts
             .Where(contract => contract.IsActive
@@ -36,7 +36,7 @@ public class WarningService : IWarningService
     public async Task<List<ContractWarningDto>> GetExpiredContractsAsync()
     {
         var today = DateTime.Today;
-        var contracts = await _contractService.GetAllItemsAsync();
+        var contracts = await _hopDongService.GetAllItemsAsync();
 
         return contracts
             .Where(contract => contract.IsActive && RenewalValidator.IsExpired(contract.ExpiredDate, today))
@@ -46,7 +46,7 @@ public class WarningService : IWarningService
 
     public async Task<List<BudgetWarningDto>> GetOverBudgetContractsAsync()
     {
-        var contracts = await _contractService.GetAllItemsAsync();
+        var contracts = await _hopDongService.GetAllItemsAsync();
         var goiThaus = await _goiThauService.GetAllItemsAsync();
 
         return contracts
@@ -58,31 +58,31 @@ public class WarningService : IWarningService
             })
             .Where(item => item.GoiThau is not null
                 && BudgetValidator.IsOverBudget(
-                    item.Contract.ContractValue,
+                    item.Contract.GiaTriHopDong,
                     item.GoiThau.GiaTriGoiThau,
                     item.GoiThau.NguongCanhBaoPercent))
             .Select(item => new BudgetWarningDto
             {
                 ContractId = item.Contract.Id,
-                ContractNumber = item.Contract.ContractNumber,
+                ContractNumber = item.Contract.Code,
                 EstimatedValue = item.GoiThau!.GiaTriGoiThau,
-                ContractValue = item.Contract.ContractValue,
-                OverValue = item.Contract.ContractValue - item.GoiThau.GiaTriGoiThau,
+                ContractValue = item.Contract.GiaTriHopDong,
+                OverValue = item.Contract.GiaTriHopDong - item.GoiThau.GiaTriGoiThau,
                 UsedPercent = BudgetValidator.CalculateUsedPercent(
-                    item.Contract.ContractValue,
+                    item.Contract.GiaTriHopDong,
                     item.GoiThau.GiaTriGoiThau),
                 WarningMessage = "Giá trị hợp đồng vượt ngưỡng gói thầu."
             })
             .ToList();
     }
 
-    private static ContractWarningDto ToContractWarning(ContractDto contract, DateTime today, string message)
+    private static ContractWarningDto ToContractWarning(HopDongDto contract, DateTime today, string message)
     {
         return new ContractWarningDto
         {
             ContractId = contract.Id,
-            ContractNumber = contract.ContractNumber,
-            Title = contract.Title,
+            ContractNumber = contract.Code,
+            Title = contract.Name,
             ExpiredDate = contract.ExpiredDate,
             DaysRemaining = contract.ExpiredDate.HasValue
                 ? (contract.ExpiredDate.Value.Date - today.Date).Days

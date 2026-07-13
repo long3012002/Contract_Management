@@ -19,8 +19,7 @@ public class UpdateDuAnDto
     [Range(0, double.MaxValue)]
     public decimal DuToanPheDuyet { get; set; }
 
-    [StringLength(50)]
-    public string TrangThai { get; set; } = string.Empty;
+    public int TrangThai { get; set; }
 
     [StringLength(255)]
     public string? ChuDauTu { get; set; }

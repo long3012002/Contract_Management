@@ -15,7 +15,7 @@ public class DuAnDto : IHasId
     // Computed value: DuToanPheDuyet + adjustments
     public decimal TongDuToanHienTai { get; set; }
     
-    public string TrangThai { get; set; } = string.Empty;
+    public int TrangThai { get; set; }
     public int LoaiDuAn { get; set; }
     public string? NguonDuAnIds { get; set; }
     
