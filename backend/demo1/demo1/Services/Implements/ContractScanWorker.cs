@@ -10,6 +10,9 @@ using Microsoft.Extensions.Configuration;
 using demo1.Data;
 using demo1.Entity;
 using demo1.Services.Interfaces;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.SignalR;
+using demo1.Hubs;
 
 namespace demo1.Services.Implements
 {
@@ -18,15 +21,18 @@ namespace demo1.Services.Implements
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ContractScanWorker> _logger;
         private readonly IConfiguration _configuration;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
         public ContractScanWorker(
             IServiceProvider serviceProvider,
             ILogger<ContractScanWorker> logger,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IHubContext<NotificationHub> hubContext)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _configuration = configuration;
+            _hubContext = hubContext;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -115,6 +121,8 @@ namespace demo1.Services.Implements
                 return;
             }
 
+            var notificationsToPush = new List<(string Username, Notification Notification)>();
+
             foreach (var contract in contractsToWarn)
             {
                 var daysRemaining = (contract.ExpiredDate!.Value.Date - today).Days;
@@ -148,6 +156,7 @@ namespace demo1.Services.Implements
                         CreatedAt = DateTime.UtcNow
                     };
                     dbContext.Notifications.Add(notification);
+                    notificationsToPush.Add((user.Username, notification));
 
                     // 2. Send Email (Commented out as requested)
                     /*
@@ -175,6 +184,22 @@ namespace demo1.Services.Implements
             }
 
             await dbContext.SaveChangesAsync();
+
+            // Push real-time notifications via SignalR
+            foreach (var item in notificationsToPush)
+            {
+                _logger.LogInformation("[ContractScan] Đang push realtime thông báo cho user {Username} qua SignalR", item.Username);
+                await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", new
+                {
+                    item.Notification.Id,
+                    item.Notification.Title,
+                    item.Notification.Content,
+                    item.Notification.Link,
+                    item.Notification.IsRead,
+                    item.Notification.CreatedAt
+                });
+            }
+
             _logger.LogInformation("Finished contract expiration scan. Notifications generated and emails triggered.");
         }
     }

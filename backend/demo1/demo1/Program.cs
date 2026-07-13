@@ -80,6 +80,20 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/hub/notifications"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddCors(options =>
@@ -136,6 +150,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddHostedService<AuditLogRetentionWorker>();
 builder.Services.AddHostedService<ContractScanWorker>();
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, demo1.Providers.CustomUserIdProvider>();
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -192,6 +208,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<demo1.Hubs.NotificationHub>("/hub/notifications");
 
 if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
     app.Configuration.GetValue<bool>("Database:SeedSampleData"))
