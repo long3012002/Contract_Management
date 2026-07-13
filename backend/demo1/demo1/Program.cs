@@ -294,6 +294,11 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
             context.SaveChanges();
         }
     }
+
+    if (app.Configuration.GetValue<bool>("Database:SeedSampleData"))
+    {
+        await DatabaseSeeder.SeedAsync(context);
+    }
 }
 
 app.Run();
