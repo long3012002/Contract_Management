@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace demo1.DTOs;
 
 public class UpdateDuAnDto
 {
+    public List<Guid>? SourceProjectIds { get; set; }
+
     [Required]
     [StringLength(50)]
     public string Code { get; set; } = string.Empty;

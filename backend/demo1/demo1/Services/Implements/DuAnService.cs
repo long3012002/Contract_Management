@@ -123,6 +123,26 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
             }
 
+            // Check if any of these source projects are already linked to an existing implementation project
+            var existingImplProjects = await DbSet
+                .Where(da => da.LoaiDuAn == 2 && da.NguonDuAnIds != null && da.NguonDuAnIds != "")
+                .ToListAsync();
+
+            var usedSourceIds = existingImplProjects
+                .SelectMany(da => da.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToHashSet();
+
+            var alreadyAssignedIds = dto.SourceProjectIds.Intersect(usedSourceIds).ToList();
+            if (alreadyAssignedIds.Any())
+            {
+                var firstAssignedId = alreadyAssignedIds.First();
+                var sourceProj = sourceProjects.FirstOrDefault(p => p.Id == firstAssignedId);
+                var sourceProjName = sourceProj?.Name ?? firstAssignedId.ToString();
+                throw new InvalidOperationException($"Dự án nguồn '{sourceProjName}' đã thuộc về một dự án triển khai khác.");
+            }
+
             // Save source project IDs as semicolon separated string
             entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(id => id.ToString()));
 
@@ -161,6 +181,62 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (entity is null)
         {
             return false;
+        }
+
+        // Handle source projects update for implementation projects
+        if (entity.LoaiDuAn == 2)
+        {
+            if (dto.SourceProjectIds == null || !dto.SourceProjectIds.Any())
+            {
+                throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
+            }
+
+            var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
+                                            .Where(da => dto.SourceProjectIds.Contains(da.Id))
+                                            .ToListAsync();
+
+            if (sourceProjects.Count != dto.SourceProjectIds.Count)
+            {
+                throw new ArgumentException("Một số dự án nguồn được chọn không tồn tại.");
+            }
+
+            if (sourceProjects.Any(da => da.LoaiDuAn != 1))
+            {
+                throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
+            }
+
+            // Check if already assigned to other implementation projects
+            var existingOtherImplProjects = await DbSet
+                .Where(da => da.LoaiDuAn == 2 && da.Id != id && da.NguonDuAnIds != null && da.NguonDuAnIds != "")
+                .ToListAsync();
+
+            var usedSourceIds = existingOtherImplProjects
+                .SelectMany(da => da.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToHashSet();
+
+            var alreadyAssignedIds = dto.SourceProjectIds.Intersect(usedSourceIds).ToList();
+            if (alreadyAssignedIds.Any())
+            {
+                var firstAssignedId = alreadyAssignedIds.First();
+                var sourceProj = sourceProjects.FirstOrDefault(p => p.Id == firstAssignedId);
+                var sourceProjName = sourceProj?.Name ?? firstAssignedId.ToString();
+                throw new InvalidOperationException($"Dự án nguồn '{sourceProjName}' đã thuộc về một dự án triển khai khác.");
+            }
+
+            entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(spId => spId.ToString()));
+
+            // Sum budgets
+            decimal totalAggregatedBudget = 0;
+            foreach (var sp in sourceProjects)
+            {
+                var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
+                totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
+            }
+
+            entity.DuToanPheDuyet = totalAggregatedBudget;
+            dto.DuToanPheDuyet = totalAggregatedBudget;
         }
 
         DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
