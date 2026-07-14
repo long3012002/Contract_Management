@@ -134,7 +134,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             foreach (var sp in sourceProjects)
             {
                 sp.DaTrienKhai = true;
+                DbSet.Update(sp);
             }
+
+            entity.DaTrienKhai = true;
 
             // Save source project IDs as semicolon separated string
             entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(id => id.ToString()));
@@ -153,6 +156,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         {
             entity.LoaiDuAn = 1;
             entity.NguonDuAnIds = null;
+            entity.DaTrienKhai = true;
         }
 
         // Validate unique code
@@ -222,6 +226,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             foreach (var sp in sourceProjects.Where(da => addedIds.Contains(da.Id)))
             {
                 sp.DaTrienKhai = true;
+                DbSet.Update(sp);
             }
 
             // Mark removed source projects as not deployed
@@ -231,9 +236,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 foreach (var rp in removedProjects)
                 {
                     rp.DaTrienKhai = false;
+                    DbSet.Update(rp);
                 }
             }
 
+            entity.DaTrienKhai = true;
             entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(spId => spId.ToString()));
 
             // Sum budgets
