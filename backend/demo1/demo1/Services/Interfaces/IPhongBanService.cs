@@ -10,6 +10,7 @@ namespace demo1.Services.Interfaces
         Task<IEnumerable<PhongBanDto>> GetAllAsync();
         Task<PhongBanDto?> GetByIdAsync(Guid id);
         Task<PhongBanDto> CreateAsync(CreatePhongBanDto dto);
+        Task<IEnumerable<PhongBanDto>> CreateRangeAsync(IEnumerable<CreatePhongBanDto> dtos);
         Task<bool> UpdateAsync(Guid id, UpdatePhongBanDto dto);
         Task<bool> DeleteAsync(Guid id);
         Task<IEnumerable<PhongBanPermissionDto>> GetPermissionsAsync(Guid phongBanId);

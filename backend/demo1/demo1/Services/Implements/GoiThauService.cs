@@ -135,6 +135,17 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         return Mapper.Map<GoiThauDto>(reloaded);
     }
 
+    public override async Task<IEnumerable<GoiThauDto>> CreateRangeAsync(IEnumerable<CreateGoiThauDto> dtos)
+    {
+        var result = new List<GoiThauDto>();
+        foreach (var dto in dtos)
+        {
+            var created = await CreateAsync(dto);
+            result.Add(created);
+        }
+        return result;
+    }
+
     public override async Task<bool> UpdateAsync(Guid id, UpdateGoiThauDto dto)
     {
         var entity = await DbSet.FindAsync(id);

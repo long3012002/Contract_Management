@@ -10,6 +10,7 @@ namespace demo1.Services.Interfaces
         Task<IEnumerable<ChucVuDto>> GetAllAsync();
         Task<ChucVuDto?> GetByIdAsync(Guid id);
         Task<ChucVuDto> CreateAsync(CreateChucVuDto dto);
+        Task<IEnumerable<ChucVuDto>> CreateRangeAsync(IEnumerable<CreateChucVuDto> dtos);
         Task<bool> UpdateAsync(Guid id, UpdateChucVuDto dto);
         Task<bool> DeleteAsync(Guid id);
         Task<IEnumerable<ChucVuPermissionDto>> GetPermissionsAsync(Guid chucVuId);

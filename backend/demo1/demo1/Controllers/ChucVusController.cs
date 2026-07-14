@@ -68,6 +68,26 @@ namespace demo1.Controllers
             }
         }
 
+        [HttpPost("bulk")]
+        [ProducesResponseType(typeof(IEnumerable<ChucVuDto>), 200)]
+        public async Task<IActionResult> CreateRange([FromBody] IEnumerable<CreateChucVuDto> dtos)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            try
+            {
+                var result = await _chucVuService.CreateRangeAsync(dtos);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateChucVuDto dto)
         {

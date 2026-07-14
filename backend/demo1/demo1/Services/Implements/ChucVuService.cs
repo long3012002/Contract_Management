@@ -58,6 +58,17 @@ namespace demo1.Services.Implements
             return _mapper.Map<ChucVuDto>(item);
         }
 
+        public async Task<IEnumerable<ChucVuDto>> CreateRangeAsync(IEnumerable<CreateChucVuDto> dtos)
+        {
+            var result = new List<ChucVuDto>();
+            foreach (var dto in dtos)
+            {
+                var created = await CreateAsync(dto);
+                result.Add(created);
+            }
+            return result;
+        }
+
         public async Task<bool> UpdateAsync(Guid id, UpdateChucVuDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.TenChucVu))

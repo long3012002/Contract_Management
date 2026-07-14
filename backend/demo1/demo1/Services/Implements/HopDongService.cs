@@ -192,6 +192,17 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         return Mapper.Map<HopDongDto>(reloaded);
     }
 
+    public override async Task<IEnumerable<HopDongDto>> CreateRangeAsync(IEnumerable<CreateHopDongDto> dtos)
+    {
+        var result = new List<HopDongDto>();
+        foreach (var dto in dtos)
+        {
+            var created = await CreateAsync(dto);
+            result.Add(created);
+        }
+        return result;
+    }
+
     public override async Task<bool> UpdateAsync(Guid id, UpdateHopDongDto dto)
     {
         var entity = await DbSet.Include(h => h.DotThanhToans).FirstOrDefaultAsync(h => h.Id == id);

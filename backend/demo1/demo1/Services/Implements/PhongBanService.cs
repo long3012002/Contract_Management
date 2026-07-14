@@ -58,6 +58,17 @@ namespace demo1.Services.Implements
             return _mapper.Map<PhongBanDto>(item);
         }
 
+        public async Task<IEnumerable<PhongBanDto>> CreateRangeAsync(IEnumerable<CreatePhongBanDto> dtos)
+        {
+            var result = new List<PhongBanDto>();
+            foreach (var dto in dtos)
+            {
+                var created = await CreateAsync(dto);
+                result.Add(created);
+            }
+            return result;
+        }
+
         public async Task<bool> UpdateAsync(Guid id, UpdatePhongBanDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.TenPhongBan))

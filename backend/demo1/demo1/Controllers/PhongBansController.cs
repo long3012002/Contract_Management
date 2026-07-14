@@ -68,6 +68,26 @@ namespace demo1.Controllers
             }
         }
 
+        [HttpPost("bulk")]
+        [ProducesResponseType(typeof(IEnumerable<PhongBanDto>), 200)]
+        public async Task<IActionResult> CreateRange([FromBody] IEnumerable<CreatePhongBanDto> dtos)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            try
+            {
+                var result = await _phongBanService.CreateRangeAsync(dtos);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePhongBanDto dto)
         {
