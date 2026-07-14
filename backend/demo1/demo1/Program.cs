@@ -39,6 +39,11 @@ builder.Services.AddAutoMapper(cfg =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<demo1.Middleware.AuditLogActionFilter>();
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
