@@ -44,4 +44,6 @@ public class UpdateDuAnDto
     public int? NamBatDau { get; set; }
     public int? NamKetThuc { get; set; }
     public bool DaKetThuc { get; set; }
+
+    public string? SoQuyetDinh { get; set; }
 }

@@ -172,6 +172,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return Mapper.Map<DuAnDto>(entity);
     }
 
+    public override async Task<IEnumerable<DuAnDto>> CreateRangeAsync(IEnumerable<CreateDuAnDto> dtos)
+    {
+        var results = new List<DuAnDto>();
+        foreach (var dto in dtos)
+        {
+            var result = await CreateAsync(dto);
+            results.Add(result);
+        }
+        return results;
+    }
+
     public override async Task<bool> UpdateAsync(Guid id, UpdateDuAnDto dto)
     {
         var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);

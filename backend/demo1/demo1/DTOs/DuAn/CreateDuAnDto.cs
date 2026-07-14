@@ -47,4 +47,6 @@ public class CreateDuAnDto
     public int? NamBatDau { get; set; }
     public int? NamKetThuc { get; set; }
     public bool DaKetThuc { get; set; } = false;
+
+    public string? SoQuyetDinh { get; set; }
 }
