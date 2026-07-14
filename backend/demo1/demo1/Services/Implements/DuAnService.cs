@@ -124,23 +124,16 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             }
 
             // Check if any of these source projects are already linked to an existing implementation project
-            var existingImplProjects = await DbSet
-                .Where(da => da.LoaiDuAn == 2 && da.NguonDuAnIds != null && da.NguonDuAnIds != "")
-                .ToListAsync();
-
-            var usedSourceIds = existingImplProjects
-                .SelectMany(da => da.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries))
-                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                .Where(g => g != Guid.Empty)
-                .ToHashSet();
-
-            var alreadyAssignedIds = dto.SourceProjectIds.Intersect(usedSourceIds).ToList();
-            if (alreadyAssignedIds.Any())
+            var alreadyDeployedProj = sourceProjects.FirstOrDefault(da => da.DaTrienKhai == true);
+            if (alreadyDeployedProj != null)
             {
-                var firstAssignedId = alreadyAssignedIds.First();
-                var sourceProj = sourceProjects.FirstOrDefault(p => p.Id == firstAssignedId);
-                var sourceProjName = sourceProj?.Name ?? firstAssignedId.ToString();
-                throw new InvalidOperationException($"Dự án nguồn '{sourceProjName}' đã thuộc về một dự án triển khai khác.");
+                throw new InvalidOperationException($"Dự án nguồn '{alreadyDeployedProj.Name}' đã thuộc về một dự án triển khai khác.");
+            }
+
+            // Mark source projects as deployed
+            foreach (var sp in sourceProjects)
+            {
+                sp.DaTrienKhai = true;
             }
 
             // Save source project IDs as semicolon separated string
@@ -205,24 +198,40 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
             }
 
-            // Check if already assigned to other implementation projects
-            var existingOtherImplProjects = await DbSet
-                .Where(da => da.LoaiDuAn == 2 && da.Id != id && da.NguonDuAnIds != null && da.NguonDuAnIds != "")
-                .ToListAsync();
+            // Parse existing source project IDs from current entity
+            var oldSourceIds = entity.NguonDuAnIds?.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                   .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                   .Where(g => g != Guid.Empty)
+                                                   .ToList() ?? new List<Guid>();
 
-            var usedSourceIds = existingOtherImplProjects
-                .SelectMany(da => da.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries))
-                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                .Where(g => g != Guid.Empty)
-                .ToHashSet();
+            // Check if any newly added source project is already deployed in another project
+            var addedIds = dto.SourceProjectIds.Except(oldSourceIds).ToList();
+            var removedIds = oldSourceIds.Except(dto.SourceProjectIds).ToList();
 
-            var alreadyAssignedIds = dto.SourceProjectIds.Intersect(usedSourceIds).ToList();
-            if (alreadyAssignedIds.Any())
+            var newlyLinkedAlreadyDeployed = sourceProjects
+                .Where(da => addedIds.Contains(da.Id) && da.DaTrienKhai == true)
+                .ToList();
+
+            if (newlyLinkedAlreadyDeployed.Any())
             {
-                var firstAssignedId = alreadyAssignedIds.First();
-                var sourceProj = sourceProjects.FirstOrDefault(p => p.Id == firstAssignedId);
-                var sourceProjName = sourceProj?.Name ?? firstAssignedId.ToString();
-                throw new InvalidOperationException($"Dự án nguồn '{sourceProjName}' đã thuộc về một dự án triển khai khác.");
+                var deployedProj = newlyLinkedAlreadyDeployed.First();
+                throw new InvalidOperationException($"Dự án nguồn '{deployedProj.Name}' đã thuộc về một dự án triển khai khác.");
+            }
+
+            // Mark newly added source projects as deployed
+            foreach (var sp in sourceProjects.Where(da => addedIds.Contains(da.Id)))
+            {
+                sp.DaTrienKhai = true;
+            }
+
+            // Mark removed source projects as not deployed
+            if (removedIds.Any())
+            {
+                var removedProjects = await DbSet.Where(da => removedIds.Contains(da.Id)).ToListAsync();
+                foreach (var rp in removedProjects)
+                {
+                    rp.DaTrienKhai = false;
+                }
             }
 
             entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(spId => spId.ToString()));
@@ -414,6 +423,35 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                                   .ToListAsync();
 
         return logs;
+    }
+
+    public override async Task<bool> DeleteAsync(Guid id)
+    {
+        var entity = await DbSet.FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            return false;
+        }
+
+        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        {
+            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                .Where(g => g != Guid.Empty)
+                                                .ToList();
+            if (sourceIds.Any())
+            {
+                var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
+                foreach (var sp in sourceProjects)
+                {
+                    sp.DaTrienKhai = false;
+                }
+            }
+        }
+
+        DbSet.Remove(entity);
+        await DbContext.SaveChangesAsync();
+        return true;
     }
 }
 

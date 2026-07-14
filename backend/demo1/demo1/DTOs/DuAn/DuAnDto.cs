@@ -45,6 +45,7 @@ public class DuAnDto : IHasId
     public int? NamBatDau { get; set; }
     public int? NamKetThuc { get; set; }
     public bool DaKetThuc { get; set; }
+    public bool? DaTrienKhai { get; set; }
     
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
