@@ -36,6 +36,7 @@ namespace demo1.Data
         public DbSet<PhongBanPermission> PhongBanPermissions { get; set; } = null!;
         public DbSet<ChucVuPermission> ChucVuPermissions { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
+        public DbSet<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -48,6 +49,29 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<DoiTac>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
+            ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
+
+            // Configure NhaThauGoiThau relationship
+            modelBuilder.Entity<NhaThauGoiThau>()
+                .Property(ntgt => ntgt.TyLeLienDanh)
+                .HasPrecision(5, 2);
+
+            modelBuilder.Entity<NhaThauGoiThau>()
+                .Property(ntgt => ntgt.GiaTriDamNhan)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<NhaThauGoiThau>()
+                .HasOne(ntgt => ntgt.GoiThau)
+                .WithMany(gt => gt.NhaThauGoiThaus)
+                .HasForeignKey(ntgt => ntgt.GoiThauId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<NhaThauGoiThau>()
+                .HasOne(ntgt => ntgt.NhaThau)
+                .WithMany()
+                .HasForeignKey(ntgt => ntgt.NhaThauId)
+                .OnDelete(DeleteBehavior.Restrict);
+
 
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.DuToanPheDuyet)
