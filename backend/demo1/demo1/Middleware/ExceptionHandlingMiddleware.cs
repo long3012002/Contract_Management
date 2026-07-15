@@ -24,27 +24,28 @@ public class ExceptionHandlingMiddleware
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, $"Yêu cầu không hợp lệ: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Yêu cầu không hợp lệ.", ex.Message);
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Yêu cầu không hợp lệ.");
         }
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, $"Không tìm thấy tài nguyên: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.NotFound, "Không tìm thấy tài nguyên.", ex.Message);
+            await WriteErrorAsync(context, HttpStatusCode.NotFound, "Không tìm thấy tài nguyên.");
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, $"Thao tác xung đột hoặc không hợp lệ: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Thao tác xung đột hoặc không hợp lệ.", ex.Message);
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Thao tác xung đột hoặc không hợp lệ.");
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogError(ex, "Cập nhật cơ sở dữ liệu thất bại.");
+            _logger.LogError(ex, $"Cập nhật cơ sở dữ liệu thất bại: {ex.Message}");
             await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", "Vui lòng kiểm tra lại dữ liệu trùng lặp hoặc các ràng buộc liên quan.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi hệ thống không xác định.");
-            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Lỗi hệ thống nội bộ.");
+            _logger.LogError(ex, $"Lỗi hệ thống không xác định: {ex.Message}");
+            // await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Lỗi hệ thống nội bộ.");
+            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Đã có lỗi xảy ra. Vui lòng thử lại");
         }
     }
 
