@@ -112,7 +112,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             if (existingPackagesSum + dto.GiaTriGoiThau > projectBudget)
             {
-                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá hạn mức dự toán phê duyệt của dự án ({projectBudget:N0} VNĐ).");
+                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
             }
         }
 
@@ -171,7 +171,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             if (existingPackagesSum + dto.GiaTriGoiThau > projectBudget)
             {
-                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá hạn mức dự toán phê duyệt của dự án ({projectBudget:N0} VNĐ).");
+                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
             }
         }
 
