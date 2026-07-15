@@ -34,7 +34,7 @@ public class ExceptionHandlingMiddleware
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, $"Thao tác xung đột hoặc không hợp lệ: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Thao tác xung đột hoặc không hợp lệ.");
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, ex.Message);
         }
         catch (DbUpdateException ex)
         {
