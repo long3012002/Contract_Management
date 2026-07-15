@@ -129,8 +129,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         // Check GoiThau uniqueness for contracts
         if (dto.GoiThauId.HasValue)
         {
-            var goiThauExists = await DbContext.GoiThaus.AnyAsync(gt => gt.Id == dto.GoiThauId.Value);
-            if (!goiThauExists)
+            var goiThau = await DbContext.GoiThaus.FirstOrDefaultAsync(gt => gt.Id == dto.GoiThauId.Value);
+            if (goiThau == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy gói thầu được liên kết.");
             }
@@ -139,6 +139,11 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             if (alreadyLinked)
             {
                 throw new InvalidOperationException("Gói thầu này đã được liên kết với một hợp đồng khác.");
+            }
+
+            if (dto.GiaTriHopDong > goiThau.GiaTriGoiThau)
+            {
+                throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được lớn hơn giá trị dự toán của gói thầu ({goiThau.GiaTriGoiThau:N0} VNĐ).");
             }
         }
 
@@ -228,8 +233,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         // Check GoiThau uniqueness for contracts
         if (dto.GoiThauId.HasValue)
         {
-            var goiThauExists = await DbContext.GoiThaus.AnyAsync(gt => gt.Id == dto.GoiThauId.Value);
-            if (!goiThauExists)
+            var goiThau = await DbContext.GoiThaus.FirstOrDefaultAsync(gt => gt.Id == dto.GoiThauId.Value);
+            if (goiThau == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy gói thầu được liên kết.");
             }
@@ -238,6 +243,11 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             if (alreadyLinked)
             {
                 throw new InvalidOperationException("Gói thầu này đã được liên kết với một hợp đồng khác.");
+            }
+
+            if (dto.GiaTriHopDong > goiThau.GiaTriGoiThau)
+            {
+                throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được lớn hơn giá trị dự toán của gói thầu ({goiThau.GiaTriGoiThau:N0} VNĐ).");
             }
         }
 
