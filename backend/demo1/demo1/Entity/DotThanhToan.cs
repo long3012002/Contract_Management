@@ -11,6 +11,8 @@ public class DotThanhToan
     public string TenDot { get; set; } = string.Empty;
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }
+    public DateTime? NgayThanhToan { get; set; }
+    public string? DieuKienThanhToan { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 }

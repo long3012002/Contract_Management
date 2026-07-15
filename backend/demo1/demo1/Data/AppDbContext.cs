@@ -20,6 +20,8 @@ namespace demo1.Data
 
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
         public DbSet<DuAn> DuAns { get; set; } = null!;
+        public DbSet<NhomDuAn> NhomDuAns { get; set; } = null!;
+        public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
         public DbSet<HopDong> HopDongs { get; set; } = null!;
@@ -44,6 +46,8 @@ namespace demo1.Data
             base.OnModelCreating(modelBuilder);
 
             ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<NhomDuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<PhanLoaiDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
@@ -76,6 +80,18 @@ namespace demo1.Data
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.DuToanPheDuyet)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<DuAn>()
+                .HasOne(da => da.NhomDuAn)
+                .WithMany()
+                .HasForeignKey(da => da.NhomDuAnId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<DuAn>()
+                .HasOne(da => da.PhanLoaiDuAn)
+                .WithMany()
+                .HasForeignKey(da => da.PhanLoaiDuAnId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.ChuDauTu)

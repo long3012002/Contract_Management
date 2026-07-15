@@ -130,8 +130,11 @@ builder.Services.AddCors(options =>
     builder.Services.AddScoped<IDoiTacService, DoiTacService>();
     builder.Services.AddScoped<IGoiThauService, GoiThauService>();
     builder.Services.AddScoped<IHopDongService, HopDongService>();
-builder.Services.AddScoped<IResolutionService, ResolutionService>();
-builder.Services.AddScoped<IWarningService, WarningService>();
+    builder.Services.AddScoped<IResolutionService, ResolutionService>();
+    builder.Services.AddScoped<IReportService, ReportService>();
+    builder.Services.AddScoped<INhomDuAnService, NhomDuAnService>();
+    builder.Services.AddScoped<IPhanLoaiDuAnService, PhanLoaiDuAnService>();
+    builder.Services.AddScoped<IWarningService, WarningService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.Configure<demo1.DTOs.Common.EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();

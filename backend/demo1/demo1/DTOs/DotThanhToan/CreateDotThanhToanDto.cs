@@ -14,4 +14,7 @@ public class CreateDotThanhToanDto
 
     [Range(0, double.MaxValue)]
     public decimal GiaTriThanhToan { get; set; }
+
+    public DateTime? NgayThanhToan { get; set; }
+    public string? DieuKienThanhToan { get; set; }
 }

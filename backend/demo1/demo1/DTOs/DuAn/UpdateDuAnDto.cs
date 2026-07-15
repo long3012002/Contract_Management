@@ -22,6 +22,9 @@ public class UpdateDuAnDto
     [Range(0, double.MaxValue)]
     public decimal DuToanPheDuyet { get; set; }
 
+    public Guid? NhomDuAnId { get; set; }
+    public Guid? PhanLoaiDuAnId { get; set; }
+
     public int TrangThai { get; set; }
 
     [StringLength(255)]

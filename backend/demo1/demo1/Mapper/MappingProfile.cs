@@ -11,7 +11,9 @@ namespace demo1.Mapper
             // DuAn mappings
             CreateMap<DuAn, DuAnDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
-                    src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));
+                    src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)))
+                .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
+                .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null));
             CreateMap<CreateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
@@ -120,6 +122,26 @@ namespace demo1.Mapper
             CreateMap<UpdateChucVuDto, ChucVu>();
             CreateMap<ChucVuPermission, ChucVuPermissionDto>();
             CreateMap<UpdateChucVuPermissionDto, ChucVuPermission>();
+
+            // NhomDuAn mappings
+            CreateMap<NhomDuAn, NhomDuAnDto>();
+            CreateMap<CreateNhomDuAnDto, NhomDuAn>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdateNhomDuAnDto, NhomDuAn>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
+            // PhanLoaiDuAn mappings
+            CreateMap<PhanLoaiDuAn, PhanLoaiDuAnDto>();
+            CreateMap<CreatePhanLoaiDuAnDto, PhanLoaiDuAn>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdatePhanLoaiDuAnDto, PhanLoaiDuAn>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
         }
     }
 }

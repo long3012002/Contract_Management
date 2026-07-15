@@ -10,6 +10,12 @@ public class DuAn : BaseEntity
     
     // 1 = Du An Nguon, 2 = Du An Trien Khai
     public int LoaiDuAn { get; set; }
+
+    public Guid? NhomDuAnId { get; set; }
+    public virtual NhomDuAn? NhomDuAn { get; set; }
+
+    public Guid? PhanLoaiDuAnId { get; set; }
+    public virtual PhanLoaiDuAn? PhanLoaiDuAn { get; set; }
     
     // Semicolon separated list of source project GUIDs (e.g. "guid1;guid2;guid3")
     public string? NguonDuAnIds { get; set; }

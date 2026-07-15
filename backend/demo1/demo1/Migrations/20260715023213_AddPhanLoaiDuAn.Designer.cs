@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260715023213_AddPhanLoaiDuAn")]
+    partial class AddPhanLoaiDuAn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -242,18 +245,12 @@ namespace demo1.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("DieuKienThanhToan")
-                        .HasColumnType("longtext");
-
                     b.Property<decimal>("GiaTriThanhToan")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("HopDongId")
                         .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("NgayThanhToan")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("TenDot")
                         .IsRequired()
@@ -340,15 +337,12 @@ namespace demo1.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
-                    b.Property<Guid?>("NhomDuAnId")
-                        .HasColumnType("char(36)");
-
                     b.Property<string>("NoiDung")
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
-                    b.Property<Guid?>("PhanLoaiDuAnId")
-                        .HasColumnType("char(36)");
+                    b.Property<int>("PhanLoaiDuAn")
+                        .HasColumnType("int");
 
                     b.Property<string>("SoQuyetDinh")
                         .HasColumnType("longtext");
@@ -371,10 +365,6 @@ namespace demo1.Migrations
 
                     b.HasIndex("Code")
                         .IsUnique();
-
-                    b.HasIndex("NhomDuAnId");
-
-                    b.HasIndex("PhanLoaiDuAnId");
 
                     b.ToTable("DuAns");
                 });
@@ -612,43 +602,6 @@ namespace demo1.Migrations
                     b.ToTable("NhaThauGoiThaus");
                 });
 
-            modelBuilder.Entity("demo1.Entity.NhomDuAn", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("NhomDuAns");
-                });
-
             modelBuilder.Entity("demo1.Entity.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -683,43 +636,6 @@ namespace demo1.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Notifications");
-                });
-
-            modelBuilder.Entity("demo1.Entity.PhanLoaiDuAn", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.ToTable("PhanLoaiDuAns");
                 });
 
             modelBuilder.Entity("demo1.Entity.PhongBan", b =>
@@ -985,23 +901,6 @@ namespace demo1.Migrations
                         .IsRequired();
 
                     b.Navigation("HopDong");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DuAn", b =>
-                {
-                    b.HasOne("demo1.Entity.NhomDuAn", "NhomDuAn")
-                        .WithMany()
-                        .HasForeignKey("NhomDuAnId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("demo1.Entity.PhanLoaiDuAn", "PhanLoaiDuAn")
-                        .WithMany()
-                        .HasForeignKey("PhanLoaiDuAnId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("NhomDuAn");
-
-                    b.Navigation("PhanLoaiDuAn");
                 });
 
             modelBuilder.Entity("demo1.Entity.GoiThau", b =>

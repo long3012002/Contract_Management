@@ -17,6 +17,10 @@ public class DuAnDto : IHasId
     
     public int TrangThai { get; set; }
     public int LoaiDuAn { get; set; }
+    public Guid? NhomDuAnId { get; set; }
+    public string? NhomDuAnName { get; set; }
+    public Guid? PhanLoaiDuAnId { get; set; }
+    public string? PhanLoaiDuAnName { get; set; }
     public string? NguonDuAnIds { get; set; }
     
     public List<Guid> ListNguonDuAnIds

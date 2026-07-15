@@ -23,7 +23,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        IQueryable<DuAn> query = DbSet.AsNoTracking().Include(da => da.DieuChinhs);
+        IQueryable<DuAn> query = DbSet.AsNoTracking()
+            .Include(da => da.DieuChinhs)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -82,14 +85,21 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public override async Task<IReadOnlyList<DuAnDto>> GetAllItemsAsync()
     {
-        var items = await DbSet.Include(da => da.DieuChinhs).ToListAsync();
+        var items = await DbSet
+            .Include(da => da.DieuChinhs)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn)
+            .ToListAsync();
         return Mapper.Map<List<DuAnDto>>(items);
     }
 
     public override async Task<DuAnDto?> GetByIdAsync(Guid id)
     {
-        var entity = await DbSet.Include(da => da.DieuChinhs)
-                               .FirstOrDefaultAsync(da => da.Id == id);
+        var entity = await DbSet
+            .Include(da => da.DieuChinhs)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn)
+            .FirstOrDefaultAsync(da => da.Id == id);
         return entity is null ? null : Mapper.Map<DuAnDto>(entity);
     }
 

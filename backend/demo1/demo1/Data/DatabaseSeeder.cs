@@ -288,6 +288,8 @@ public static class DatabaseSeeder
                     TenDot = $"Tạm ứng 40% hợp đồng {hd.Code}",
                     TyLeThanhToan = 40.00m,
                     GiaTriThanhToan = dot1Val,
+                    NgayThanhToan = hd.CreatedAt.AddDays(3),
+                    DieuKienThanhToan = "Sau khi ký kết hợp đồng và nhận bảo lãnh tạm ứng",
                     CreatedAt = hd.CreatedAt.AddDays(3)
                 });
                 dotCount++;
@@ -301,6 +303,8 @@ public static class DatabaseSeeder
                         TenDot = $"Nghiệm thu và thanh toán 60% hợp đồng {hd.Code}",
                         TyLeThanhToan = 60.00m,
                         GiaTriThanhToan = dot2Val,
+                        NgayThanhToan = hd.CreatedAt.AddDays(15),
+                        DieuKienThanhToan = "Sau khi bàn giao sản phẩm và ký biên bản nghiệm thu",
                         CreatedAt = hd.CreatedAt.AddDays(15)
                     });
                     dotCount++;

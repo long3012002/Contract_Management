@@ -173,6 +173,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 dot.HopDongId = entity.Id;
                 // Calculate payment value based on percentage if not explicitly set or to ensure consistency
                 dot.GiaTriThanhToan = dot.TyLeThanhToan * entity.GiaTriHopDong / 100;
+                dot.NgayThanhToan = dotDto.NgayThanhToan;
+                dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                 dot.CreatedAt = DateTime.UtcNow;
                 entity.DotThanhToans.Add(dot);
             }
@@ -264,6 +266,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 dot.Id = Guid.NewGuid();
                 dot.HopDongId = entity.Id;
                 dot.GiaTriThanhToan = dot.TyLeThanhToan * entity.GiaTriHopDong / 100;
+                dot.NgayThanhToan = dotDto.NgayThanhToan;
+                dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                 dot.CreatedAt = DateTime.UtcNow;
                 entity.DotThanhToans.Add(dot);
             }

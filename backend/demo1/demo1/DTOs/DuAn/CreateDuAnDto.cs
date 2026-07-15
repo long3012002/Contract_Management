@@ -25,6 +25,9 @@ public class CreateDuAnDto
     [Range(1, 2)]
     public int LoaiDuAn { get; set; } = 1; // 1 = Nguon, 2 = Trien khai
 
+    public Guid? NhomDuAnId { get; set; }
+    public Guid? PhanLoaiDuAnId { get; set; }
+
     public List<Guid>? SourceProjectIds { get; set; }
 
     [StringLength(255)]
