@@ -220,6 +220,13 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
 
+        // Ensure unique code
+        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower() && item.Id != id);
+        if (exists)
+        {
+            throw new InvalidOperationException($"Số ký hiệu hợp đồng '{dto.Code}' đã tồn tại.");
+        }
+
         // Check DuAn existence
         if (dto.DuAnId.HasValue)
         {
