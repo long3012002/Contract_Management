@@ -11,6 +11,7 @@ public class DotThanhToanDto
     public decimal GiaTriThanhToan { get; set; }
     public DateTime? NgayThanhToan { get; set; }
     public string? DieuKienThanhToan { get; set; }
+    public bool IsPaid { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

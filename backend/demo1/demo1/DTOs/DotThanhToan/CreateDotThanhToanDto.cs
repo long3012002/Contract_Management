@@ -19,4 +19,5 @@ public class CreateDotThanhToanDto
 
     public DateTime? NgayThanhToan { get; set; }
     public string? DieuKienThanhToan { get; set; }
+    public bool IsPaid { get; set; } = false;
 }

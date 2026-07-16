@@ -1,0 +1,23 @@
+[2026-07-16 16:46:08] [Information] Acquiring an exclusive lock for migration application. See https://aka.ms/efcore-docs-migrations-lock for more information if this takes too long.
+[2026-07-16 16:46:08] [Information] Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT GET_LOCK('__QLDA_EFMigrationsLock', 259200)
+[2026-07-16 16:46:08] [Information] Executed DbCommand (7ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+CREATE TABLE IF NOT EXISTS `__EFMigrationsHistory` (
+    `MigrationId` varchar(150) CHARACTER SET utf8mb4 NOT NULL,
+    `ProductVersion` varchar(32) CHARACTER SET utf8mb4 NOT NULL,
+    CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+) CHARACTER SET=utf8mb4;
+[2026-07-16 16:46:08] [Information] Executed DbCommand (4ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='QLDA' AND TABLE_NAME='__EFMigrationsHistory';
+[2026-07-16 16:46:08] [Information] Executed DbCommand (3ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT `MigrationId`, `ProductVersion`
+FROM `__EFMigrationsHistory`
+ORDER BY `MigrationId`;
+[2026-07-16 16:46:08] [Information] Applying migration '20260716094603_AddIsPaidToDotThanhToan'.
+[2026-07-16 16:46:08] [Information] Executed DbCommand (36ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+ALTER TABLE `DotThanhToans` ADD `IsPaid` tinyint(1) NOT NULL DEFAULT FALSE;
+[2026-07-16 16:46:08] [Information] Executed DbCommand (5ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20260716094603_AddIsPaidToDotThanhToan', '9.0.0');
+[2026-07-16 16:46:08] [Information] Executed DbCommand (2ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+SELECT RELEASE_LOCK('__QLDA_EFMigrationsLock')

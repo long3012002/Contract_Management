@@ -479,6 +479,24 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             return false;
         }
 
+        // 1. Tìm và xoá tất cả hợp đồng liên quan tới dự án hoặc gói thầu thuộc dự án
+        var hopDongs = await DbContext.HopDongs
+            .Where(hd => hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id))
+            .ToListAsync();
+        if (hopDongs.Any())
+        {
+            DbContext.HopDongs.RemoveRange(hopDongs);
+        }
+
+        // 2. Tìm và xoá tất cả gói thầu thuộc dự án
+        var goiThaus = await DbContext.GoiThaus
+            .Where(gt => gt.DuAnId == id)
+            .ToListAsync();
+        if (goiThaus.Any())
+        {
+            DbContext.GoiThaus.RemoveRange(goiThaus);
+        }
+
         if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
         {
             var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
