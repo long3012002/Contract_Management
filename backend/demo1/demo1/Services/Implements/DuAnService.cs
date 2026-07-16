@@ -274,6 +274,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
             entity.DuToanPheDuyet = totalAggregatedBudget;
             dto.DuToanPheDuyet = totalAggregatedBudget;
+
+            // Check if new budget is less than the sum of GoiThau's budgets of this implementation project
+            var goiThauBudgetsSum = await DbContext.GoiThaus
+                .Where(gt => gt.DuAnId == id)
+                .SumAsync(gt => gt.GiaTriGoiThau);
+            if (totalAggregatedBudget < goiThauBudgetsSum)
+            {
+                throw new InvalidOperationException($"Tổng ngân sách dự án nguồn mới ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ tổng giá trị dự toán các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
+            }
         }
 
         DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
@@ -348,6 +357,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 }
 
                 ip.DuToanPheDuyet = totalAggregatedBudget;
+
+                var goiThauBudgetsSum = await DbContext.GoiThaus
+                    .Where(gt => gt.DuAnId == ip.Id)
+                    .SumAsync(gt => gt.GiaTriGoiThau);
+                if (totalAggregatedBudget < goiThauBudgetsSum)
+                {
+                    throw new InvalidOperationException($"Điều chỉnh ngân sách làm cho tổng ngân sách của dự án triển khai liên kết '{ip.Name}' ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
+                }
+
                 ip.UpdatedAt = DateTime.UtcNow;
             }
         }
