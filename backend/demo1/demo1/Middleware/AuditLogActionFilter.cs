@@ -69,6 +69,11 @@ namespace demo1.Middleware
                             NewValues = $"{httpMethod} {path}"
                         };
 
+                        if (executedContext.Exception != null)
+                        {
+                            _dbContext.ChangeTracker.Clear();
+                        }
+
                         _dbContext.AuditLogs.Add(auditLog);
                         await _dbContext.SaveChangesAsync();
 
