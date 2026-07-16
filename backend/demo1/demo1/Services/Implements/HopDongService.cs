@@ -276,6 +276,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         {
             DbContext.DotThanhToans.RemoveRange(entity.DotThanhToans);
             entity.DotThanhToans.Clear();
+            await DbContext.SaveChangesAsync();
         }
 
         if (dto.DotThanhToans != null)
