@@ -171,16 +171,18 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         // Add payment installments
         if (dto.DotThanhToans != null)
         {
+            var now = DateTime.UtcNow;
+            int index = 0;
             foreach (var dotDto in dto.DotThanhToans)
             {
                 var dot = Mapper.Map<DotThanhToan>(dotDto);
                 dot.Id = Guid.NewGuid();
                 dot.HopDongId = entity.Id;
-                // Calculate payment value based on percentage if not explicitly set or to ensure consistency
-                dot.GiaTriThanhToan = dot.TyLeThanhToan * entity.GiaTriHopDong / 100;
+                // Use user-provided payment value if set, otherwise calculate based on percentage
+                dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                 dot.NgayThanhToan = dotDto.NgayThanhToan;
                 dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
-                dot.CreatedAt = DateTime.UtcNow;
+                dot.CreatedAt = now.AddMilliseconds(index++);
                 entity.DotThanhToans.Add(dot);
             }
         }
@@ -212,89 +214,126 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateHopDongDto dto)
     {
-        var entity = await DbSet.Include(h => h.DotThanhToans).FirstOrDefaultAsync(h => h.Id == id);
-        if (entity is null)
+        using var transaction = await DbContext.Database.BeginTransactionAsync();
+        try
         {
-            return false;
-        }
-
-        HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
-
-        // Ensure unique code
-        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower() && item.Id != id);
-        if (exists)
-        {
-            throw new InvalidOperationException($"Số ký hiệu hợp đồng '{dto.Code}' đã tồn tại.");
-        }
-
-        // Check DuAn existence
-        if (dto.DuAnId.HasValue)
-        {
-            var duAnExists = await DbContext.DuAns.AnyAsync(da => da.Id == dto.DuAnId.Value);
-            if (!duAnExists)
+            var entity = await DbSet.FirstOrDefaultAsync(h => h.Id == id);
+            if (entity is null)
             {
-                throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
-            }
-        }
-
-        // Check GoiThau uniqueness for contracts
-        if (dto.GoiThauId.HasValue)
-        {
-            var goiThau = await DbContext.GoiThaus.FirstOrDefaultAsync(gt => gt.Id == dto.GoiThauId.Value);
-            if (goiThau == null)
-            {
-                throw new KeyNotFoundException("Không tìm thấy gói thầu được liên kết.");
+                return false;
             }
 
-            var alreadyLinked = await DbSet.AnyAsync(h => h.GoiThauId == dto.GoiThauId.Value && h.Id != id);
-            if (alreadyLinked)
+            HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
+
+            // Ensure unique code
+            var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower() && item.Id != id);
+            if (exists)
             {
-                throw new InvalidOperationException("Gói thầu này đã được liên kết với một hợp đồng khác.");
+                throw new InvalidOperationException($"Số ký hiệu hợp đồng '{dto.Code}' đã tồn tại.");
             }
 
-            if (dto.GiaTriHopDong > goiThau.GiaTriGoiThau)
+            // Check DuAn existence
+            if (dto.DuAnId.HasValue)
             {
-                throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được lớn hơn giá trị dự toán của gói thầu ({goiThau.GiaTriGoiThau:N0} VNĐ).");
+                var duAnExists = await DbContext.DuAns.AnyAsync(da => da.Id == dto.DuAnId.Value);
+                if (!duAnExists)
+                {
+                    throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
+                }
             }
-        }
 
-        // Check ChuDauTu and NhaThau existence
-        if (dto.ChuDauTuId.HasValue && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.ChuDauTuId.Value))
-        {
-            throw new KeyNotFoundException("Không tìm thấy thông tin chủ đầu tư.");
-        }
-        if (dto.NhaThauId.HasValue && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaThauId.Value))
-        {
-            throw new KeyNotFoundException("Không tìm thấy thông tin nhà thầu.");
-        }
+            // Check GoiThau uniqueness for contracts
+            if (dto.GoiThauId.HasValue)
+            {
+                var goiThau = await DbContext.GoiThaus.FirstOrDefaultAsync(gt => gt.Id == dto.GoiThauId.Value);
+                if (goiThau == null)
+                {
+                    throw new KeyNotFoundException("Không tìm thấy gói thầu được liên kết.");
+                }
 
-        Mapper.Map(dto, entity);
-        entity.UpdatedAt = DateTime.UtcNow;
+                var alreadyLinked = await DbSet.AnyAsync(h => h.GoiThauId == dto.GoiThauId.Value && h.Id != id);
+                if (alreadyLinked)
+                {
+                    throw new InvalidOperationException("Gói thầu này đã được liên kết với một hợp đồng khác.");
+                }
 
-        // Clear existing payment installments and add new ones
-        if (entity.DotThanhToans.Any())
-        {
-            DbContext.DotThanhToans.RemoveRange(entity.DotThanhToans);
-            entity.DotThanhToans.Clear();
+                if (dto.GiaTriHopDong > goiThau.GiaTriGoiThau)
+                {
+                    throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được lớn hơn giá trị dự toán của gói thầu ({goiThau.GiaTriGoiThau:N0} VNĐ).");
+                }
+            }
+
+            // Check ChuDauTu and NhaThau existence
+            if (dto.ChuDauTuId.HasValue && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.ChuDauTuId.Value))
+            {
+                throw new KeyNotFoundException("Không tìm thấy thông tin chủ đầu tư.");
+            }
+            if (dto.NhaThauId.HasValue && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaThauId.Value))
+            {
+                throw new KeyNotFoundException("Không tìm thấy thông tin nhà thầu.");
+            }
+
+            Mapper.Map(dto, entity);
+            entity.UpdatedAt = DateTime.UtcNow;
+
             await DbContext.SaveChangesAsync();
-        }
 
-        if (dto.DotThanhToans != null)
-        {
-            foreach (var dotDto in dto.DotThanhToans)
+            // Load existing payment installments
+            var existingDots = await DbContext.DotThanhToans.Where(d => d.HopDongId == id).ToListAsync();
+
+            // Delete existing ones not present in DTO
+            var incomingIds = dto.DotThanhToans?.Where(d => d.Id.HasValue).Select(d => d.Id!.Value).ToList() ?? new List<Guid>();
+            var dotsToDelete = existingDots.Where(d => !incomingIds.Contains(d.Id)).ToList();
+            if (dotsToDelete.Any())
             {
-                var dot = Mapper.Map<DotThanhToan>(dotDto);
-                dot.Id = Guid.NewGuid();
-                dot.HopDongId = entity.Id;
-                dot.GiaTriThanhToan = dot.TyLeThanhToan * entity.GiaTriHopDong / 100;
-                dot.NgayThanhToan = dotDto.NgayThanhToan;
-                dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
-                dot.CreatedAt = DateTime.UtcNow;
-                entity.DotThanhToans.Add(dot);
+                DbContext.DotThanhToans.RemoveRange(dotsToDelete);
             }
-        }
 
-        await DbContext.SaveChangesAsync();
-        return true;
+            // Add or Update incoming installments
+            if (dto.DotThanhToans != null)
+            {
+                var now = DateTime.UtcNow;
+                int index = 0;
+                foreach (var dotDto in dto.DotThanhToans)
+                {
+                    if (dotDto.Id.HasValue)
+                    {
+                        // Update existing
+                        var existingDot = existingDots.FirstOrDefault(d => d.Id == dotDto.Id.Value);
+                        if (existingDot != null)
+                        {
+                            Mapper.Map(dotDto, existingDot);
+                            // Preserve user-provided value, calculate as fallback
+                            existingDot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
+                            existingDot.NgayThanhToan = dotDto.NgayThanhToan;
+                            existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
+                            existingDot.UpdatedAt = now;
+                        }
+                    }
+                    else
+                    {
+                        // Add new
+                        var dot = Mapper.Map<DotThanhToan>(dotDto);
+                        dot.Id = Guid.NewGuid();
+                        dot.HopDongId = id;
+                        // Preserve user-provided value, calculate as fallback
+                        dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
+                        dot.NgayThanhToan = dotDto.NgayThanhToan;
+                        dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
+                        dot.CreatedAt = now.AddMilliseconds(index++);
+                        await DbContext.DotThanhToans.AddAsync(dot);
+                    }
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }

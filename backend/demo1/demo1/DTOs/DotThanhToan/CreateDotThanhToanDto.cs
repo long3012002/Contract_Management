@@ -5,6 +5,8 @@ namespace demo1.DTOs;
 
 public class CreateDotThanhToanDto
 {
+    public Guid? Id { get; set; }
+
     [Required]
     [StringLength(255)]
     public string TenDot { get; set; } = string.Empty;
