@@ -46,7 +46,8 @@ public class ExceptionHandlingMiddleware
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, $"Cập nhật cơ sở dữ liệu thất bại: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", "Vui lòng kiểm tra lại dữ liệu trùng lặp hoặc các ràng buộc liên quan.");
+            var detailedMsg = ex.InnerException?.Message ?? ex.Message;
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", $"Chi tiết lỗi DB: {detailedMsg}");
         }
         catch (MySqlConnector.MySqlException ex)
         {
