@@ -265,8 +265,13 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         entity.UpdatedAt = DateTime.UtcNow;
 
         // Clear existing payment installments and add new ones
-        DbContext.DotThanhToans.RemoveRange(entity.DotThanhToans);
-        entity.DotThanhToans.Clear();
+        if (entity.DotThanhToans.Any())
+        {
+            foreach (var oldDot in entity.DotThanhToans.ToList())
+            {
+                DbContext.Entry(oldDot).State = EntityState.Deleted;
+            }
+        }
 
         if (dto.DotThanhToans != null)
         {
