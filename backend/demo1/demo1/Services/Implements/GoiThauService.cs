@@ -175,6 +175,15 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             }
         }
 
+        // Check if the new budget is less than the sum of contracts signed for this package
+        var contractsSum = await DbContext.HopDongs
+            .Where(h => h.GoiThauId == id)
+            .SumAsync(h => h.GiaTriHopDong);
+        if (dto.GiaTriGoiThau < contractsSum)
+        {
+            throw new InvalidOperationException($"Giá trị dự toán mới của gói thầu ({dto.GiaTriGoiThau:N0} VNĐ) không thể nhỏ hơn tổng giá trị hợp đồng đã ký ({contractsSum:N0} VNĐ).");
+        }
+
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
