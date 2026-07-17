@@ -22,6 +22,12 @@ public static class HopDongValidator
                 throw new ArgumentException($"Tổng tỷ lệ các đợt thanh toán ({sumTyLe}%) không được vượt quá 100%.");
             }
 
+            var sumGiaTri = dotThanhToans.Sum(d => d.GiaTriThanhToan > 0 ? d.GiaTriThanhToan : (d.TyLeThanhToan * giaTriHopDong / 100));
+            if (sumGiaTri > giaTriHopDong)
+            {
+                throw new ArgumentException($"Tổng giá trị các đợt thanh toán ({sumGiaTri:N0} VNĐ) không được vượt quá giá trị hợp đồng ({giaTriHopDong:N0} VNĐ).");
+            }
+
             if (dotThanhToans.Any(d => d.TyLeThanhToan < 0 || d.GiaTriThanhToan < 0))
             {
                 throw new ArgumentException("Tỷ lệ thanh toán và giá trị thanh toán không được âm.");
