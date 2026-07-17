@@ -10,7 +10,7 @@ using MiniExcelLibs;
 
 namespace demo1.Controllers;
 
-[Authorize]
+//[Authorize]
 [ApiController]
 [Route("api/report")]
 public class ReportsController : ControllerBase
@@ -44,7 +44,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("investment/export")]
-    public async Task<IActionResult> ExportInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string format = "xlsx")
+    public async Task<IActionResult> ExportInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string format = "xlsx", [FromQuery] bool base64 = false)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
@@ -83,6 +83,17 @@ public class ReportsController : ControllerBase
 
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
             string fileName = $"BaoCaoDauTu_{selectedYear}_{report.PeriodName}_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new
+                {
+                    fileName,
+                    contentType,
+                    base64Data
+                });
+            }
 
             return File(fileBytes, contentType, fileName);
         }
