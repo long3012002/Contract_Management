@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
@@ -437,5 +439,430 @@ public class ReportService : IReportService
         summaryRow.GiaiNganLuyKe = subgroupRows.Sum(r => r.GiaiNganLuyKe);
 
         summaryRow.TaiSanBanGiao = subgroupRows.Sum(r => r.TaiSanBanGiao);
+    }
+
+    public async Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period)
+    {
+        var report = await GetInvestmentReportAsync(year, period);
+        
+        using (var workbook = new XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Bao cao");
+            
+            // Font family
+            worksheet.Style.Font.FontName = "Times New Roman";
+            worksheet.Style.Font.FontSize = 11;
+
+            // Left Header
+            worksheet.Cell("A1").Value = "NGÂN HÀNG HỢP TÁC XÃ VIỆT NAM";
+            worksheet.Cell("A1").Style.Font.Bold = true;
+            worksheet.Cell("A1").Style.Font.FontSize = 10;
+            
+            worksheet.Cell("A2").Value = "TRUNG TÂM CÔNG NGHỆ THÔNG TIN";
+            worksheet.Cell("A2").Style.Font.Bold = true;
+            worksheet.Cell("A2").Style.Font.Underline = XLFontUnderlineValues.Single;
+            worksheet.Cell("A2").Style.Font.FontSize = 10;
+
+            // Right Header
+            worksheet.Cell("L1").Value = "Biểu số 02.A";
+            worksheet.Cell("L1").Style.Font.Bold = true;
+            worksheet.Cell("L1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell("L1").Style.Font.FontSize = 10;
+
+            // Title
+            worksheet.Cell("A4").Value = "TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN";
+            worksheet.Cell("A4").Style.Font.Bold = true;
+            worksheet.Cell("A4").Style.Font.FontSize = 14;
+            worksheet.Cell("A4").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A4:L4").Merge();
+
+            worksheet.Cell("A5").Value = "HÌNH THÀNH TSCĐ VÀ XDCB";
+            worksheet.Cell("A5").Style.Font.Bold = true;
+            worksheet.Cell("A5").Style.Font.FontSize = 14;
+            worksheet.Cell("A5").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A5:L5").Merge();
+
+            worksheet.Cell("A6").Value = "(Ban hành kèm theo Thông tư số 200/2015/TT-BTC ngày 15/12/2015 của Bộ Tài chính)";
+            worksheet.Cell("A6").Style.Font.Italic = true;
+            worksheet.Cell("A6").Style.Font.FontSize = 10;
+            worksheet.Cell("A6").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A6:L6").Merge();
+
+            string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+            worksheet.Cell("A7").Value = $"( {periodText} )";
+            worksheet.Cell("A7").Style.Font.Bold = true;
+            worksheet.Cell("A7").Style.Font.FontSize = 12;
+            worksheet.Cell("A7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A7:L7").Merge();
+
+            // Unit
+            worksheet.Cell("L8").Value = "Đơn vị tính: Triệu đồng";
+            worksheet.Cell("L8").Style.Font.Italic = true;
+            worksheet.Cell("L8").Style.Font.FontSize = 11;
+            worksheet.Cell("L8").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            // Dates for headers
+            string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
+
+            // Merged Headers row 10-12
+            worksheet.Cell("A10").Value = "TT";
+            worksheet.Range("A10:A12").Merge();
+
+            worksheet.Cell("B10").Value = "Tên dự án";
+            worksheet.Range("B10:B12").Merge();
+
+            worksheet.Cell("C10").Value = "Quyết định phê duyệt";
+            worksheet.Range("C10:C12").Merge();
+
+            worksheet.Cell("D10").Value = "Tổng mức vốn đầu tư";
+            worksheet.Range("D10:E11").Merge();
+            worksheet.Cell("D12").Value = "Tổng";
+            worksheet.Cell("E12").Value = "Vốn chủ sở hữu";
+
+            worksheet.Cell("F10").Value = $"Giá trị khối lượng thực hiện đến ngày {dateStr}";
+            worksheet.Range("F10:H11").Merge();
+            worksheet.Cell("F12").Value = "Kỳ trước chuyển sang";
+            worksheet.Cell("G12").Value = "Thực hiện trong kỳ";
+            worksheet.Cell("H12").Value = $"Thực hiện đến hết ngày {dateStr}";
+
+            worksheet.Cell("I10").Value = $"Giải ngân đến ngày {dateStr}";
+            worksheet.Range("I10:K11").Merge();
+            worksheet.Cell("I12").Value = "Kỳ trước chuyển sang";
+            worksheet.Cell("J12").Value = "Thực hiện trong kỳ";
+            worksheet.Cell("K12").Value = $"Thực hiện đến hết ngày {dateStr}";
+
+            worksheet.Cell("L10").Value = "Giá trị tài sản đã hoàn thành và đưa vào sử dụng";
+            worksheet.Range("L10:L12").Merge();
+
+            // Format Header Range A10:L12
+            var headerRange = worksheet.Range("A10:L12");
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            headerRange.Style.Alignment.WrapText = true;
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+            headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            // Column numbering row 13
+            worksheet.Cell("A13").Value = "(1)";
+            worksheet.Cell("B13").Value = "(2)";
+            worksheet.Cell("C13").Value = "(3)";
+            worksheet.Cell("D13").Value = "(4)";
+            worksheet.Cell("E13").Value = "(5)";
+            worksheet.Cell("F13").Value = "(13)";
+            worksheet.Cell("G13").Value = "(14)";
+            worksheet.Cell("H13").Value = "(15)";
+            worksheet.Cell("I13").Value = "(16)";
+            worksheet.Cell("J13").Value = "(17)";
+            worksheet.Cell("K13").Value = "(18)";
+            worksheet.Cell("L13").Value = "(19)";
+
+            var numRange = worksheet.Range("A13:L13");
+            numRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            numRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            numRange.Style.Font.Italic = true;
+            numRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            numRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            // Data Rows
+            int currentRow = 14;
+            foreach (var row in report.Rows)
+            {
+                worksheet.Cell(currentRow, 1).Value = row.Stt;
+                
+                // Indent project name or empty placeholders
+                string displayName = row.ProjectName;
+                if (row.RowType == "ProjectRow" || row.RowType == "EmptyPlaceholder")
+                {
+                    displayName = "   " + row.ProjectName;
+                }
+                worksheet.Cell(currentRow, 2).Value = displayName;
+                worksheet.Cell(currentRow, 3).Value = row.ApprovalDecision;
+
+                if (row.RowType == "GroupHeader" || row.RowType == "SubGroupHeader" || row.RowType == "EmptyPlaceholder")
+                {
+                    // Set empty values for formula/summary columns to match template design
+                    for (int col = 4; col <= 12; col++)
+                    {
+                        worksheet.Cell(currentRow, col).Value = string.Empty;
+                    }
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, 4).Value = row.TongMucDauTuTong;
+                    worksheet.Cell(currentRow, 5).Value = row.TongMucDauTuVCSH;
+                    worksheet.Cell(currentRow, 6).Value = row.KhoiLuongKyTruoc;
+                    worksheet.Cell(currentRow, 7).Value = row.KhoiLuongTrongKy;
+                    worksheet.Cell(currentRow, 8).Value = row.KhoiLuongLuyKe;
+                    worksheet.Cell(currentRow, 9).Value = row.GiaiNganKyTruoc;
+                    worksheet.Cell(currentRow, 10).Value = row.GiaiNganTrongKy;
+                    worksheet.Cell(currentRow, 11).Value = row.GiaiNganLuyKe;
+                    worksheet.Cell(currentRow, 12).Value = row.TaiSanBanGiao;
+                }
+
+                // Format Row
+                var rowRange = worksheet.Range(currentRow, 1, currentRow, 12);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                if (row.RowType == "GroupHeader" || row.RowType == "SubGroupHeader" || row.RowType == "GroupFooter" || row.RowType == "GrandTotal")
+                {
+                    rowRange.Style.Font.Bold = true;
+                }
+
+                if (row.RowType == "SubGroupHeader")
+                {
+                    rowRange.Style.Font.Italic = true;
+                }
+
+                // Alignment
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+                if (row.RowType != "GroupHeader" && row.RowType != "SubGroupHeader" && row.RowType != "EmptyPlaceholder")
+                {
+                    for (int col = 4; col <= 12; col++)
+                    {
+                        var cell = worksheet.Cell(currentRow, col);
+                        cell.Style.NumberFormat.Format = "#,##0";
+                        cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                    }
+                }
+
+                currentRow++;
+            }
+
+            // Adjust column widths nicely
+            worksheet.Column(1).Width = 6;   // TT
+            worksheet.Column(2).Width = 45;  // Tên dự án
+            worksheet.Column(3).Width = 35;  // Quyết định phê duyệt
+            for (int col = 4; col <= 12; col++)
+            {
+                worksheet.Column(col).Width = 15; // Numeric columns
+            }
+
+            using (var memoryStream = new MemoryStream())
+            {
+                workbook.SaveAs(memoryStream);
+                return memoryStream.ToArray();
+            }
+        }
+    }
+
+    public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period)
+    {
+        var report = await GetInvestmentReportAsync(year, period);
+        string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
+
+        using (var memoryStream = new MemoryStream())
+        {
+            using (var writer = new StreamWriter(memoryStream, System.Text.Encoding.UTF8))
+            {
+                // Write UTF-8 BOM
+                writer.Write('\uFEFF');
+
+                // Header rows
+                await writer.WriteLineAsync($"\"NGÂN HÀNG HỢP TÁC XÃ VIỆT NAM\"");
+                await writer.WriteLineAsync($"\"TRUNG TÂM CÔNG NGHỆ THÔNG TIN\"");
+                await writer.WriteLineAsync();
+                await writer.WriteLineAsync($"\"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB\"");
+                string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+                await writer.WriteLineAsync($"\"( {periodText} )\"");
+                await writer.WriteLineAsync();
+                await writer.WriteLineAsync($"\"Đơn vị tính: Triệu đồng\"");
+                await writer.WriteLineAsync();
+
+                // Table Columns
+                await writer.WriteLineAsync($"\"TT\",\"Tên dự án\",\"Quyết định phê duyệt\",\"Tổng mức vốn đầu tư - Tổng\",\"Tổng mức vốn đầu tư - Vốn chủ sở hữu\",\"Giá trị khối lượng thực hiện đến ngày {dateStr} - Kỳ trước chuyển sang\",\"Giá trị khối lượng thực hiện đến ngày {dateStr} - Thực hiện trong kỳ\",\"Giá trị khối lượng thực hiện đến ngày {dateStr} - Thực hiện đến hết ngày\",\"Giải ngân đến ngày {dateStr} - Kỳ trước chuyển sang\",\"Giải ngân đến ngày {dateStr} - Thực hiện trong kỳ\",\"Giải ngân đến ngày {dateStr} - Thực hiện đến hết ngày\",\"Giá trị tài sản đã hoàn thành và đưa vào sử dụng\"");
+                await writer.WriteLineAsync($"\"(1)\",\"(2)\",\"(3)\",\"(4)\",\"(5)\",\"(13)\",\"(14)\",\"(15)\",\"(16)\",\"(17)\",\"(18)\",\"(19)\"");
+
+                foreach (var row in report.Rows)
+                {
+                    string stt = EscapeCsvField(row.Stt);
+                    string projName = EscapeCsvField(row.ProjectName);
+                    string decision = EscapeCsvField(row.ApprovalDecision);
+
+                    if (row.RowType == "GroupHeader" || row.RowType == "SubGroupHeader" || row.RowType == "EmptyPlaceholder")
+                    {
+                        await writer.WriteLineAsync($"\"{stt}\",\"{projName}\",\"{decision}\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\"");
+                    }
+                    else
+                    {
+                        await writer.WriteLineAsync($"\"{stt}\",\"{projName}\",\"{decision}\",\"{row.TongMucDauTuTong}\",\"{row.TongMucDauTuVCSH}\",\"{row.KhoiLuongKyTruoc}\",\"{row.KhoiLuongTrongKy}\",\"{row.KhoiLuongLuyKe}\",\"{row.GiaiNganKyTruoc}\",\"{row.GiaiNganTrongKy}\",\"{row.GiaiNganLuyKe}\",\"{row.TaiSanBanGiao}\"");
+                    }
+                }
+
+                await writer.FlushAsync();
+            }
+            return memoryStream.ToArray();
+        }
+    }
+
+    private string EscapeCsvField(string field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        return field.Replace("\"", "\"\"");
+    }
+
+    public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period)
+    {
+        var report = await GetInvestmentReportAsync(year, period);
+        string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
+        string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+
+        var htmlBuilder = new System.Text.StringBuilder();
+        htmlBuilder.AppendLine("<!DOCTYPE html>");
+        htmlBuilder.AppendLine("<html>");
+        htmlBuilder.AppendLine("<head>");
+        htmlBuilder.AppendLine("<meta charset=\"utf-8\" />");
+        htmlBuilder.AppendLine("<title>" + System.Web.HttpUtility.HtmlEncode(report.Title) + "</title>");
+        htmlBuilder.AppendLine("<style>");
+        htmlBuilder.AppendLine("  body { font-family: 'Times New Roman', Times, serif; margin: 30px; font-size: 13px; color: #333; }");
+        htmlBuilder.AppendLine("  .header-table { width: 100%; border: none; margin-bottom: 25px; }");
+        htmlBuilder.AppendLine("  .header-table td { border: none; padding: 2px; }");
+        htmlBuilder.AppendLine("  .title-section { text-align: center; margin-bottom: 25px; }");
+        htmlBuilder.AppendLine("  .title-section h2 { margin: 5px 0; font-size: 16px; font-weight: bold; }");
+        htmlBuilder.AppendLine("  .title-section h3 { margin: 5px 0; font-size: 13px; font-weight: normal; font-style: italic; }");
+        htmlBuilder.AppendLine("  .title-section h4 { margin: 5px 0; font-size: 14px; font-weight: bold; }");
+        htmlBuilder.AppendLine("  .unit-line { text-align: right; font-style: italic; margin-bottom: 10px; font-size: 12px; }");
+        htmlBuilder.AppendLine("  table.data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }");
+        htmlBuilder.AppendLine("  table.data-table th, table.data-table td { border: 1px solid #000; padding: 6px 8px; vertical-align: middle; }");
+        htmlBuilder.AppendLine("  table.data-table th { background-color: #F2F2F2; font-weight: bold; text-align: center; }");
+        htmlBuilder.AppendLine("  .text-center { text-align: center; }");
+        htmlBuilder.AppendLine("  .text-left { text-align: left; }");
+        htmlBuilder.AppendLine("  .text-right { text-align: right; }");
+        htmlBuilder.AppendLine("  .bold { font-weight: bold; }");
+        htmlBuilder.AppendLine("  .italic { font-style: italic; }");
+        htmlBuilder.AppendLine("  .indent { padding-left: 20px !important; }");
+        htmlBuilder.AppendLine("</style>");
+        htmlBuilder.AppendLine("</head>");
+        htmlBuilder.AppendLine("<body>");
+
+        // Top Metadata Headers
+        htmlBuilder.AppendLine("<table class=\"header-table\">");
+        htmlBuilder.AppendLine("  <tr>");
+        htmlBuilder.AppendLine("    <td style=\"width: 50%; font-weight: bold; font-size: 12px;\">");
+        htmlBuilder.AppendLine("      NGÂN HÀNG HỢP TÁC XÃ VIỆT NAM<br/>");
+        htmlBuilder.AppendLine("      <span style=\"text-decoration: underline;\">TRUNG TÂM CÔNG NGHỆ THÔNG TIN</span>");
+        htmlBuilder.AppendLine("    </td>");
+        htmlBuilder.AppendLine("    <td style=\"width: 50%; text-align: right; font-weight: bold; font-size: 12px; vertical-align: top;\">");
+        htmlBuilder.AppendLine("      Biểu số 02.A");
+        htmlBuilder.AppendLine("    </td>");
+        htmlBuilder.AppendLine("  </tr>");
+        htmlBuilder.AppendLine("</table>");
+
+        // Title Section
+        htmlBuilder.AppendLine("<div class=\"title-section\">");
+        htmlBuilder.AppendLine("  <h2>TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN</h2>");
+        htmlBuilder.AppendLine("  <h2>HÌNH THÀNH TSCĐ VÀ XDCB</h2>");
+        htmlBuilder.AppendLine("  <h3>(Ban hành kèm theo Thông tư số 200/2015/TT-BTC ngày 15/12/2015 của Bộ Tài chính)</h3>");
+        htmlBuilder.AppendLine("  <h4>( " + periodText + " )</h4>");
+        htmlBuilder.AppendLine("</div>");
+
+        // Unit
+        htmlBuilder.AppendLine("<div class=\"unit-line\">Đơn vị tính: Triệu đồng</div>");
+
+        // Data Table Headers
+        htmlBuilder.AppendLine("<table class=\"data-table\">");
+        htmlBuilder.AppendLine("  <thead>");
+        htmlBuilder.AppendLine("    <tr>");
+        htmlBuilder.AppendLine("      <th rowspan=\"3\" style=\"width: 4%;\">TT</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"3\" style=\"width: 25%;\">Tên dự án</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"3\" style=\"width: 15%;\">Quyết định phê duyệt</th>");
+        htmlBuilder.AppendLine("      <th colspan=\"2\" style=\"width: 14%;\">Tổng mức vốn đầu tư</th>");
+        htmlBuilder.AppendLine("      <th colspan=\"3\" style=\"width: 21%;\">Giá trị khối lượng thực hiện đến ngày " + dateStr + "</th>");
+        htmlBuilder.AppendLine("      <th colspan=\"3\" style=\"width: 21%;\">Giải ngân đến ngày " + dateStr + "</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"3\" style=\"width: 10%;\">Giá trị tài sản đã hoàn thành và đưa vào sử dụng</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("    <tr>");
+        htmlBuilder.AppendLine("      <th rowspan=\"2\">Tổng</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"2\">Vốn chủ sở hữu</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Kỳ trước chuyển sang</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Thực hiện trong kỳ</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Thực hiện đến hết ngày " + dateStr + "</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Kỳ trước chuyển sang</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Thực hiện trong kỳ</th>");
+        htmlBuilder.AppendLine("      <th rowspan=\"1\">Thực hiện đến hết ngày " + dateStr + "</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("    <tr>");
+        htmlBuilder.AppendLine("      <th>(13)</th>");
+        htmlBuilder.AppendLine("      <th>(14)</th>");
+        htmlBuilder.AppendLine("      <th>(15)</th>");
+        htmlBuilder.AppendLine("      <th>(16)</th>");
+        htmlBuilder.AppendLine("      <th>(17)</th>");
+        htmlBuilder.AppendLine("      <th>(18)</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("    <tr style=\"font-style: italic; font-size: 11px;\">");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(1)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(2)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(3)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(4)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(5)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(13)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(14)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(15)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(16)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(17)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(18)</th>");
+        htmlBuilder.AppendLine("      <th class=\"text-center\">(19)</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("  </thead>");
+        htmlBuilder.AppendLine("  <tbody>");
+
+        // Data Rows
+        foreach (var row in report.Rows)
+        {
+            string rowClass = "";
+            if (row.RowType == "GroupHeader" || row.RowType == "SubGroupHeader" || row.RowType == "GroupFooter" || row.RowType == "GrandTotal")
+            {
+                rowClass += " bold";
+            }
+            if (row.RowType == "SubGroupHeader")
+            {
+                rowClass += " italic";
+            }
+
+            string nameClass = "";
+            if (row.RowType == "ProjectRow" || row.RowType == "EmptyPlaceholder")
+            {
+                nameClass = "class=\"indent\"";
+            }
+
+            htmlBuilder.AppendLine("    <tr class=\"" + rowClass + "\">");
+            htmlBuilder.AppendLine("      <td class=\"text-center\">" + System.Web.HttpUtility.HtmlEncode(row.Stt) + "</td>");
+            htmlBuilder.AppendLine("      <td " + nameClass + ">" + System.Web.HttpUtility.HtmlEncode(row.ProjectName) + "</td>");
+            htmlBuilder.AppendLine("      <td>" + System.Web.HttpUtility.HtmlEncode(row.ApprovalDecision) + "</td>");
+
+            if (row.RowType == "GroupHeader" || row.RowType == "SubGroupHeader" || row.RowType == "EmptyPlaceholder")
+            {
+                for (int col = 4; col <= 12; col++)
+                {
+                    htmlBuilder.AppendLine("      <td></td>");
+                }
+            }
+            else
+            {
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.TongMucDauTuTong == 0 ? "-" : row.TongMucDauTuTong.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.TongMucDauTuVCSH == 0 ? "-" : row.TongMucDauTuVCSH.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.KhoiLuongKyTruoc == 0 ? "-" : row.KhoiLuongKyTruoc.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.KhoiLuongTrongKy == 0 ? "-" : row.KhoiLuongTrongKy.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.KhoiLuongLuyKe == 0 ? "-" : row.KhoiLuongLuyKe.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.GiaiNganKyTruoc == 0 ? "-" : row.GiaiNganKyTruoc.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.GiaiNganTrongKy == 0 ? "-" : row.GiaiNganTrongKy.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.GiaiNganLuyKe == 0 ? "-" : row.GiaiNganLuyKe.ToString("#,##0")) + "</td>");
+                htmlBuilder.AppendLine("      <td class=\"text-right\">" + (row.TaiSanBanGiao == 0 ? "-" : row.TaiSanBanGiao.ToString("#,##0")) + "</td>");
+            }
+
+            htmlBuilder.AppendLine("    </tr>");
+        }
+
+        htmlBuilder.AppendLine("  </tbody>");
+        htmlBuilder.AppendLine("</table>");
+        htmlBuilder.AppendLine("</body>");
+        htmlBuilder.AppendLine("</html>");
+
+        return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
 }

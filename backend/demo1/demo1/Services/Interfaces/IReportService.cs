@@ -6,4 +6,8 @@ namespace demo1.Services.Interfaces;
 public interface IReportService
 {
     Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period);
+    Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period);
+    Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period);
+    Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period);
 }
+
