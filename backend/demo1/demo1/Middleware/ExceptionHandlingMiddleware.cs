@@ -24,7 +24,7 @@ public class ExceptionHandlingMiddleware
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, $"Yêu cầu không hợp lệ: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Yêu cầu không hợp lệ.");
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
         catch (KeyNotFoundException ex)
         {
