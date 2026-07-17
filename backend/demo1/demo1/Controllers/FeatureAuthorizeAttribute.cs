@@ -63,6 +63,7 @@ namespace demo1.Controllers
             var httpMethod = context.HttpContext.Request.Method;
 
             // 1. Check department permission (PhongBan)
+            bool isDeptConfigured = false;
             bool isDeptAuthorized = false;
             if (dbUser.IdPhongBan.HasValue)
             {
@@ -72,16 +73,13 @@ namespace demo1.Controllers
                 
                 if (deptPerm != null)
                 {
+                    isDeptConfigured = true;
                     isDeptAuthorized = EvaluatePermission(deptPerm.CanAccess, deptPerm.Permissions, httpMethod);
                 }
             }
-            else
-            {
-                // If no department is set, default to authorized to avoid locking out unassigned users (or set to false if strict)
-                isDeptAuthorized = true;
-            }
 
             // 2. Check position permission (ChucVu)
+            bool isPosConfigured = false;
             bool isPosAuthorized = false;
             if (dbUser.IdChucVu.HasValue)
             {
@@ -91,15 +89,35 @@ namespace demo1.Controllers
                 
                 if (cvPerm != null)
                 {
+                    isPosConfigured = true;
                     isPosAuthorized = EvaluatePermission(cvPerm.CanAccess, cvPerm.Permissions, httpMethod);
                 }
             }
+
+            // Evaluate combined authorization
+            bool isAuthorized = false;
+            if (isDeptConfigured && isPosConfigured)
+            {
+                // If both are configured, BOTH must authorize (AND logic)
+                isAuthorized = isDeptAuthorized && isPosAuthorized;
+            }
+            else if (isDeptConfigured)
+            {
+                // If only department is configured
+                isAuthorized = isDeptAuthorized;
+            }
+            else if (isPosConfigured)
+            {
+                // If only position is configured
+                isAuthorized = isPosAuthorized;
+            }
             else
             {
-                isPosAuthorized = true;
+                // If neither is configured, default deny
+                isAuthorized = false;
             }
 
-            if (!isDeptAuthorized || !isPosAuthorized)
+            if (!isAuthorized)
             {
                 context.Result = new ForbidResult();
             }

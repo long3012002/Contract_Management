@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 [Route("api/hop-dong")]
-[FeatureAuthorize("CONTRACT")]
+[FeatureAuthorize("CONTRACT_MANAGEMENT")]
 public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDto, UpdateHopDongDto>
 {
     private readonly IHopDongService _hopDongService;
