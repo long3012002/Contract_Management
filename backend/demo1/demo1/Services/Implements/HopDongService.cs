@@ -336,4 +336,23 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             throw;
         }
     }
+
+    public async Task<bool> ConfirmPaymentAsync(Guid dotThanhToanId)
+    {
+        var dotThanhToan = await DbContext.DotThanhToans.FirstOrDefaultAsync(d => d.Id == dotThanhToanId);
+        if (dotThanhToan == null)
+        {
+            return false;
+        }
+
+        dotThanhToan.IsPaid = true;
+        dotThanhToan.UpdatedAt = DateTime.UtcNow;
+        if (dotThanhToan.NgayThanhToan == null)
+        {
+            dotThanhToan.NgayThanhToan = DateTime.UtcNow;
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
 }
