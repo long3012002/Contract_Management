@@ -225,6 +225,15 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
             HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
 
+            if (dto.DotThanhToans != null && dto.DotThanhToans.Any())
+            {
+                var totalPaymentVal = dto.DotThanhToans.Sum(d => d.GiaTriThanhToan > 0 ? d.GiaTriThanhToan : (d.TyLeThanhToan * dto.GiaTriHopDong / 100));
+                if (dto.GiaTriHopDong < totalPaymentVal)
+                {
+                    throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được nhỏ hơn tổng giá trị của các đợt thanh toán ({totalPaymentVal:N0} VNĐ).");
+                }
+            }
+
             // Ensure unique code
             var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower() && item.Id != id);
             if (exists)
