@@ -116,36 +116,5 @@ namespace demo1.Controllers
             if (!success) return NotFound("Không tìm thấy chức vụ.");
             return Ok(new { Message = "Xóa chức vụ thành công." });
         }
-
-        [HttpGet("{id:guid}/permissions")]
-        [ProducesResponseType(typeof(IEnumerable<ChucVuPermissionDto>), 200)]
-        public async Task<IActionResult> GetPermissions(Guid id)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                var result = await _chucVuService.GetPermissionsAsync(id);
-                return Ok(result);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
-
-        [HttpPut("{id:guid}/permissions")]
-        public async Task<IActionResult> UpdatePermissions(Guid id, [FromBody] List<UpdateChucVuPermissionDto> permissions)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                await _chucVuService.UpdatePermissionsAsync(id, permissions);
-                return Ok(new { Message = "Cập nhật phân quyền chức vụ thành công." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
     }
 }

@@ -44,19 +44,6 @@ namespace demo1.Services.Implements
                 throw new InvalidOperationException("Vai trò đã tồn tại.");
             }
 
-            if (dto.IsInherit == true)
-            {
-                if (!dto.InheritRoleId.HasValue)
-                {
-                    throw new ArgumentException("InheritRoleId là bắt buộc khi chọn kế thừa.");
-                }
-                var parentExists = await _dbContext.Roles.AnyAsync(r => r.Id == dto.InheritRoleId.Value);
-                if (!parentExists)
-                {
-                    throw new ArgumentException("Vai trò kế thừa không tồn tại.");
-                }
-            }
-
             var role = new Role
             {
                 Name = dto.Name,
@@ -66,26 +53,6 @@ namespace demo1.Services.Implements
             };
 
             _dbContext.Roles.Add(role);
-
-            if (dto.IsInherit == true && dto.InheritRoleId.HasValue)
-            {
-                var parentPermissions = await _dbContext.RolePermissions
-                    .Where(rp => rp.RoleId == dto.InheritRoleId.Value)
-                    .ToListAsync();
-
-                foreach (var parentPermission in parentPermissions)
-                {
-                    _dbContext.RolePermissions.Add(new RolePermission
-                    {
-                        RoleId = role.Id,
-                        FeatureId = parentPermission.FeatureId,
-                        CanAccess = parentPermission.CanAccess,
-                        Permissions = parentPermission.Permissions,
-                        UpdatedAt = DateTime.UtcNow
-                    });
-                }
-            }
-
             await _dbContext.SaveChangesAsync();
             return role;
         }
@@ -183,9 +150,6 @@ namespace demo1.Services.Implements
                 throw new KeyNotFoundException("Không tìm thấy tính năng.");
             }
 
-            var relatedPermissions = await _dbContext.RolePermissions.Where(rp => rp.FeatureId == featureId).ToListAsync();
-            _dbContext.RolePermissions.RemoveRange(relatedPermissions);
-
             _dbContext.Features.Remove(feature);
             await _dbContext.SaveChangesAsync();
         }
@@ -198,52 +162,21 @@ namespace demo1.Services.Implements
                 throw new KeyNotFoundException("Không tìm thấy vai trò.");
             }
 
-            var existingPermissions = await _dbContext.RolePermissions
-                .Where(rp => rp.RoleId == roleId)
-                .ToListAsync();
-
             var features = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
 
-            var result = features.Select(f =>
+            return features.Select(f => new RolePermissionDto
             {
-                var perm = existingPermissions.FirstOrDefault(p => p.FeatureId == f.Id);
-                return new RolePermissionDto
-                {
-                    FeatureId = f.Id,
-                    FeatureCode = f.Code,
-                    FeatureName = f.Name,
-                    CanAccess = perm?.CanAccess ?? false,
-                    Permissions = perm?.Permissions ?? string.Empty
-                };
+                FeatureId = f.Id,
+                FeatureCode = f.Code,
+                FeatureName = f.Name,
+                CanAccess = true,
+                Permissions = "All"
             }).ToList();
-
-            return result;
         }
 
         public async Task UpdateRolePermissionsAsync(Guid roleId, List<UpdateRolePermissionDto> permissions)
         {
-            var role = await _dbContext.Roles.FindAsync(roleId);
-            if (role == null)
-            {
-                throw new KeyNotFoundException("Không tìm thấy vai trò.");
-            }
-
-            var existing = await _dbContext.RolePermissions.Where(rp => rp.RoleId == roleId).ToListAsync();
-            _dbContext.RolePermissions.RemoveRange(existing);
-
-            foreach (var perm in permissions)
-            {
-                _dbContext.RolePermissions.Add(new RolePermission
-                {
-                    RoleId = roleId,
-                    FeatureId = perm.FeatureId,
-                    CanAccess = perm.CanAccess,
-                    Permissions = perm.Permissions ?? string.Empty,
-                    UpdatedAt = DateTime.UtcNow
-                });
-            }
-
-            await _dbContext.SaveChangesAsync();
+            await Task.CompletedTask;
         }
 
         public async Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize)

@@ -165,23 +165,6 @@ namespace demo1.Services.Implements
             if (newPhongBans.Any())
             {
                 _dbContext.PhongBans.AddRange(newPhongBans);
-                
-                // Thêm quyền mặc định cho phòng ban mới
-                var activeFeatures = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
-                foreach (var pb in newPhongBans)
-                {
-                    foreach (var feat in activeFeatures)
-                    {
-                        _dbContext.PhongBanPermissions.Add(new PhongBanPermission
-                        {
-                            PhongBanId = pb.Id,
-                            FeatureId = feat.Id,
-                            CanAccess = true,
-                            Permissions = "Create;Update;Delete",
-                            UpdatedAt = DateTime.UtcNow
-                        });
-                    }
-                }
             }
 
             if (newChucVus.Any())

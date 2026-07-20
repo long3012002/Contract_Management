@@ -45,7 +45,6 @@ namespace demo1.Controllers
                 return;
             }
 
-            // Retrieve user with roles and permissions from database
             var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
             if (dbUser == null)
             {
@@ -53,106 +52,63 @@ namespace demo1.Controllers
                 return;
             }
 
-            // IsSystemAdmin has full access to everything
+            // System Admin has full unrestricted access
             if (dbUser.IsSystemAdmin)
             {
                 return;
             }
 
-            // Check specific feature authorization
-            var httpMethod = context.HttpContext.Request.Method;
+            var httpMethod = context.HttpContext.Request.Method.ToUpper();
 
-            // 1. Check department permission (PhongBan)
-            bool isDeptConfigured = false;
-            bool isDeptAuthorized = false;
-            if (dbUser.IdPhongBan.HasValue)
+            // All active users can access/view all features (GET requests) and create new items (POST)
+            if (httpMethod == "GET" || httpMethod == "POST")
             {
-                var deptPerm = await _dbContext.PhongBanPermissions
-                    .Include(pbp => pbp.Feature)
-                    .FirstOrDefaultAsync(pbp => pbp.PhongBanId == dbUser.IdPhongBan.Value && pbp.Feature != null && pbp.Feature.Code == _featureCode && pbp.Feature.IsActive);
-                
-                if (deptPerm != null)
+                return;
+            }
+
+            // Requirement: Editing/Deleting specific record requires explicit UserPermission
+            if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
+            {
+                var routeValues = context.RouteData.Values;
+                string? entityId = null;
+                if (routeValues.ContainsKey("id") && routeValues["id"] != null)
                 {
-                    isDeptConfigured = true;
-                    isDeptAuthorized = EvaluatePermission(deptPerm.CanAccess, deptPerm.Permissions, httpMethod);
+                    entityId = routeValues["id"]?.ToString();
+                }
+
+                if (string.IsNullOrEmpty(entityId))
+                {
+                    return;
+                }
+
+                var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
+
+                // High-performance Composite Index Lookup on UserPermissions + Permission Catalog Code
+                var hasPermission = await _dbContext.UserPermissions
+                    .AsNoTracking()
+                    .Include(up => up.Permission)
+                    .AnyAsync(up =>
+                        up.UserId == dbUser.Id &&
+                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) &&
+                        up.EntityId == entityId &&
+                        up.Permission != null && up.Permission.Code == requiredPermCode);
+
+                if (!hasPermission)
+                {
+                    context.Result = new JsonResult(new
+                    {
+                        Message = $"Bạn chưa có quyền { (requiredPermCode == "DELETE" ? "xóa" : "chỉnh sửa") } trên bản ghi này. Vui lòng gửi yêu cầu cấp quyền.",
+                        RequiresPermissionRequest = true,
+                        FeatureCode = _featureCode,
+                        EntityId = entityId,
+                        RequiredPermissionCode = requiredPermCode
+                    })
+                    {
+                        StatusCode = StatusCodes.Status403Forbidden
+                    };
+                    return;
                 }
             }
-
-            // 2. Check position permission (ChucVu)
-            bool isPosConfigured = false;
-            bool isPosAuthorized = false;
-            if (dbUser.IdChucVu.HasValue)
-            {
-                var cvPerm = await _dbContext.ChucVuPermissions
-                    .Include(cvp => cvp.Feature)
-                    .FirstOrDefaultAsync(cvp => cvp.ChucVuId == dbUser.IdChucVu.Value && cvp.Feature != null && cvp.Feature.Code == _featureCode && cvp.Feature.IsActive);
-                
-                if (cvPerm != null)
-                {
-                    isPosConfigured = true;
-                    isPosAuthorized = EvaluatePermission(cvPerm.CanAccess, cvPerm.Permissions, httpMethod);
-                }
-            }
-
-            // Evaluate combined authorization
-            bool isAuthorized = false;
-            if (isDeptConfigured && isPosConfigured)
-            {
-                // If both are configured, BOTH must authorize (AND logic)
-                isAuthorized = isDeptAuthorized && isPosAuthorized;
-            }
-            else if (isDeptConfigured)
-            {
-                // If only department is configured
-                isAuthorized = isDeptAuthorized;
-            }
-            else if (isPosConfigured)
-            {
-                // If only position is configured
-                isAuthorized = isPosAuthorized;
-            }
-            else
-            {
-                // If neither is configured, default deny
-                isAuthorized = false;
-            }
-
-            if (!isAuthorized)
-            {
-                context.Result = new ForbidResult();
-            }
-        }
-
-        private bool EvaluatePermission(bool canAccess, string permissionsString, string httpMethod)
-        {
-            if (httpMethod == "GET")
-            {
-                return canAccess;
-            }
-
-            if (string.IsNullOrEmpty(permissionsString))
-            {
-                return false;
-            }
-
-            var allowedActions = permissionsString.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim().ToLower())
-                .ToList();
-
-            if (httpMethod == "POST")
-            {
-                return allowedActions.Contains("create");
-            }
-            if (httpMethod == "PUT" || httpMethod == "PATCH")
-            {
-                return allowedActions.Contains("update");
-            }
-            if (httpMethod == "DELETE")
-            {
-                return allowedActions.Contains("delete");
-            }
-
-            return false;
         }
     }
 }

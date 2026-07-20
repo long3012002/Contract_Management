@@ -101,10 +101,6 @@ namespace demo1.Services.Implements
                 return false;
             }
 
-            // Remove associated permissions
-            var permissions = await _dbContext.ChucVuPermissions.Where(p => p.ChucVuId == id).ToListAsync();
-            _dbContext.ChucVuPermissions.RemoveRange(permissions);
-
             // Set User reference to null
             var users = await _dbContext.Users.Where(u => u.IdChucVu == id).ToListAsync();
             foreach (var user in users)
@@ -116,62 +112,6 @@ namespace demo1.Services.Implements
             _dbContext.ChucVus.Remove(item);
             await _dbContext.SaveChangesAsync();
             return true;
-        }
-
-        public async Task<IEnumerable<ChucVuPermissionDto>> GetPermissionsAsync(Guid chucVuId)
-        {
-            var exists = await _dbContext.ChucVus.AnyAsync(cv => cv.Id == chucVuId);
-            if (!exists)
-            {
-                throw new KeyNotFoundException("Không tìm thấy chức vụ.");
-            }
-
-            var existingPermissions = await _dbContext.ChucVuPermissions
-                .Where(p => p.ChucVuId == chucVuId)
-                .ToListAsync();
-
-            var features = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
-
-            var result = features.Select(f =>
-            {
-                var perm = existingPermissions.FirstOrDefault(p => p.FeatureId == f.Id);
-                return new ChucVuPermissionDto
-                {
-                    FeatureId = f.Id,
-                    FeatureCode = f.Code,
-                    FeatureName = f.Name,
-                    CanAccess = perm?.CanAccess ?? false,
-                    Permissions = perm?.Permissions ?? string.Empty
-                };
-            }).ToList();
-
-            return result;
-        }
-
-        public async Task UpdatePermissionsAsync(Guid chucVuId, List<UpdateChucVuPermissionDto> permissions)
-        {
-            var exists = await _dbContext.ChucVus.AnyAsync(cv => cv.Id == chucVuId);
-            if (!exists)
-            {
-                throw new KeyNotFoundException("Không tìm thấy chức vụ.");
-            }
-
-            var existing = await _dbContext.ChucVuPermissions.Where(p => p.ChucVuId == chucVuId).ToListAsync();
-            _dbContext.ChucVuPermissions.RemoveRange(existing);
-
-            foreach (var perm in permissions)
-            {
-                _dbContext.ChucVuPermissions.Add(new ChucVuPermission
-                {
-                    ChucVuId = chucVuId,
-                    FeatureId = perm.FeatureId,
-                    CanAccess = perm.CanAccess,
-                    Permissions = perm.Permissions ?? string.Empty,
-                    UpdatedAt = DateTime.UtcNow
-                });
-            }
-
-            await _dbContext.SaveChangesAsync();
         }
     }
 }

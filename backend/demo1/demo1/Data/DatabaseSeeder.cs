@@ -313,5 +313,76 @@ public static class DatabaseSeeder
             await context.DotThanhToans.AddRangeAsync(dotThanhToanList);
             await context.SaveChangesAsync();
         }
+
+        // 10. Seed CongViecGoiThaus (Công việc gói thầu)
+        await SeedCongViecGoiThausAsync(context);
+    }
+
+    public static async Task SeedCongViecGoiThausAsync(AppDbContext context)
+    {
+        if (await context.CongViecGoiThaus.AnyAsync()) return;
+
+        var goiThaus = await context.GoiThaus.ToListAsync();
+        if (!goiThaus.Any()) return;
+
+        var templateTasks = new[]
+        {
+            ("Tờ trình v/v xin chủ trương xây dựng hệ thống", "Bản photo", "Đã xong"),
+            ("Tờ trình đề xuất chức năng nghiệp vụ, kỹ thuật của hệ thống", "Bản photo", "Đã xong"),
+            ("Chứng thư thẩm định giá", "Bản photo", "Đã xong"),
+            ("Tờ trình phê duyệt dự toán Dự án", "Bản photo", "Đã xong"),
+            ("Quyết định phê duyệt dự toán Dự án", "Bản gốc", "Đã xong"),
+            ("Tờ trình phê duyệt kế hoạch lựa chọn nhà thầu", "Bản photo", "Đã xong"),
+            ("Quyết định phê duyệt kế hoạch lựa chọn nhà thầu", "Bản gốc", "Đã xong"),
+            ("Đơn xin tham gia + báo giá + Hồ sơ năng lực", "Bản gốc", "Đã xong"),
+            ("Thư mời thương thảo hợp đồng", "Bản gốc", "Đã xong"),
+            ("Công văn xác nhận tham gia thương thảo HĐ", "Bản gốc", "Đã xong"),
+            ("Biên bản hoàn thiện hợp đồng", "Bản gốc", "Đã xong"),
+            ("Tờ trình phê duyệt KQLCNT Gói thầu", "Bản gốc", "Đã xong"),
+            ("Quyết định phê duyệt KQLCNT Gói thầu", "Bản gốc", "Đã xong"),
+            ("Hợp đồng kinh tế triển khai gói thầu", "Bản gốc", "Đã xong"),
+            ("Bảo lãnh thực hiện HĐ", "Bản gốc", "Đang thực hiện"),
+            ("Bảo lãnh tạm ứng", "Bản gốc", "Đang thực hiện"),
+            ("Biên bản nghiệm thu hoàn thành triển khai và tích hợp hệ thống", "Bản gốc", "Đang thực hiện"),
+            ("Biên bản nghiệm thu đào tạo", "Bản gốc", "Đang thực hiện"),
+            ("Biên bản nghiệm thu tổng thể", "Bản gốc", "Đang thực hiện"),
+            ("Biên bản thanh lý Hợp đồng", "Bản gốc", "Đã xong"),
+            ("Bảo lãnh bảo hành", "Bản gốc", "Đang thực hiện"),
+            ("Hóa đơn tài chính", "Bản gốc", "Đã xong"),
+            ("Giấy đề nghị thanh toán", "Bản gốc", "Đã xong"),
+            ("Tờ trình thanh toán", "Bản gốc", "Đã xong")
+        };
+
+        var list = new List<CongViecGoiThau>();
+        var now = DateTime.UtcNow;
+
+        foreach (var gt in goiThaus)
+        {
+            for (int i = 0; i < templateTasks.Length; i++)
+            {
+                var taskInfo = templateTasks[i];
+                int stt = i + 1;
+                var id = Guid.NewGuid();
+                list.Add(new CongViecGoiThau
+                {
+                    Id = id,
+                    GoiThauId = gt.Id,
+                    Stt = stt,
+                    TenTaiLieu = taskInfo.Item1,
+                    NgayKy = now.AddDays(-(30 - stt)),
+                    LoaiVanBan = taskInfo.Item2,
+                    TinhTrang = taskInfo.Item3,
+                    GhiChu = $"Ghi chú công việc {stt} của gói thầu {gt.Code}",
+                    Code = $"CVGT-{gt.Code}-{stt:D2}",
+                    Name = taskInfo.Item1,
+                    Description = $"Mô tả công việc {stt}",
+                    IsActive = true,
+                    CreatedAt = now.AddDays(-(30 - stt))
+                });
+            }
+        }
+
+        await context.CongViecGoiThaus.AddRangeAsync(list);
+        await context.SaveChangesAsync();
     }
 }

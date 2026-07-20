@@ -116,36 +116,5 @@ namespace demo1.Controllers
             if (!success) return NotFound("Không tìm thấy phòng ban.");
             return Ok(new { Message = "Xóa phòng ban thành công." });
         }
-
-        [HttpGet("{id:guid}/permissions")]
-        [ProducesResponseType(typeof(IEnumerable<PhongBanPermissionDto>), 200)]
-        public async Task<IActionResult> GetPermissions(Guid id)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                var result = await _phongBanService.GetPermissionsAsync(id);
-                return Ok(result);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
-
-        [HttpPut("{id:guid}/permissions")]
-        public async Task<IActionResult> UpdatePermissions(Guid id, [FromBody] List<UpdatePhongBanPermissionDto> permissions)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                await _phongBanService.UpdatePermissionsAsync(id, permissions);
-                return Ok(new { Message = "Cập nhật phân quyền phòng ban thành công." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
     }
 }

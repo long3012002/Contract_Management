@@ -32,14 +32,17 @@ namespace demo1.Data
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserRole> UserRoles { get; set; } = null!;
         public DbSet<Feature> Features { get; set; } = null!;
-        public DbSet<RolePermission> RolePermissions { get; set; } = null!;
         public DbSet<PhongBan> PhongBans { get; set; } = null!;
         public DbSet<ChucVu> ChucVus { get; set; } = null!;
-        public DbSet<PhongBanPermission> PhongBanPermissions { get; set; } = null!;
-        public DbSet<ChucVuPermission> ChucVuPermissions { get; set; } = null!;
+        public DbSet<UserPermission> UserPermissions { get; set; } = null!;
+        public DbSet<PermissionRequest> PermissionRequests { get; set; } = null!;
+        public DbSet<Permission> Permissions { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = null!;
         public DbSet<CongViecGoiThau> CongViecGoiThaus { get; set; } = null!;
+        public DbSet<License> Licenses { get; set; } = null!;
+        public DbSet<CommentCongViecGoiThau> CommentCongViecGoiThaus { get; set; } = null!;
+        public DbSet<CommentMention> CommentMentions { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -56,6 +59,7 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
             ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
+            ConfigureBaseEntity(modelBuilder.Entity<License>());
 
             // Configure NhaThauGoiThau relationship
             modelBuilder.Entity<NhaThauGoiThau>()
@@ -157,6 +161,28 @@ namespace demo1.Data
                 .HasForeignKey(cv => cv.GoiThauId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<License>()
+                .Property(l => l.ThongTinThietBi)
+                .HasMaxLength(1000);
+            modelBuilder.Entity<License>()
+                .Property(l => l.GhiChu)
+                .HasMaxLength(2000);
+            modelBuilder.Entity<License>()
+                .HasOne(l => l.DuAn)
+                .WithMany(da => da.Licenses)
+                .HasForeignKey(l => l.DuAnId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<License>()
+                .HasOne(l => l.HopDong)
+                .WithMany()
+                .HasForeignKey(l => l.HopDongId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<License>()
+                .HasOne(l => l.NhaCungCap)
+                .WithMany()
+                .HasForeignKey(l => l.NhaCungCapId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             modelBuilder.Entity<HopDong>()
                 .Property(hd => hd.GiaTriHopDong)
                 .HasPrecision(18, 2);
@@ -244,17 +270,89 @@ namespace demo1.Data
             modelBuilder.Entity<UserRole>()
                 .HasKey(ur => new { ur.UserId, ur.RoleId });
 
-            // Configure composite key for RolePermission
-            modelBuilder.Entity<RolePermission>()
-                .HasKey(rp => new { rp.RoleId, rp.FeatureId });
+            // Configure Permission catalog entity
+            modelBuilder.Entity<Permission>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Code).HasMaxLength(50).IsRequired();
+                entity.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                entity.Property(p => p.Description).HasMaxLength(500);
+                entity.HasIndex(p => p.Code).IsUnique();
 
-            // Configure composite key for PhongBanPermission
-            modelBuilder.Entity<PhongBanPermission>()
-                .HasKey(pbp => new { pbp.PhongBanId, pbp.FeatureId });
+                entity.HasData(
+                    new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Code = "VIEW", Name = "Xem", Description = "Quyền xem dữ liệu" },
+                    new Permission { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Code = "CREATE", Name = "Tạo mới", Description = "Quyền tạo mới dữ liệu" },
+                    new Permission { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Code = "EDIT", Name = "Chỉnh sửa", Description = "Quyền chỉnh sửa bản ghi" },
+                    new Permission { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), Code = "DELETE", Name = "Xóa", Description = "Quyền xóa bản ghi" },
+                    new Permission { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), Code = "APPROVE", Name = "Phê duyệt", Description = "Quyền phê duyệt yêu cầu" }
+                );
+            });
 
-            // Configure composite key for ChucVuPermission
-            modelBuilder.Entity<ChucVuPermission>()
-                .HasKey(cvp => new { cvp.ChucVuId, cvp.FeatureId });
+            // Configure UserPermission entity
+            modelBuilder.Entity<UserPermission>(entity =>
+            {
+                entity.HasKey(up => up.Id);
+                entity.Property(up => up.FeatureCode).HasMaxLength(100).IsRequired();
+                entity.Property(up => up.EntityName).HasMaxLength(100).IsRequired();
+                entity.Property(up => up.EntityId).HasMaxLength(255).IsRequired();
+                entity.HasOne(up => up.User)
+                    .WithMany()
+                    .HasForeignKey(up => up.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(up => up.GrantedByUser)
+                    .WithMany()
+                    .HasForeignKey(up => up.GrantedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(up => up.Permission)
+                    .WithMany()
+                    .HasForeignKey(up => up.PermissionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(up => up.DuAn)
+                    .WithMany()
+                    .HasForeignKey(up => up.DuAnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // High-performance Composite Indexes
+                entity.HasIndex(up => new { up.UserId, up.DuAnId, up.PermissionId })
+                    .HasDatabaseName("IX_UserPermission_User_DuAn_Perm");
+                entity.HasIndex(up => new { up.UserId, up.EntityName, up.EntityId, up.PermissionId })
+                    .HasDatabaseName("IX_UserPermission_User_Entity_Perm");
+            });
+
+            // Configure PermissionRequest entity
+            modelBuilder.Entity<PermissionRequest>(entity =>
+            {
+                entity.HasKey(pr => pr.Id);
+                entity.Property(pr => pr.FeatureCode).HasMaxLength(100).IsRequired();
+                entity.Property(pr => pr.EntityName).HasMaxLength(100).IsRequired();
+                entity.Property(pr => pr.EntityId).HasMaxLength(255).IsRequired();
+                entity.Property(pr => pr.EntityTitle).HasMaxLength(500);
+                entity.Property(pr => pr.RequestedAction).HasMaxLength(50).IsRequired();
+                entity.Property(pr => pr.Reason).HasMaxLength(1000);
+                entity.Property(pr => pr.Status).HasMaxLength(50).IsRequired();
+                entity.Property(pr => pr.ReviewNote).HasMaxLength(1000);
+
+                entity.HasOne(pr => pr.User)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(pr => pr.Reviewer)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.ReviewerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(pr => pr.DuAn)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.DuAnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(pr => pr.Permission)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.PermissionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                entity.HasOne(pr => pr.RequestedPermission)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.RequestedPermissionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // Configure AuditLog entity
             modelBuilder.Entity<AuditLog>(entity =>
@@ -280,7 +378,46 @@ namespace demo1.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+            // Configure CommentCongViecGoiThau entity
+            modelBuilder.Entity<CommentCongViecGoiThau>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.Content).HasMaxLength(4000).IsRequired();
+                
+                entity.HasOne(c => c.CongViecGoiThau)
+                    .WithMany()
+                    .HasForeignKey(c => c.CongViecGoiThauId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(c => c.ParentComment)
+                    .WithMany(c => c.Replies)
+                    .HasForeignKey(c => c.ParentCommentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure CommentMention entity
+            modelBuilder.Entity<CommentMention>(entity =>
+            {
+                entity.HasKey(m => m.Id);
+
+                entity.HasOne(m => m.Comment)
+                    .WithMany(c => c.Mentions)
+                    .HasForeignKey(m => m.CommentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(m => m.MentionedUser)
+                    .WithMany()
+                    .HasForeignKey(m => m.MentionedUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
+
         private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)
             where TEntity : BaseEntity
         {

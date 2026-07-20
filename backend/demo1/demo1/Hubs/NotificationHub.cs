@@ -33,5 +33,20 @@ namespace demo1.Hubs
 
             await base.OnDisconnectedAsync(exception);
         }
+
+        public async Task JoinCongViecGroup(string idCongViec)
+        {
+            var groupName = $"CongViec_{idCongViec}";
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+            _logger.LogInformation("Client {ConnectionId} joined group {GroupName}", Context.ConnectionId, groupName);
+        }
+
+        public async Task LeaveCongViecGroup(string idCongViec)
+        {
+            var groupName = $"CongViec_{idCongViec}";
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+            _logger.LogInformation("Client {ConnectionId} left group {GroupName}", Context.ConnectionId, groupName);
+        }
     }
 }
+

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720070117_remove-role-permission")]
+    partial class removerolepermission
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -87,87 +90,6 @@ namespace demo1.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ChucVus");
-                });
-
-            modelBuilder.Entity("demo1.Entity.CommentCongViecGoiThau", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid>("CongViecGoiThauId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsEdited")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<Guid?>("ParentCommentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CongViecGoiThauId");
-
-                    b.HasIndex("ParentCommentId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("CommentCongViecGoiThaus");
-                });
-
-            modelBuilder.Entity("demo1.Entity.CommentMention", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("CommentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("MentionedUserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CommentId");
-
-                    b.HasIndex("MentionedUserId");
-
-                    b.ToTable("CommentMentions");
                 });
 
             modelBuilder.Entity("demo1.Entity.CongViecGoiThau", b =>
@@ -669,84 +591,6 @@ namespace demo1.Migrations
                     b.ToTable("HopDongs");
                 });
 
-            modelBuilder.Entity("demo1.Entity.License", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("CanhBaoTruocNgay")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<Guid>("DuAnId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<string>("GhiChu")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
-
-                    b.Property<Guid?>("HopDongId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<int>("LoaiLicense")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<DateTime?>("NgayBatDau")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("NgayKetThuc")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid?>("NhaCungCapId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<int?>("SoLuong")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ThongTinThietBi")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<int>("TrangThai")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("DuAnId");
-
-                    b.HasIndex("HopDongId");
-
-                    b.HasIndex("NhaCungCapId");
-
-                    b.ToTable("Licenses");
-                });
-
             modelBuilder.Entity("demo1.Entity.NhaThauGoiThau", b =>
                 {
                     b.Property<Guid>("Id")
@@ -922,7 +766,7 @@ namespace demo1.Migrations
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
                             Code = "VIEW",
-                            CreatedAt = new DateTime(2026, 7, 20, 8, 4, 23, 602, DateTimeKind.Utc).AddTicks(1582),
+                            CreatedAt = new DateTime(2026, 7, 20, 7, 1, 16, 768, DateTimeKind.Utc).AddTicks(5216),
                             Description = "Quyền xem dữ liệu",
                             Name = "Xem"
                         },
@@ -930,7 +774,7 @@ namespace demo1.Migrations
                         {
                             Id = new Guid("22222222-2222-2222-2222-222222222222"),
                             Code = "CREATE",
-                            CreatedAt = new DateTime(2026, 7, 20, 8, 4, 23, 602, DateTimeKind.Utc).AddTicks(2489),
+                            CreatedAt = new DateTime(2026, 7, 20, 7, 1, 16, 768, DateTimeKind.Utc).AddTicks(5976),
                             Description = "Quyền tạo mới dữ liệu",
                             Name = "Tạo mới"
                         },
@@ -938,7 +782,7 @@ namespace demo1.Migrations
                         {
                             Id = new Guid("33333333-3333-3333-3333-333333333333"),
                             Code = "EDIT",
-                            CreatedAt = new DateTime(2026, 7, 20, 8, 4, 23, 602, DateTimeKind.Utc).AddTicks(2495),
+                            CreatedAt = new DateTime(2026, 7, 20, 7, 1, 16, 768, DateTimeKind.Utc).AddTicks(5981),
                             Description = "Quyền chỉnh sửa bản ghi",
                             Name = "Chỉnh sửa"
                         },
@@ -946,7 +790,7 @@ namespace demo1.Migrations
                         {
                             Id = new Guid("44444444-4444-4444-4444-444444444444"),
                             Code = "DELETE",
-                            CreatedAt = new DateTime(2026, 7, 20, 8, 4, 23, 602, DateTimeKind.Utc).AddTicks(2498),
+                            CreatedAt = new DateTime(2026, 7, 20, 7, 1, 16, 768, DateTimeKind.Utc).AddTicks(5984),
                             Description = "Quyền xóa bản ghi",
                             Name = "Xóa"
                         },
@@ -954,7 +798,7 @@ namespace demo1.Migrations
                         {
                             Id = new Guid("55555555-5555-5555-5555-555555555555"),
                             Code = "APPROVE",
-                            CreatedAt = new DateTime(2026, 7, 20, 8, 4, 23, 602, DateTimeKind.Utc).AddTicks(2502),
+                            CreatedAt = new DateTime(2026, 7, 20, 7, 1, 16, 768, DateTimeKind.Utc).AddTicks(5985),
                             Description = "Quyền phê duyệt yêu cầu",
                             Name = "Phê duyệt"
                         });
@@ -1305,51 +1149,6 @@ namespace demo1.Migrations
                     b.ToTable("UserRoles");
                 });
 
-            modelBuilder.Entity("demo1.Entity.CommentCongViecGoiThau", b =>
-                {
-                    b.HasOne("demo1.Entity.CongViecGoiThau", "CongViecGoiThau")
-                        .WithMany()
-                        .HasForeignKey("CongViecGoiThauId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("demo1.Entity.CommentCongViecGoiThau", "ParentComment")
-                        .WithMany("Replies")
-                        .HasForeignKey("ParentCommentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("demo1.Entity.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CongViecGoiThau");
-
-                    b.Navigation("ParentComment");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("demo1.Entity.CommentMention", b =>
-                {
-                    b.HasOne("demo1.Entity.CommentCongViecGoiThau", "Comment")
-                        .WithMany("Mentions")
-                        .HasForeignKey("CommentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("demo1.Entity.User", "MentionedUser")
-                        .WithMany()
-                        .HasForeignKey("MentionedUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Comment");
-
-                    b.Navigation("MentionedUser");
-                });
-
             modelBuilder.Entity("demo1.Entity.CongViecGoiThau", b =>
                 {
                     b.HasOne("demo1.Entity.GoiThau", "GoiThau")
@@ -1439,31 +1238,6 @@ namespace demo1.Migrations
                     b.Navigation("GoiThau");
 
                     b.Navigation("NhaThau");
-                });
-
-            modelBuilder.Entity("demo1.Entity.License", b =>
-                {
-                    b.HasOne("demo1.Entity.DuAn", "DuAn")
-                        .WithMany("Licenses")
-                        .HasForeignKey("DuAnId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("demo1.Entity.HopDong", "HopDong")
-                        .WithMany()
-                        .HasForeignKey("HopDongId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("demo1.Entity.DoiTac", "NhaCungCap")
-                        .WithMany()
-                        .HasForeignKey("NhaCungCapId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("DuAn");
-
-                    b.Navigation("HopDong");
-
-                    b.Navigation("NhaCungCap");
                 });
 
             modelBuilder.Entity("demo1.Entity.NhaThauGoiThau", b =>
@@ -1586,20 +1360,11 @@ namespace demo1.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("demo1.Entity.CommentCongViecGoiThau", b =>
-                {
-                    b.Navigation("Mentions");
-
-                    b.Navigation("Replies");
-                });
-
             modelBuilder.Entity("demo1.Entity.DuAn", b =>
                 {
                     b.Navigation("DieuChinhs");
 
                     b.Navigation("GoiThaus");
-
-                    b.Navigation("Licenses");
                 });
 
             modelBuilder.Entity("demo1.Entity.GoiThau", b =>

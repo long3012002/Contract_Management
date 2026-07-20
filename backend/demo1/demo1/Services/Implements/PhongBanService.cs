@@ -101,10 +101,6 @@ namespace demo1.Services.Implements
                 return false;
             }
 
-            // Remove associated permissions
-            var permissions = await _dbContext.PhongBanPermissions.Where(p => p.PhongBanId == id).ToListAsync();
-            _dbContext.PhongBanPermissions.RemoveRange(permissions);
-
             // Set User reference to null or clear it (if users reference this phongban, update them)
             var users = await _dbContext.Users.Where(u => u.IdPhongBan == id).ToListAsync();
             foreach (var user in users)
@@ -116,62 +112,6 @@ namespace demo1.Services.Implements
             _dbContext.PhongBans.Remove(item);
             await _dbContext.SaveChangesAsync();
             return true;
-        }
-
-        public async Task<IEnumerable<PhongBanPermissionDto>> GetPermissionsAsync(Guid phongBanId)
-        {
-            var exists = await _dbContext.PhongBans.AnyAsync(pb => pb.Id == phongBanId);
-            if (!exists)
-            {
-                throw new KeyNotFoundException("Không tìm thấy phòng ban.");
-            }
-
-            var existingPermissions = await _dbContext.PhongBanPermissions
-                .Where(p => p.PhongBanId == phongBanId)
-                .ToListAsync();
-
-            var features = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
-
-            var result = features.Select(f =>
-            {
-                var perm = existingPermissions.FirstOrDefault(p => p.FeatureId == f.Id);
-                return new PhongBanPermissionDto
-                {
-                    FeatureId = f.Id,
-                    FeatureCode = f.Code,
-                    FeatureName = f.Name,
-                    CanAccess = perm?.CanAccess ?? false,
-                    Permissions = perm?.Permissions ?? string.Empty
-                };
-            }).ToList();
-
-            return result;
-        }
-
-        public async Task UpdatePermissionsAsync(Guid phongBanId, List<UpdatePhongBanPermissionDto> permissions)
-        {
-            var exists = await _dbContext.PhongBans.AnyAsync(pb => pb.Id == phongBanId);
-            if (!exists)
-            {
-                throw new KeyNotFoundException("Không tìm thấy phòng ban.");
-            }
-
-            var existing = await _dbContext.PhongBanPermissions.Where(p => p.PhongBanId == phongBanId).ToListAsync();
-            _dbContext.PhongBanPermissions.RemoveRange(existing);
-
-            foreach (var perm in permissions)
-            {
-                _dbContext.PhongBanPermissions.Add(new PhongBanPermission
-                {
-                    PhongBanId = phongBanId,
-                    FeatureId = perm.FeatureId,
-                    CanAccess = perm.CanAccess,
-                    Permissions = perm.Permissions ?? string.Empty,
-                    UpdatedAt = DateTime.UtcNow
-                });
-            }
-
-            await _dbContext.SaveChangesAsync();
         }
     }
 }

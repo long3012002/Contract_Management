@@ -183,6 +183,52 @@ namespace demo1.Services.Implements
                 }
             }
 
+            // Scan Licenses expiring soon based on their custom warning threshold (CanhBaoTruocNgay)
+            var activeLicenses = await dbContext.Licenses
+                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
+                .ToListAsync();
+
+            var licensesToWarn = activeLicenses
+                .Where(l =>
+                {
+                    var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
+                    return daysRemaining <= l.CanhBaoTruocNgay && daysRemaining >= 0;
+                })
+                .ToList();
+
+            if (licensesToWarn.Any())
+            {
+                _logger.LogInformation("Found {Count} licenses expiring within warning threshold.", licensesToWarn.Count);
+                foreach (var license in licensesToWarn)
+                {
+                    var daysRemaining = (license.NgayKetThuc!.Value.Date - today).Days;
+                    _logger.LogInformation("[LicenseScan] Phát hiện License sắp hết hạn: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", license.Code, license.Name, license.NgayKetThuc.Value, daysRemaining);
+
+                    var title = "Cảnh báo: License sắp hết hạn";
+                    var content = $"License '{license.Name}' (Mã: {license.Code}) sẽ hết hạn vào ngày {license.NgayKetThuc!.Value:dd/MM/yyyy} (còn lại {daysRemaining} ngày).";
+                    var link = $"/licenses/{license.Id}";
+
+                    foreach (var user in activeUsers)
+                    {
+                        var alreadyNotified = await dbContext.Notifications
+                            .AnyAsync(n => n.UserId == user.Id && n.Link == link);
+
+                        if (alreadyNotified) continue;
+
+                        var notification = new Notification
+                        {
+                            Title = title,
+                            Content = content,
+                            Link = link,
+                            UserId = user.Id,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        dbContext.Notifications.Add(notification);
+                        notificationsToPush.Add((user.Username, notification));
+                    }
+                }
+            }
+
             await dbContext.SaveChangesAsync();
 
             // Push real-time notifications via SignalR
@@ -200,7 +246,7 @@ namespace demo1.Services.Implements
                 });
             }
 
-            _logger.LogInformation("Finished contract expiration scan. Notifications generated and emails triggered.");
+            _logger.LogInformation("Finished contract & license expiration scan. Notifications generated.");
         }
     }
 }

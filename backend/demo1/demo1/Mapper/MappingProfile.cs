@@ -115,15 +115,11 @@ namespace demo1.Mapper
             CreateMap<PhongBan, PhongBanDto>();
             CreateMap<CreatePhongBanDto, PhongBan>();
             CreateMap<UpdatePhongBanDto, PhongBan>();
-            CreateMap<PhongBanPermission, PhongBanPermissionDto>();
-            CreateMap<UpdatePhongBanPermissionDto, PhongBanPermission>();
 
             // ChucVu mappings
             CreateMap<ChucVu, ChucVuDto>();
             CreateMap<CreateChucVuDto, ChucVu>();
             CreateMap<UpdateChucVuDto, ChucVu>();
-            CreateMap<ChucVuPermission, ChucVuPermissionDto>();
-            CreateMap<UpdateChucVuPermissionDto, ChucVuPermission>();
 
             // NhomDuAn mappings
             CreateMap<NhomDuAn, NhomDuAnDto>();
@@ -154,6 +150,45 @@ namespace demo1.Mapper
             CreateMap<UpdateCongViecGoiThauDto, CongViecGoiThau>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
+
+            // License mappings
+            CreateMap<License, LicenseDto>()
+                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
+                .ForMember(dest => dest.DuAnCode, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Code : null))
+                .ForMember(dest => dest.HopDongName, opt => opt.MapFrom(src => src.HopDong != null ? src.HopDong.Name : null))
+                .ForMember(dest => dest.HopDongCode, opt => opt.MapFrom(src => src.HopDong != null ? src.HopDong.Code : null))
+                .ForMember(dest => dest.NhaCungCapName, opt => opt.MapFrom(src => src.NhaCungCap != null ? src.NhaCungCap.Name : null));
+
+            CreateMap<CreateLicenseDto, License>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
+                .ForMember(dest => dest.ThongTinThietBi, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThongTinThietBi)))
+                .ForMember(dest => dest.GhiChu, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.GhiChu)));
+
+            CreateMap<UpdateLicenseDto, License>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
+                .ForMember(dest => dest.ThongTinThietBi, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThongTinThietBi)))
+                .ForMember(dest => dest.GhiChu, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.GhiChu)));
+
+            // CommentCongViecGoiThau mappings
+            CreateMap<CommentMention, UserMentionDto>()
+                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.MentionedUserId))
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.Username : string.Empty))
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.FullName : string.Empty));
+
+            CreateMap<User, UserMentionDto>();
+
+            CreateMap<CommentCongViecGoiThau, CommentCongViecGoiThauDto>()
+                .ForMember(dest => dest.ParentId, opt => opt.MapFrom(src => src.CongViecGoiThauId))
+                .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => src.User != null ? src.User.FullName : "Unknown"))
+                .ForMember(dest => dest.UserUsername, opt => opt.MapFrom(src => src.User != null ? src.User.Username : "Unknown"))
+                .ForMember(dest => dest.Content, opt => opt.MapFrom(src => src.IsDeleted ? "Bình luận này đã bị xóa." : src.Content))
+                .ForMember(dest => dest.Mentions, opt => opt.MapFrom(src => src.Mentions))
+                .ForMember(dest => dest.Replies, opt => opt.Ignore());
         }
+
     }
 }
