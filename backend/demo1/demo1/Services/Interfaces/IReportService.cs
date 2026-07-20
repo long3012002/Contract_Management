@@ -12,5 +12,11 @@ public interface IReportService
 
     Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau);
     Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau);
+
+    Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, string? search);
+    Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search);
+    Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search);
+    Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search);
 }
+
 

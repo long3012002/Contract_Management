@@ -51,6 +51,60 @@ public class CongViecGoiThauService
         return Mapper.Map<CongViecGoiThauDto>(entity);
     }
 
+    public override async Task<IEnumerable<CongViecGoiThauDto>> CreateRangeAsync(IEnumerable<CreateCongViecGoiThauDto> dtos)
+    {
+        var dtoList = dtos.ToList();
+        if (!dtoList.Any())
+        {
+            return Enumerable.Empty<CongViecGoiThauDto>();
+        }
+
+        var goiThauIds = dtoList.Select(d => d.GoiThauId).Distinct().ToList();
+        var existingGoiThauIds = await DbContext.GoiThaus
+            .Where(g => goiThauIds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync();
+
+        var missingGoiThauId = goiThauIds.FirstOrDefault(id => !existingGoiThauIds.Contains(id));
+        if (missingGoiThauId != Guid.Empty && !existingGoiThauIds.Contains(missingGoiThauId))
+        {
+            throw new KeyNotFoundException($"Không tìm thấy gói thầu với ID '{missingGoiThauId}'.");
+        }
+
+        var entities = new List<CongViecGoiThau>();
+        var now = DateTime.UtcNow;
+
+        foreach (var dto in dtoList)
+        {
+            var entity = Mapper.Map<CongViecGoiThau>(dto);
+            entity.Id = Guid.NewGuid();
+            entity.CreatedAt = now;
+
+            if (string.IsNullOrWhiteSpace(entity.Code))
+            {
+                entity.Code = $"CVGT-{dto.Stt:D2}-{entity.Id.ToString().Substring(0, 6)}";
+            }
+
+            if (string.IsNullOrWhiteSpace(entity.Name))
+            {
+                entity.Name = entity.TenTaiLieu;
+            }
+
+            if (string.IsNullOrWhiteSpace(entity.Description))
+            {
+                entity.Description = entity.GhiChu;
+            }
+
+            entities.Add(entity);
+        }
+
+        await DbSet.AddRangeAsync(entities);
+        await DbContext.SaveChangesAsync();
+
+        return Mapper.Map<List<CongViecGoiThauDto>>(entities);
+    }
+
+
     public override async Task<bool> UpdateAsync(Guid id, UpdateCongViecGoiThauDto dto)
     {
         var entity = await DbSet.FindAsync(id);

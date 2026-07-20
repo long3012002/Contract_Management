@@ -155,5 +155,85 @@ public class ReportsController : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo công việc gói thầu.", detail = ex.Message });
         }
     }
+
+    [HttpGet("contract-payments")]
+    public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
+        [FromQuery] int? year, 
+        [FromQuery] int? loaiHopDong, 
+        [FromQuery] string? search)
+    {
+        int selectedYear = year ?? DateTime.UtcNow.Year;
+
+        try
+        {
+            var report = await _reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo theo dõi thanh toán hợp đồng.", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("contract-payments/export")]
+    public async Task<IActionResult> ExportContractPaymentReport(
+        [FromQuery] int? year, 
+        [FromQuery] int? loaiHopDong, 
+        [FromQuery] string? search, 
+        [FromQuery] string format = "xlsx", 
+        [FromQuery] bool base64 = false)
+    {
+        int selectedYear = year ?? DateTime.UtcNow.Year;
+
+        try
+        {
+            var report = await _reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search);
+            
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await _reportService.ExportContractPaymentReportCsvAsync(selectedYear, loaiHopDong, search);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await _reportService.ExportContractPaymentReportHtmlAsync(selectedYear, loaiHopDong, search);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await _reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, search);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_TheoDoiThanhToanHopDong_{selectedYear}_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new
+                {
+                    fileName,
+                    contentType,
+                    base64Data
+                });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo theo dõi thanh toán hợp đồng.", detail = ex.Message });
+        }
+    }
 }
+
 
