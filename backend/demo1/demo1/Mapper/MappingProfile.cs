@@ -144,6 +144,16 @@ namespace demo1.Mapper
             CreateMap<UpdatePhanLoaiDuAnDto, PhanLoaiDuAn>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
+            // CongViecGoiThau mappings
+            CreateMap<CongViecGoiThau, CongViecGoiThauDto>();
+            CreateMap<CreateCongViecGoiThauDto, CongViecGoiThau>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code ?? string.Empty)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
+            CreateMap<UpdateCongViecGoiThauDto, CongViecGoiThau>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
         }
     }
 }

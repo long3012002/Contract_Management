@@ -102,5 +102,58 @@ public class ReportsController : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo.", detail = ex.Message });
         }
     }
+
+    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}")]
+    public async Task<ActionResult<CongViecGoiThauReportDto>> GetCongViecGoiThauReport(Guid idGoiThau)
+    {
+        try
+        {
+            var report = await _reportService.GetCongViecGoiThauReportAsync(idGoiThau);
+            return Ok(report);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo công việc gói thầu.", detail = ex.Message });
+        }
+    }
+
+    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}/export")]
+    public async Task<IActionResult> ExportCongViecGoiThauReport(Guid idGoiThau, [FromQuery] bool base64 = false)
+    {
+        try
+        {
+            var report = await _reportService.GetCongViecGoiThauReportAsync(idGoiThau);
+            var fileBytes = await _reportService.ExportCongViecGoiThauReportExcelAsync(idGoiThau);
+
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_TrinhTuThucHien_{report.MaGoiThau}_{timestamp}.xlsx";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new
+                {
+                    fileName,
+                    contentType,
+                    base64Data
+                });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo công việc gói thầu.", detail = ex.Message });
+        }
+    }
 }
 

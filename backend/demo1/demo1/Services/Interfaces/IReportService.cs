@@ -9,5 +9,8 @@ public interface IReportService
     Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period);
     Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period);
     Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period);
+
+    Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau);
+    Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau);
 }
 

@@ -12,5 +12,6 @@ public class GoiThau : BaseEntity
     public decimal NguongCanhBaoPercent { get; set; } = 100;
 
     public virtual ICollection<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThau>();
+    public virtual ICollection<CongViecGoiThau> CongViecGoiThaus { get; set; } = new List<CongViecGoiThau>();
 }
 

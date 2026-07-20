@@ -865,4 +865,146 @@ public class ReportService : IReportService
 
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
+
+    public async Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau)
+    {
+        var goiThau = await _context.GoiThaus
+            .Include(g => g.DuAn)
+            .Include(g => g.CongViecGoiThaus)
+            .FirstOrDefaultAsync(g => g.Id == idGoiThau);
+
+        if (goiThau == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy gói thầu với ID '{idGoiThau}'.");
+        }
+
+        var congViecs = goiThau.CongViecGoiThaus
+            .OrderBy(c => c.Stt)
+            .ThenBy(c => c.CreatedAt)
+            .Select(c => new CongViecGoiThauDto
+            {
+                Id = c.Id,
+                GoiThauId = c.GoiThauId,
+                Stt = c.Stt,
+                TenTaiLieu = c.TenTaiLieu,
+                NgayKy = c.NgayKy,
+                LoaiVanBan = c.LoaiVanBan,
+                TinhTrang = c.TinhTrang,
+                GhiChu = c.GhiChu,
+                Code = c.Code,
+                Name = c.Name,
+                Description = c.Description,
+                IsActive = c.IsActive,
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt
+            })
+            .ToList();
+
+        int completed = congViecs.Count(c => c.TinhTrang != null && c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
+        int inProgress = congViecs.Count(c => c.TinhTrang != null && !c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
+
+        return new CongViecGoiThauReportDto
+        {
+            GoiThauId = goiThau.Id,
+            TenGoiThau = goiThau.Name,
+            MaGoiThau = goiThau.Code,
+            TenDuAn = goiThau.DuAn?.Name,
+            GiaTriGoiThau = goiThau.GiaTriGoiThau,
+            CongViecs = congViecs,
+            TongSoCongViec = congViecs.Count,
+            SoCongViecDaHoanThanh = completed,
+            SoCongViecDangThucHien = inProgress
+        };
+    }
+
+    public async Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau)
+    {
+        var report = await GetCongViecGoiThauReportAsync(idGoiThau);
+
+        using (var workbook = new XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Trình tự thực hiện");
+
+            worksheet.Style.Font.FontName = "Times New Roman";
+            worksheet.Style.Font.FontSize = 11;
+
+            // Title
+            worksheet.Cell("A1").Value = "TRÌNH TỰ THỰC HIỆN GÓI THẦU";
+            worksheet.Cell("A1").Style.Font.Bold = true;
+            worksheet.Cell("A1").Style.Font.FontSize = 14;
+            worksheet.Cell("A1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A1:F1").Merge();
+
+            // Package Name
+            worksheet.Cell("A2").Value = report.TenGoiThau;
+            worksheet.Cell("A2").Style.Font.Bold = true;
+            worksheet.Cell("A2").Style.Font.FontSize = 12;
+            worksheet.Cell("A2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("A2:F2").Merge();
+
+            // Headers row 4
+            worksheet.Cell("A4").Value = "STT";
+            worksheet.Cell("B4").Value = "Tài liệu";
+            worksheet.Cell("C4").Value = "Ngày ký";
+            worksheet.Cell("D4").Value = "Loại văn bản";
+            worksheet.Cell("E4").Value = "Tình trạng";
+            worksheet.Cell("F4").Value = "Ghi chú";
+
+            var headerRange = worksheet.Range("A4:F4");
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+            headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            int currentRow = 5;
+            foreach (var item in report.CongViecs)
+            {
+                worksheet.Cell(currentRow, 1).Value = item.Stt;
+                worksheet.Cell(currentRow, 2).Value = item.TenTaiLieu;
+                worksheet.Cell(currentRow, 3).Value = item.NgayKy.HasValue ? item.NgayKy.Value.ToString("dd/MM/yyyy") : "";
+                worksheet.Cell(currentRow, 4).Value = item.LoaiVanBan ?? "";
+                worksheet.Cell(currentRow, 5).Value = item.TinhTrang ?? "";
+                worksheet.Cell(currentRow, 6).Value = item.GhiChu ?? "";
+
+                var rowRange = worksheet.Range(currentRow, 1, currentRow, 6);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+                currentRow++;
+            }
+
+            // Signature section
+            currentRow += 2;
+            worksheet.Cell(currentRow, 2).Value = "Bên giao";
+            worksheet.Cell(currentRow, 2).Style.Font.Bold = true;
+            worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(currentRow, 5).Value = "Bên nhận";
+            worksheet.Cell(currentRow, 5).Style.Font.Bold = true;
+            worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            // Column widths
+            worksheet.Column(1).Width = 8;   // STT
+            worksheet.Column(2).Width = 50;  // Tài liệu
+            worksheet.Column(3).Width = 15;  // Ngày ký
+            worksheet.Column(4).Width = 18;  // Loại văn bản
+            worksheet.Column(5).Width = 18;  // Tình trạng
+            worksheet.Column(6).Width = 30;  // Ghi chú
+
+            using (var memoryStream = new MemoryStream())
+            {
+                workbook.SaveAs(memoryStream);
+                return memoryStream.ToArray();
+            }
+        }
+    }
 }

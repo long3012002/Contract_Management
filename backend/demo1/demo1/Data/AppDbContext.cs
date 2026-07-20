@@ -39,6 +39,7 @@ namespace demo1.Data
         public DbSet<ChucVuPermission> ChucVuPermissions { get; set; } = null!;
         public DbSet<Notification> Notifications { get; set; } = null!;
         public DbSet<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = null!;
+        public DbSet<CongViecGoiThau> CongViecGoiThaus { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -54,6 +55,7 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<DoiTac>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
             ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
+            ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
 
             // Configure NhaThauGoiThau relationship
             modelBuilder.Entity<NhaThauGoiThau>()
@@ -135,6 +137,25 @@ namespace demo1.Data
                 .WithMany(da => da.GoiThaus)
                 .HasForeignKey(gt => gt.DuAnId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<CongViecGoiThau>()
+                .Property(cv => cv.TenTaiLieu)
+                .HasMaxLength(500)
+                .IsRequired();
+            modelBuilder.Entity<CongViecGoiThau>()
+                .Property(cv => cv.LoaiVanBan)
+                .HasMaxLength(100);
+            modelBuilder.Entity<CongViecGoiThau>()
+                .Property(cv => cv.TinhTrang)
+                .HasMaxLength(100);
+            modelBuilder.Entity<CongViecGoiThau>()
+                .Property(cv => cv.GhiChu)
+                .HasMaxLength(1000);
+            modelBuilder.Entity<CongViecGoiThau>()
+                .HasOne(cv => cv.GoiThau)
+                .WithMany(gt => gt.CongViecGoiThaus)
+                .HasForeignKey(cv => cv.GoiThauId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<HopDong>()
                 .Property(hd => hd.GiaTriHopDong)

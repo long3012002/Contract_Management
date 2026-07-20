@@ -129,6 +129,7 @@ builder.Services.AddCors(options =>
     builder.Services.AddScoped<IDuAnService, DuAnService>();
     builder.Services.AddScoped<IDoiTacService, DoiTacService>();
     builder.Services.AddScoped<IGoiThauService, GoiThauService>();
+    builder.Services.AddScoped<ICongViecGoiThauService, CongViecGoiThauService>();
     builder.Services.AddScoped<IHopDongService, HopDongService>();
     builder.Services.AddScoped<IResolutionService, ResolutionService>();
     builder.Services.AddScoped<IReportService, ReportService>();
@@ -329,11 +330,38 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate") ||
     }
 }
 
-//if (app.Environment.IsDevelopment())
-//{
-//    using var scope = app.Services.CreateScope();
-//    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-//    context.Database.ExecuteSqlRaw("DELETE FROM Notifications");
-//}
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        context.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS `CongViecGoiThaus` (
+                `Id` char(36) COLLATE ascii_general_ci NOT NULL,
+                `GoiThauId` char(36) COLLATE ascii_general_ci NOT NULL,
+                `Stt` int NOT NULL,
+                `TenTaiLieu` varchar(500) CHARACTER SET utf8mb4 NOT NULL,
+                `NgayKy` datetime(6) NULL,
+                `LoaiVanBan` varchar(100) CHARACTER SET utf8mb4 NULL,
+                `TinhTrang` varchar(100) CHARACTER SET utf8mb4 NULL,
+                `GhiChu` varchar(1000) CHARACTER SET utf8mb4 NULL,
+                `Code` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+                `Name` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+                `Description` varchar(1000) CHARACTER SET utf8mb4 NULL,
+                `IsActive` tinyint(1) NOT NULL,
+                `CreatedAt` datetime(6) NOT NULL,
+                `UpdatedAt` datetime(6) NULL,
+                CONSTRAINT `PK_CongViecGoiThaus` PRIMARY KEY (`Id`),
+                CONSTRAINT `FK_CongViecGoiThaus_GoiThaus_GoiThauId` FOREIGN KEY (`GoiThauId`) REFERENCES `GoiThaus` (`Id`) ON DELETE CASCADE
+            ) CHARACTER SET=utf8mb4;
+        ");
+        try { context.Database.ExecuteSqlRaw("CREATE UNIQUE INDEX `IX_CongViecGoiThaus_Code` ON `CongViecGoiThaus` (`Code`);"); } catch { }
+        try { context.Database.ExecuteSqlRaw("CREATE INDEX `IX_CongViecGoiThaus_GoiThauId` ON `CongViecGoiThaus` (`GoiThauId`);"); } catch { }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Migration] CongViecGoiThaus table init error: {ex.Message}");
+    }
+}
 
 app.Run();
