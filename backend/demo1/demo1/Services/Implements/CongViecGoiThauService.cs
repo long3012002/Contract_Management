@@ -129,6 +129,8 @@ public class CongViecGoiThauService
                     Id = Guid.NewGuid(),
                     CongViecGoiThauId = entity.Id,
                     UserId = userId,
+                    Code = $"NLQ-{Guid.NewGuid():N}",
+                    Name = $"Stakeholder-{userId}",
                     TrangThaiXacNhan = "Pending",
                     HanXacNhanAt = entity.CreatedAt.AddHours(24),
                     CreatedAt = entity.CreatedAt
@@ -214,6 +216,8 @@ public class CongViecGoiThauService
                             Id = Guid.NewGuid(),
                             CongViecGoiThauId = entity.Id,
                             UserId = userId,
+                            Code = $"NLQ-{Guid.NewGuid():N}",
+                            Name = $"Stakeholder-{userId}",
                             TrangThaiXacNhan = "Pending",
                             HanXacNhanAt = now.AddHours(24),
                             CreatedAt = now
@@ -305,6 +309,8 @@ public class CongViecGoiThauService
                         Id = Guid.NewGuid(),
                         CongViecGoiThauId = entity.Id,
                         UserId = addUserId,
+                        Code = $"NLQ-{Guid.NewGuid():N}",
+                        Name = $"Stakeholder-{addUserId}",
                         TrangThaiXacNhan = "Pending",
                         HanXacNhanAt = DateTime.UtcNow.AddHours(24),
                         CreatedAt = DateTime.UtcNow
@@ -316,7 +322,20 @@ public class CongViecGoiThauService
         // Auto-reorder STT if changed
         await NormalizeAndReorderTasksSttAsync(entity.GoiThauId, entity.Id, dto.Stt);
 
-        await DbContext.SaveChangesAsync();
+        try
+        {
+            await DbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            var exists = await DbSet.AsNoTracking().AnyAsync(e => e.Id == id);
+            if (!exists)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy công việc gói thầu với ID '{id}' (có thể đã bị xóa).");
+            }
+            throw;
+        }
+
         return true;
     }
 

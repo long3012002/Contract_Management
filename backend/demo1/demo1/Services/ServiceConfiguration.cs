@@ -174,6 +174,7 @@ public static class ServiceConfiguration
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddHostedService<AuditLogRetentionWorker>();
         services.AddHostedService<ContractScanWorker>();
+        services.AddHostedService<StakeholderConfirmationCheckWorker>();
         services.AddSignalR();
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CustomUserIdProvider>();
 
