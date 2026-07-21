@@ -43,6 +43,7 @@ namespace demo1.Data
         public DbSet<License> Licenses { get; set; } = null!;
         public DbSet<CommentCongViecGoiThau> CommentCongViecGoiThaus { get; set; } = null!;
         public DbSet<CommentMention> CommentMentions { get; set; } = null!;
+        public DbSet<CongViecNguoiLienQuan> CongViecNguoiLienQuans { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -60,6 +61,19 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<License>());
+            ConfigureBaseEntity(modelBuilder.Entity<CongViecNguoiLienQuan>());
+
+            modelBuilder.Entity<CongViecNguoiLienQuan>()
+                .HasOne(nlq => nlq.CongViecGoiThau)
+                .WithMany(cv => cv.NguoiLienQuans)
+                .HasForeignKey(nlq => nlq.CongViecGoiThauId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CongViecNguoiLienQuan>()
+                .HasOne(nlq => nlq.User)
+                .WithMany()
+                .HasForeignKey(nlq => nlq.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Configure NhaThauGoiThau relationship
             modelBuilder.Entity<NhaThauGoiThau>()

@@ -6,7 +6,9 @@ using AutoMapper;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
+using demo1.Hubs;
 using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace demo1.Services.Implements;
@@ -14,13 +16,32 @@ namespace demo1.Services.Implements;
 public class CongViecGoiThauService
     : DbCrudDetailService<CongViecGoiThau, CongViecGoiThauDto, CreateCongViecGoiThauDto, UpdateCongViecGoiThauDto>, ICongViecGoiThauService
 {
-    public CongViecGoiThauService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    private readonly IHubContext<NotificationHub> _hubContext;
+
+    public CongViecGoiThauService(
+        AppDbContext dbContext,
+        IMapper mapper,
+        IHubContext<NotificationHub> hubContext) : base(dbContext, mapper)
     {
+        _hubContext = hubContext;
+    }
+
+    public override async Task<CongViecGoiThauDto?> GetByIdAsync(Guid id)
+    {
+        var entity = await DbSet.AsNoTracking()
+            .Include(e => e.NguoiLienQuans)
+                .ThenInclude(n => n.User)
+            .FirstOrDefaultAsync(e => e.Id == id);
+
+        if (entity == null) return null;
+        return Mapper.Map<CongViecGoiThauDto>(entity);
     }
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
     {
         var entities = await DbSet.AsNoTracking()
+            .Include(e => e.NguoiLienQuans)
+                .ThenInclude(n => n.User)
             .Where(e => e.GoiThauId == parentId)
             .OrderBy(e => e.Stt)
             .ThenBy(e => e.CreatedAt)
@@ -35,7 +56,10 @@ public class CongViecGoiThauService
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        IQueryable<CongViecGoiThau> query = DbSet.AsNoTracking().Where(e => e.GoiThauId == parentId);
+        IQueryable<CongViecGoiThau> query = DbSet.AsNoTracking()
+            .Include(e => e.NguoiLienQuans)
+                .ThenInclude(n => n.User)
+            .Where(e => e.GoiThauId == parentId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -90,10 +114,35 @@ public class CongViecGoiThauService
             entity.Description = entity.GhiChu;
         }
 
+        // Handle NguoiLienQuans
+        if (dto.NguoiLienQuanIds != null && dto.NguoiLienQuanIds.Any())
+        {
+            var validUserIds = await DbContext.Users
+                .Where(u => dto.NguoiLienQuanIds.Contains(u.Id))
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            foreach (var userId in validUserIds)
+            {
+                entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                {
+                    Id = Guid.NewGuid(),
+                    CongViecGoiThauId = entity.Id,
+                    UserId = userId,
+                    TrangThaiXacNhan = "Pending",
+                    HanXacNhanAt = entity.CreatedAt.AddHours(24),
+                    CreatedAt = entity.CreatedAt
+                });
+            }
+        }
+
         await DbSet.AddAsync(entity);
         await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<CongViecGoiThauDto>(entity);
+        // Push notifications to stakeholders
+        await SendStakeholderNotificationsAsync(new List<CongViecGoiThau> { entity });
+
+        return await GetByIdAsync(entity.Id) ?? Mapper.Map<CongViecGoiThauDto>(entity);
     }
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> CreateRangeAsync(IEnumerable<CreateCongViecGoiThauDto> dtos)
@@ -119,6 +168,16 @@ public class CongViecGoiThauService
         var entities = new List<CongViecGoiThau>();
         var now = DateTime.UtcNow;
 
+        // Collect all distinct user IDs
+        var allUserIds = dtoList.Where(d => d.NguoiLienQuanIds != null)
+            .SelectMany(d => d.NguoiLienQuanIds!)
+            .Distinct()
+            .ToList();
+
+        var validUsers = await DbContext.Users
+            .Where(u => allUserIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u);
+
         foreach (var dto in dtoList)
         {
             var entity = Mapper.Map<CongViecGoiThau>(dto);
@@ -140,19 +199,51 @@ public class CongViecGoiThauService
                 entity.Description = entity.GhiChu;
             }
 
+            if (dto.NguoiLienQuanIds != null && dto.NguoiLienQuanIds.Any())
+            {
+                foreach (var userId in dto.NguoiLienQuanIds)
+                {
+                    if (validUsers.ContainsKey(userId))
+                    {
+                        entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                        {
+                            Id = Guid.NewGuid(),
+                            CongViecGoiThauId = entity.Id,
+                            UserId = userId,
+                            TrangThaiXacNhan = "Pending",
+                            HanXacNhanAt = now.AddHours(24),
+                            CreatedAt = now
+                        });
+                    }
+                }
+            }
+
             entities.Add(entity);
         }
 
         await DbSet.AddRangeAsync(entities);
         await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<List<CongViecGoiThauDto>>(entities);
-    }
+        // Push notifications to stakeholders
+        await SendStakeholderNotificationsAsync(entities);
 
+        var createdIds = entities.Select(e => e.Id).ToList();
+        var resultEntities = await DbSet.AsNoTracking()
+            .Include(e => e.NguoiLienQuans)
+                .ThenInclude(n => n.User)
+            .Where(e => createdIds.Contains(e.Id))
+            .OrderBy(e => e.Stt)
+            .ToListAsync();
+
+        return Mapper.Map<List<CongViecGoiThauDto>>(resultEntities);
+    }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateCongViecGoiThauDto dto)
     {
-        var entity = await DbSet.FindAsync(id);
+        var entity = await DbSet
+            .Include(e => e.NguoiLienQuans)
+            .FirstOrDefaultAsync(e => e.Id == id);
+
         if (entity is null)
         {
             return false;
@@ -175,6 +266,58 @@ public class CongViecGoiThauService
             entity.Name = entity.TenTaiLieu;
         }
 
+        if (dto.NguoiLienQuanIds != null)
+        {
+            var existingUserIds = entity.NguoiLienQuans.Select(n => n.UserId).ToList();
+            var newUserIds = dto.NguoiLienQuanIds.Distinct().ToList();
+
+            // Remove unselected stakeholders
+            var toRemove = entity.NguoiLienQuans.Where(n => !newUserIds.Contains(n.UserId)).ToList();
+            foreach (var rem in toRemove)
+            {
+                DbContext.CongViecNguoiLienQuans.Remove(rem);
+            }
+
+            // Add newly selected stakeholders
+            var toAddUserIds = newUserIds.Where(uid => !existingUserIds.Contains(uid)).ToList();
+            if (toAddUserIds.Any())
+            {
+                var validAddUsers = await DbContext.Users
+                    .Where(u => toAddUserIds.Contains(u.Id))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                foreach (var addUserId in validAddUsers)
+                {
+                    entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                    {
+                        Id = Guid.NewGuid(),
+                        CongViecGoiThauId = entity.Id,
+                        UserId = addUserId,
+                        TrangThaiXacNhan = "Pending",
+                        HanXacNhanAt = DateTime.UtcNow.AddHours(24),
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ConfirmCongViecAsync(Guid id, Guid userId)
+    {
+        var record = await DbContext.CongViecNguoiLienQuans
+            .FirstOrDefaultAsync(n => n.CongViecGoiThauId == id && n.UserId == userId);
+
+        if (record == null) return false;
+
+        record.TrangThaiXacNhan = "Confirmed";
+        record.XacNhanAt = DateTime.UtcNow;
+        record.LoaiXacNhan = "DirectConfirm";
+        record.UpdatedAt = DateTime.UtcNow;
+
         await DbContext.SaveChangesAsync();
         return true;
     }
@@ -184,6 +327,8 @@ public class CongViecGoiThauService
         var goiThau = await DbContext.GoiThaus
             .Include(g => g.DuAn)
             .Include(g => g.CongViecGoiThaus)
+                .ThenInclude(c => c.NguoiLienQuans)
+                    .ThenInclude(n => n.User)
             .FirstOrDefaultAsync(g => g.Id == idGoiThau);
 
         if (goiThau == null)
@@ -213,5 +358,34 @@ public class CongViecGoiThauService
             SoCongViecDaHoanThanh = completed,
             SoCongViecDangThucHien = inProgress
         };
+    }
+
+    private async Task SendStakeholderNotificationsAsync(List<CongViecGoiThau> tasks)
+    {
+        foreach (var task in tasks)
+        {
+            if (task.NguoiLienQuans == null || !task.NguoiLienQuans.Any()) continue;
+
+            var userIds = task.NguoiLienQuans.Select(n => n.UserId).ToList();
+            var users = await DbContext.Users.Where(u => userIds.Contains(u.Id)).ToListAsync();
+
+            foreach (var targetUser in users)
+            {
+                var notification = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Bạn được chọn là người liên quan công việc mới",
+                    Content = $"Bạn được gán là người liên quan trong công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong vòng 24 giờ.",
+                    Link = $"/goi-thau/cong-viec/{task.Id}",
+                    UserId = targetUser.Id,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                DbContext.Notifications.Add(notification);
+                await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+            }
+        }
+        await DbContext.SaveChangesAsync();
     }
 }

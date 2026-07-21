@@ -86,6 +86,18 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
 
         _context.CommentCongViecGoiThaus.Add(comment);
 
+        // Tự động xác nhận cho người liên quan khi gửi bình luận
+        var stakeholderRecord = await _context.CongViecNguoiLienQuans
+            .FirstOrDefaultAsync(n => n.CongViecGoiThauId == dto.ParentId && n.UserId == user.Id);
+
+        if (stakeholderRecord != null && stakeholderRecord.TrangThaiXacNhan == "Pending")
+        {
+            stakeholderRecord.TrangThaiXacNhan = "Commented";
+            stakeholderRecord.XacNhanAt = DateTime.UtcNow;
+            stakeholderRecord.LoaiXacNhan = "Comment";
+            stakeholderRecord.UpdatedAt = DateTime.UtcNow;
+        }
+
         // Xử lý Mention người dùng
         var notificationsToPush = new List<(string TargetUsername, Notification NotificationPayload)>();
 

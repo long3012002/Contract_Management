@@ -142,7 +142,16 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
             // CongViecGoiThau mappings
-            CreateMap<CongViecGoiThau, CongViecGoiThauDto>();
+            CreateMap<CongViecNguoiLienQuan, CongViecNguoiLienQuanDto>()
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User != null ? src.User.Username : null))
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.User != null ? src.User.FullName : null))
+                .ForMember(dest => dest.SoGioConLai, opt => opt.MapFrom(src => (src.HanXacNhanAt - DateTime.UtcNow).TotalHours > 0 ? Math.Round((src.HanXacNhanAt - DateTime.UtcNow).TotalHours, 1) : 0))
+                .ForMember(dest => dest.IsOverdue, opt => opt.MapFrom(src => (src.TrangThaiXacNhan == "Pending" && DateTime.UtcNow > src.HanXacNhanAt) || src.TrangThaiXacNhan == "Overdue"));
+
+            CreateMap<CongViecGoiThau, CongViecGoiThauDto>()
+                .ForMember(dest => dest.NguoiLienQuanIds, opt => opt.MapFrom(src => src.NguoiLienQuans != null ? src.NguoiLienQuans.Select(n => n.UserId).ToList() : new List<Guid>()))
+                .ForMember(dest => dest.NguoiLienQuans, opt => opt.MapFrom(src => src.NguoiLienQuans));
+
             CreateMap<CreateCongViecGoiThauDto, CongViecGoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code ?? string.Empty)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))

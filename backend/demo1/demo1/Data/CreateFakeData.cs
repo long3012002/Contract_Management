@@ -21,6 +21,7 @@ public static class CreateFakeDataExtensions
         if (configuration.GetValue<bool>("Database:AutoMigrate") ||
             configuration.GetValue<bool>("Database:SeedSampleData"))
         {
+            await context.Database.MigrateAsync();
             if (!context.Features.Any())
             {
                 // 1. Seed Features

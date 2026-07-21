@@ -16,6 +16,8 @@ public class CongViecGoiThau : BaseEntity, IHasParentId
     public string? TinhTrang { get; set; }
     public string? GhiChu { get; set; }
 
+    public virtual ICollection<CongViecNguoiLienQuan> NguoiLienQuans { get; set; } = new List<CongViecNguoiLienQuan>();
+
     [NotMapped]
     public Guid ParentId
     {
