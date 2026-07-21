@@ -501,9 +501,9 @@ public class CongViecGoiThauService
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),
-                Title = "Bạn được chọn là người liên quan công việc mới",
-                Content = $"Bạn được gán là người liên quan trong công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong vòng 24 giờ.",
-                Link = $"/goi-thau/cong-viec/{task.Id}",
+                Title = "Bạn được gán là người liên quan công việc mới",
+                Content = $"Bạn vừa được thêm làm người liên quan công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong 24 giờ.",
+                Link = $"/bid-packages/{task.GoiThauId}",
                 UserId = targetUser.Id,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
