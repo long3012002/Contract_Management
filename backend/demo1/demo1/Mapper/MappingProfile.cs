@@ -159,7 +159,10 @@ namespace demo1.Mapper
             CreateMap<UpdateCongViecGoiThauDto, CongViecGoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.Condition(src => !string.IsNullOrWhiteSpace(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu))
+                // NguoiLienQuans is handled manually in UpdateAsync — ignore here to prevent AutoMapper
+                // from clearing/corrupting the navigation collection before manual Add/Remove logic runs.
+                .ForMember(dest => dest.NguoiLienQuans, opt => opt.Ignore());
 
             // License mappings
             CreateMap<License, LicenseDto>()
