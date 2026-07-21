@@ -148,6 +148,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
             CreateMap<UpdateCongViecGoiThauDto, CongViecGoiThau>()
+                .ForMember(dest => dest.Code, opt => opt.Condition(src => !string.IsNullOrWhiteSpace(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.Name) ? src.Name : src.TenTaiLieu))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.GhiChu));
 

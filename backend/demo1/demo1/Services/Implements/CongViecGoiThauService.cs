@@ -18,6 +18,51 @@ public class CongViecGoiThauService
     {
     }
 
+    public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
+    {
+        var entities = await DbSet.AsNoTracking()
+            .Where(e => e.GoiThauId == parentId)
+            .OrderBy(e => e.Stt)
+            .ThenBy(e => e.CreatedAt)
+            .ToListAsync();
+
+        return Mapper.Map<List<CongViecGoiThauDto>>(entities);
+    }
+
+    public override async Task<PagedResult<CongViecGoiThauDto>> GetByParentIdPagedAsync(
+        Guid parentId, string? search, int page, int pageSize, string? cursor = null)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        IQueryable<CongViecGoiThau> query = DbSet.AsNoTracking().Where(e => e.GoiThauId == parentId);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var keyword = search.Trim();
+            query = ApplySearchFilter(query, keyword);
+        }
+
+        var totalItems = await query.CountAsync();
+
+        List<CongViecGoiThau> items = await query
+            .OrderBy(item => item.Stt)
+            .ThenByDescending(item => item.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var dtos = Mapper.Map<List<CongViecGoiThauDto>>(items);
+
+        return new PagedResult<CongViecGoiThauDto>
+        {
+            Items = dtos,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+        };
+    }
+
     public override async Task<CongViecGoiThauDto> CreateAsync(CreateCongViecGoiThauDto dto)
     {
         var goiThauExists = await DbContext.GoiThaus.AnyAsync(g => g.Id == dto.GoiThauId);
@@ -153,8 +198,8 @@ public class CongViecGoiThauService
 
         var congViecDtos = Mapper.Map<List<CongViecGoiThauDto>>(congViecs);
 
-        int completed = congViecs.Count(c => c.TinhTrang != null && c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
-        int inProgress = congViecs.Count(c => c.TinhTrang != null && !c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
+        int completed = congViecs.Count(c => c.TinhTrang != null && (c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase) || c.TinhTrang.Equals("Đã hoàn thành", StringComparison.OrdinalIgnoreCase) || c.TinhTrang.Equals("Đã ký", StringComparison.OrdinalIgnoreCase)));
+        int inProgress = congViecs.Count(c => c.TinhTrang != null && (c.TinhTrang.Equals("Đang thực hiện", StringComparison.OrdinalIgnoreCase)));
 
         return new CongViecGoiThauReportDto
         {
