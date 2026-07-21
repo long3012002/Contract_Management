@@ -318,6 +318,7 @@ public class CongViecGoiThauService
         entity.UpdatedAt = DateTime.UtcNow;
 
         // Directly manage stakeholders via DbContext to prevent entity graph tracking conflicts
+        List<User> newStakeholderUsers = new();
         if (dto.NguoiLienQuanIds != null)
         {
             var targetUserIds = dto.NguoiLienQuanIds.Distinct().ToList();
@@ -332,26 +333,36 @@ public class CongViecGoiThauService
             if (toDelete.Any())
             {
                 DbContext.CongViecNguoiLienQuans.RemoveRange(toDelete);
+
+                var removedUserIds = toDelete.Select(n => n.UserId).ToList();
+                var taskLink = $"/goi-thau/cong-viec/{id}";
+                var notificationsToRemove = await DbContext.Notifications
+                    .Where(n => n.UserId.HasValue && removedUserIds.Contains(n.UserId.Value) && n.Link == taskLink)
+                    .ToListAsync();
+
+                if (notificationsToRemove.Any())
+                {
+                    DbContext.Notifications.RemoveRange(notificationsToRemove);
+                }
             }
 
             // Add newly selected stakeholders
             var toAddUserIds = targetUserIds.Where(uid => !existingUserIds.Contains(uid)).ToList();
             if (toAddUserIds.Any())
             {
-                var validAddUsers = await DbContext.Users
+                newStakeholderUsers = await DbContext.Users
                     .Where(u => toAddUserIds.Contains(u.Id))
-                    .Select(u => u.Id)
                     .ToListAsync();
 
-                foreach (var addUserId in validAddUsers)
+                foreach (var addUser in newStakeholderUsers)
                 {
                     DbContext.CongViecNguoiLienQuans.Add(new CongViecNguoiLienQuan
                     {
                         Id = Guid.NewGuid(),
                         CongViecGoiThauId = id,
-                        UserId = addUserId,
+                        UserId = addUser.Id,
                         Code = $"NLQ-{Guid.NewGuid():N}",
-                        Name = $"Stakeholder-{addUserId}",
+                        Name = $"Stakeholder-{addUser.Id}",
                         TrangThaiXacNhan = "Pending",
                         HanXacNhanAt = DateTime.UtcNow.AddHours(24),
                         CreatedAt = DateTime.UtcNow,
@@ -376,6 +387,11 @@ public class CongViecGoiThauService
             var entry = DbContext.Entry(entity);
             entry.State = EntityState.Modified;
             await DbContext.SaveChangesAsync();
+        }
+
+        if (newStakeholderUsers.Any())
+        {
+            await SendNotificationsToUsersAsync(entity, newStakeholderUsers);
         }
 
         return true;
@@ -472,22 +488,29 @@ public class CongViecGoiThauService
             var userIds = task.NguoiLienQuans.Select(n => n.UserId).ToList();
             var users = await DbContext.Users.Where(u => userIds.Contains(u.Id)).ToListAsync();
 
-            foreach (var targetUser in users)
-            {
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Bạn được chọn là người liên quan công việc mới",
-                    Content = $"Bạn được gán là người liên quan trong công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong vòng 24 giờ.",
-                    Link = $"/goi-thau/cong-viec/{task.Id}",
-                    UserId = targetUser.Id,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+            await SendNotificationsToUsersAsync(task, users);
+        }
+    }
 
-                DbContext.Notifications.Add(notification);
-                await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
-            }
+    private async Task SendNotificationsToUsersAsync(CongViecGoiThau task, List<User> targetUsers)
+    {
+        if (targetUsers == null || !targetUsers.Any()) return;
+
+        foreach (var targetUser in targetUsers)
+        {
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+                Title = "Bạn được chọn là người liên quan công việc mới",
+                Content = $"Bạn được gán là người liên quan trong công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong vòng 24 giờ.",
+                Link = $"/goi-thau/cong-viec/{task.Id}",
+                UserId = targetUser.Id,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            DbContext.Notifications.Add(notification);
+            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
         }
         await DbContext.SaveChangesAsync();
     }
