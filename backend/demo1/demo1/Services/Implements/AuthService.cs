@@ -82,6 +82,26 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(403, "Tài khoản đang bị khóa hoặc ngưng hoạt động.");
                 }
 
+#if DEBUG
+                // Môi trường Dev (DEBUG): Bỏ qua xác thực Google Authenticator (2FA) để tiện test
+                var accessToken = GenerateJwtToken(dbUser.Username, 180);
+                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+
+                dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+                dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+                await _dbContext.SaveChangesAsync();
+
+                await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)", dbUser.Id.ToString());
+
+                return AuthResult.Success(new LoginResponse
+                {
+                    Message = "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)",
+                    Username = dbUser.Username,
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken
+                });
+#else
+                // Môi trường Product (RELEASE): Bắt buộc xác thực qua Google Authenticator 2FA
                 if (isBypass)
                 {
                     var accessToken = GenerateJwtToken(dbUser.Username, 180);
@@ -91,11 +111,11 @@ namespace demo1.Services.Implements
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                     await _dbContext.SaveChangesAsync();
 
-                    await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Bypass Login Success (Dev Mode)", dbUser.Id.ToString());
+                    await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Bypass Login Success", dbUser.Id.ToString());
 
                     return AuthResult.Success(new LoginResponse
                     {
-                        Message = "Bypass Login Success (Dev Mode)",
+                        Message = "Bypass Login Success",
                         Username = dbUser.Username,
                         AccessToken = accessToken,
                         RefreshToken = refreshToken
@@ -137,6 +157,7 @@ namespace demo1.Services.Implements
                     Require2FAVerification = true,
                     AccessToken = tempToken
                 });
+#endif
             }
             else
             {

@@ -293,12 +293,13 @@ namespace demo1.Data
                 entity.Property(p => p.Description).HasMaxLength(500);
                 entity.HasIndex(p => p.Code).IsUnique();
 
+                var fixedCreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 entity.HasData(
-                    new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Code = "VIEW", Name = "Xem", Description = "Quyền xem dữ liệu" },
-                    new Permission { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Code = "CREATE", Name = "Tạo mới", Description = "Quyền tạo mới dữ liệu" },
-                    new Permission { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Code = "EDIT", Name = "Chỉnh sửa", Description = "Quyền chỉnh sửa bản ghi" },
-                    new Permission { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), Code = "DELETE", Name = "Xóa", Description = "Quyền xóa bản ghi" },
-                    new Permission { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), Code = "APPROVE", Name = "Phê duyệt", Description = "Quyền phê duyệt yêu cầu" }
+                    new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111111"), Code = "VIEW", Name = "Xem", Description = "Quyền xem dữ liệu", CreatedAt = fixedCreatedAt },
+                    new Permission { Id = Guid.Parse("22222222-2222-2222-2222-222222222222"), Code = "CREATE", Name = "Tạo mới", Description = "Quyền tạo mới dữ liệu", CreatedAt = fixedCreatedAt },
+                    new Permission { Id = Guid.Parse("33333333-3333-3333-3333-333333333333"), Code = "EDIT", Name = "Chỉnh sửa", Description = "Quyền chỉnh sửa bản ghi", CreatedAt = fixedCreatedAt },
+                    new Permission { Id = Guid.Parse("44444444-4444-4444-4444-444444444444"), Code = "DELETE", Name = "Xóa", Description = "Quyền xóa bản ghi", CreatedAt = fixedCreatedAt },
+                    new Permission { Id = Guid.Parse("55555555-5555-5555-5555-555555555555"), Code = "APPROVE", Name = "Phê duyệt", Description = "Quyền phê duyệt yêu cầu", CreatedAt = fixedCreatedAt }
                 );
             });
 

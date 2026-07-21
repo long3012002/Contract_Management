@@ -117,6 +117,49 @@ namespace demo1.Controllers
             }
         }
 
+        // 1c. Hàm Tải File Mẫu Excel Import Người Dùng
+        [HttpGet("import-template")]
+        public IActionResult DownloadImportTemplate()
+        {
+            var templateData = new[]
+            {
+                new
+                {
+                    Username = "nguyenvana",
+                    HoTen = "Nguyễn Văn A",
+                    Email = "nguyenvana@co-opbank.vn",
+                    SoDienThoai = "0912345678",
+                    PhongBan = "Phòng Công nghệ thông tin",
+                    ChucVu = "Chuyên viên",
+                    Role = "NhanVien",
+                    TrangThai = "Hoạt động",
+                    Admin = "Không"
+                },
+                new
+                {
+                    Username = "tranvanb",
+                    HoTen = "Trần Văn B",
+                    Email = "tranvanb@co-opbank.vn",
+                    SoDienThoai = "0987654321",
+                    PhongBan = "Phòng Kế toán",
+                    ChucVu = "Trưởng phòng",
+                    Role = "QuanLy",
+                    TrangThai = "Hoạt động",
+                    Admin = "Có"
+                }
+            };
+
+            var memoryStream = new MemoryStream();
+            memoryStream.SaveAs(templateData);
+            memoryStream.Position = 0;
+
+            return File(
+                memoryStream,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Mau_Import_Nguoi_Dung.xlsx"
+            );
+        }
+
         // 2. Hàm Xoá nhiều (Bulk Delete Users)
         [HttpDelete("bulk-delete")]
         public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
