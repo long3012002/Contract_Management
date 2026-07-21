@@ -61,19 +61,25 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<License>());
-            ConfigureBaseEntity(modelBuilder.Entity<CongViecNguoiLienQuan>());
+            modelBuilder.Entity<CongViecNguoiLienQuan>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Code).HasMaxLength(50);
+                entity.Property(e => e.Name).HasMaxLength(255);
+                entity.Property(e => e.Description).HasMaxLength(1000);
 
-            modelBuilder.Entity<CongViecNguoiLienQuan>()
-                .HasOne(nlq => nlq.CongViecGoiThau)
-                .WithMany(cv => cv.NguoiLienQuans)
-                .HasForeignKey(nlq => nlq.CongViecGoiThauId)
-                .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(nlq => nlq.CongViecGoiThau)
+                    .WithMany(cv => cv.NguoiLienQuans)
+                    .HasForeignKey(nlq => nlq.CongViecGoiThauId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<CongViecNguoiLienQuan>()
-                .HasOne(nlq => nlq.User)
-                .WithMany()
-                .HasForeignKey(nlq => nlq.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(nlq => nlq.User)
+                    .WithMany()
+                    .HasForeignKey(nlq => nlq.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.Code).IsUnique(false);
+            });
 
             // Configure NhaThauGoiThau relationship
             modelBuilder.Entity<NhaThauGoiThau>()

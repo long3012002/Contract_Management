@@ -37,6 +37,7 @@ namespace demo1.Controllers
 
         // 1b. Hàm Import từ Excel
         [HttpPost("import-excel")]
+        [Consumes("multipart/form-data")]
         public async Task<IActionResult> ImportExcel(IFormFile file)
         {
             if (file == null || file.Length == 0)

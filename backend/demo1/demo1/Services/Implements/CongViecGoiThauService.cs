@@ -255,46 +255,87 @@ public class CongViecGoiThauService
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateCongViecGoiThauDto dto)
     {
-        var entity = await DbSet
-            .Include(e => e.NguoiLienQuans)
-            .FirstOrDefaultAsync(e => e.Id == id);
-
+        var entity = await DbSet.FirstOrDefaultAsync(e => e.Id == id);
         if (entity is null)
         {
             return false;
         }
 
-        if (dto.GoiThauId.HasValue && dto.GoiThauId.Value != entity.GoiThauId)
+        if (dto.GoiThauId.HasValue && dto.GoiThauId.Value != Guid.Empty && dto.GoiThauId.Value != entity.GoiThauId)
         {
             var goiThauExists = await DbContext.GoiThaus.AnyAsync(g => g.Id == dto.GoiThauId.Value);
             if (!goiThauExists)
             {
                 throw new KeyNotFoundException($"Không tìm thấy gói thầu với ID '{dto.GoiThauId.Value}'.");
             }
+            entity.GoiThauId = dto.GoiThauId.Value;
         }
 
-        Mapper.Map(dto, entity);
-        entity.UpdatedAt = DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(dto.TenTaiLieu))
+        {
+            entity.TenTaiLieu = dto.TenTaiLieu.Trim();
+        }
 
-        if (string.IsNullOrWhiteSpace(entity.Name))
+        if (!string.IsNullOrWhiteSpace(dto.Name))
+        {
+            entity.Name = dto.Name.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(entity.TenTaiLieu))
         {
             entity.Name = entity.TenTaiLieu;
         }
 
+        if (!string.IsNullOrWhiteSpace(dto.Code))
+        {
+            entity.Code = dto.Code.Trim();
+        }
+
+        if (dto.NgayKy.HasValue)
+        {
+            entity.NgayKy = dto.NgayKy;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.LoaiVanBan))
+        {
+            entity.LoaiVanBan = dto.LoaiVanBan;
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.TinhTrang))
+        {
+            entity.TinhTrang = dto.TinhTrang;
+        }
+
+        if (dto.GhiChu != null)
+        {
+            entity.GhiChu = dto.GhiChu;
+        }
+
+        if (dto.IsActive.HasValue)
+        {
+            entity.IsActive = dto.IsActive.Value;
+        }
+
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        // Directly manage stakeholders via DbContext to prevent entity graph tracking conflicts
         if (dto.NguoiLienQuanIds != null)
         {
-            var existingUserIds = entity.NguoiLienQuans.Select(n => n.UserId).ToList();
-            var newUserIds = dto.NguoiLienQuanIds.Distinct().ToList();
+            var targetUserIds = dto.NguoiLienQuanIds.Distinct().ToList();
+            var existingStakeholders = await DbContext.CongViecNguoiLienQuans
+                .Where(n => n.CongViecGoiThauId == id)
+                .ToListAsync();
+
+            var existingUserIds = existingStakeholders.Select(n => n.UserId).ToList();
 
             // Remove unselected stakeholders
-            var toRemove = entity.NguoiLienQuans.Where(n => !newUserIds.Contains(n.UserId)).ToList();
-            foreach (var rem in toRemove)
+            var toDelete = existingStakeholders.Where(n => !targetUserIds.Contains(n.UserId)).ToList();
+            if (toDelete.Any())
             {
-                DbContext.CongViecNguoiLienQuans.Remove(rem);
+                DbContext.CongViecNguoiLienQuans.RemoveRange(toDelete);
             }
 
             // Add newly selected stakeholders
-            var toAddUserIds = newUserIds.Where(uid => !existingUserIds.Contains(uid)).ToList();
+            var toAddUserIds = targetUserIds.Where(uid => !existingUserIds.Contains(uid)).ToList();
             if (toAddUserIds.Any())
             {
                 var validAddUsers = await DbContext.Users
@@ -304,23 +345,27 @@ public class CongViecGoiThauService
 
                 foreach (var addUserId in validAddUsers)
                 {
-                    entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                    DbContext.CongViecNguoiLienQuans.Add(new CongViecNguoiLienQuan
                     {
                         Id = Guid.NewGuid(),
-                        CongViecGoiThauId = entity.Id,
+                        CongViecGoiThauId = id,
                         UserId = addUserId,
                         Code = $"NLQ-{Guid.NewGuid():N}",
                         Name = $"Stakeholder-{addUserId}",
                         TrangThaiXacNhan = "Pending",
                         HanXacNhanAt = DateTime.UtcNow.AddHours(24),
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
                     });
                 }
             }
         }
 
-        // Auto-reorder STT if changed
-        await NormalizeAndReorderTasksSttAsync(entity.GoiThauId, entity.Id, dto.Stt);
+        // Reorder tasks STT if provided
+        if (dto.Stt > 0)
+        {
+            await NormalizeAndReorderTasksSttAsync(entity.GoiThauId, entity.Id, dto.Stt);
+        }
 
         try
         {
@@ -328,12 +373,9 @@ public class CongViecGoiThauService
         }
         catch (DbUpdateConcurrencyException)
         {
-            var exists = await DbSet.AsNoTracking().AnyAsync(e => e.Id == id);
-            if (!exists)
-            {
-                throw new KeyNotFoundException($"Không tìm thấy công việc gói thầu với ID '{id}' (có thể đã bị xóa).");
-            }
-            throw;
+            var entry = DbContext.Entry(entity);
+            entry.State = EntityState.Modified;
+            await DbContext.SaveChangesAsync();
         }
 
         return true;
