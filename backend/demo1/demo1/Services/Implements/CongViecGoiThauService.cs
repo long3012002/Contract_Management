@@ -137,6 +137,10 @@ public class CongViecGoiThauService
         }
 
         await DbSet.AddAsync(entity);
+
+        // Auto-reorder STT for tasks in package
+        await NormalizeAndReorderTasksSttAsync(dto.GoiThauId, entity.Id, dto.Stt);
+
         await DbContext.SaveChangesAsync();
 
         // Push notifications to stakeholders
@@ -222,6 +226,13 @@ public class CongViecGoiThauService
         }
 
         await DbSet.AddRangeAsync(entities);
+
+        // Auto-reorder STT for each package
+        foreach (var packageId in goiThauIds)
+        {
+            await NormalizeAndReorderTasksSttAsync(packageId);
+        }
+
         await DbContext.SaveChangesAsync();
 
         // Push notifications to stakeholders
@@ -302,6 +313,9 @@ public class CongViecGoiThauService
             }
         }
 
+        // Auto-reorder STT if changed
+        await NormalizeAndReorderTasksSttAsync(entity.GoiThauId, entity.Id, dto.Stt);
+
         await DbContext.SaveChangesAsync();
         return true;
     }
@@ -358,6 +372,34 @@ public class CongViecGoiThauService
             SoCongViecDaHoanThanh = completed,
             SoCongViecDangThucHien = inProgress
         };
+    }
+
+    private async Task NormalizeAndReorderTasksSttAsync(Guid goiThauId, Guid? targetEntityId = null, int? newTargetStt = null)
+    {
+        var tasks = await DbSet
+            .Where(t => t.GoiThauId == goiThauId)
+            .OrderBy(t => t.Stt)
+            .ThenBy(t => t.CreatedAt)
+            .ToListAsync();
+
+        if (!tasks.Any()) return;
+
+        if (targetEntityId.HasValue && newTargetStt.HasValue)
+        {
+            var targetTask = tasks.FirstOrDefault(t => t.Id == targetEntityId.Value);
+            if (targetTask != null)
+            {
+                tasks.Remove(targetTask);
+                int insertIndex = Math.Clamp(newTargetStt.Value - 1, 0, tasks.Count);
+                tasks.Insert(insertIndex, targetTask);
+            }
+        }
+
+        // Re-index all tasks sequentially: 1, 2, 3...
+        for (int i = 0; i < tasks.Count; i++)
+        {
+            tasks[i].Stt = i + 1;
+        }
     }
 
     private async Task SendStakeholderNotificationsAsync(List<CongViecGoiThau> tasks)
