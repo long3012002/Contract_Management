@@ -33,9 +33,8 @@ namespace demo1.Services.Implements
             var dbRoles = await _dbContext.Roles.ToListAsync();
             var roleMap = dbRoles.ToDictionary(r => r.Name.ToLower(), r => r);
 
-            // Bước 1: Validate dữ liệu từng dòng (Check trùng mã user theo PGD / Phòng ban)
+            // Bước 1: Validate dữ liệu từng dòng
             var errors = new List<UserImportErrorDto>();
-            var userPgdKeysInInput = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < dtos.Count; i++)
             {
@@ -46,21 +45,6 @@ namespace demo1.Services.Implements
                 if (string.IsNullOrWhiteSpace(dto.Username))
                 {
                     rowErrors.Add("Username không được để trống.");
-                }
-                else
-                {
-                    var trimmedUsername = dto.Username.Trim();
-                    var phongBanKey = dto.TenPhongBan?.Trim() ?? string.Empty;
-                    var combinedKey = $"{trimmedUsername.ToLower()}@{phongBanKey.ToLower()}";
-
-                    if (userPgdKeysInInput.Contains(combinedKey))
-                    {
-                        rowErrors.Add($"Mã user '{trimmedUsername}' thuộc PGD/Phòng ban '{phongBanKey}' bị trùng lặp trong danh sách.");
-                    }
-                    else
-                    {
-                        userPgdKeysInInput.Add(combinedKey);
-                    }
                 }
 
                 if (rowErrors.Any())
@@ -86,7 +70,7 @@ namespace demo1.Services.Implements
                 };
             }
 
-            // Bước 2: Tự động xử lý Phòng ban, Chức vụ và Vai trò (tạo mới nếu chưa tồn tại)
+            // Bước 2: Tự động xử lý Phòng ban, Chức vụ, Đơn vị và Vai trò (tạo mới nếu chưa tồn tại)
             var inputPhongBans = dtos
                 .Where(d => !string.IsNullOrWhiteSpace(d.TenPhongBan))
                 .Select(d => d.TenPhongBan!.Trim())
@@ -215,14 +199,14 @@ namespace demo1.Services.Implements
                 await _dbContext.SaveChangesAsync();
             }
 
-            // Bước 3: Tiến hành Upsert các User (Check trùng mã user theo PGD / Phòng ban)
-            var inputUsernamesList = dtos.Select(d => d.Username.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            // Bước 3: Tiến hành Upsert các User (Khớp theo Username thuần túy: Trùng Username -> Update, chưa có -> Insert)
+            var inputUsernamesList = dtos.Select(d => d.Username.Trim().ToLower()).Distinct().ToList();
             var existingUsers = await _dbContext.Users
-                .Where(u => inputUsernamesList.Contains(u.Username))
+                .Where(u => inputUsernamesList.Contains(u.Username.ToLower()))
                 .ToListAsync();
 
             var existingUserMap = existingUsers
-                .GroupBy(u => $"{u.Username.Trim().ToLower()}@{(u.TenPhongBan?.Trim()?.ToLower() ?? "")}")
+                .GroupBy(u => u.Username.Trim().ToLower())
                 .ToDictionary(g => g.Key, g => g.First());
 
             var existingUserIds = existingUsers.Select(u => u.Id).ToList();
@@ -251,12 +235,17 @@ namespace demo1.Services.Implements
                             idPhongBan = pb.Id;
                             tenPhongBan = pb.TenPhongBan;
                         }
+                        else
+                        {
+                            tenPhongBan = dto.TenPhongBan.Trim();
+                        }
+                    }
+                    else
+                    {
+                        tenPhongBan = null;
                     }
 
-                    var phongBanName = tenPhongBan ?? dto.TenPhongBan?.Trim() ?? string.Empty;
-                    var userPgdKey = $"{lowerUsername}@{phongBanName.ToLower()}";
-
-                    // Format email theo username: username + @co-opbank.vn
+                    // Format email theo username: username + @co-opbank.vn nếu không truyền email
                     var email = string.IsNullOrWhiteSpace(dto.Email) 
                         ? $"{lowerUsername}@co-opbank.vn" 
                         : dto.Email.Trim();
@@ -271,6 +260,10 @@ namespace demo1.Services.Implements
                             idChucVu = cv.Id;
                             tenChucVu = cv.TenChucVu;
                         }
+                        else
+                        {
+                            tenChucVu = dto.TenChucVu.Trim();
+                        }
                     }
 
                     Guid? idDonVi = dto.IdDonVi;
@@ -282,6 +275,10 @@ namespace demo1.Services.Implements
                         {
                             idDonVi = dv.Id;
                             tenDonVi = dv.TenDonVi;
+                        }
+                        else
+                        {
+                            tenDonVi = dto.TenDonVi.Trim();
                         }
                     }
 
@@ -295,18 +292,34 @@ namespace demo1.Services.Implements
                         }
                     }
 
-                    if (existingUserMap.TryGetValue(userPgdKey, out var user))
+                    if (existingUserMap.TryGetValue(lowerUsername, out var user))
                     {
-                        // Update
+                        // Update người dùng đã tồn tại theo Username
                         user.FullName = dto.FullName?.Trim() ?? string.Empty;
                         user.Email = email;
-                        user.Phone = dto.Phone?.Trim();
-                        user.IdPhongBan = idPhongBan;
-                        user.TenPhongBan = phongBanName;
-                        user.IdChucVu = idChucVu;
-                        user.TenChucVu = tenChucVu;
-                        user.IdDonVi = idDonVi;
-                        user.TenDonVi = tenDonVi ?? dto.TenDonVi?.Trim();
+                        if (!string.IsNullOrWhiteSpace(dto.Phone))
+                        {
+                            user.Phone = dto.Phone.Trim();
+                        }
+                        
+                        user.IdPhongBan = idPhongBan ?? user.IdPhongBan;
+                        if (!string.IsNullOrWhiteSpace(tenPhongBan))
+                        {
+                            user.TenPhongBan = tenPhongBan;
+                        }
+
+                        user.IdChucVu = idChucVu ?? user.IdChucVu;
+                        if (!string.IsNullOrWhiteSpace(tenChucVu))
+                        {
+                            user.TenChucVu = tenChucVu;
+                        }
+
+                        user.IdDonVi = idDonVi ?? user.IdDonVi;
+                        if (!string.IsNullOrWhiteSpace(tenDonVi))
+                        {
+                            user.TenDonVi = tenDonVi;
+                        }
+
                         user.IsActive = dto.IsActive;
                         user.IsSystemAdmin = dto.IsSystemAdmin;
                         user.UpdatedAt = DateTime.UtcNow;
@@ -318,20 +331,23 @@ namespace demo1.Services.Implements
                             if (currentRoles.Any())
                             {
                                 _dbContext.UserRoles.RemoveRange(currentRoles);
+                                existingUserRoles.RemoveAll(ur => ur.UserId == user.Id);
                             }
-                            _dbContext.UserRoles.Add(new UserRole
+                            var newUr = new UserRole
                             {
                                 UserId = user.Id,
                                 RoleId = targetRole.Id,
                                 CreatedAt = DateTime.UtcNow
-                            });
+                            };
+                            _dbContext.UserRoles.Add(newUr);
+                            existingUserRoles.Add(newUr);
                         }
 
                         updatedCount++;
                     }
                     else
                     {
-                        // Insert
+                        // Insert người dùng mới chưa tồn tại
                         var newUser = new User
                         {
                             Id = Guid.NewGuid(),
@@ -340,11 +356,11 @@ namespace demo1.Services.Implements
                             Email = email,
                             Phone = dto.Phone?.Trim(),
                             IdPhongBan = idPhongBan,
-                            TenPhongBan = phongBanName,
+                            TenPhongBan = tenPhongBan,
                             IdChucVu = idChucVu,
                             TenChucVu = tenChucVu,
                             IdDonVi = idDonVi,
-                            TenDonVi = tenDonVi ?? dto.TenDonVi?.Trim(),
+                            TenDonVi = tenDonVi,
                             IsActive = dto.IsActive,
                             IsSystemAdmin = dto.IsSystemAdmin,
                             IsTwoFactorEnabled = false,
@@ -352,16 +368,18 @@ namespace demo1.Services.Implements
                         };
 
                         _dbContext.Users.Add(newUser);
-                        existingUserMap[userPgdKey] = newUser;
+                        existingUserMap[lowerUsername] = newUser;
 
                         if (targetRole != null)
                         {
-                            _dbContext.UserRoles.Add(new UserRole
+                            var newUr = new UserRole
                             {
                                 UserId = newUser.Id,
                                 RoleId = targetRole.Id,
                                 CreatedAt = DateTime.UtcNow
-                            });
+                            };
+                            _dbContext.UserRoles.Add(newUr);
+                            existingUserRoles.Add(newUr);
                         }
 
                         addedCount++;
