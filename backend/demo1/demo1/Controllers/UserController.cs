@@ -69,6 +69,7 @@ namespace demo1.Controllers
                             Phone = rowDict.ContainsKey("Số điện thoại") ? rowDict["Số điện thoại"]?.ToString() : (rowDict.ContainsKey("Phone") ? rowDict["Phone"]?.ToString() : null),
                             TenPhongBan = rowDict.ContainsKey("Phòng ban") ? rowDict["Phòng ban"]?.ToString() : (rowDict.ContainsKey("TenPhongBan") ? rowDict["TenPhongBan"]?.ToString() : null),
                             TenChucVu = rowDict.ContainsKey("Chức vụ") ? rowDict["Chức vụ"]?.ToString() : (rowDict.ContainsKey("TenChucVu") ? rowDict["TenChucVu"]?.ToString() : null),
+                            TenDonVi = rowDict.ContainsKey("Đơn vị") ? rowDict["Đơn vị"]?.ToString() : (rowDict.ContainsKey("DonVi") ? rowDict["DonVi"]?.ToString() : (rowDict.ContainsKey("TenDonVi") ? rowDict["TenDonVi"]?.ToString() : null)),
                             Role = rowDict.ContainsKey("Role") ? rowDict["Role"]?.ToString() : (rowDict.ContainsKey("Vai trò") ? rowDict["Vai trò"]?.ToString() : null),
                             IsActive = true,
                             IsSystemAdmin = false
@@ -132,6 +133,7 @@ namespace demo1.Controllers
                     SoDienThoai = "0912345678",
                     PhongBan = "Phòng Công nghệ thông tin",
                     ChucVu = "Chuyên viên",
+                    DonVi = "Hội sở chính",
                     Role = "NhanVien",
                     TrangThai = "Hoạt động",
                     Admin = "Không"
@@ -144,6 +146,7 @@ namespace demo1.Controllers
                     SoDienThoai = "0987654321",
                     PhongBan = "Phòng Kế toán",
                     ChucVu = "Trưởng phòng",
+                    DonVi = "Hội sở chính",
                     Role = "QuanLy",
                     TrangThai = "Hoạt động",
                     Admin = "Có"

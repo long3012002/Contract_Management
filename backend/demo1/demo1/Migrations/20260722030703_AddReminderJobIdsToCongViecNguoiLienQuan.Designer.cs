@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260722030703_AddReminderJobIdsToCongViecNguoiLienQuan")]
+    partial class AddReminderJobIdsToCongViecNguoiLienQuan
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -415,24 +418,6 @@ namespace demo1.Migrations
                         .IsUnique();
 
                     b.ToTable("DoiTacs");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DonVi", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("TenDonVi")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("DonVis");
                 });
 
             modelBuilder.Entity("demo1.Entity.DotThanhToan", b =>
@@ -1270,9 +1255,6 @@ namespace demo1.Migrations
                     b.Property<Guid?>("IdChucVu")
                         .HasColumnType("char(36)");
 
-                    b.Property<Guid?>("IdDonVi")
-                        .HasColumnType("char(36)");
-
                     b.Property<Guid?>("IdPhongBan")
                         .HasColumnType("char(36)");
 
@@ -1298,9 +1280,6 @@ namespace demo1.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("TenChucVu")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("TenDonVi")
                         .HasColumnType("longtext");
 
                     b.Property<string>("TenPhongBan")

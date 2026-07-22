@@ -888,7 +888,7 @@ public class ReportService : IReportService
                 Stt = c.Stt,
                 TenTaiLieu = c.TenTaiLieu,
                 NgayKy = c.NgayKy,
-                LoaiVanBan = c.LoaiVanBan,
+                LoaiVanBan = null,
                 TinhTrang = c.TinhTrang,
                 GhiChu = c.GhiChu,
                 Code = c.Code,

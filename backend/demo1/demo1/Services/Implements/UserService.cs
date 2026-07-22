@@ -33,9 +33,9 @@ namespace demo1.Services.Implements
             var dbRoles = await _dbContext.Roles.ToListAsync();
             var roleMap = dbRoles.ToDictionary(r => r.Name.ToLower(), r => r);
 
-            // Bước 1: Validate dữ liệu từng dòng
+            // Bước 1: Validate dữ liệu từng dòng (Check trùng mã user theo PGD / Phòng ban)
             var errors = new List<UserImportErrorDto>();
-            var usernamesInInput = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var userPgdKeysInInput = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < dtos.Count; i++)
             {
@@ -50,13 +50,16 @@ namespace demo1.Services.Implements
                 else
                 {
                     var trimmedUsername = dto.Username.Trim();
-                    if (usernamesInInput.Contains(trimmedUsername))
+                    var phongBanKey = dto.TenPhongBan?.Trim() ?? string.Empty;
+                    var combinedKey = $"{trimmedUsername.ToLower()}@{phongBanKey.ToLower()}";
+
+                    if (userPgdKeysInInput.Contains(combinedKey))
                     {
-                        rowErrors.Add($"Username '{trimmedUsername}' bị trùng lặp trong danh sách import.");
+                        rowErrors.Add($"Mã user '{trimmedUsername}' thuộc PGD/Phòng ban '{phongBanKey}' bị trùng lặp trong danh sách.");
                     }
                     else
                     {
-                        usernamesInInput.Add(trimmedUsername);
+                        userPgdKeysInInput.Add(combinedKey);
                     }
                 }
 
@@ -96,6 +99,12 @@ namespace demo1.Services.Implements
                 .Distinct()
                 .ToList();
 
+            var inputDonVis = dtos
+                .Where(d => !string.IsNullOrWhiteSpace(d.TenDonVi))
+                .Select(d => d.TenDonVi!.Trim())
+                .Distinct()
+                .ToList();
+
             var inputRoles = dtos
                 .Where(d => !string.IsNullOrWhiteSpace(d.Role))
                 .Select(d => d.Role!.Trim())
@@ -104,12 +113,15 @@ namespace demo1.Services.Implements
 
             var dbPhongBans = await _dbContext.PhongBans.ToListAsync();
             var dbChucVus = await _dbContext.ChucVus.ToListAsync();
+            var dbDonVis = await _dbContext.DonVis.ToListAsync();
 
             var phongBanMap = dbPhongBans.ToDictionary(pb => pb.TenPhongBan.ToLower(), pb => pb);
             var chucVuMap = dbChucVus.ToDictionary(cv => cv.TenChucVu.ToLower(), cv => cv);
+            var donViMap = dbDonVis.ToDictionary(dv => dv.TenDonVi.ToLower(), dv => dv);
 
             var newPhongBans = new List<PhongBan>();
             var newChucVus = new List<ChucVu>();
+            var newDonVis = new List<DonVi>();
             var newRoles = new List<Role>();
 
             foreach (var pbName in inputPhongBans)
@@ -144,6 +156,22 @@ namespace demo1.Services.Implements
                 }
             }
 
+            foreach (var dvName in inputDonVis)
+            {
+                var lowerName = dvName.ToLower();
+                if (!donViMap.ContainsKey(lowerName))
+                {
+                    var dv = new DonVi
+                    {
+                        Id = Guid.NewGuid(),
+                        TenDonVi = dvName,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    newDonVis.Add(dv);
+                    donViMap[lowerName] = dv;
+                }
+            }
+
             foreach (var rName in inputRoles)
             {
                 var lowerName = rName.ToLower();
@@ -172,22 +200,30 @@ namespace demo1.Services.Implements
                 _dbContext.ChucVus.AddRange(newChucVus);
             }
 
+            if (newDonVis.Any())
+            {
+                _dbContext.DonVis.AddRange(newDonVis);
+            }
+
             if (newRoles.Any())
             {
                 _dbContext.Roles.AddRange(newRoles);
             }
 
-            if (newPhongBans.Any() || newChucVus.Any() || newRoles.Any())
+            if (newPhongBans.Any() || newChucVus.Any() || newDonVis.Any() || newRoles.Any())
             {
                 await _dbContext.SaveChangesAsync();
             }
 
-            // Bước 3: Tiến hành Upsert các User
-            var inputUsernamesList = usernamesInInput.ToList();
+            // Bước 3: Tiến hành Upsert các User (Check trùng mã user theo PGD / Phòng ban)
+            var inputUsernamesList = dtos.Select(d => d.Username.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             var existingUsers = await _dbContext.Users
                 .Where(u => inputUsernamesList.Contains(u.Username))
                 .ToListAsync();
-            var existingUserMap = existingUsers.ToDictionary(u => u.Username.ToLower(), u => u);
+
+            var existingUserMap = existingUsers
+                .GroupBy(u => $"{u.Username.Trim().ToLower()}@{(u.TenPhongBan?.Trim()?.ToLower() ?? "")}")
+                .ToDictionary(g => g.Key, g => g.First());
 
             var existingUserIds = existingUsers.Select(u => u.Id).ToList();
             var existingUserRoles = await _dbContext.UserRoles
@@ -205,12 +241,7 @@ namespace demo1.Services.Implements
                     var trimmedUsername = dto.Username.Trim();
                     var lowerUsername = trimmedUsername.ToLower();
 
-                    // Format email theo username: username + @co-opbank.vn
-                    var email = string.IsNullOrWhiteSpace(dto.Email) 
-                        ? $"{lowerUsername}@co-opbank.vn" 
-                        : dto.Email.Trim();
-
-                    Guid? idPhongBan = null;
+                    Guid? idPhongBan = dto.IdPhongBan;
                     string? tenPhongBan = null;
                     if (!string.IsNullOrWhiteSpace(dto.TenPhongBan))
                     {
@@ -222,7 +253,15 @@ namespace demo1.Services.Implements
                         }
                     }
 
-                    Guid? idChucVu = null;
+                    var phongBanName = tenPhongBan ?? dto.TenPhongBan?.Trim() ?? string.Empty;
+                    var userPgdKey = $"{lowerUsername}@{phongBanName.ToLower()}";
+
+                    // Format email theo username: username + @co-opbank.vn
+                    var email = string.IsNullOrWhiteSpace(dto.Email) 
+                        ? $"{lowerUsername}@co-opbank.vn" 
+                        : dto.Email.Trim();
+
+                    Guid? idChucVu = dto.IdChucVu;
                     string? tenChucVu = null;
                     if (!string.IsNullOrWhiteSpace(dto.TenChucVu))
                     {
@@ -231,6 +270,18 @@ namespace demo1.Services.Implements
                         {
                             idChucVu = cv.Id;
                             tenChucVu = cv.TenChucVu;
+                        }
+                    }
+
+                    Guid? idDonVi = dto.IdDonVi;
+                    string? tenDonVi = null;
+                    if (!string.IsNullOrWhiteSpace(dto.TenDonVi))
+                    {
+                        var key = dto.TenDonVi.Trim().ToLower();
+                        if (donViMap.TryGetValue(key, out var dv))
+                        {
+                            idDonVi = dv.Id;
+                            tenDonVi = dv.TenDonVi;
                         }
                     }
 
@@ -244,16 +295,18 @@ namespace demo1.Services.Implements
                         }
                     }
 
-                    if (existingUserMap.TryGetValue(lowerUsername, out var user))
+                    if (existingUserMap.TryGetValue(userPgdKey, out var user))
                     {
                         // Update
                         user.FullName = dto.FullName?.Trim() ?? string.Empty;
                         user.Email = email;
                         user.Phone = dto.Phone?.Trim();
                         user.IdPhongBan = idPhongBan;
-                        user.TenPhongBan = tenPhongBan;
+                        user.TenPhongBan = phongBanName;
                         user.IdChucVu = idChucVu;
                         user.TenChucVu = tenChucVu;
+                        user.IdDonVi = idDonVi;
+                        user.TenDonVi = tenDonVi ?? dto.TenDonVi?.Trim();
                         user.IsActive = dto.IsActive;
                         user.IsSystemAdmin = dto.IsSystemAdmin;
                         user.UpdatedAt = DateTime.UtcNow;
@@ -287,9 +340,11 @@ namespace demo1.Services.Implements
                             Email = email,
                             Phone = dto.Phone?.Trim(),
                             IdPhongBan = idPhongBan,
-                            TenPhongBan = tenPhongBan,
+                            TenPhongBan = phongBanName,
                             IdChucVu = idChucVu,
                             TenChucVu = tenChucVu,
+                            IdDonVi = idDonVi,
+                            TenDonVi = tenDonVi ?? dto.TenDonVi?.Trim(),
                             IsActive = dto.IsActive,
                             IsSystemAdmin = dto.IsSystemAdmin,
                             IsTwoFactorEnabled = false,
@@ -297,6 +352,7 @@ namespace demo1.Services.Implements
                         };
 
                         _dbContext.Users.Add(newUser);
+                        existingUserMap[userPgdKey] = newUser;
 
                         if (targetRole != null)
                         {

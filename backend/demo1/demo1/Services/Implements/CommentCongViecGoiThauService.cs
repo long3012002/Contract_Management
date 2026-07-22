@@ -19,17 +19,20 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
     private readonly ICurrentUserService _currentUserService;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly IMapper _mapper;
+    private readonly CongViecReminderHangfireService _reminderService;
 
     public CommentCongViecGoiThauService(
         AppDbContext context,
         ICurrentUserService currentUserService,
         IHubContext<NotificationHub> hubContext,
-        IMapper mapper)
+        IMapper mapper,
+        CongViecReminderHangfireService reminderService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _hubContext = hubContext;
         _mapper = mapper;
+        _reminderService = reminderService;
     }
 
     public async Task<IEnumerable<CommentCongViecGoiThauDto>> GetCommentsByCongViecIdAsync(Guid idCongViec)
@@ -96,6 +99,8 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
             stakeholderRecord.XacNhanAt = DateTime.UtcNow;
             stakeholderRecord.LoaiXacNhan = "Comment";
             stakeholderRecord.UpdatedAt = DateTime.UtcNow;
+
+            _reminderService.CancelReminders(stakeholderRecord);
         }
 
         // Xử lý Mention người dùng

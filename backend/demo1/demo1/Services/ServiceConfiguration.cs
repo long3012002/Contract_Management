@@ -13,6 +13,7 @@ using demo1.Middleware;
 using demo1.Providers;
 using demo1.Services.Implements;
 using demo1.Services.Interfaces;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -137,6 +138,22 @@ public static class ServiceConfiguration
             });
         });
 
+        // Configure Hangfire with MySQL Storage
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UseStorage(new Hangfire.MySql.MySqlStorage(
+                connectionString,
+                new Hangfire.MySql.MySqlStorageOptions
+                {
+                    TablesPrefix = "Hangfire_"
+                }
+            )));
+
+        services.AddHangfireServer();
+        services.AddScoped<CongViecReminderHangfireService>();
+
         services.AddScoped<IDuAnService, DuAnService>();
         services.AddScoped<IDoiTacService, DoiTacService>();
         services.AddScoped<IGoiThauService, GoiThauService>();
@@ -157,6 +174,7 @@ public static class ServiceConfiguration
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IPhongBanService, PhongBanService>();
         services.AddScoped<IChucVuService, ChucVuService>();
+        services.AddScoped<IDonViService, DonViService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<TotpService>();
         services.AddSingleton<RadiusClient>(sp =>

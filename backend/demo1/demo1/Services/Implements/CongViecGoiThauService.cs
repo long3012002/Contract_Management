@@ -17,13 +17,16 @@ public class CongViecGoiThauService
     : DbCrudDetailService<CongViecGoiThau, CongViecGoiThauDto, CreateCongViecGoiThauDto, UpdateCongViecGoiThauDto>, ICongViecGoiThauService
 {
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly CongViecReminderHangfireService _reminderService;
 
     public CongViecGoiThauService(
         AppDbContext dbContext,
         IMapper mapper,
-        IHubContext<NotificationHub> hubContext) : base(dbContext, mapper)
+        IHubContext<NotificationHub> hubContext,
+        CongViecReminderHangfireService reminderService) : base(dbContext, mapper)
     {
         _hubContext = hubContext;
+        _reminderService = reminderService;
     }
 
     public override async Task<CongViecGoiThauDto?> GetByIdAsync(Guid id)
@@ -117,24 +120,26 @@ public class CongViecGoiThauService
         // Handle NguoiLienQuans
         if (dto.NguoiLienQuanIds != null && dto.NguoiLienQuanIds.Any())
         {
-            var validUserIds = await DbContext.Users
+            var validUsers = await DbContext.Users
                 .Where(u => dto.NguoiLienQuanIds.Contains(u.Id))
-                .Select(u => u.Id)
                 .ToListAsync();
 
-            foreach (var userId in validUserIds)
+            foreach (var user in validUsers)
             {
-                entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                var record = new CongViecNguoiLienQuan
                 {
                     Id = Guid.NewGuid(),
                     CongViecGoiThauId = entity.Id,
-                    UserId = userId,
+                    UserId = user.Id,
                     Code = $"NLQ-{Guid.NewGuid():N}",
-                    Name = $"Stakeholder-{userId}",
+                    Name = $"Stakeholder-{user.Id}",
                     TrangThaiXacNhan = "Pending",
                     HanXacNhanAt = entity.CreatedAt.AddHours(24),
                     CreatedAt = entity.CreatedAt
-                });
+                };
+
+                await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
+                entity.NguoiLienQuans.Add(record);
             }
         }
 
@@ -209,9 +214,9 @@ public class CongViecGoiThauService
             {
                 foreach (var userId in dto.NguoiLienQuanIds)
                 {
-                    if (validUsers.ContainsKey(userId))
+                    if (validUsers.TryGetValue(userId, out var user))
                     {
-                        entity.NguoiLienQuans.Add(new CongViecNguoiLienQuan
+                        var record = new CongViecNguoiLienQuan
                         {
                             Id = Guid.NewGuid(),
                             CongViecGoiThauId = entity.Id,
@@ -221,7 +226,10 @@ public class CongViecGoiThauService
                             TrangThaiXacNhan = "Pending",
                             HanXacNhanAt = now.AddHours(24),
                             CreatedAt = now
-                        });
+                        };
+
+                        await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
+                        entity.NguoiLienQuans.Add(record);
                     }
                 }
             }
@@ -332,6 +340,10 @@ public class CongViecGoiThauService
             var toDelete = existingStakeholders.Where(n => !targetUserIds.Contains(n.UserId)).ToList();
             if (toDelete.Any())
             {
+                foreach (var delRecord in toDelete)
+                {
+                    _reminderService.CancelReminders(delRecord);
+                }
                 DbContext.CongViecNguoiLienQuans.RemoveRange(toDelete);
 
                 var removedUserIds = toDelete.Select(n => n.UserId).ToList();
@@ -356,7 +368,7 @@ public class CongViecGoiThauService
 
                 foreach (var addUser in newStakeholderUsers)
                 {
-                    DbContext.CongViecNguoiLienQuans.Add(new CongViecNguoiLienQuan
+                    var record = new CongViecNguoiLienQuan
                     {
                         Id = Guid.NewGuid(),
                         CongViecGoiThauId = id,
@@ -367,7 +379,10 @@ public class CongViecGoiThauService
                         HanXacNhanAt = DateTime.UtcNow.AddHours(24),
                         CreatedAt = DateTime.UtcNow,
                         IsActive = true
-                    });
+                    };
+
+                    await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, addUser);
+                    DbContext.CongViecNguoiLienQuans.Add(record);
                 }
             }
         }
@@ -408,6 +423,8 @@ public class CongViecGoiThauService
         record.XacNhanAt = DateTime.UtcNow;
         record.LoaiXacNhan = "DirectConfirm";
         record.UpdatedAt = DateTime.UtcNow;
+
+        _reminderService.CancelReminders(record);
 
         await DbContext.SaveChangesAsync();
         return true;

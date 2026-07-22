@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Backend API (.NET 8/9 ASP.NET Core Web API)
+  backend:
+    image: coopbank/qlda-backend:v1.0.0
+    build:
+      context: ../../backend/demo1
+      dockerfile: demo1/Dockerfile
+    container_name: qlda-backend-container
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      # Chuỗi kết nối Database MySQL Production (10.225.11.201)
+      - ConnectionStrings__DefaultConnection=server=10.225.11.201;port=3306;database=QLDA;user=user;password=passsword;CharSet=utf8mb4;
+      # Cấu hình TẮT AutoMigrate và Seed Data trên Production
+      - Database__AutoMigrate=false
+      - Database__SeedSampleData=false
+      # JWT Settings (SecretKey >= 256 bits)
+      - JwtSettings__SecretKey=Secret_Key_2026_Secure!
+      - JwtSettings__Issuer=https://qlda.coopbank.vn
+      - JwtSettings__Audience=https://qlda.coopbank.vn
+      - JwtSettings__ExpiryMinutes=120
+      # RADIUS Server Integration (10.224.0.94)
+      - RadiusSettings__Server=10.224.0.94
+      - RadiusSettings__SharedSecret=CoopBank_Radius_Secret
+      - RadiusSettings__Port=1812
+      # SMTP Mail Server
+      - MailSettings__Host=smtp.coopbank.vn
+      - MailSettings__Port=587
+      - MailSettings__EnableSsl=true
+      - MailSettings__SenderEmail=no-reply-qlda@coopbank.vn
+    volumes:
+      - /var/log/qlda/backend:/app/logs
+      - /var/qlda/uploads:/app/uploads
+    networks:
+      - qlda-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Reverse Proxy Nginx & Frontend Static Hosting
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: qlda-nginx-container
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../frontend/dist:/usr/share/nginx/html:ro
+      - /etc/ssl/coopbank:/etc/nginx/ssl:ro
+      - /var/log/nginx:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - qlda-network
+
+networks:
+  qlda-network:
+    driver: bridge

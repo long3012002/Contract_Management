@@ -29,4 +29,9 @@ public class CongViecNguoiLienQuan : BaseEntity
     /// Loại xác nhận: DirectConfirm | Comment
     /// </summary>
     public string? LoaiXacNhan { get; set; }
+
+    /// <summary>
+    /// Lưu danh sách Job ID do Hangfire trả về (phân cách dấu phẩy) để hủy khi đã xác nhận
+    /// </summary>
+    public string? ReminderJobIds { get; set; }
 }

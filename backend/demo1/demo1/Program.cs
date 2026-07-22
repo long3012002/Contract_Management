@@ -2,6 +2,7 @@ using demo1.Data;
 using demo1.Logging;
 using demo1.Middleware;
 using demo1.Services;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,7 @@ app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseHangfireDashboard();
 app.MapControllers();
 app.MapHub<demo1.Hubs.NotificationHub>("/hub/notifications");
 

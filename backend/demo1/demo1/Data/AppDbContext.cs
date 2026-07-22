@@ -34,6 +34,7 @@ namespace demo1.Data
         public DbSet<Feature> Features { get; set; } = null!;
         public DbSet<PhongBan> PhongBans { get; set; } = null!;
         public DbSet<ChucVu> ChucVus { get; set; } = null!;
+        public DbSet<DonVi> DonVis { get; set; } = null!;
         public DbSet<UserPermission> UserPermissions { get; set; } = null!;
         public DbSet<PermissionRequest> PermissionRequests { get; set; } = null!;
         public DbSet<Permission> Permissions { get; set; } = null!;
@@ -67,6 +68,7 @@ namespace demo1.Data
                 entity.Property(e => e.Code).HasMaxLength(50);
                 entity.Property(e => e.Name).HasMaxLength(255);
                 entity.Property(e => e.Description).HasMaxLength(1000);
+                entity.Property(e => e.ReminderJobIds).HasMaxLength(1000);
 
                 entity.HasOne(nlq => nlq.CongViecGoiThau)
                     .WithMany(cv => cv.NguoiLienQuans)

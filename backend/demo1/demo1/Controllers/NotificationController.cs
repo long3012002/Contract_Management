@@ -84,8 +84,13 @@ namespace demo1.Controllers
             return Ok(new { Message = "Đã đánh dấu thông báo là đã đọc." });
         }
 
-        // 3. PUT: api/notification/read-all
+        // 3. PUT/POST: api/notification/read-all, api/notification/ConfirmAll, api/notification/confirm-all
         [HttpPut("read-all")]
+        [HttpPost("read-all")]
+        [HttpPut("confirm-all")]
+        [HttpPost("confirm-all")]
+        [HttpPut("ConfirmAll")]
+        [HttpPost("ConfirmAll")]
         public async Task<IActionResult> MarkAllAsRead()
         {
             var user = await GetCurrentUserAsync();

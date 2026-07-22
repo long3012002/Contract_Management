@@ -121,6 +121,11 @@ namespace demo1.Mapper
             CreateMap<CreateChucVuDto, ChucVu>();
             CreateMap<UpdateChucVuDto, ChucVu>();
 
+            // DonVi mappings
+            CreateMap<DonVi, DonViDto>();
+            CreateMap<CreateDonViDto, DonVi>();
+            CreateMap<UpdateDonViDto, DonVi>();
+
             // NhomDuAn mappings
             CreateMap<NhomDuAn, NhomDuAnDto>();
             CreateMap<CreateNhomDuAnDto, NhomDuAn>()
