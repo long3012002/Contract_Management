@@ -175,7 +175,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
             }
 
-            // Normalize for single bidder if needed
+            // Normalize for bidders
             if (dto.NhaThauGoiThaus.Count == 1)
             {
                 var single = dto.NhaThauGoiThaus.First();
@@ -184,6 +184,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 single.IsDaiDienLienDanh = false;
                 single.TyLeLienDanh = 100;
                 single.GiaTriDamNhan = dto.GiaTriGoiThau;
+            }
+            else
+            {
+                foreach (var bidder in dto.NhaThauGoiThaus)
+                {
+                    bidder.IsLienDanh = true;
+                }
             }
 
             // Validate
@@ -296,7 +303,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 }
             }
 
-            // Normalize for single bidder if needed
+            // Normalize for bidders
             if (dto.NhaThauGoiThaus.Count == 1)
             {
                 var single = dto.NhaThauGoiThaus.First();
@@ -305,6 +312,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 single.IsDaiDienLienDanh = false;
                 single.TyLeLienDanh = 100;
                 single.GiaTriDamNhan = dto.GiaTriGoiThau;
+            }
+            else
+            {
+                foreach (var bidder in dto.NhaThauGoiThaus)
+                {
+                    bidder.IsLienDanh = true;
+                }
             }
 
             // Validate

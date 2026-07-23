@@ -57,22 +57,6 @@ public static class GoiThauValidator
                 throw new InvalidOperationException("Gói thầu có nhiều nhà thầu thì tất cả phải tham gia với tư cách liên danh.");
             }
 
-            var distinctNames = bidders.Select(b => b.TenLienDanh?.Trim()).Distinct().ToList();
-            if (distinctNames.Any(string.IsNullOrEmpty))
-            {
-                throw new InvalidOperationException("Tên liên danh không được để trống.");
-            }
-            if (distinctNames.Count > 1)
-            {
-                throw new InvalidOperationException("Tên liên danh của các thành viên phải giống nhau.");
-            }
-
-            var representatives = bidders.Where(b => b.IsDaiDienLienDanh).ToList();
-            if (representatives.Count != 1)
-            {
-                throw new InvalidOperationException("Liên danh phải có duy nhất một nhà thầu làm đại diện liên danh.");
-            }
-
             var totalRate = bidders.Sum(b => b.TyLeLienDanh);
             if (totalRate != 100)
             {
