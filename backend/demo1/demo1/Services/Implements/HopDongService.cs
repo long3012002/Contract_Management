@@ -137,10 +137,6 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             {
                 var single = dto.NhaThauGoiThaus.First();
                 single.IsLienDanh = false;
-                single.TenLienDanh = null;
-                single.IsDaiDienLienDanh = false;
-                single.TyLeLienDanh = 100;
-                single.GiaTriDamNhan = dto.GiaTriHopDong;
             }
 
             // Validate
@@ -364,10 +360,6 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 {
                     var single = dto.NhaThauGoiThaus.First();
                     single.IsLienDanh = false;
-                    single.TenLienDanh = null;
-                    single.IsDaiDienLienDanh = false;
-                    single.TyLeLienDanh = 100;
-                    single.GiaTriDamNhan = dto.GiaTriHopDong;
                 }
 
                 HopDongValidator.ValidateBidders(dto.GiaTriHopDong, dto.NhaThauGoiThaus);
@@ -490,10 +482,6 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 {
                     var single = dto.NhaThauGoiThaus.First();
                     single.IsLienDanh = false;
-                    single.TenLienDanh = null;
-                    single.IsDaiDienLienDanh = false;
-                    single.TyLeLienDanh = 100;
-                    single.GiaTriDamNhan = dto.GiaTriHopDong;
                 }
 
                 // Validate
@@ -579,11 +567,6 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                     else
                     {
                         existing.IsLienDanh = inputDto.IsLienDanh;
-                        existing.TenLienDanh = inputDto.TenLienDanh;
-                        existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh ?? false;
-                        existing.TyLeLienDanh = inputDto.TyLeLienDanh;
-                        existing.GiaTriDamNhan = inputDto.GiaTriDamNhan;
-                        existing.VaiTroTrongLienDanh = inputDto.VaiTroTrongLienDanh;
                         existing.UpdatedAt = DateTime.UtcNow;
                     }
                 }

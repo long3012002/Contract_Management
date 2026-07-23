@@ -10,17 +10,4 @@ public class NhaThauGoiThauInputDto
 
     public bool IsLienDanh { get; set; }
 
-    [StringLength(255)]
-    public string? TenLienDanh { get; set; }
-
-    public bool? IsDaiDienLienDanh { get; set; }
-
-    [Range(0, 100)]
-    public decimal TyLeLienDanh { get; set; }
-
-    [Range(0, double.MaxValue)]
-    public decimal GiaTriDamNhan { get; set; }
-
-    [StringLength(500)]
-    public string? VaiTroTrongLienDanh { get; set; }
 }

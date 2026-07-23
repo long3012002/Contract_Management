@@ -84,13 +84,7 @@ namespace demo1.Data
             });
 
             // Configure NhaThauGoiThau relationship
-            modelBuilder.Entity<NhaThauGoiThau>()
-                .Property(ntgt => ntgt.TyLeLienDanh)
-                .HasPrecision(5, 2);
 
-            modelBuilder.Entity<NhaThauGoiThau>()
-                .Property(ntgt => ntgt.GiaTriDamNhan)
-                .HasPrecision(18, 2);
 
             modelBuilder.Entity<NhaThauGoiThau>()
                 .HasOne(ntgt => ntgt.HopDong)

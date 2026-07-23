@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using demo1.Data;
 
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723072446_RemoveTyLeAndGiaTriDamNhanFromNhaThauGoiThau")]
+    partial class RemoveTyLeAndGiaTriDamNhanFromNhaThauGoiThau
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -852,6 +855,9 @@ namespace demo1.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool?>("IsDaiDienLienDanh")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsLienDanh")
                         .HasColumnType("tinyint(1)");
 
@@ -863,8 +869,14 @@ namespace demo1.Migrations
                     b.Property<Guid>("NhaThauId")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("TenLienDanh")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("VaiTroTrongLienDanh")
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 

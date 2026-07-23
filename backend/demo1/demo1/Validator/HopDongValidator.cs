@@ -56,28 +56,6 @@ public static class HopDongValidator
             {
                 throw new InvalidOperationException("Hợp đồng chỉ có một nhà thầu thì không phải là liên danh.");
             }
-            if (single.TyLeLienDanh != 100)
-            {
-                throw new InvalidOperationException("Tỷ lệ liên danh của nhà thầu duy nhất phải là 100%.");
-            }
-            if (single.GiaTriDamNhan != giaTriHopDong)
-            {
-                throw new InvalidOperationException($"Giá trị đảm nhận của nhà thầu duy nhất phải bằng giá trị hợp đồng ({giaTriHopDong:N0} VNĐ).");
-            }
-        }
-        else // bidders.Count > 1
-        {
-            var totalRate = bidders.Sum(b => b.TyLeLienDanh);
-            if (totalRate != 100)
-            {
-                throw new InvalidOperationException("Tổng tỷ lệ liên danh của các thành viên phải bằng 100%.");
-            }
-
-            var totalValue = bidders.Sum(b => b.GiaTriDamNhan);
-            if (totalValue != giaTriHopDong)
-            {
-                throw new InvalidOperationException($"Tổng giá trị đảm nhận của các thành viên ({totalValue:N0} VNĐ) phải bằng giá trị hợp đồng ({giaTriHopDong:N0} VNĐ).");
-            }
         }
     }
 }

@@ -11,9 +11,5 @@ public class NhaThauGoiThau : BaseEntity
     public virtual DoiTac? NhaThau { get; set; }
 
     public bool IsLienDanh { get; set; }
-    public string? TenLienDanh { get; set; }
-    public bool? IsDaiDienLienDanh { get; set; }
-    public decimal TyLeLienDanh { get; set; }
-    public decimal GiaTriDamNhan { get; set; }
-    public string? VaiTroTrongLienDanh { get; set; }
+
 }
