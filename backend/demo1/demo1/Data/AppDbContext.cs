@@ -59,7 +59,10 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<DoiTac>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
-            ConfigureBaseEntity(modelBuilder.Entity<NhaThauGoiThau>());
+            modelBuilder.Entity<NhaThauGoiThau>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+            });
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<License>());
             modelBuilder.Entity<CongViecNguoiLienQuan>(entity =>

@@ -2,8 +2,10 @@ using System;
 
 namespace demo1.Entity;
 
-public class NhaThauGoiThau : BaseEntity
+public class NhaThauGoiThau
 {
+    public Guid Id { get; set; } = Guid.NewGuid();
+
     public Guid HopDongId { get; set; }
     public virtual HopDong? HopDong { get; set; }
 
@@ -12,4 +14,6 @@ public class NhaThauGoiThau : BaseEntity
 
     public bool IsLienDanh { get; set; }
 
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 }
