@@ -40,17 +40,14 @@ namespace demo1.Mapper
 
             // GoiThau mappings
             CreateMap<GoiThau, GoiThauDto>()
-                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
-                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus));
+                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null));
             CreateMap<CreateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
-                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.Ignore());
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
             CreateMap<UpdateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
-                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.Ignore());
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
             // NhaThauGoiThau mappings
             CreateMap<NhaThauGoiThau, NhaThauGoiThauDto>()
@@ -60,7 +57,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.IsDaiDienLienDanh, opt => opt.MapFrom(src => src.IsDaiDienLienDanh ?? false))
-                .ForMember(dest => dest.GoiThau, opt => opt.Ignore())
+                .ForMember(dest => dest.HopDong, opt => opt.Ignore())
                 .ForMember(dest => dest.NhaThau, opt => opt.Ignore());
 
             // DoiTac mappings
@@ -109,21 +106,24 @@ namespace demo1.Mapper
             CreateMap<HopDong, HopDongDto>()
                 .ForMember(dest => dest.GoiThauName, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Name : null))
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
-                .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()));
+                .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()))
+                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus));
             CreateMap<CreateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
                 .ForMember(dest => dest.ThoiHanThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiHanThucHien)))
                 .ForMember(dest => dest.DiaDiemThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.DiaDiemThucHien)))
-                .ForMember(dest => dest.DotThanhToans, opt => opt.Ignore()); // Handled manually in service
+                .ForMember(dest => dest.DotThanhToans, opt => opt.Ignore()) // Handled manually in service
+                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.Ignore()); // Handled manually in service
             CreateMap<UpdateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
                 .ForMember(dest => dest.ThoiHanThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiHanThucHien)))
                 .ForMember(dest => dest.DiaDiemThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.DiaDiemThucHien)))
-                .ForMember(dest => dest.DotThanhToans, opt => opt.Ignore()); // Handled manually in service
+                .ForMember(dest => dest.DotThanhToans, opt => opt.Ignore()) // Handled manually in service
+                .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.Ignore()); // Handled manually in service
 
             // PhongBan mappings
             CreateMap<PhongBan, PhongBanDto>();

@@ -28,7 +28,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
-            .Include(h => h.DotThanhToans);
+            .Include(h => h.DotThanhToans)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -96,6 +98,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
             .ToListAsync();
         return Mapper.Map<List<HopDongDto>>(items);
     }
@@ -108,6 +112,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
             .FirstOrDefaultAsync(h => h.Id == id);
         return entity is null ? null : Mapper.Map<HopDongDto>(entity);
     }
@@ -115,6 +121,31 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     public override async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
     {
         HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
+
+        // Check NhaThauGoiThaus existence and validate
+        if (dto.NhaThauGoiThaus != null && dto.NhaThauGoiThaus.Any())
+        {
+            var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
+            var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
+            if (existingCount != bidderIds.Count)
+            {
+                throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
+            }
+
+            // Normalize for single bidder if needed
+            if (dto.NhaThauGoiThaus.Count == 1)
+            {
+                var single = dto.NhaThauGoiThaus.First();
+                single.IsLienDanh = false;
+                single.TenLienDanh = null;
+                single.IsDaiDienLienDanh = false;
+                single.TyLeLienDanh = 100;
+                single.GiaTriDamNhan = dto.GiaTriHopDong;
+            }
+
+            // Validate
+            HopDongValidator.ValidateBidders(dto.GiaTriHopDong, dto.NhaThauGoiThaus);
+        }
 
         // Check DuAn existence
         if (dto.DuAnId.HasValue)
@@ -161,6 +192,16 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         entity.Id = Guid.NewGuid();
         entity.CreatedAt = DateTime.UtcNow;
 
+        if (dto.NhaThauGoiThaus != null)
+        {
+            foreach (var inputDto in dto.NhaThauGoiThaus)
+            {
+                var nt = Mapper.Map<NhaThauGoiThau>(inputDto);
+                nt.HopDongId = entity.Id;
+                entity.NhaThauGoiThaus.Add(nt);
+            }
+        }
+
         // Ensure unique code
         var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == entity.Code.ToLower());
         if (exists)
@@ -196,6 +237,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
             .FirstOrDefaultAsync(h => h.Id == entity.Id);
 
         return Mapper.Map<HopDongDto>(reloaded);
@@ -235,16 +278,17 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             }
         }
 
-        // 4. Kiểm tra tính tồn tại của Đối tác (Chủ đầu tư & Nhà thầu)
+        // 4. Kiểm tra tính tồn tại của Đối tác (Chủ đầu tư, Nhà thầu & các Nhà thầu trong NhaThauGoiThaus)
         var chuDauTuIds = dtoList.Where(d => d.ChuDauTuId.HasValue).Select(d => d.ChuDauTuId!.Value).Distinct().ToList();
         var nhaThauIds = dtoList.Where(d => d.NhaThauId.HasValue).Select(d => d.NhaThauId!.Value).Distinct().ToList();
-        var allDoiTacIds = chuDauTuIds.Concat(nhaThauIds).Distinct().ToList();
+        var bidderIds = dtoList.Where(d => d.NhaThauGoiThaus != null).SelectMany(d => d.NhaThauGoiThaus!).Select(b => b.NhaThauId).Distinct().ToList();
+        var allDoiTacIds = chuDauTuIds.Concat(nhaThauIds).Concat(bidderIds).Distinct().ToList();
         if (allDoiTacIds.Any())
         {
             var existingDoiTacCount = await DbContext.DoiTacs.CountAsync(dt => allDoiTacIds.Contains(dt.Id));
             if (existingDoiTacCount != allDoiTacIds.Count)
             {
-                throw new KeyNotFoundException("Một số đối tác (chủ đầu tư hoặc nhà thầu) được liên kết không tồn tại.");
+                throw new KeyNotFoundException("Một số đối tác (chủ đầu tư, nhà thầu hoặc thành viên liên danh) được liên kết không tồn tại.");
             }
         }
 
@@ -312,6 +356,30 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 }
             }
 
+            // Ánh xạ các nhà thầu liên kết (NhaThauGoiThau)
+            if (dto.NhaThauGoiThaus != null && dto.NhaThauGoiThaus.Any())
+            {
+                // Normalize for single bidder if needed
+                if (dto.NhaThauGoiThaus.Count == 1)
+                {
+                    var single = dto.NhaThauGoiThaus.First();
+                    single.IsLienDanh = false;
+                    single.TenLienDanh = null;
+                    single.IsDaiDienLienDanh = false;
+                    single.TyLeLienDanh = 100;
+                    single.GiaTriDamNhan = dto.GiaTriHopDong;
+                }
+
+                HopDongValidator.ValidateBidders(dto.GiaTriHopDong, dto.NhaThauGoiThaus);
+
+                foreach (var inputDto in dto.NhaThauGoiThaus)
+                {
+                    var nt = Mapper.Map<NhaThauGoiThau>(inputDto);
+                    nt.HopDongId = entity.Id;
+                    entity.NhaThauGoiThaus.Add(nt);
+                }
+            }
+
             entities.Add(entity);
         }
 
@@ -326,6 +394,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
             .Where(h => reloadedIds.Contains(h.Id))
             .ToListAsync();
 
@@ -402,6 +472,34 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 throw new KeyNotFoundException("Không tìm thấy thông tin nhà thầu.");
             }
 
+            // Check NhaThauGoiThaus existence and validate
+            if (dto.NhaThauGoiThaus != null)
+            {
+                var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
+                if (bidderIds.Any())
+                {
+                    var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
+                    if (existingCount != bidderIds.Count)
+                    {
+                        throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
+                    }
+                }
+
+                // Normalize for single bidder if needed
+                if (dto.NhaThauGoiThaus.Count == 1)
+                {
+                    var single = dto.NhaThauGoiThaus.First();
+                    single.IsLienDanh = false;
+                    single.TenLienDanh = null;
+                    single.IsDaiDienLienDanh = false;
+                    single.TyLeLienDanh = 100;
+                    single.GiaTriDamNhan = dto.GiaTriHopDong;
+                }
+
+                // Validate
+                HopDongValidator.ValidateBidders(dto.GiaTriHopDong, dto.NhaThauGoiThaus);
+            }
+
             Mapper.Map(dto, entity);
             entity.UpdatedAt = DateTime.UtcNow;
 
@@ -451,6 +549,42 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                         dot.CreatedAt = now.AddMilliseconds(index++);
                         await DbContext.DotThanhToans.AddAsync(dot);
+                    }
+                }
+            }
+
+            // Process NhaThauGoiThaus updates
+            if (dto.NhaThauGoiThaus != null)
+            {
+                // Fetch existing
+                var existingBidders = await DbContext.NhaThauGoiThaus
+                    .Where(nt => nt.HopDongId == id)
+                    .ToListAsync();
+
+                // 1. Remove deleted
+                var incomingBidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).ToHashSet();
+                var toRemove = existingBidders.Where(eb => !incomingBidderIds.Contains(eb.NhaThauId)).ToList();
+                DbContext.NhaThauGoiThaus.RemoveRange(toRemove);
+
+                // 2. Add or Update
+                foreach (var inputDto in dto.NhaThauGoiThaus)
+                {
+                    var existing = existingBidders.FirstOrDefault(eb => eb.NhaThauId == inputDto.NhaThauId);
+                    if (existing == null)
+                    {
+                        var newNt = Mapper.Map<NhaThauGoiThau>(inputDto);
+                        newNt.HopDongId = id;
+                        await DbContext.NhaThauGoiThaus.AddAsync(newNt);
+                    }
+                    else
+                    {
+                        existing.IsLienDanh = inputDto.IsLienDanh;
+                        existing.TenLienDanh = inputDto.TenLienDanh;
+                        existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh ?? false;
+                        existing.TyLeLienDanh = inputDto.TyLeLienDanh;
+                        existing.GiaTriDamNhan = inputDto.GiaTriDamNhan;
+                        existing.VaiTroTrongLienDanh = inputDto.VaiTroTrongLienDanh;
+                        existing.UpdatedAt = DateTime.UtcNow;
                     }
                 }
             }

@@ -4,8 +4,8 @@ namespace demo1.Entity;
 
 public class NhaThauGoiThau : BaseEntity
 {
-    public Guid GoiThauId { get; set; }
-    public virtual GoiThau? GoiThau { get; set; }
+    public Guid HopDongId { get; set; }
+    public virtual HopDong? HopDong { get; set; }
 
     public Guid NhaThauId { get; set; }
     public virtual DoiTac? NhaThau { get; set; }

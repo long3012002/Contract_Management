@@ -24,9 +24,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         pageSize = Math.Clamp(pageSize, 1, 100);
 
         IQueryable<GoiThau> query = DbSet.AsNoTracking()
-            .Include(gt => gt.DuAn)
-            .Include(gt => gt.NhaThauGoiThaus)
-                .ThenInclude(nt => nt.NhaThau);
+            .Include(gt => gt.DuAn);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -87,8 +85,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         var items = await DbSet
             .Include(gt => gt.DuAn)
-            .Include(gt => gt.NhaThauGoiThaus)
-                .ThenInclude(nt => nt.NhaThau)
             .ToListAsync();
         return Mapper.Map<List<GoiThauDto>>(items);
     }
@@ -97,8 +93,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         var entity = await DbSet
             .Include(gt => gt.DuAn)
-            .Include(gt => gt.NhaThauGoiThaus)
-                .ThenInclude(nt => nt.NhaThau)
             .FirstOrDefaultAsync(gt => gt.Id == id);
         return entity is null ? null : Mapper.Map<GoiThauDto>(entity);
     }
@@ -165,38 +159,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
         await DbSet.AddAsync(entity);
 
-        // Process NhaThauGoiThaus
-        if (dto.NhaThauGoiThaus != null && dto.NhaThauGoiThaus.Any())
-        {
-            var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
-            var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
-            if (existingCount != bidderIds.Count)
-            {
-                throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
-            }
 
-            // Normalize for single bidder if needed
-            if (dto.NhaThauGoiThaus.Count == 1)
-            {
-                var single = dto.NhaThauGoiThaus.First();
-                single.IsLienDanh = false;
-                single.TenLienDanh = null;
-                single.IsDaiDienLienDanh = false;
-                single.TyLeLienDanh = 100;
-                single.GiaTriDamNhan = dto.GiaTriGoiThau;
-            }
-
-            // Validate
-            GoiThauValidator.ValidateBidders(dto.GiaTriGoiThau, dto.NhaThauGoiThaus);
-
-            // Add NhaThauGoiThau entities
-            foreach (var inputDto in dto.NhaThauGoiThaus)
-            {
-                var ntgt = Mapper.Map<NhaThauGoiThau>(inputDto);
-                ntgt.GoiThauId = entity.Id;
-                await DbContext.NhaThauGoiThaus.AddAsync(ntgt);
-            }
-        }
 
         return entity;
     }
@@ -209,8 +172,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         // Reload to get relationship mappings
         var reloaded = await DbSet
             .Include(gt => gt.DuAn)
-            .Include(gt => gt.NhaThauGoiThaus)
-                .ThenInclude(nt => nt.NhaThau)
             .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
         return Mapper.Map<GoiThauDto>(reloaded);
     }
@@ -234,8 +195,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         {
             var reloaded = await DbSet
                 .Include(gt => gt.DuAn)
-                .Include(gt => gt.NhaThauGoiThaus)
-                    .ThenInclude(nt => nt.NhaThau)
                 .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
             result.Add(Mapper.Map<GoiThauDto>(reloaded));
         }
@@ -283,65 +242,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
-        // Process NhaThauGoiThaus updates
-        if (dto.NhaThauGoiThaus != null)
-        {
-            var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
-            if (bidderIds.Any())
-            {
-                var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
-                if (existingCount != bidderIds.Count)
-                {
-                    throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
-                }
-            }
 
-            // Normalize for single bidder if needed
-            if (dto.NhaThauGoiThaus.Count == 1)
-            {
-                var single = dto.NhaThauGoiThaus.First();
-                single.IsLienDanh = false;
-                single.TenLienDanh = null;
-                single.IsDaiDienLienDanh = false;
-                single.TyLeLienDanh = 100;
-                single.GiaTriDamNhan = dto.GiaTriGoiThau;
-            }
-
-            // Validate
-            GoiThauValidator.ValidateBidders(dto.GiaTriGoiThau, dto.NhaThauGoiThaus);
-
-            // Fetch existing
-            var existingBidders = await DbContext.NhaThauGoiThaus
-                .Where(nt => nt.GoiThauId == id)
-                .ToListAsync();
-
-            // 1. Remove deleted
-            var incomingBidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).ToHashSet();
-            var toRemove = existingBidders.Where(eb => !incomingBidderIds.Contains(eb.NhaThauId)).ToList();
-            DbContext.NhaThauGoiThaus.RemoveRange(toRemove);
-
-            // 2. Add or Update
-            foreach (var inputDto in dto.NhaThauGoiThaus)
-            {
-                var existing = existingBidders.FirstOrDefault(eb => eb.NhaThauId == inputDto.NhaThauId);
-                if (existing == null)
-                {
-                    var newNt = Mapper.Map<NhaThauGoiThau>(inputDto);
-                    newNt.GoiThauId = id;
-                    await DbContext.NhaThauGoiThaus.AddAsync(newNt);
-                }
-                else
-                {
-                    existing.IsLienDanh = inputDto.IsLienDanh;
-                    existing.TenLienDanh = inputDto.TenLienDanh;
-                    existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh ?? false;
-                    existing.TyLeLienDanh = inputDto.TyLeLienDanh;
-                    existing.GiaTriDamNhan = inputDto.GiaTriDamNhan;
-                    existing.VaiTroTrongLienDanh = inputDto.VaiTroTrongLienDanh;
-                    existing.UpdatedAt = DateTime.UtcNow;
-                }
-            }
-        }
 
         await DbContext.SaveChangesAsync();
 

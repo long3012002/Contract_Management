@@ -34,6 +34,7 @@ public class HopDongDto : IHasId
     public bool IsRenewalRequired { get; set; }
 
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
+    public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
 
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

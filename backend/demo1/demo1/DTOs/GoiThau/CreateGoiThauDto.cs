@@ -24,5 +24,5 @@ public class CreateGoiThauDto
     [Range(0, 100)]
     public decimal NguongCanhBaoPercent { get; set; } = 100;
 
-    public ICollection<NhaThauGoiThauInputDto>? NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThauInputDto>();
+
 }

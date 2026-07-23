@@ -30,4 +30,5 @@ public class HopDong : BaseEntity
     public bool IsRenewalRequired { get; set; } = true;
 
     public virtual ICollection<DotThanhToan> DotThanhToans { get; set; } = new List<DotThanhToan>();
+    public virtual ICollection<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThau>();
 }

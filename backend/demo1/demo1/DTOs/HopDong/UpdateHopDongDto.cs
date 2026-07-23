@@ -44,6 +44,7 @@ public class UpdateHopDongDto
     public bool IsRenewalRequired { get; set; } = true;
 
     public List<CreateDotThanhToanDto> DotThanhToans { get; set; } = new();
+    public List<NhaThauGoiThauInputDto>? NhaThauGoiThaus { get; set; } = new();
 
     public bool IsActive { get; set; } = true;
 }

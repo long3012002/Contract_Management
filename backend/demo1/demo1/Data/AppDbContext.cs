@@ -93,9 +93,9 @@ namespace demo1.Data
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<NhaThauGoiThau>()
-                .HasOne(ntgt => ntgt.GoiThau)
-                .WithMany(gt => gt.NhaThauGoiThaus)
-                .HasForeignKey(ntgt => ntgt.GoiThauId)
+                .HasOne(ntgt => ntgt.HopDong)
+                .WithMany(hd => hd.NhaThauGoiThaus)
+                .HasForeignKey(ntgt => ntgt.HopDongId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<NhaThauGoiThau>()
