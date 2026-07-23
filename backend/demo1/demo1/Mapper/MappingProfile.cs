@@ -54,8 +54,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NhaThauName, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Name : null))
                 .ForMember(dest => dest.NhaThauCode, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Code : null));
             CreateMap<NhaThauGoiThauInputDto, NhaThauGoiThau>()
-                .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                    .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
+                    .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
                 .ForMember(dest => dest.HopDong, opt => opt.Ignore())
                 .ForMember(dest => dest.NhaThau, opt => opt.Ignore());
 

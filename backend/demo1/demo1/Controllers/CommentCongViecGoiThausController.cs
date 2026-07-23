@@ -49,9 +49,9 @@ public class CommentCongViecGoiThausController : ControllerBase
     }
 
     [HttpGet("mention-suggestions")]
-    public async Task<ActionResult<IEnumerable<UserMentionDto>>> GetMentionSuggestions([FromQuery] string? search)
+    public async Task<ActionResult<IEnumerable<UserMentionDto>>> GetMentionSuggestions([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 6)
     {
-        var suggestions = await _commentService.GetMentionSuggestionsAsync(search);
+        var suggestions = await _commentService.GetMentionSuggestionsAsync(search, page, pageSize);
         return Ok(suggestions);
     }
 }

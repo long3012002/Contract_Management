@@ -289,7 +289,7 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
         return true;
     }
 
-    public async Task<IEnumerable<UserMentionDto>> GetMentionSuggestionsAsync(string? search)
+    public async Task<IEnumerable<UserMentionDto>> GetMentionSuggestionsAsync(string? search, int page = 1, int pageSize = 6)
     {
         var query = _context.Users.Where(u => u.IsActive);
         if (!string.IsNullOrWhiteSpace(search))
@@ -299,7 +299,10 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                                      u.FullName.ToLower().Contains(searchPattern));
         }
 
-        var users = await query.Take(10).ToListAsync();
+        var users = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
         return _mapper.Map<IEnumerable<UserMentionDto>>(users);
     }
 

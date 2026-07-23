@@ -11,5 +11,5 @@ public interface ICommentCongViecGoiThauService
     Task<CommentCongViecGoiThauDto> CreateCommentAsync(CreateCommentCongViecGoiThauDto dto);
     Task<CommentCongViecGoiThauDto?> UpdateCommentAsync(Guid id, UpdateCommentCongViecGoiThauDto dto);
     Task<bool> DeleteCommentAsync(Guid id);
-    Task<IEnumerable<UserMentionDto>> GetMentionSuggestionsAsync(string? search);
+    Task<IEnumerable<UserMentionDto>> GetMentionSuggestionsAsync(string? search, int page = 1, int pageSize = 6);
 }
