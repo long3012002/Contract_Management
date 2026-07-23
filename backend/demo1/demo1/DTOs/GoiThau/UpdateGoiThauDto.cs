@@ -23,4 +23,6 @@ public class UpdateGoiThauDto
 
     [Range(0, 100)]
     public decimal NguongCanhBaoPercent { get; set; }
+
+    public ICollection<NhaThauGoiThauInputDto>? NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThauInputDto>();
 }

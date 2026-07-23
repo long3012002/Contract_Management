@@ -18,4 +18,6 @@ public class GoiThauDto : IHasId
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    public ICollection<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThauDto>();
 }

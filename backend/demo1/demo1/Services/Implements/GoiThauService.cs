@@ -23,7 +23,10 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        IQueryable<GoiThau> query = DbSet.AsNoTracking().Include(gt => gt.DuAn);
+        IQueryable<GoiThau> query = DbSet.AsNoTracking()
+            .Include(gt => gt.DuAn)
+            .Include(gt => gt.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -82,17 +85,28 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
     public override async Task<IReadOnlyList<GoiThauDto>> GetAllItemsAsync()
     {
-        var items = await DbSet.Include(gt => gt.DuAn).ToListAsync();
+        var items = await DbSet
+            .Include(gt => gt.DuAn)
+            .Include(gt => gt.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
+            .ToListAsync();
         return Mapper.Map<List<GoiThauDto>>(items);
     }
 
     public override async Task<GoiThauDto?> GetByIdAsync(Guid id)
     {
-        var entity = await DbSet.Include(gt => gt.DuAn).FirstOrDefaultAsync(gt => gt.Id == id);
+        var entity = await DbSet
+            .Include(gt => gt.DuAn)
+            .Include(gt => gt.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
+            .FirstOrDefaultAsync(gt => gt.Id == id);
         return entity is null ? null : Mapper.Map<GoiThauDto>(entity);
     }
 
-    public override async Task<GoiThauDto> CreateAsync(CreateGoiThauDto dto)
+    private async Task<GoiThau> CreateEntityInternalAsync(
+        CreateGoiThauDto dto, 
+        HashSet<string>? existingCodesInBatch = null,
+        Dictionary<Guid, decimal>? projectBatchSum = null)
     {
         GoiThauValidator.EnsureValid(dto.GiaTriGoiThau, dto.NguongCanhBaoPercent);
 
@@ -110,9 +124,20 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var projectBudget = project.DuToanPheDuyet + (project.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0);
             var existingPackagesSum = project.GoiThaus?.Sum(gt => gt.GiaTriGoiThau) ?? 0;
 
-            if (existingPackagesSum + dto.GiaTriGoiThau > projectBudget)
+            decimal batchSumForProject = 0;
+            if (projectBatchSum != null && projectBatchSum.TryGetValue(dto.DuAnId.Value, out var sum))
             {
-                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
+                batchSumForProject = sum;
+            }
+
+            if (existingPackagesSum + batchSumForProject + dto.GiaTriGoiThau > projectBudget)
+            {
+                throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + batchSumForProject + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
+            }
+
+            if (projectBatchSum != null)
+            {
+                projectBatchSum[dto.DuAnId.Value] = batchSumForProject + dto.GiaTriGoiThau;
             }
         }
 
@@ -120,28 +145,99 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         entity.Id = Guid.NewGuid();
         entity.CreatedAt = DateTime.UtcNow;
 
-        // Validate unique code
-        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == entity.Code.ToLower());
+        var codeLower = entity.Code.ToLower();
+        // Validate unique code in DB
+        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == codeLower);
         if (exists)
         {
             throw new InvalidOperationException($"Mã gói thầu '{entity.Code}' đã tồn tại.");
         }
 
+        // Validate unique code in batch if provided
+        if (existingCodesInBatch != null)
+        {
+            if (existingCodesInBatch.Contains(codeLower))
+            {
+                throw new InvalidOperationException($"Mã gói thầu '{entity.Code}' bị trùng lặp trong danh sách thêm mới.");
+            }
+            existingCodesInBatch.Add(codeLower);
+        }
+
         await DbSet.AddAsync(entity);
+
+        // Process NhaThauGoiThaus
+        if (dto.NhaThauGoiThaus != null && dto.NhaThauGoiThaus.Any())
+        {
+            var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
+            var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
+            if (existingCount != bidderIds.Count)
+            {
+                throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
+            }
+
+            // Normalize for single bidder if needed
+            if (dto.NhaThauGoiThaus.Count == 1)
+            {
+                var single = dto.NhaThauGoiThaus.First();
+                single.IsLienDanh = false;
+                single.TenLienDanh = null;
+                single.IsDaiDienLienDanh = false;
+                single.TyLeLienDanh = 100;
+                single.GiaTriDamNhan = dto.GiaTriGoiThau;
+            }
+
+            // Validate
+            GoiThauValidator.ValidateBidders(dto.GiaTriGoiThau, dto.NhaThauGoiThaus);
+
+            // Add NhaThauGoiThau entities
+            foreach (var inputDto in dto.NhaThauGoiThaus)
+            {
+                var ntgt = Mapper.Map<NhaThauGoiThau>(inputDto);
+                ntgt.GoiThauId = entity.Id;
+                await DbContext.NhaThauGoiThaus.AddAsync(ntgt);
+            }
+        }
+
+        return entity;
+    }
+
+    public override async Task<GoiThauDto> CreateAsync(CreateGoiThauDto dto)
+    {
+        var entity = await CreateEntityInternalAsync(dto);
         await DbContext.SaveChangesAsync();
 
         // Reload to get relationship mappings
-        var reloaded = await DbSet.Include(gt => gt.DuAn).FirstOrDefaultAsync(gt => gt.Id == entity.Id);
+        var reloaded = await DbSet
+            .Include(gt => gt.DuAn)
+            .Include(gt => gt.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
+            .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
         return Mapper.Map<GoiThauDto>(reloaded);
     }
 
     public override async Task<IEnumerable<GoiThauDto>> CreateRangeAsync(IEnumerable<CreateGoiThauDto> dtos)
     {
-        var result = new List<GoiThauDto>();
+        var entities = new List<GoiThau>();
+        var codesInBatch = new HashSet<string>();
+        var projectBatchSum = new Dictionary<Guid, decimal>();
+
         foreach (var dto in dtos)
         {
-            var created = await CreateAsync(dto);
-            result.Add(created);
+            var entity = await CreateEntityInternalAsync(dto, codesInBatch, projectBatchSum);
+            entities.Add(entity);
+        }
+
+        await DbContext.SaveChangesAsync();
+
+        var result = new List<GoiThauDto>();
+        foreach (var entity in entities)
+        {
+            var reloaded = await DbSet
+                .Include(gt => gt.DuAn)
+                .Include(gt => gt.NhaThauGoiThaus)
+                    .ThenInclude(nt => nt.NhaThau)
+                .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
+            result.Add(Mapper.Map<GoiThauDto>(reloaded));
         }
         return result;
     }
@@ -186,6 +282,66 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
+
+        // Process NhaThauGoiThaus updates
+        if (dto.NhaThauGoiThaus != null)
+        {
+            var bidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).Distinct().ToList();
+            if (bidderIds.Any())
+            {
+                var existingCount = await DbContext.DoiTacs.CountAsync(dt => bidderIds.Contains(dt.Id));
+                if (existingCount != bidderIds.Count)
+                {
+                    throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
+                }
+            }
+
+            // Normalize for single bidder if needed
+            if (dto.NhaThauGoiThaus.Count == 1)
+            {
+                var single = dto.NhaThauGoiThaus.First();
+                single.IsLienDanh = false;
+                single.TenLienDanh = null;
+                single.IsDaiDienLienDanh = false;
+                single.TyLeLienDanh = 100;
+                single.GiaTriDamNhan = dto.GiaTriGoiThau;
+            }
+
+            // Validate
+            GoiThauValidator.ValidateBidders(dto.GiaTriGoiThau, dto.NhaThauGoiThaus);
+
+            // Fetch existing
+            var existingBidders = await DbContext.NhaThauGoiThaus
+                .Where(nt => nt.GoiThauId == id)
+                .ToListAsync();
+
+            // 1. Remove deleted
+            var incomingBidderIds = dto.NhaThauGoiThaus.Select(b => b.NhaThauId).ToHashSet();
+            var toRemove = existingBidders.Where(eb => !incomingBidderIds.Contains(eb.NhaThauId)).ToList();
+            DbContext.NhaThauGoiThaus.RemoveRange(toRemove);
+
+            // 2. Add or Update
+            foreach (var inputDto in dto.NhaThauGoiThaus)
+            {
+                var existing = existingBidders.FirstOrDefault(eb => eb.NhaThauId == inputDto.NhaThauId);
+                if (existing == null)
+                {
+                    var newNt = Mapper.Map<NhaThauGoiThau>(inputDto);
+                    newNt.GoiThauId = id;
+                    await DbContext.NhaThauGoiThaus.AddAsync(newNt);
+                }
+                else
+                {
+                    existing.IsLienDanh = inputDto.IsLienDanh;
+                    existing.TenLienDanh = inputDto.TenLienDanh;
+                    existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh;
+                    existing.TyLeLienDanh = inputDto.TyLeLienDanh;
+                    existing.GiaTriDamNhan = inputDto.GiaTriDamNhan;
+                    existing.VaiTroTrongLienDanh = inputDto.VaiTroTrongLienDanh;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
 
         await DbContext.SaveChangesAsync();
 
