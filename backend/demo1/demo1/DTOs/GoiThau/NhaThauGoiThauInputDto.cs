@@ -13,7 +13,7 @@ public class NhaThauGoiThauInputDto
     [StringLength(255)]
     public string? TenLienDanh { get; set; }
 
-    public bool IsDaiDienLienDanh { get; set; }
+    public bool? IsDaiDienLienDanh { get; set; }
 
     [Range(0, 100)]
     public decimal TyLeLienDanh { get; set; }

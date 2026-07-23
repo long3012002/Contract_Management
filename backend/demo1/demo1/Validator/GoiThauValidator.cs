@@ -52,11 +52,6 @@ public static class GoiThauValidator
         }
         else // bidders.Count > 1
         {
-            if (bidders.Any(b => !b.IsLienDanh))
-            {
-                throw new InvalidOperationException("Gói thầu có nhiều nhà thầu thì tất cả phải tham gia với tư cách liên danh.");
-            }
-
             var totalRate = bidders.Sum(b => b.TyLeLienDanh);
             if (totalRate != 100)
             {

@@ -59,6 +59,7 @@ namespace demo1.Mapper
             CreateMap<NhaThauGoiThauInputDto, NhaThauGoiThau>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
+                .ForMember(dest => dest.IsDaiDienLienDanh, opt => opt.MapFrom(src => src.IsDaiDienLienDanh ?? false))
                 .ForMember(dest => dest.GoiThau, opt => opt.Ignore())
                 .ForMember(dest => dest.NhaThau, opt => opt.Ignore());
 

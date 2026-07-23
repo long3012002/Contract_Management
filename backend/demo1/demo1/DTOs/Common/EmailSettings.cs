@@ -9,5 +9,6 @@ namespace demo1.DTOs.Common
         public bool EnableSsl { get; set; } = true;
         public string SenderName { get; set; } = "Hệ thống quản lý hợp đồng";
         public string SenderEmail { get; set; } = string.Empty;
+        public bool BypassCertificateValidation { get; set; } = false;
     }
 }

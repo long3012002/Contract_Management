@@ -175,7 +175,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 throw new KeyNotFoundException("Một hoặc nhiều nhà thầu được chọn không tồn tại.");
             }
 
-            // Normalize for bidders
+            // Normalize for single bidder if needed
             if (dto.NhaThauGoiThaus.Count == 1)
             {
                 var single = dto.NhaThauGoiThaus.First();
@@ -184,13 +184,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 single.IsDaiDienLienDanh = false;
                 single.TyLeLienDanh = 100;
                 single.GiaTriDamNhan = dto.GiaTriGoiThau;
-            }
-            else
-            {
-                foreach (var bidder in dto.NhaThauGoiThaus)
-                {
-                    bidder.IsLienDanh = true;
-                }
             }
 
             // Validate
@@ -303,7 +296,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 }
             }
 
-            // Normalize for bidders
+            // Normalize for single bidder if needed
             if (dto.NhaThauGoiThaus.Count == 1)
             {
                 var single = dto.NhaThauGoiThaus.First();
@@ -312,13 +305,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 single.IsDaiDienLienDanh = false;
                 single.TyLeLienDanh = 100;
                 single.GiaTriDamNhan = dto.GiaTriGoiThau;
-            }
-            else
-            {
-                foreach (var bidder in dto.NhaThauGoiThaus)
-                {
-                    bidder.IsLienDanh = true;
-                }
             }
 
             // Validate
@@ -348,7 +334,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 {
                     existing.IsLienDanh = inputDto.IsLienDanh;
                     existing.TenLienDanh = inputDto.TenLienDanh;
-                    existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh;
+                    existing.IsDaiDienLienDanh = inputDto.IsDaiDienLienDanh ?? false;
                     existing.TyLeLienDanh = inputDto.TyLeLienDanh;
                     existing.GiaTriDamNhan = inputDto.GiaTriDamNhan;
                     existing.VaiTroTrongLienDanh = inputDto.VaiTroTrongLienDanh;

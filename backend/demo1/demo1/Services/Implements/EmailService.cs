@@ -40,6 +40,12 @@ namespace demo1.Services.Implements
 
                 mailMessage.To.Add(toEmail);
 
+                if (_emailSettings.BypassCertificateValidation)
+                {
+                    ServicePointManager.ServerCertificateValidationCallback =
+                        (sender, certificate, chain, sslPolicyErrors) => true;
+                }
+
                 using var smtpClient = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
                 {
                     EnableSsl = _emailSettings.EnableSsl
