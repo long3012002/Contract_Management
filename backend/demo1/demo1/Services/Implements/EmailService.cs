@@ -42,9 +42,13 @@ namespace demo1.Services.Implements
 
                 using var smtpClient = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
                 {
-                    Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password),
                     EnableSsl = _emailSettings.EnableSsl
                 };
+
+                if (!string.IsNullOrWhiteSpace(_emailSettings.Username))
+                {
+                    smtpClient.Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password);
+                }
 
                 _logger.LogInformation("Attempting to send email to {ToEmail} with subject: {Subject}", toEmail, subject);
                 
