@@ -163,25 +163,25 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
     {
         var today = DateTime.Today;
 
-        var items = await DbSet
+        var query = DbSet
             .Include(l => l.DuAn)
             .Include(l => l.HopDong)
             .Include(l => l.NhaCungCap)
             .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
-            .AsNoTracking()
-            .ToListAsync();
+            .AsNoTracking();
 
-        var expiring = items
-            .Where(l =>
-            {
-                var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
-                var threshold = daysThreshold ?? l.CanhBaoTruocNgay;
-                return daysRemaining <= threshold;
-            })
-            .OrderBy(l => l.NgayKetThuc)
-            .ToList();
+        if (daysThreshold.HasValue)
+        {
+            var thresholdDate = today.AddDays(daysThreshold.Value);
+            query = query.Where(l => l.NgayKetThuc!.Value.Date <= thresholdDate.Date);
+        }
+        else
+        {
+            query = query.Where(l => EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) <= l.CanhBaoTruocNgay);
+        }
 
-        return expiring.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+        var items = await query.OrderBy(l => l.NgayKetThuc).ToListAsync();
+        return items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
     }
 
     public async Task<LicenseSummaryDto> GetLicenseSummaryAsync(Guid? duAnId = null)
@@ -193,30 +193,46 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             query = query.Where(l => l.DuAnId == duAnId.Value);
         }
 
-        var items = await query.ToListAsync();
+        var today = DateTime.Today;
 
-        var summary = new LicenseSummaryDto
-        {
-            TotalCount = items.Count,
-            PerpetualCount = items.Count(l => l.LoaiLicense == 2),
-            TermBasedCount = items.Count(l => l.LoaiLicense == 1),
-            HardwareBasedCount = items.Count(l => l.LoaiLicense == 3),
-            PerUserCount = items.Count(l => l.LoaiLicense == 4)
-        };
-
-        foreach (var item in items)
-        {
-            var status = RecalculateStatus(item);
-            switch (status)
+        var stats = await query
+            .GroupBy(l => 1)
+            .Select(g => new
             {
-                case 1: summary.ActiveCount++; break;
-                case 2: summary.ExpiringSoonCount++; break;
-                case 3: summary.ExpiredCount++; break;
-                case 4: summary.TerminatedCount++; break;
-            }
+                TotalCount = g.Count(),
+                PerpetualCount = g.Count(l => l.LoaiLicense == 2),
+                TermBasedCount = g.Count(l => l.LoaiLicense == 1),
+                HardwareBasedCount = g.Count(l => l.LoaiLicense == 3),
+                PerUserCount = g.Count(l => l.LoaiLicense == 4),
+
+                TerminatedCount = g.Count(l => !l.IsActive || l.TrangThai == 4),
+
+                ExpiredCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
+                    && l.NgayKetThuc!.Value.Date < today.Date),
+
+                ExpiringSoonCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
+                    && EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) >= 0 
+                    && EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) <= l.CanhBaoTruocNgay)
+            })
+            .FirstOrDefaultAsync();
+
+        if (stats == null)
+        {
+            return new LicenseSummaryDto();
         }
 
-        return summary;
+        return new LicenseSummaryDto
+        {
+            TotalCount = stats.TotalCount,
+            PerpetualCount = stats.PerpetualCount,
+            TermBasedCount = stats.TermBasedCount,
+            HardwareBasedCount = stats.HardwareBasedCount,
+            PerUserCount = stats.PerUserCount,
+            ActiveCount = stats.TotalCount - stats.TerminatedCount - stats.ExpiredCount - stats.ExpiringSoonCount,
+            ExpiringSoonCount = stats.ExpiringSoonCount,
+            ExpiredCount = stats.ExpiredCount,
+            TerminatedCount = stats.TerminatedCount
+        };
     }
 
     public override async Task<LicenseDto> CreateAsync(CreateLicenseDto dto)

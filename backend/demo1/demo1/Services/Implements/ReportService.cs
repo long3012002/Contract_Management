@@ -23,7 +23,7 @@ public class ReportService : IReportService
 
     public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period)
     {
-        // 1. Calculate reporting period dates
+        // 1. Tính toán thời gian báo cáo
         DateTime startOfPeriod = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         DateTime endOfPeriod;
 
@@ -42,35 +42,64 @@ public class ReportService : IReportService
             periodName = "1N";
         }
 
-        // 2. Fetch all projects and related adjustments
-        var allProjects = await _context.DuAns
-            .Include(da => da.DieuChinhs)
-            .Include(da => da.NhomDuAn)
-            .Include(da => da.PhanLoaiDuAn)
+        // 2. Chỉ tải các thuộc tính cần thiết của dự án và tính tổng tiền điều chỉnh trực tiếp ở DB
+        var projectsData = await _context.DuAns
+            .AsNoTracking()
             .Where(da => da.IsActive)
+            .Select(da => new
+            {
+                da.Id,
+                da.Name,
+                da.Code,
+                da.LoaiDuAn,
+                da.NguonDuAnIds,
+                da.DuToanPheDuyet,
+                da.SoQuyetDinh,
+                da.NgayBatDau,
+                da.NgayKetThuc,
+                da.UpdatedAt,
+                da.TrangThai,
+                da.DaKetThuc,
+                NhomDuAnCode = da.NhomDuAn != null ? da.NhomDuAn.Code : null,
+                da.NhomDuAnId,
+                PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
+                PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
+                AdjustmentsSum = da.DieuChinhs
+                    .Where(dc => dc.NgayDieuChinh <= endOfPeriod)
+                    .Sum(dc => (decimal?)dc.GiaTriDieuChinh) ?? 0
+            })
             .ToListAsync();
 
-        // 3. Fetch all contracts and related payment stages
-        var allContracts = await _context.HopDongs
-            .Include(h => h.DotThanhToans)
-            .Where(h => h.IsActive)
-            .ToListAsync();
+        var projectMap = projectsData.ToDictionary(p => p.Id, p => p);
 
-        // Helper lists to categorize projects
-        var b_I = new List<ReportRowDto>();   // Group B - Construction
-        var b_II = new List<ReportRowDto>();  // Group B - IT
-        var b_III = new List<ReportRowDto>(); // Group B - Other
+        // 3. Tính toán các giá trị lũy kế thanh toán trực tiếp ở DB bằng GroupBy, loại bỏ việc nạp tất cả hợp đồng lên bộ nhớ RAM
+        var performedValues = await _context.DotThanhToans
+            .AsNoTracking()
+            .Where(dt => dt.HopDong.IsActive && dt.HopDong.DuAnId.HasValue)
+            .GroupBy(dt => dt.HopDong.DuAnId!.Value)
+            .Select(g => new
+            {
+                DuAnId = g.Key,
+                KyTruoc = g.Where(dt => dt.CreatedAt < startOfPeriod).Sum(dt => dt.GiaTriThanhToan),
+                TrongKy = g.Where(dt => dt.CreatedAt >= startOfPeriod && dt.CreatedAt <= endOfPeriod).Sum(dt => dt.GiaTriThanhToan)
+            })
+            .ToDictionaryAsync(x => x.DuAnId, x => x);
 
-        var c_I = new List<ReportRowDto>();   // Group C - Construction
-        var c_II = new List<ReportRowDto>();  // Group C - IT
-        var c_III = new List<ReportRowDto>(); // Group C - Other
+        // Các danh sách phụ hỗ trợ phân nhóm dự án
+        var b_I = new List<ReportRowDto>();   // Nhóm B - Xây dựng
+        var b_II = new List<ReportRowDto>();  // Nhóm B - CNTT
+        var b_III = new List<ReportRowDto>(); // Nhóm B - Khác
+        
+        var c_I = new List<ReportRowDto>();   // Nhóm C - Xây dựng
+        var c_II = new List<ReportRowDto>();  // Nhóm C - CNTT
+        var c_III = new List<ReportRowDto>(); // Nhóm C - Khác
 
         int b_I_index = 1, b_II_index = 1, b_III_index = 1;
         int c_I_index = 1, c_II_index = 1, c_III_index = 1;
 
-        foreach (var project in allProjects)
+        foreach (var project in projectsData)
         {
-            // Calculate total approved budget up to the end of the reporting period
+            // Tính toán tổng ngân sách đã phê duyệt
             decimal totalBudgetVnd = 0;
             if (project.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(project.NguonDuAnIds))
             {
@@ -81,57 +110,31 @@ public class ReportService : IReportService
 
                 if (sourceIds.Any())
                 {
-                    var sourceProjects = allProjects.Where(sp => sourceIds.Contains(sp.Id)).ToList();
-                    foreach (var sp in sourceProjects)
+                    foreach (var sourceId in sourceIds)
                     {
-                        var spAdjustments = sp.DieuChinhs?
-                            .Where(dc => dc.NgayDieuChinh <= endOfPeriod)
-                            .Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                        totalBudgetVnd += (sp.DuToanPheDuyet + spAdjustments);
+                        if (projectMap.TryGetValue(sourceId, out var sp))
+                        {
+                            totalBudgetVnd += (sp.DuToanPheDuyet + sp.AdjustmentsSum);
+                        }
                     }
                 }
                 else
                 {
-                    var adjustments = project.DieuChinhs?
-                        .Where(dc => dc.NgayDieuChinh <= endOfPeriod)
-                        .Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                    totalBudgetVnd = project.DuToanPheDuyet + adjustments;
+                    totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
                 }
             }
             else
             {
-                var adjustments = project.DieuChinhs?
-                    .Where(dc => dc.NgayDieuChinh <= endOfPeriod)
-                    .Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                totalBudgetVnd = project.DuToanPheDuyet + adjustments;
+                totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
             }
 
-            // Calculate performed and disbursed values based on contract payment milestones
-            var projectContracts = allContracts.Where(h => h.DuAnId == project.Id).ToList();
-            decimal performedKyTruocVnd = 0;
-            decimal performedTrongKyVnd = 0;
-
-            foreach (var contract in projectContracts)
-            {
-                if (contract.DotThanhToans != null)
-                {
-                    foreach (var milestone in contract.DotThanhToans)
-                    {
-                        if (milestone.CreatedAt < startOfPeriod)
-                        {
-                            performedKyTruocVnd += milestone.GiaTriThanhToan;
-                        }
-                        else if (milestone.CreatedAt <= endOfPeriod)
-                        {
-                            performedTrongKyVnd += milestone.GiaTriThanhToan;
-                        }
-                    }
-                }
-            }
-
+            // Phân giải các giá trị lũy kế thanh toán từ map tổng hợp ở DB
+            performedValues.TryGetValue(project.Id, out var perf);
+            decimal performedKyTruocVnd = perf?.KyTruoc ?? 0;
+            decimal performedTrongKyVnd = perf?.TrongKy ?? 0;
             decimal performedLuyKeVnd = performedKyTruocVnd + performedTrongKyVnd;
 
-            // Value of completed assets put into use (Tai San Ban Giao)
+            // Giá trị tài sản bàn giao đưa vào sử dụng
             decimal taiSanBanGiaoVnd = 0;
             if (project.TrangThai == (int)TrangThaiDuAn.HoanThanh || project.DaKetThuc)
             {
@@ -146,7 +149,7 @@ public class ReportService : IReportService
                 }
                 else if (!project.NgayKetThuc.HasValue && !project.UpdatedAt.HasValue)
                 {
-                    isCompletedBeforeEnd = true; // Fallback to true if no dates exist but state is HoanThanh
+                    isCompletedBeforeEnd = true; // Giá trị mặc định nếu trạng thái đã hoàn thành
                 }
 
                 if (isCompletedBeforeEnd)
@@ -155,10 +158,10 @@ public class ReportService : IReportService
                 }
             }
 
-            // Convert all values from VND to Million VND
+            // Quy đổi sang Triệu đồng
             decimal conversionFactor = 1_000_000m;
             decimal budgetTotal = totalBudgetVnd / conversionFactor;
-            decimal budgetVcsh = budgetTotal; // 100% Owner's equity
+            decimal budgetVcsh = budgetTotal;
             decimal budgetVay = 0;
             decimal budgetKhac = 0;
 
@@ -172,19 +175,19 @@ public class ReportService : IReportService
 
             decimal tsBanGiao = taiSanBanGiaoVnd / conversionFactor;
 
-            // Determine Decision description
+            // Xác định mô tả quyết định
             string approvalDecision = project.SoQuyetDinh ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(approvalDecision) && !approvalDecision.Contains("ngày") && project.NgayBatDau.HasValue)
             {
                 approvalDecision = $"{approvalDecision} ngày {project.NgayBatDau.Value.ToString("dd/MM/yyyy")} V/v phê duyệt dự án {project.Name}";
             }
 
-            // Classify by Project Type
+            // Phân loại loại dự án
             string projType = "Khac";
-            if (project.PhanLoaiDuAn != null)
+            if (project.PhanLoaiDuAnCode != null)
             {
-                var codeUpper = project.PhanLoaiDuAn.Code.ToUpper();
-                var nameLower = project.PhanLoaiDuAn.Name.ToLower();
+                var codeUpper = project.PhanLoaiDuAnCode.ToUpper();
+                var nameLower = (project.PhanLoaiDuAnName ?? string.Empty).ToLower();
                 if (codeUpper.Contains("XAY_DUNG") || codeUpper.Contains("CONSTRUCTION") || nameLower.Contains("xây dựng") || nameLower.Contains("xay dung"))
                 {
                     projType = "XayDung";
@@ -196,7 +199,6 @@ public class ReportService : IReportService
             }
             else
             {
-                // Fallback to name-based keyword search if no entity link exists
                 var nameLower = project.Name.ToLower();
                 if (nameLower.Contains("xây dựng") || nameLower.Contains("kiến trúc") || nameLower.Contains("nhà") || nameLower.Contains("đất"))
                 {
@@ -212,8 +214,8 @@ public class ReportService : IReportService
                 }
             }
 
-            // Classify by Project Group (Group B >= 45 billion VND, Group C < 45 billion VND)
-            bool isGroupB = project.NhomDuAn?.Code?.Equals("NHOM_B", StringComparison.OrdinalIgnoreCase) == true || 
+            // Phân loại nhóm dự án (Nhóm B >= 45 tỷ đồng)
+            bool isGroupB = (project.NhomDuAnCode != null && project.NhomDuAnCode.Equals("NHOM_B", StringComparison.OrdinalIgnoreCase)) || 
                             (project.NhomDuAnId == null && totalBudgetVnd >= 45_000_000_000m);
 
             var row = new ReportRowDto
@@ -272,7 +274,7 @@ public class ReportService : IReportService
             }
         }
 
-        // 4. Assemble hierarchical rows
+        // 4. Tổ hợp hiển thị báo cáo dạng cây
         var rows = new List<ReportRowDto>();
 
         // --- GROUP B ---

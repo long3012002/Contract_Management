@@ -203,13 +203,133 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public override async Task<IEnumerable<HopDongDto>> CreateRangeAsync(IEnumerable<CreateHopDongDto> dtos)
     {
-        var result = new List<HopDongDto>();
-        foreach (var dto in dtos)
+        var dtoList = dtos.ToList();
+        if (!dtoList.Any()) return Enumerable.Empty<HopDongDto>();
+
+        // 1. Xác thực các hợp đồng locally
+        foreach (var dto in dtoList)
         {
-            var created = await CreateAsync(dto);
-            result.Add(created);
+            HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
         }
-        return result;
+
+        // 2. Kiểm tra tính duy nhất của mã hợp đồng theo lô
+        var incomingCodes = dtoList.Select(d => d.Code.Trim().ToLower()).Distinct().ToList();
+        var existingCodes = await DbSet
+            .Where(item => incomingCodes.Contains(item.Code.ToLower()))
+            .Select(item => item.Code.ToLower())
+            .ToListAsync();
+
+        if (existingCodes.Any())
+        {
+            throw new InvalidOperationException($"Các số ký hiệu hợp đồng sau đã tồn tại: {string.Join(", ", existingCodes)}");
+        }
+
+        // 3. Kiểm tra tính tồn tại của Dự án liên kết
+        var duAnIds = dtoList.Where(d => d.DuAnId.HasValue).Select(d => d.DuAnId!.Value).Distinct().ToList();
+        if (duAnIds.Any())
+        {
+            var existingDuAnCount = await DbContext.DuAns.CountAsync(da => duAnIds.Contains(da.Id));
+            if (existingDuAnCount != duAnIds.Count)
+            {
+                throw new KeyNotFoundException("Một số dự án được liên kết không tồn tại.");
+            }
+        }
+
+        // 4. Kiểm tra tính tồn tại của Đối tác (Chủ đầu tư & Nhà thầu)
+        var chuDauTuIds = dtoList.Where(d => d.ChuDauTuId.HasValue).Select(d => d.ChuDauTuId!.Value).Distinct().ToList();
+        var nhaThauIds = dtoList.Where(d => d.NhaThauId.HasValue).Select(d => d.NhaThauId!.Value).Distinct().ToList();
+        var allDoiTacIds = chuDauTuIds.Concat(nhaThauIds).Distinct().ToList();
+        if (allDoiTacIds.Any())
+        {
+            var existingDoiTacCount = await DbContext.DoiTacs.CountAsync(dt => allDoiTacIds.Contains(dt.Id));
+            if (existingDoiTacCount != allDoiTacIds.Count)
+            {
+                throw new KeyNotFoundException("Một số đối tác (chủ đầu tư hoặc nhà thầu) được liên kết không tồn tại.");
+            }
+        }
+
+        // 5. Kiểm tra ràng buộc duy nhất và giới hạn giá trị của Gói thầu liên kết
+        var goiThauIds = dtoList.Where(d => d.GoiThauId.HasValue).Select(d => d.GoiThauId!.Value).Distinct().ToList();
+        List<GoiThau> goiThaus = new List<GoiThau>();
+        if (goiThauIds.Any())
+        {
+            goiThaus = await DbContext.GoiThaus.Where(gt => goiThauIds.Contains(gt.Id)).ToListAsync();
+            if (goiThaus.Count != goiThauIds.Count)
+            {
+                throw new KeyNotFoundException("Một số gói thầu được liên kết không tồn tại.");
+            }
+
+            // Kiểm tra xem các gói thầu này đã được liên kết với hợp đồng khác trong DB chưa
+            var linkedGoiThauIds = await DbSet
+                .Where(h => h.GoiThauId.HasValue && goiThauIds.Contains(h.GoiThauId.Value))
+                .Select(h => h.GoiThauId!.Value)
+                .ToListAsync();
+
+            if (linkedGoiThauIds.Any())
+            {
+                throw new InvalidOperationException("Một số gói thầu đã được liên kết với hợp đồng khác.");
+            }
+
+            // Kiểm tra trùng lặp gói thầu trong lô gửi lên
+            if (goiThauIds.Count < dtoList.Count(d => d.GoiThauId.HasValue))
+            {
+                throw new InvalidOperationException("Không thể liên kết nhiều hợp đồng với cùng một gói thầu trong cùng một lượt tạo.");
+            }
+        }
+
+        var entities = new List<HopDong>();
+        var now = DateTime.UtcNow;
+        int dotIndex = 0;
+
+        foreach (var dto in dtoList)
+        {
+            if (dto.GoiThauId.HasValue)
+            {
+                var goiThau = goiThaus.First(gt => gt.Id == dto.GoiThauId.Value);
+                if (dto.GiaTriHopDong > goiThau.GiaTriGoiThau)
+                {
+                    throw new InvalidOperationException($"Giá trị hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được lớn hơn giá trị dự toán của gói thầu '{goiThau.Name}' ({goiThau.GiaTriGoiThau:N0} VNĐ).");
+                }
+            }
+
+            var entity = Mapper.Map<HopDong>(dto);
+            entity.Id = Guid.NewGuid();
+            entity.CreatedAt = now;
+
+            // Ánh xạ các đợt thanh toán (DotThanhToan)
+            if (dto.DotThanhToans != null)
+            {
+                foreach (var dotDto in dto.DotThanhToans)
+                {
+                    var dot = Mapper.Map<DotThanhToan>(dotDto);
+                    dot.Id = Guid.NewGuid();
+                    dot.HopDongId = entity.Id;
+                    dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
+                    dot.NgayThanhToan = dotDto.NgayThanhToan;
+                    dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
+                    dot.CreatedAt = now.AddMilliseconds(dotIndex++);
+                    entity.DotThanhToans.Add(dot);
+                }
+            }
+
+            entities.Add(entity);
+        }
+
+        await DbSet.AddRangeAsync(entities);
+        await DbContext.SaveChangesAsync(); // Chỉ gọi SaveChanges 1 lần duy nhất
+
+        // Nạp lại dữ liệu đầy đủ kèm các Include để trả về DTO đồng bộ
+        var reloadedIds = entities.Select(e => e.Id).ToList();
+        var reloadedEntities = await DbSet
+            .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
+            .Include(h => h.ChuDauTu)
+            .Include(h => h.NhaThau)
+            .Include(h => h.DotThanhToans)
+            .Where(h => reloadedIds.Contains(h.Id))
+            .ToListAsync();
+
+        return Mapper.Map<List<HopDongDto>>(reloadedEntities);
     }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateHopDongDto dto)
