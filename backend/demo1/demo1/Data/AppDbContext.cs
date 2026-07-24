@@ -180,6 +180,18 @@ namespace demo1.Data
                 .HasForeignKey(cv => cv.GoiThauId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<CongViecGoiThau>()
+                .HasOne(cv => cv.CreateUser)
+                .WithMany()
+                .HasForeignKey(cv => cv.CreateUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CongViecGoiThau>()
+                .HasOne(cv => cv.ModifiedUser)
+                .WithMany()
+                .HasForeignKey(cv => cv.ModifiedUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<License>()
                 .Property(l => l.ThongTinThietBi)
                 .HasMaxLength(1000);
@@ -454,8 +466,29 @@ namespace demo1.Data
                 .IsUnique();
         }
 
-        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            var username = _currentUserService?.GetUsername();
+            if (!string.IsNullOrEmpty(username))
+            {
+                var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+                if (user != null)
+                {
+                    foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
+                    {
+                        if (entry.State == EntityState.Added)
+                        {
+                            entry.Entity.CreateUserId = user.Id;
+                            entry.Entity.ModifiedUserId = user.Id;
+                        }
+                        else if (entry.State == EntityState.Modified)
+                        {
+                            entry.Entity.ModifiedUserId = user.Id;
+                        }
+                    }
+                }
+            }
+
             var auditEntries = OnBeforeSaveChanges();
             var result = await base.SaveChangesAsync(cancellationToken);
             await OnAfterSaveChangesAsync(auditEntries);

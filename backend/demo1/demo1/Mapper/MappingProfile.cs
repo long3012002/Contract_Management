@@ -168,7 +168,9 @@ namespace demo1.Mapper
 
             CreateMap<CongViecGoiThau, CongViecGoiThauDto>()
                 .ForMember(dest => dest.NguoiLienQuanIds, opt => opt.MapFrom(src => src.NguoiLienQuans != null ? src.NguoiLienQuans.Select(n => n.UserId).ToList() : new List<Guid>()))
-                .ForMember(dest => dest.NguoiLienQuans, opt => opt.MapFrom(src => src.NguoiLienQuans));
+                .ForMember(dest => dest.NguoiLienQuans, opt => opt.MapFrom(src => src.NguoiLienQuans))
+                .ForMember(dest => dest.CreateUserFullName, opt => opt.MapFrom(src => src.CreateUser != null ? src.CreateUser.FullName : null))
+                .ForMember(dest => dest.ModifiedUserFullName, opt => opt.MapFrom(src => src.ModifiedUser != null ? src.ModifiedUser.FullName : null));
 
             CreateMap<CreateCongViecGoiThauDto, CongViecGoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code ?? string.Empty)))

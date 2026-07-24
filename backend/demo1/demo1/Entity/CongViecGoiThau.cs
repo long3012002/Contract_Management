@@ -18,6 +18,12 @@ public class CongViecGoiThau : BaseEntity, IHasParentId
 
     public virtual ICollection<CongViecNguoiLienQuan> NguoiLienQuans { get; set; } = new List<CongViecNguoiLienQuan>();
 
+    public Guid? CreateUserId { get; set; }
+    public virtual User? CreateUser { get; set; }
+
+    public Guid? ModifiedUserId { get; set; }
+    public virtual User? ModifiedUser { get; set; }
+
     [NotMapped]
     public Guid ParentId
     {

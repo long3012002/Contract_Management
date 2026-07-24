@@ -121,6 +121,41 @@ namespace demo1.Services.Implements
                     dbContext.Notifications.Add(notification);
                     notificationsToPush.Add((record.User.Username, notification));
                 }
+
+                // Notify CreateUser and ModifiedUser
+                var task = await dbContext.CongViecGoiThaus
+                    .Include(t => t.CreateUser)
+                    .Include(t => t.ModifiedUser)
+                    .FirstOrDefaultAsync(t => t.Id == record.CongViecGoiThauId);
+
+                if (task != null && record.User != null)
+                {
+                    var usersToNotify = new List<User>();
+                    if (task.CreateUser != null)
+                    {
+                        usersToNotify.Add(task.CreateUser);
+                    }
+                    if (task.ModifiedUser != null && (task.CreateUserId == null || task.ModifiedUserId != task.CreateUserId))
+                    {
+                        usersToNotify.Add(task.ModifiedUser);
+                    }
+
+                    foreach (var targetUser in usersToNotify)
+                    {
+                        var overdueNotification = new Notification
+                        {
+                            Id = Guid.NewGuid(),
+                            Title = "Người liên quan quá hạn xác nhận công việc",
+                            Content = $"Người liên quan {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận công việc '{taskTitle}'.",
+                            Link = link,
+                            UserId = targetUser.Id,
+                            IsRead = false,
+                            CreatedAt = now
+                        };
+                        dbContext.Notifications.Add(overdueNotification);
+                        notificationsToPush.Add((targetUser.Username, overdueNotification));
+                    }
+                }
             }
 
             // 2. Fetch pending stakeholder records approaching deadline (<= 6 hours remaining)

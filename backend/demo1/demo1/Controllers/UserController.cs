@@ -164,6 +164,34 @@ namespace demo1.Controllers
             );
         }
 
+        // 1d. Hàm Cập nhật người dùng (Update Single User)
+        [HttpPut("{id:guid}")]
+        public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new { Message = "Dữ liệu cập nhật không được để trống." });
+            }
+
+            try
+            {
+                var result = await userService.UpdateUserAsync(id, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi khi cập nhật người dùng.", Detail = ex.Message });
+            }
+        }
+
         // 2. Hàm Xoá nhiều (Bulk Delete Users)
         [HttpDelete("bulk-delete")]
         public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)

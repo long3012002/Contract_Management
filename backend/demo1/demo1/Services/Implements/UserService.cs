@@ -220,9 +220,27 @@ namespace demo1.Services.Implements
                 throw;
             }
 
+            string message;
+            if (addedCount > 0 && updatedCount > 0)
+            {
+                message = $"Thêm mới thành công {addedCount} người dùng và cập nhật thành công {updatedCount} người dùng.";
+            }
+            else if (addedCount > 0)
+            {
+                message = $"Thêm mới thành công {addedCount} người dùng.";
+            }
+            else if (updatedCount > 0)
+            {
+                message = $"Cập nhật thành công {updatedCount} người dùng.";
+            }
+            else
+            {
+                message = "Không có người dùng nào được thêm mới hoặc cập nhật.";
+            }
+
             return new UserImportResultDto
             {
-                Message = "Import dữ liệu thành công.",
+                Message = message,
                 AddedCount = addedCount,
                 UpdatedCount = updatedCount,
                 ErrorCount = 0,
@@ -288,6 +306,158 @@ namespace demo1.Services.Implements
             }
 
             return (inputId, inputName.Trim());
+        }
+
+        public async Task<UserImportResultDto> UpdateUserAsync(Guid id, UpdateUserDto dto)
+        {
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy người dùng.");
+            }
+
+            // Xử lý tự động phòng ban
+            if (!string.IsNullOrWhiteSpace(dto.TenPhongBan))
+            {
+                var tenPhongBanTrimmed = dto.TenPhongBan.Trim();
+                var phongBan = await _dbContext.PhongBans
+                    .FirstOrDefaultAsync(pb => pb.TenPhongBan.ToLower() == tenPhongBanTrimmed.ToLower());
+                if (phongBan == null)
+                {
+                    phongBan = new PhongBan { Id = Guid.NewGuid(), TenPhongBan = tenPhongBanTrimmed, CreatedAt = DateTime.UtcNow };
+                    _dbContext.PhongBans.Add(phongBan);
+                    await _dbContext.SaveChangesAsync();
+                }
+                user.IdPhongBan = phongBan.Id;
+                user.TenPhongBan = phongBan.TenPhongBan;
+            }
+            else
+            {
+                user.IdPhongBan = dto.IdPhongBan ?? user.IdPhongBan;
+                if (dto.IdPhongBan.HasValue)
+                {
+                    var phongBan = await _dbContext.PhongBans.FindAsync(dto.IdPhongBan.Value);
+                    if (phongBan != null)
+                    {
+                        user.TenPhongBan = phongBan.TenPhongBan;
+                    }
+                }
+            }
+
+            // Xử lý tự động chức vụ
+            if (!string.IsNullOrWhiteSpace(dto.TenChucVu))
+            {
+                var tenChucVuTrimmed = dto.TenChucVu.Trim();
+                var chucVu = await _dbContext.ChucVus
+                    .FirstOrDefaultAsync(cv => cv.TenChucVu.ToLower() == tenChucVuTrimmed.ToLower());
+                if (chucVu == null)
+                {
+                    chucVu = new ChucVu { Id = Guid.NewGuid(), TenChucVu = tenChucVuTrimmed, CreatedAt = DateTime.UtcNow };
+                    _dbContext.ChucVus.Add(chucVu);
+                    await _dbContext.SaveChangesAsync();
+                }
+                user.IdChucVu = chucVu.Id;
+                user.TenChucVu = chucVu.TenChucVu;
+            }
+            else
+            {
+                user.IdChucVu = dto.IdChucVu ?? user.IdChucVu;
+                if (dto.IdChucVu.HasValue)
+                {
+                    var chucVu = await _dbContext.ChucVus.FindAsync(dto.IdChucVu.Value);
+                    if (chucVu != null)
+                    {
+                        user.TenChucVu = chucVu.TenChucVu;
+                    }
+                }
+            }
+
+            // Xử lý tự động đơn vị
+            if (!string.IsNullOrWhiteSpace(dto.TenDonVi))
+            {
+                var tenDonViTrimmed = dto.TenDonVi.Trim();
+                var donVi = await _dbContext.DonVis
+                    .FirstOrDefaultAsync(dv => dv.TenDonVi.ToLower() == tenDonViTrimmed.ToLower());
+                if (donVi == null)
+                {
+                    donVi = new DonVi { Id = Guid.NewGuid(), TenDonVi = tenDonViTrimmed, CreatedAt = DateTime.UtcNow };
+                    _dbContext.DonVis.Add(donVi);
+                    await _dbContext.SaveChangesAsync();
+                }
+                user.IdDonVi = donVi.Id;
+                user.TenDonVi = donVi.TenDonVi;
+            }
+            else
+            {
+                user.IdDonVi = dto.IdDonVi ?? user.IdDonVi;
+                if (dto.IdDonVi.HasValue)
+                {
+                    var donVi = await _dbContext.DonVis.FindAsync(dto.IdDonVi.Value);
+                    if (donVi != null)
+                    {
+                        user.TenDonVi = donVi.TenDonVi;
+                    }
+                }
+            }
+
+            user.FullName = dto.FullName?.Trim() ?? string.Empty;
+            user.Email = string.IsNullOrWhiteSpace(dto.Email) 
+                ? $"{user.Username.ToLower()}@co-opbank.vn" 
+                : dto.Email.Trim();
+            
+            if (!string.IsNullOrWhiteSpace(dto.Phone))
+            {
+                user.Phone = dto.Phone.Trim();
+            }
+
+            user.IsActive = dto.IsActive;
+            user.IsSystemAdmin = dto.IsSystemAdmin;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            // Xử lý vai trò (Role)
+            if (!string.IsNullOrWhiteSpace(dto.Role))
+            {
+                var roleNameTrimmed = dto.Role.Trim();
+                var role = await _dbContext.Roles
+                    .FirstOrDefaultAsync(r => r.Name.ToLower() == roleNameTrimmed.ToLower());
+                if (role == null)
+                {
+                    role = new Role 
+                    { 
+                        Id = Guid.NewGuid(), 
+                        Name = roleNameTrimmed, 
+                        Description = $"Mô tả cho vai trò {roleNameTrimmed} (Tạo tự động khi cập nhật)", 
+                        IsActive = true, 
+                        CreatedAt = DateTime.UtcNow 
+                    };
+                    _dbContext.Roles.Add(role);
+                    await _dbContext.SaveChangesAsync();
+                }
+
+                var currentRoles = await _dbContext.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
+                if (currentRoles.Any())
+                {
+                    _dbContext.UserRoles.RemoveRange(currentRoles);
+                }
+
+                _dbContext.UserRoles.Add(new UserRole
+                {
+                    UserId = user.Id,
+                    RoleId = role.Id,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return new UserImportResultDto
+            {
+                Message = "Cập nhật thông tin người dùng thành công.",
+                AddedCount = 0,
+                UpdatedCount = 1,
+                ErrorCount = 0,
+                Errors = new List<UserImportErrorDto>()
+            };
         }
 
         public async Task<UserDeleteResultDto> DeleteUsersAsync(List<Guid> ids)

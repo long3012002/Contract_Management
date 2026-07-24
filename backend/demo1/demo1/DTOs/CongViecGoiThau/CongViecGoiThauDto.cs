@@ -44,6 +44,11 @@ public class CongViecGoiThauDto : IHasId, IHasParentId
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    public Guid? CreateUserId { get; set; }
+    public string? CreateUserFullName { get; set; }
+    public Guid? ModifiedUserId { get; set; }
+    public string? ModifiedUserFullName { get; set; }
 }
 
 public class CreateCongViecGoiThauDto

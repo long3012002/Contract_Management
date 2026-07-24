@@ -50,6 +50,8 @@ public class CongViecGoiThauService
         var entity = await DbSet.AsNoTracking()
             .Include(e => e.NguoiLienQuans)
                 .ThenInclude(n => n.User)
+            .Include(e => e.CreateUser)
+            .Include(e => e.ModifiedUser)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entity == null) return null;
@@ -61,6 +63,8 @@ public class CongViecGoiThauService
         var entities = await DbSet.AsNoTracking()
             .Include(e => e.NguoiLienQuans)
                 .ThenInclude(n => n.User)
+            .Include(e => e.CreateUser)
+            .Include(e => e.ModifiedUser)
             .Where(e => e.GoiThauId == parentId)
             .OrderBy(e => e.Stt)
             .ThenBy(e => e.CreatedAt)
@@ -78,6 +82,8 @@ public class CongViecGoiThauService
         IQueryable<CongViecGoiThau> query = DbSet.AsNoTracking()
             .Include(e => e.NguoiLienQuans)
                 .ThenInclude(n => n.User)
+            .Include(e => e.CreateUser)
+            .Include(e => e.ModifiedUser)
             .Where(e => e.GoiThauId == parentId);
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -270,6 +276,8 @@ public class CongViecGoiThauService
         var resultEntities = await DbSet.AsNoTracking()
             .Include(e => e.NguoiLienQuans)
                 .ThenInclude(n => n.User)
+            .Include(e => e.CreateUser)
+            .Include(e => e.ModifiedUser)
             .Where(e => createdIds.Contains(e.Id))
             .OrderBy(e => e.Stt)
             .ToListAsync();
@@ -431,6 +439,7 @@ public class CongViecGoiThauService
     public async Task<bool> ConfirmCongViecAsync(Guid id, Guid userId)
     {
         var record = await DbContext.CongViecNguoiLienQuans
+            .Include(n => n.User)
             .FirstOrDefaultAsync(n => n.CongViecGoiThauId == id && n.UserId == userId);
 
         if (record == null) return false;
@@ -441,6 +450,41 @@ public class CongViecGoiThauService
         record.UpdatedAt = DateTime.UtcNow;
 
         _reminderService.CancelReminders(record);
+
+        var task = await DbContext.CongViecGoiThaus
+            .Include(t => t.CreateUser)
+            .Include(t => t.ModifiedUser)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task != null)
+        {
+            var usersToNotify = new List<User>();
+            if (task.CreateUser != null)
+            {
+                usersToNotify.Add(task.CreateUser);
+            }
+            if (task.ModifiedUser != null && (task.CreateUserId == null || task.ModifiedUserId != task.CreateUserId))
+            {
+                usersToNotify.Add(task.ModifiedUser);
+            }
+
+            foreach (var targetUser in usersToNotify)
+            {
+                var notification = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Công việc đã được xác nhận",
+                    Content = $"Người liên quan {record.User?.FullName ?? record.User?.Username ?? "Ẩn danh"} đã xác nhận công việc '{task.TenTaiLieu}'.",
+                    Link = $"/bid-packages/{task.GoiThauId}",
+                    UserId = targetUser.Id,
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                DbContext.Notifications.Add(notification);
+                await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+            }
+        }
 
         await DbContext.SaveChangesAsync();
         return true;
@@ -453,6 +497,10 @@ public class CongViecGoiThauService
             .Include(g => g.CongViecGoiThaus)
                 .ThenInclude(c => c.NguoiLienQuans)
                     .ThenInclude(n => n.User)
+            .Include(g => g.CongViecGoiThaus)
+                .ThenInclude(c => c.CreateUser)
+            .Include(g => g.CongViecGoiThaus)
+                .ThenInclude(c => c.ModifiedUser)
             .FirstOrDefaultAsync(g => g.Id == idGoiThau);
 
         if (goiThau == null)

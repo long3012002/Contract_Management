@@ -202,8 +202,6 @@ namespace demo1.Services.Implements
                 };
 
                 _db.Notifications.Add(notification);
-                await _db.SaveChangesAsync();
-
                 await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", new
                 {
                     id = notification.Id,
@@ -213,6 +211,51 @@ namespace demo1.Services.Implements
                     isRead = notification.IsRead,
                     createdAt = notification.CreatedAt
                 });
+
+                // Notify CreateUser and ModifiedUser
+                var task = await _db.CongViecGoiThaus
+                    .Include(t => t.CreateUser)
+                    .Include(t => t.ModifiedUser)
+                    .FirstOrDefaultAsync(t => t.Id == record.CongViecGoiThauId);
+
+                if (task != null)
+                {
+                    var usersToNotify = new List<User>();
+                    if (task.CreateUser != null)
+                    {
+                        usersToNotify.Add(task.CreateUser);
+                    }
+                    if (task.ModifiedUser != null && (task.CreateUserId == null || task.ModifiedUserId != task.CreateUserId))
+                    {
+                        usersToNotify.Add(task.ModifiedUser);
+                    }
+
+                    foreach (var targetUser in usersToNotify)
+                    {
+                        var overdueNotification = new Notification
+                        {
+                            Id = Guid.NewGuid(),
+                            Title = "Người liên quan quá hạn xác nhận công việc",
+                            Content = $"Người liên quan {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận công việc '{taskTitle}'.",
+                            Link = link,
+                            UserId = targetUser.Id,
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _db.Notifications.Add(overdueNotification);
+                        await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", new
+                        {
+                            id = overdueNotification.Id,
+                            title = overdueNotification.Title,
+                            content = overdueNotification.Content,
+                            link = overdueNotification.Link,
+                            isRead = overdueNotification.IsRead,
+                            createdAt = overdueNotification.CreatedAt
+                        });
+                    }
+                }
+
+                await _db.SaveChangesAsync();
 
                 _logger.LogInformation("Processed timeout ({Deadline}) for record {RecordId} of user {Username}", formattedDeadline, recordId, record.User.Username);
             }
