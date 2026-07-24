@@ -11,6 +11,8 @@ using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
+using Microsoft.Extensions.Configuration;
+
 namespace demo1.Services.Implements;
 
 public class CongViecGoiThauService
@@ -18,15 +20,29 @@ public class CongViecGoiThauService
 {
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly CongViecReminderHangfireService _reminderService;
+    private readonly IConfiguration _configuration;
 
     public CongViecGoiThauService(
         AppDbContext dbContext,
         IMapper mapper,
         IHubContext<NotificationHub> hubContext,
-        CongViecReminderHangfireService reminderService) : base(dbContext, mapper)
+        CongViecReminderHangfireService reminderService,
+        IConfiguration configuration) : base(dbContext, mapper)
     {
         _hubContext = hubContext;
         _reminderService = reminderService;
+        _configuration = configuration;
+    }
+
+    private DateTime GetHanXacNhanAt(DateTime baseTime)
+    {
+        var minutes = _configuration.GetValue<int?>("StakeholderCheck:HanXacNhanMinutes");
+        if (minutes.HasValue && minutes.Value > 0)
+        {
+            return baseTime.AddMinutes(minutes.Value);
+        }
+        var hours = _configuration.GetValue<int?>("StakeholderCheck:HanXacNhanHours") ?? 24;
+        return baseTime.AddHours(hours);
     }
 
     public override async Task<CongViecGoiThauDto?> GetByIdAsync(Guid id)
@@ -134,7 +150,7 @@ public class CongViecGoiThauService
                     Code = $"NLQ-{Guid.NewGuid():N}",
                     Name = $"Stakeholder-{user.Id}",
                     TrangThaiXacNhan = "Pending",
-                    HanXacNhanAt = entity.CreatedAt.AddHours(24),
+                    HanXacNhanAt = GetHanXacNhanAt(entity.CreatedAt),
                     CreatedAt = entity.CreatedAt
                 };
 
@@ -224,7 +240,7 @@ public class CongViecGoiThauService
                             Code = $"NLQ-{Guid.NewGuid():N}",
                             Name = $"Stakeholder-{userId}",
                             TrangThaiXacNhan = "Pending",
-                            HanXacNhanAt = now.AddHours(24),
+                            HanXacNhanAt = GetHanXacNhanAt(now),
                             CreatedAt = now
                         };
 
@@ -376,7 +392,7 @@ public class CongViecGoiThauService
                         Code = $"NLQ-{Guid.NewGuid():N}",
                         Name = $"Stakeholder-{addUser.Id}",
                         TrangThaiXacNhan = "Pending",
-                        HanXacNhanAt = DateTime.UtcNow.AddHours(24),
+                        HanXacNhanAt = GetHanXacNhanAt(DateTime.UtcNow),
                         CreatedAt = DateTime.UtcNow,
                         IsActive = true
                     };

@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using Microsoft.Extensions.Configuration;
+
 namespace demo1.Services.Implements
 {
     public class CongViecReminderHangfireService
@@ -17,49 +19,80 @@ namespace demo1.Services.Implements
         private readonly AppDbContext _db;
         private readonly IHubContext<NotificationHub> _hubContext;
         private readonly ILogger<CongViecReminderHangfireService> _logger;
+        private readonly IConfiguration _configuration;
 
         public CongViecReminderHangfireService(
             AppDbContext db,
             IHubContext<NotificationHub> hubContext,
-            ILogger<CongViecReminderHangfireService> logger)
+            ILogger<CongViecReminderHangfireService> logger,
+            IConfiguration configuration)
         {
             _db = db;
             _hubContext = hubContext;
             _logger = logger;
+            _configuration = configuration;
+        }
+
+        private (double total, bool isMinutes) GetDeadlineConfig()
+        {
+            var minutes = _configuration.GetValue<int?>("StakeholderCheck:HanXacNhanMinutes");
+            if (minutes.HasValue && minutes.Value > 0)
+            {
+                return (minutes.Value, true);
+            }
+            var hours = _configuration.GetValue<int?>("StakeholderCheck:HanXacNhanHours") ?? 24;
+            return (hours, false);
+        }
+
+        private string FormatDuration(double value, bool isMinutes)
+        {
+            return isMinutes ? $"{value} phút" : $"{value} giờ";
         }
 
         /// <summary>
-        /// Tạo 4 Scheduled Jobs (6h, 12h, 18h nhắc nhở, 24h báo quá hạn) cho người liên quan công việc
+        /// Tạo 4 Scheduled Jobs nhắc nhở và báo quá hạn cho người liên quan công việc dựa trên cấu hình
         /// </summary>
         public async Task ScheduleRemindersForStakeholderAsync(CongViecNguoiLienQuan record, CongViecGoiThau task, User targetUser)
         {
             var jobIds = new List<string>();
+            var (deadline, isMinutes) = GetDeadlineConfig();
 
-            // Lần 1: Nhắc nhở sau 6 giờ
+            var t1 = deadline * 0.25;
+            var t2 = deadline * 0.50;
+            var t3 = deadline * 0.75;
+            var t4 = deadline;
+
+            var time1 = isMinutes ? TimeSpan.FromMinutes(t1) : TimeSpan.FromHours(t1);
+            var time2 = isMinutes ? TimeSpan.FromMinutes(t2) : TimeSpan.FromHours(t2);
+            var time3 = isMinutes ? TimeSpan.FromMinutes(t3) : TimeSpan.FromHours(t3);
+            var time4 = isMinutes ? TimeSpan.FromMinutes(t4) : TimeSpan.FromHours(t4);
+
+            // Lần 1: Nhắc nhở sau 25% thời gian
             string id1 = BackgroundJob.Schedule<CongViecReminderHangfireService>(
-                x => x.SendReminderAsync(record.Id, "Bạn có công việc cần xác nhận (Đã qua 6h)"),
-                TimeSpan.FromHours(6)
+                x => x.SendReminderAsync(record.Id, $"Bạn có công việc cần xác nhận (Đã qua {FormatDuration(t1, isMinutes)})"),
+                time1
             );
             jobIds.Add(id1);
 
-            // Lần 2: Nhắc nhở sau 12 giờ
+            // Lần 2: Nhắc nhở sau 50% thời gian
             string id2 = BackgroundJob.Schedule<CongViecReminderHangfireService>(
-                x => x.SendReminderAsync(record.Id, "Cảnh báo: Công việc chờ xác nhận đã qua 12h"),
-                TimeSpan.FromHours(12)
+                x => x.SendReminderAsync(record.Id, $"Cảnh báo: Công việc chờ xác nhận đã qua {FormatDuration(t2, isMinutes)}"),
+                time2
             );
             jobIds.Add(id2);
 
-            // Lần 3: Nhắc nhở gấp sau 18 giờ
+            // Lần 3: Nhắc nhở gấp sau 75% thời gian (còn lại 25%)
+            var remaining = t4 - t3;
             string id3 = BackgroundJob.Schedule<CongViecReminderHangfireService>(
-                x => x.SendReminderAsync(record.Id, "GẤP: Chỉ còn 6h để xác nhận công việc này!"),
-                TimeSpan.FromHours(18)
+                x => x.SendReminderAsync(record.Id, $"GẤP: Chỉ còn {FormatDuration(remaining, isMinutes)} để xác nhận công việc này!"),
+                time3
             );
             jobIds.Add(id3);
 
-            // Lần 4: Xử lý QUÁ HẠN sau 24 giờ
+            // Lần 4: Xử lý QUÁ HẠN sau 100% thời gian
             string id4 = BackgroundJob.Schedule<CongViecReminderHangfireService>(
                 x => x.HandleTimeoutAsync(record.Id),
-                TimeSpan.FromHours(24)
+                time4
             );
             jobIds.Add(id4);
 
@@ -154,11 +187,14 @@ namespace demo1.Services.Implements
                 var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
                 var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
 
+                var (deadline, isMinutes) = GetDeadlineConfig();
+                var formattedDeadline = FormatDuration(deadline, isMinutes);
+
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
                     Title = "Cảnh báo: Quá hạn xác nhận công việc",
-                    Content = $"Công việc '{taskTitle}' đã quá 24h và chưa được xác nhận/bình luận. Trạng thái đã chuyển sang 'Quá hạn'.",
+                    Content = $"Công việc '{taskTitle}' đã quá {formattedDeadline} và chưa được xác nhận/bình luận. Trạng thái đã chuyển sang 'Quá hạn'.",
                     Link = link,
                     UserId = record.UserId,
                     IsRead = false,
@@ -178,7 +214,7 @@ namespace demo1.Services.Implements
                     createdAt = notification.CreatedAt
                 });
 
-                _logger.LogInformation("Processed timeout (24h) for record {RecordId} of user {Username}", recordId, record.User.Username);
+                _logger.LogInformation("Processed timeout ({Deadline}) for record {RecordId} of user {Username}", formattedDeadline, recordId, record.User.Username);
             }
         }
     }
