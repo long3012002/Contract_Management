@@ -44,62 +44,82 @@ namespace demo1.Services.Implements
 
         public async Task<AuthResult> LoginAsync(LoginRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            try
             {
-                return AuthResult.Fail(400, "Tên đăng nhập và mật khẩu là bắt buộc.");
-            }
-
-            bool isBypass = request.Username == "admin" && request.Password == "admin_bypass_dev";
-            bool isAuthenticated = isBypass || await _radiusClient.AuthenticateAsync(request.Username, request.Password);
-
-            if (isAuthenticated)
-            {
-                var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-                if (dbUser == null)
+                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 {
-                    if (isBypass)
+                    return AuthResult.Fail(400, "Tên đăng nhập và mật khẩu là bắt buộc.");
+                }
+
+                bool isBypass = request.Username == "admin" && request.Password == "admin_bypass_dev";
+                bool isAuthenticated = isBypass || await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+
+                if (isAuthenticated)
+                {
+                    var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+                    if (dbUser == null)
                     {
-                        dbUser = new demo1.Entity.User
+                        if (isBypass)
                         {
-                            Username = "admin",
-                            FullName = "System Administrator (Auto Seeded)",
-                            IsActive = true,
-                            IsSystemAdmin = true
-                        };
-                        _dbContext.Users.Add(dbUser);
-                        await _dbContext.SaveChangesAsync();
-                    }
-                    else
-                    {
-                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
-                        return AuthResult.Fail(403, "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
-                    }
-                }
+                            dbUser = new demo1.Entity.User
+                            {
+                                Username = "admin",
+                                FullName = "System Administrator (Auto Seeded)",
+                                IsActive = true,
+                                IsSystemAdmin = true
+                            };
+                            _dbContext.Users.Add(dbUser);
+                            await _dbContext.SaveChangesAsync();
 
-                if (!dbUser.IsActive)
-                {
-                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản đang bị khóa hoặc ngưng hoạt động.", dbUser.Id.ToString());
-                    return AuthResult.Fail(403, "Tài khoản đang bị khóa hoặc ngưng hoạt động.");
-                }
+                            try
+                            {
+                                var adminRole = await _dbContext.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
+                                if (adminRole != null)
+                                {
+                                    _dbContext.UserRoles.Add(new demo1.Entity.UserRole
+                                    {
+                                        UserId = dbUser.Id,
+                                        RoleId = adminRole.Id
+                                    });
+                                    await _dbContext.SaveChangesAsync();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Lỗi khi tự động gán vai trò Admin cho tài khoản bypass.");
+                            }
+                        }
+                        else
+                        {
+                            await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
+                            return AuthResult.Fail(403, "Tài khoản chưa được cấp quyền sử dụng hệ thống.");
+                        }
+                    }
+
+                    if (!dbUser.IsActive)
+                    {
+                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Tài khoản đang bị khóa hoặc ngưng hoạt động.", dbUser.Id.ToString());
+                        return AuthResult.Fail(403, "Tài khoản đang bị khóa hoặc ngưng hoạt động.");
+                    }
 
 #if DEBUG
-                // Môi trường Dev (DEBUG): Bỏ qua xác thực Google Authenticator (2FA) để tiện test
-                var accessToken = GenerateJwtToken(dbUser.Username, 180);
-                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+                    // Môi trường Dev (DEBUG): Bỏ qua xác thực Google Authenticator (2FA) để tiện test
+                    var accessToken = GenerateJwtToken(dbUser.Username, 180);
+                    var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
 
-                dbUser.RefreshTokenHash = ComputeHash(refreshToken);
-                dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
-                await _dbContext.SaveChangesAsync();
+                    dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+                    dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+                    await _dbContext.SaveChangesAsync();
 
-                await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)", dbUser.Id.ToString());
+                    await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)", dbUser.Id.ToString());
 
-                return AuthResult.Success(new LoginResponse
-                {
-                    Message = "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)",
-                    Username = dbUser.Username,
-                    AccessToken = accessToken,
-                    RefreshToken = refreshToken
-                });
+                    return AuthResult.Success(new LoginResponse
+                    {
+                        Message = "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)",
+                        Username = dbUser.Username,
+                        AccessToken = accessToken,
+                        RefreshToken = refreshToken
+                    });
 #else
                 // Môi trường Product (RELEASE): Bắt buộc xác thực qua Google Authenticator 2FA
                 if (isBypass)
@@ -158,12 +178,17 @@ namespace demo1.Services.Implements
                     AccessToken = tempToken
                 });
 #endif
+                }
+                else
+                {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Sai tài khoản hoặc mật khẩu");
+                    return AuthResult.Fail(401, "Sai tài khoản hoặc mật khẩu");
+                }
             }
-            else
-            {
-                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Sai tài khoản hoặc mật khẩu");
-                return AuthResult.Fail(401, "Sai tài khoản hoặc mật khẩu");
+            catch (Exception ex) {
+                return AuthResult.Fail(500, "Server error");
             }
+
         }
 
         public async Task<AuthResult> RefreshAsync(RefreshRequest request)

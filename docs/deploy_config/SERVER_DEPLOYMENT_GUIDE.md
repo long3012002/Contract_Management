@@ -25,8 +25,8 @@ Tất cả các file cấu hình server được lưu trữ tại thư mục `do
   - **Cấu hình phần cứng tối ưu**: **2 vCPU, 4 GB - 8 GB RAM, 40 GB SSD**
   - **Role**: Host Docker Container (Nginx Reverse Proxy + ASP.NET Core Backend API)
 - **Database Server**:
-  - **IP**: `10.225.11.201` (Port `3306`)
-  - **Engine**: MySQL 8.0 Enterprise / Percona Server
+  - **IP**: `10.225.11.201` (Port `5432`)
+  - **Engine**: PostgreSQL 15/16
   - **Cấu hình phần cứng tối ưu**: **2 - 4 vCPU, 4 GB - 8 GB RAM, 50 GB SSD**
 - **Tích hợp Hạ tầng Ngân hàng**:
   - **RADIUS Active Directory**: `10.224.0.94` (Port UDP `1812`)
@@ -35,7 +35,7 @@ Tất cả các file cấu hình server được lưu trữ tại thư mục `do
 ### 2.2. Ma Trận Firewall (UFW / Network Access Control)
 Chỉ cho phép mở các cổng kết nối cần thiết theo quy định An toàn thông tin:
 - `TCP 443`: Tiếp nhận kết nối HTTPS từ Client Browser.
-- `TCP 3306`: Kết nối từ App Server đến Database Server (`10.225.11.201`).
+- `TCP 5432`: Kết nối từ App Server đến Database Server (`10.225.11.201`).
 - `UDP 1812`: Kết nối từ App Server đến RADIUS Server (`10.224.0.94`).
 - `TCP 587`: Kết nối từ App Server đến Mail Server (`smtp.coopbank.vn`).
 

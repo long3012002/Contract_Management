@@ -177,7 +177,7 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
         }
         else
         {
-            query = query.Where(l => EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) <= l.CanhBaoTruocNgay);
+            query = query.Where(l => (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay);
         }
 
         var items = await query.OrderBy(l => l.NgayKetThuc).ToListAsync();
@@ -211,8 +211,8 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
                     && l.NgayKetThuc!.Value.Date < today.Date),
 
                 ExpiringSoonCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
-                    && EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) >= 0 
-                    && EF.Functions.DateDiffDay(today, l.NgayKetThuc!.Value) <= l.CanhBaoTruocNgay)
+                    && (l.NgayKetThuc!.Value - today).TotalDays >= 0 
+                    && (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay)
             })
             .FirstOrDefaultAsync();
 

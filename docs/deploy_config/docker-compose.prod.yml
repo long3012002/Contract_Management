@@ -12,8 +12,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      # Chuỗi kết nối Database MySQL Production (10.225.11.201)
-      - ConnectionStrings__DefaultConnection=server=10.225.11.201;port=3306;database=QLDA;user=user;password=passsword;CharSet=utf8mb4;
+      # Chuỗi kết nối Database PostgreSQL Production (10.225.11.201)
+      - ConnectionStrings__DefaultConnection=Host=10.225.11.201;Port=5432;Database=QLDA;Username=user;Password=passsword;
       # Cấu hình TẮT AutoMigrate và Seed Data trên Production
       - Database__AutoMigrate=false
       - Database__SeedSampleData=false

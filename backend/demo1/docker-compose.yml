@@ -1,6 +1,19 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: qlda-postgres-container
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=quangmd
+      - POSTGRES_PASSWORD=31122001
+      - POSTGRES_DB=QLDA
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
   backend:
     image: qlda-backend:latest
     build:
@@ -11,4 +24,12 @@ services:
       - "64950:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=QLDA;Username=quangmd;Password=31122001;
+      - Database__AutoMigrate=true
+      - Database__SeedSampleData=true
+    depends_on:
+      - postgres
     restart: always
+
+volumes:
+  postgres_data:

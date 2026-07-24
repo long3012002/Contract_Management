@@ -14,6 +14,7 @@ using demo1.Providers;
 using demo1.Services.Implements;
 using demo1.Services.Interfaces;
 using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -37,9 +38,8 @@ public static class ServiceConfiguration
             throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
         }
 
-        var mysqlServerVersion = Version.Parse(configuration["Database:ServerVersion"] ?? "8.0.36");
         services.AddDbContext<AppDbContext>(options =>
-            options.UseMySql(connectionString, new MySqlServerVersion(mysqlServerVersion)));
+            options.UseNpgsql(connectionString));
 
         services.AddAutoMapper(cfg =>
         {
@@ -138,18 +138,16 @@ public static class ServiceConfiguration
             });
         });
 
-        // Configure Hangfire with MySQL Storage
+        // Configure Hangfire with PostgreSQL Storage
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UseStorage(new Hangfire.MySql.MySqlStorage(
-                connectionString,
-                new Hangfire.MySql.MySqlStorageOptions
-                {
-                    TablesPrefix = "Hangfire_"
-                }
-            )));
+            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString), new PostgreSqlStorageOptions
+            {
+                SchemaName = "public",
+                PrepareSchemaIfNecessary = true
+            }));
 
         services.AddHangfireServer();
         services.AddScoped<CongViecReminderHangfireService>();

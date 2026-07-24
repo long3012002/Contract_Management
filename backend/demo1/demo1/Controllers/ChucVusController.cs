@@ -8,7 +8,7 @@ using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("api/chuc-vu")]
     public class ChucVusController : ControllerBase
