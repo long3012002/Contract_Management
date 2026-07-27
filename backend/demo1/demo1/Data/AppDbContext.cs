@@ -45,11 +45,35 @@ namespace demo1.Data
         public DbSet<CommentCongViecGoiThau> CommentCongViecGoiThaus { get; set; } = null!;
         public DbSet<CommentMention> CommentMentions { get; set; } = null!;
         public DbSet<CongViecNguoiLienQuan> CongViecNguoiLienQuans { get; set; } = null!;
+        public DbSet<CongViecLichSuChuyenTiep> CongViecLichSuChuyenTieps { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            var dateTimeConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime, DateTime>(
+                v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
+                v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+            var nullableDateTimeConverter = new Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<DateTime?, DateTime?>(
+                v => !v.HasValue ? v : (v.Value.Kind == DateTimeKind.Utc ? v : v.Value.ToUniversalTime()),
+                v => !v.HasValue ? v : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc));
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var property in entityType.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTime))
+                    {
+                        property.SetValueConverter(dateTimeConverter);
+                    }
+                    else if (property.ClrType == typeof(DateTime?))
+                    {
+                        property.SetValueConverter(nullableDateTimeConverter);
+                    }
+                }
+            }
 
             ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<NhomDuAn>());
@@ -65,6 +89,7 @@ namespace demo1.Data
             });
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<License>());
+            ConfigureBaseEntity(modelBuilder.Entity<CongViecLichSuChuyenTiep>());
             modelBuilder.Entity<CongViecNguoiLienQuan>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -84,6 +109,30 @@ namespace demo1.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(e => e.Code).IsUnique(false);
+            });
+
+            modelBuilder.Entity<CongViecLichSuChuyenTiep>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Code).HasMaxLength(50);
+                entity.Property(e => e.Name).HasMaxLength(255);
+                entity.Property(e => e.Description).HasMaxLength(1000);
+                entity.Property(e => e.GhiChu).HasMaxLength(2000);
+
+                entity.HasOne(ls => ls.CongViecGoiThau)
+                    .WithMany(cv => cv.LichSuChuyenTieps)
+                    .HasForeignKey(ls => ls.CongViecGoiThauId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(ls => ls.FromUser)
+                    .WithMany()
+                    .HasForeignKey(ls => ls.FromUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(ls => ls.ToUser)
+                    .WithMany()
+                    .HasForeignKey(ls => ls.ToUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configure NhaThauGoiThau relationship

@@ -162,6 +162,24 @@ public class CongViecGoiThauService
 
                 await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
                 entity.NguoiLienQuans.Add(record);
+
+                if (entity.CreateUserId.HasValue && entity.CreateUserId.Value != Guid.Empty)
+                {
+                    var historyRecord = new CongViecLichSuChuyenTiep
+                    {
+                        Id = Guid.NewGuid(),
+                        CongViecGoiThauId = entity.Id,
+                        FromUserId = entity.CreateUserId.Value,
+                        ToUserId = user.Id,
+                        LoaiHanhDong = "Initial",
+                        GhiChu = "Gán người liên quan khi khởi tạo công việc",
+                        CreatedAt = entity.CreatedAt,
+                        Code = $"LSCT-{Guid.NewGuid():N}",
+                        Name = $"LichSuChuyenTiep-{user.Id}",
+                        IsActive = true
+                    };
+                    DbContext.CongViecLichSuChuyenTieps.Add(historyRecord);
+                }
             }
         }
 
@@ -252,6 +270,24 @@ public class CongViecGoiThauService
 
                         await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
                         entity.NguoiLienQuans.Add(record);
+
+                        if (entity.CreateUserId.HasValue && entity.CreateUserId.Value != Guid.Empty)
+                        {
+                            var historyRecord = new CongViecLichSuChuyenTiep
+                            {
+                                Id = Guid.NewGuid(),
+                                CongViecGoiThauId = entity.Id,
+                                FromUserId = entity.CreateUserId.Value,
+                                ToUserId = userId,
+                                LoaiHanhDong = "Initial",
+                                GhiChu = "Gán người liên quan khi khởi tạo công việc",
+                                CreatedAt = now,
+                                Code = $"LSCT-{Guid.NewGuid():N}",
+                                Name = $"LichSuChuyenTiep-{userId}",
+                                IsActive = true
+                            };
+                            DbContext.CongViecLichSuChuyenTieps.Add(historyRecord);
+                        }
                     }
                 }
             }
@@ -407,6 +443,24 @@ public class CongViecGoiThauService
 
                     await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, addUser);
                     DbContext.CongViecNguoiLienQuans.Add(record);
+
+                    if (entity.ModifiedUserId.HasValue && entity.ModifiedUserId.Value != Guid.Empty)
+                    {
+                        var historyRecord = new CongViecLichSuChuyenTiep
+                        {
+                            Id = Guid.NewGuid(),
+                            CongViecGoiThauId = id,
+                            FromUserId = entity.ModifiedUserId.Value,
+                            ToUserId = addUser.Id,
+                            LoaiHanhDong = "Update",
+                            GhiChu = "Thêm người liên quan khi cập nhật công việc",
+                            CreatedAt = record.CreatedAt,
+                            Code = $"LSCT-{Guid.NewGuid():N}",
+                            Name = $"LichSuChuyenTiep-{addUser.Id}",
+                            IsActive = true
+                        };
+                        DbContext.CongViecLichSuChuyenTieps.Add(historyRecord);
+                    }
                 }
             }
         }
@@ -596,7 +650,7 @@ public class CongViecGoiThauService
         await DbContext.SaveChangesAsync();
     }
 
-    public async Task<bool> ForwardStakeholdersAsync(Guid id, List<Guid> userIds)
+    public async Task<(bool Success, string Message)> ForwardStakeholdersAsync(Guid id, List<Guid> userIds, Guid? currentUserId = null, string? ghiChu = null)
     {
         var entity = await DbSet
             .Include(e => e.NguoiLienQuans)
@@ -604,44 +658,102 @@ public class CongViecGoiThauService
         
         if (entity == null)
         {
-            return false;
+            return (false, "Không tìm thấy công việc tương ứng.");
+        }
+
+        // Validate confirmation requirement for current user
+        if (currentUserId.HasValue && currentUserId.Value != Guid.Empty)
+        {
+            var isCreator = entity.CreateUserId == currentUserId.Value;
+            if (!isCreator)
+            {
+                var stakeholderRecord = entity.NguoiLienQuans.FirstOrDefault(n => n.UserId == currentUserId.Value);
+                if (stakeholderRecord == null)
+                {
+                    return (false, "Bạn không thuộc danh sách người liên quan của công việc này nên không thể thực hiện chuyển tiếp.");
+                }
+
+                if (stakeholderRecord.TrangThaiXacNhan != "Confirmed" && stakeholderRecord.TrangThaiXacNhan != "Commented")
+                {
+                    return (false, "Bạn phải thực hiện 'Xác nhận' công việc này trước khi có thể chuyển tiếp cho người khác.");
+                }
+            }
         }
 
         var toAddUserIds = userIds.Distinct()
             .Where(uid => !entity.NguoiLienQuans.Any(n => n.UserId == uid))
             .ToList();
 
-        if (toAddUserIds.Any())
+        if (!toAddUserIds.Any())
         {
-            var newStakeholderUsers = await DbContext.Users
-                .Where(u => toAddUserIds.Contains(u.Id))
-                .ToListAsync();
+            return (true, "Tất cả người dùng đã được gán làm người liên quan công việc từ trước.");
+        }
 
-            var now = DateTime.UtcNow;
-            foreach (var user in newStakeholderUsers)
+        var newStakeholderUsers = await DbContext.Users
+            .Where(u => toAddUserIds.Contains(u.Id))
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+        foreach (var user in newStakeholderUsers)
+        {
+            var record = new CongViecNguoiLienQuan
             {
-                var record = new CongViecNguoiLienQuan
+                Id = Guid.NewGuid(),
+                CongViecGoiThauId = id,
+                UserId = user.Id,
+                Code = $"NLQ-{Guid.NewGuid():N}",
+                Name = $"Stakeholder-{user.Id}",
+                TrangThaiXacNhan = "Pending",
+                HanXacNhanAt = GetHanXacNhanAt(now),
+                CreatedAt = now,
+                IsActive = true
+            };
+
+            await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
+            DbContext.CongViecNguoiLienQuans.Add(record);
+            entity.NguoiLienQuans.Add(record);
+
+            if (currentUserId.HasValue && currentUserId.Value != Guid.Empty)
+            {
+                var historyRecord = new CongViecLichSuChuyenTiep
                 {
                     Id = Guid.NewGuid(),
                     CongViecGoiThauId = id,
-                    UserId = user.Id,
-                    Code = $"NLQ-{Guid.NewGuid():N}",
-                    Name = $"Stakeholder-{user.Id}",
-                    TrangThaiXacNhan = "Pending",
-                    HanXacNhanAt = GetHanXacNhanAt(now),
+                    FromUserId = currentUserId.Value,
+                    ToUserId = user.Id,
+                    LoaiHanhDong = "Forward",
+                    GhiChu = !string.IsNullOrWhiteSpace(ghiChu) ? ghiChu : "Chuyển tiếp công việc",
                     CreatedAt = now,
+                    Code = $"LSCT-{Guid.NewGuid():N}",
+                    Name = $"LichSuChuyenTiep-{user.Id}",
                     IsActive = true
                 };
-
-                await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
-                DbContext.CongViecNguoiLienQuans.Add(record);
-                entity.NguoiLienQuans.Add(record);
+                DbContext.CongViecLichSuChuyenTieps.Add(historyRecord);
             }
-
-            await DbContext.SaveChangesAsync();
-            await SendNotificationsToUsersAsync(entity, newStakeholderUsers);
         }
 
-        return true;
+        await DbContext.SaveChangesAsync();
+        await SendNotificationsToUsersAsync(entity, newStakeholderUsers);
+
+        return (true, "Chuyển tiếp người liên quan thành công.");
+    }
+
+    public async Task<List<CongViecLichSuChuyenTiepDto>> GetForwardHistoryAsync(Guid id)
+    {
+        var historyList = await DbContext.CongViecLichSuChuyenTieps
+            .Include(h => h.FromUser)
+            .Include(h => h.ToUser)
+            .Where(h => h.CongViecGoiThauId == id)
+            .OrderBy(h => h.CreatedAt)
+            .ToListAsync();
+
+        var dtos = Mapper.Map<List<CongViecLichSuChuyenTiepDto>>(historyList);
+
+        for (int i = 0; i < dtos.Count; i++)
+        {
+            dtos[i].Step = i + 1;
+        }
+
+        return dtos;
     }
 }

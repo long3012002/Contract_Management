@@ -94,7 +94,7 @@ namespace demo1.Services.Implements
             }
 
             // Prevent editing of default positions
-            var defaultCodes = new[] { "GD", "PGD", "TP", "PP", "CV" };
+            var defaultCodes = new[] { "TGD", "GD", "PGD", "TP", "PP", "CV" };
             if (!string.IsNullOrEmpty(item.Code) && defaultCodes.Contains(item.Code.ToUpper()))
             {
                 throw new InvalidOperationException("Không thể chỉnh sửa các chức vụ mặc định của hệ thống.");
@@ -131,7 +131,7 @@ namespace demo1.Services.Implements
             }
 
             // Prevent deletion of default positions
-            var defaultCodes = new[] { "GD", "PGD", "TP", "PP", "CV" };
+            var defaultCodes = new[] { "TGD", "GD", "PGD", "TP", "PP", "CV" };
             if (!string.IsNullOrEmpty(item.Code) && defaultCodes.Contains(item.Code.ToUpper()))
             {
                 throw new InvalidOperationException("Không thể xóa các chức vụ mặc định của hệ thống.");

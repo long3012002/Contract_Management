@@ -85,14 +85,15 @@ public static class CreateFakeDataExtensions
                 }
             }
 
-            // Seed/Sync Default ChucVus (GD, PGD, TP, PP, CV)
+            // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
             var defaultPositions = new List<(string Code, string Name, int Level)>
             {
-                ("GD", "Giám đốc/Tổng giám đốc", 1),
-                ("PGD", "Phó giám đốc", 2),
-                ("TP", "Trưởng phòng", 3),
-                ("PP", "Phó phòng", 4),
-                ("CV", "Chuyên viên", 5)
+                ("TGD", "Tổng giám đốc", 1),
+                ("GD", "Giám đốc", 2),
+                ("PGD", "Phó giám đốc", 3),
+                ("TP", "Trưởng phòng", 4),
+                ("PP", "Phó phòng", 5),
+                ("CV", "Chuyên viên", 6)
             };
 
             foreach (var pos in defaultPositions)
@@ -101,11 +102,13 @@ public static class CreateFakeDataExtensions
                 if (existingByCode != null)
                 {
                     existingByCode.Level = pos.Level;
+                    existingByCode.TenChucVu = pos.Name;
                 }
                 else
                 {
                     var existingByName = await context.ChucVus.FirstOrDefaultAsync(cv => 
                         cv.TenChucVu.ToLower() == pos.Name.ToLower() ||
+                        (pos.Code == "TGD" && cv.TenChucVu.ToLower() == "tổng giám đốc") ||
                         (pos.Code == "GD" && cv.TenChucVu.ToLower() == "giám đốc") ||
                         (pos.Code == "PGD" && cv.TenChucVu.ToLower() == "phó giám đốc") ||
                         (pos.Code == "TP" && cv.TenChucVu.ToLower() == "trưởng phòng") ||

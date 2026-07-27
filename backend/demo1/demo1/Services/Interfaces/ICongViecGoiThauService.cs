@@ -9,5 +9,6 @@ public interface ICongViecGoiThauService : ICrudDetailService<CongViecGoiThauDto
 {
     Task<CongViecGoiThauReportDto> GetReportByGoiThauIdAsync(Guid idGoiThau);
     Task<bool> ConfirmCongViecAsync(Guid id, Guid userId);
-    Task<bool> ForwardStakeholdersAsync(Guid id, List<Guid> userIds);
+    Task<(bool Success, string Message)> ForwardStakeholdersAsync(Guid id, List<Guid> userIds, Guid? currentUserId = null, string? ghiChu = null);
+    Task<List<CongViecLichSuChuyenTiepDto>> GetForwardHistoryAsync(Guid id);
 }

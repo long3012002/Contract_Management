@@ -166,9 +166,16 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.SoGioConLai, opt => opt.MapFrom(src => (src.HanXacNhanAt - DateTime.UtcNow).TotalHours > 0 ? Math.Round((src.HanXacNhanAt - DateTime.UtcNow).TotalHours, 1) : 0))
                 .ForMember(dest => dest.IsOverdue, opt => opt.MapFrom(src => (src.TrangThaiXacNhan == "Pending" && DateTime.UtcNow > src.HanXacNhanAt) || src.TrangThaiXacNhan == "Overdue"));
 
+            CreateMap<CongViecLichSuChuyenTiep, CongViecLichSuChuyenTiepDto>()
+                .ForMember(dest => dest.FromUserFullName, opt => opt.MapFrom(src => src.FromUser != null ? src.FromUser.FullName : null))
+                .ForMember(dest => dest.FromUsername, opt => opt.MapFrom(src => src.FromUser != null ? src.FromUser.Username : null))
+                .ForMember(dest => dest.ToUserFullName, opt => opt.MapFrom(src => src.ToUser != null ? src.ToUser.FullName : null))
+                .ForMember(dest => dest.ToUsername, opt => opt.MapFrom(src => src.ToUser != null ? src.ToUser.Username : null));
+
             CreateMap<CongViecGoiThau, CongViecGoiThauDto>()
                 .ForMember(dest => dest.NguoiLienQuanIds, opt => opt.MapFrom(src => src.NguoiLienQuans != null ? src.NguoiLienQuans.Select(n => n.UserId).ToList() : new List<Guid>()))
                 .ForMember(dest => dest.NguoiLienQuans, opt => opt.MapFrom(src => src.NguoiLienQuans))
+                .ForMember(dest => dest.LichSuChuyenTieps, opt => opt.MapFrom(src => src.LichSuChuyenTieps))
                 .ForMember(dest => dest.CreateUserFullName, opt => opt.MapFrom(src => src.CreateUser != null ? src.CreateUser.FullName : null))
                 .ForMember(dest => dest.ModifiedUserFullName, opt => opt.MapFrom(src => src.ModifiedUser != null ? src.ModifiedUser.FullName : null));
 

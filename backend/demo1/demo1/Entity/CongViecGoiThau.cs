@@ -17,6 +17,7 @@ public class CongViecGoiThau : BaseEntity, IHasParentId
     public string? GhiChu { get; set; }
 
     public virtual ICollection<CongViecNguoiLienQuan> NguoiLienQuans { get; set; } = new List<CongViecNguoiLienQuan>();
+    public virtual ICollection<CongViecLichSuChuyenTiep> LichSuChuyenTieps { get; set; } = new List<CongViecLichSuChuyenTiep>();
 
     public Guid? CreateUserId { get; set; }
     public virtual User? CreateUser { get; set; }

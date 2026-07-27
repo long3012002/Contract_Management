@@ -68,19 +68,53 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     }
 
     [HttpPost("{id:guid}/forward")]
-    public async Task<IActionResult> ForwardStakeholders(Guid id, [FromBody] List<Guid> userIds)
+    public async Task<IActionResult> ForwardStakeholders(
+        Guid id,
+        [FromBody] System.Text.Json.JsonElement body,
+        [FromServices] demo1.Data.AppDbContext context,
+        [FromServices] ICurrentUserService currentUserService)
     {
+        List<Guid> userIds = new List<Guid>();
+        string? ghiChu = null;
+
+        if (body.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            userIds = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(body.GetRawText()) ?? new List<Guid>();
+        }
+        else if (body.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            var request = System.Text.Json.JsonSerializer.Deserialize<ForwardStakeholdersRequestDto>(
+                body.GetRawText(),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (request != null)
+            {
+                userIds = request.UserIds;
+                ghiChu = request.GhiChu;
+            }
+        }
+
         if (userIds == null || userIds.Count == 0)
         {
             return BadRequest(new { message = "Danh sách người liên quan không được để trống." });
         }
 
-        var success = await _congViecGoiThauService.ForwardStakeholdersAsync(id, userIds);
+        var username = currentUserService.GetUsername();
+        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(context.Users, u => u.Username == username);
+        Guid? currentUserId = user?.Id;
+
+        var (success, message) = await _congViecGoiThauService.ForwardStakeholdersAsync(id, userIds, currentUserId, ghiChu);
         if (!success)
         {
-            return NotFound(new { message = "Không tìm thấy công việc tương ứng hoặc xảy ra lỗi." });
+            return BadRequest(new { message });
         }
 
-        return Ok(new { message = "Chuyển tiếp người liên quan thành công." });
+        return Ok(new { message });
+    }
+
+    [HttpGet("{id:guid}/forward-history")]
+    public async Task<ActionResult<List<CongViecLichSuChuyenTiepDto>>> GetForwardHistory(Guid id)
+    {
+        var history = await _congViecGoiThauService.GetForwardHistoryAsync(id);
+        return Ok(history);
     }
 }
