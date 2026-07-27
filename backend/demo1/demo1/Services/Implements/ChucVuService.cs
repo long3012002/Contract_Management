@@ -47,9 +47,20 @@ namespace demo1.Services.Implements
                 throw new InvalidOperationException("Tên chức vụ đã tồn tại.");
             }
 
+            if (!string.IsNullOrWhiteSpace(dto.Code))
+            {
+                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Code.ToLower() == dto.Code.Trim().ToLower());
+                if (existsCode)
+                {
+                    throw new InvalidOperationException("Mã chức vụ đã tồn tại.");
+                }
+            }
+
             var item = new ChucVu
             {
                 TenChucVu = dto.TenChucVu.Trim(),
+                Code = dto.Code?.Trim() ?? string.Empty,
+                Level = dto.Level,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -82,13 +93,31 @@ namespace demo1.Services.Implements
                 return false;
             }
 
+            // Prevent editing of default positions
+            var defaultCodes = new[] { "GD", "PGD", "TP", "PP", "CV" };
+            if (!string.IsNullOrEmpty(item.Code) && defaultCodes.Contains(item.Code.ToUpper()))
+            {
+                throw new InvalidOperationException("Không thể chỉnh sửa các chức vụ mặc định của hệ thống.");
+            }
+
             var exists = await _dbContext.ChucVus.AnyAsync(cv => cv.Id != id && cv.TenChucVu.ToLower() == dto.TenChucVu.Trim().ToLower());
             if (exists)
             {
                 throw new InvalidOperationException("Tên chức vụ đã tồn tại.");
             }
 
+            if (!string.IsNullOrWhiteSpace(dto.Code))
+            {
+                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Id != id && cv.Code.ToLower() == dto.Code.Trim().ToLower());
+                if (existsCode)
+                {
+                    throw new InvalidOperationException("Mã chức vụ đã tồn tại.");
+                }
+            }
+
             item.TenChucVu = dto.TenChucVu.Trim();
+            item.Code = dto.Code?.Trim() ?? string.Empty;
+            item.Level = dto.Level;
             await _dbContext.SaveChangesAsync();
             return true;
         }
@@ -99,6 +128,13 @@ namespace demo1.Services.Implements
             if (item == null)
             {
                 return false;
+            }
+
+            // Prevent deletion of default positions
+            var defaultCodes = new[] { "GD", "PGD", "TP", "PP", "CV" };
+            if (!string.IsNullOrEmpty(item.Code) && defaultCodes.Contains(item.Code.ToUpper()))
+            {
+                throw new InvalidOperationException("Không thể xóa các chức vụ mặc định của hệ thống.");
             }
 
             // Set User reference to null

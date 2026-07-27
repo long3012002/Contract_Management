@@ -21,13 +21,20 @@ namespace demo1.Controllers
             return await adminService.IsSystemAdminAsync(username);
         }
 
+        private async Task<bool> CanViewUserPermissionsAsync()
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username)) return false;
+            return await adminService.CanViewUserPermissionsAsync(username);
+        }
+
         // --- ROLES MANAGEMENT ---
 
         [HttpGet("roles")]
         [ProducesResponseType(typeof(IEnumerable<Role>), 200)]
         public async Task<IActionResult> GetRoles()
         {
-            if (!await IsAdminAsync()) return Forbid();
+            if (!await CanViewUserPermissionsAsync()) return Forbid();
             var roles = await adminService.GetRolesAsync();
             return Ok(roles);
         }
@@ -61,7 +68,7 @@ namespace demo1.Controllers
         [ProducesResponseType(typeof(IEnumerable<Feature>), 200)]
         public async Task<IActionResult> GetFeatures()
         {
-            if (!await IsAdminAsync()) return Forbid();
+            if (!await CanViewUserPermissionsAsync()) return Forbid();
             var features = await adminService.GetFeaturesAsync();
             return Ok(features);
         }
@@ -108,7 +115,7 @@ namespace demo1.Controllers
         [ProducesResponseType(typeof(IEnumerable<RolePermissionDto>), 200)]
         public async Task<IActionResult> GetRolePermissions(Guid roleId)
         {
-            if (!await IsAdminAsync()) return Forbid();
+            if (!await CanViewUserPermissionsAsync()) return Forbid();
             try
             {
                 var result = await adminService.GetRolePermissionsAsync(roleId);
@@ -144,7 +151,7 @@ namespace demo1.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            if (!await IsAdminAsync()) return Forbid();
+            if (!await CanViewUserPermissionsAsync()) return Forbid();
             var result = await adminService.GetUsersWithRolesAsync(search, page, pageSize);
             return Ok(result);
         }
@@ -153,7 +160,7 @@ namespace demo1.Controllers
         [ProducesResponseType(typeof(IEnumerable<Guid>), 200)]
         public async Task<IActionResult> GetUserRoles(Guid userId)
         {
-            if (!await IsAdminAsync()) return Forbid();
+            if (!await CanViewUserPermissionsAsync()) return Forbid();
             try
             {
                 var assignedRoleIds = await adminService.GetUserRolesAsync(userId);

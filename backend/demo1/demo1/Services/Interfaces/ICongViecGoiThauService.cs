@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using demo1.DTOs;
 
@@ -8,4 +9,5 @@ public interface ICongViecGoiThauService : ICrudDetailService<CongViecGoiThauDto
 {
     Task<CongViecGoiThauReportDto> GetReportByGoiThauIdAsync(Guid idGoiThau);
     Task<bool> ConfirmCongViecAsync(Guid id, Guid userId);
+    Task<bool> ForwardStakeholdersAsync(Guid id, List<Guid> userIds);
 }

@@ -595,4 +595,53 @@ public class CongViecGoiThauService
         }
         await DbContext.SaveChangesAsync();
     }
+
+    public async Task<bool> ForwardStakeholdersAsync(Guid id, List<Guid> userIds)
+    {
+        var entity = await DbSet
+            .Include(e => e.NguoiLienQuans)
+            .FirstOrDefaultAsync(e => e.Id == id);
+        
+        if (entity == null)
+        {
+            return false;
+        }
+
+        var toAddUserIds = userIds.Distinct()
+            .Where(uid => !entity.NguoiLienQuans.Any(n => n.UserId == uid))
+            .ToList();
+
+        if (toAddUserIds.Any())
+        {
+            var newStakeholderUsers = await DbContext.Users
+                .Where(u => toAddUserIds.Contains(u.Id))
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+            foreach (var user in newStakeholderUsers)
+            {
+                var record = new CongViecNguoiLienQuan
+                {
+                    Id = Guid.NewGuid(),
+                    CongViecGoiThauId = id,
+                    UserId = user.Id,
+                    Code = $"NLQ-{Guid.NewGuid():N}",
+                    Name = $"Stakeholder-{user.Id}",
+                    TrangThaiXacNhan = "Pending",
+                    HanXacNhanAt = GetHanXacNhanAt(now),
+                    CreatedAt = now,
+                    IsActive = true
+                };
+
+                await _reminderService.ScheduleRemindersForStakeholderAsync(record, entity, user);
+                DbContext.CongViecNguoiLienQuans.Add(record);
+                entity.NguoiLienQuans.Add(record);
+            }
+
+            await DbContext.SaveChangesAsync();
+            await SendNotificationsToUsersAsync(entity, newStakeholderUsers);
+        }
+
+        return true;
+    }
 }

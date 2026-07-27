@@ -66,4 +66,21 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
 
         return Ok(new { message = "Xác nhận công việc thành công." });
     }
+
+    [HttpPost("{id:guid}/forward")]
+    public async Task<IActionResult> ForwardStakeholders(Guid id, [FromBody] List<Guid> userIds)
+    {
+        if (userIds == null || userIds.Count == 0)
+        {
+            return BadRequest(new { message = "Danh sách người liên quan không được để trống." });
+        }
+
+        var success = await _congViecGoiThauService.ForwardStakeholdersAsync(id, userIds);
+        if (!success)
+        {
+            return NotFound(new { message = "Không tìm thấy công việc tương ứng hoặc xảy ra lỗi." });
+        }
+
+        return Ok(new { message = "Chuyển tiếp người liên quan thành công." });
+    }
 }

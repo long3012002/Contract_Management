@@ -14,10 +14,12 @@ namespace demo1.Services.Implements
     public class PermissionService : IPermissionService
     {
         private readonly AppDbContext _context;
+        private readonly ICurrentUserService _currentUserService;
 
-        public PermissionService(AppDbContext context)
+        public PermissionService(AppDbContext context, ICurrentUserService currentUserService)
         {
             _context = context;
+            _currentUserService = currentUserService;
         }
 
         public async Task<bool> HasPermissionAsync(Guid userId, string featureCode, string entityName, string entityId, string action)
@@ -27,7 +29,7 @@ namespace demo1.Services.Implements
             if (user.IsSystemAdmin) return true;
 
             var actCode = NormalizeActionCode(action);
-            if (actCode == "VIEW" || actCode == "CREATE") return true;
+            if (actCode == "VIEW") return true;
 
             return await _context.UserPermissions
                 .AsNoTracking()
@@ -127,11 +129,30 @@ namespace demo1.Services.Implements
 
         public async Task<PagedResult<PermissionRequestDto>> GetAllRequestsAsync(string? status, string? search, int page = 1, int pageSize = 20)
         {
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username == currentUsername);
+
             var query = _context.PermissionRequests
                 .Include(r => r.User)
                 .Include(r => r.Reviewer)
                 .Include(r => r.RequestedPermission)
                 .AsQueryable();
+
+            if (currentUser != null && !currentUser.IsSystemAdmin)
+            {
+                var callerChucVu = currentUser.IdChucVu.HasValue 
+                    ? await _context.ChucVus.FindAsync(currentUser.IdChucVu.Value) 
+                    : null;
+                var callerLevel = callerChucVu?.Level ?? 999;
+
+                query = from r in query
+                        join u in _context.Users on r.UserId equals u.Id
+                        join cv in _context.ChucVus on u.IdChucVu equals cv.Id into ucv
+                        from cv in ucv.DefaultIfEmpty()
+                        where r.UserId == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                        select r;
+            }
 
             if (!string.IsNullOrWhiteSpace(status))
             {
@@ -301,11 +322,30 @@ namespace demo1.Services.Implements
 
         public async Task<IEnumerable<UserPermissionDto>> GetUserPermissionsAsync(Guid? userId, string? featureCode)
         {
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username == currentUsername);
+
             var query = _context.UserPermissions
                 .Include(up => up.User)
                 .Include(up => up.Permission)
                 .Include(up => up.GrantedByUser)
                 .AsQueryable();
+
+            if (currentUser != null && !currentUser.IsSystemAdmin)
+            {
+                var callerChucVu = currentUser.IdChucVu.HasValue 
+                    ? await _context.ChucVus.FindAsync(currentUser.IdChucVu.Value) 
+                    : null;
+                var callerLevel = callerChucVu?.Level ?? 999;
+
+                query = from up in query
+                        join u in _context.Users on up.UserId equals u.Id
+                        join cv in _context.ChucVus on u.IdChucVu equals cv.Id into ucv
+                        from cv in ucv.DefaultIfEmpty()
+                        where up.UserId == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                        select up;
+            }
 
             if (userId.HasValue)
             {

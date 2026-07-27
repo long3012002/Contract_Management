@@ -76,7 +76,14 @@ namespace demo1.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            if (!await IsAdminAsync()) return Forbid();
+            var username = User.Identity?.Name;
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) return Unauthorized();
+
+            if (!user.IsSystemAdmin && !user.IdChucVu.HasValue)
+            {
+                return Forbid();
+            }
 
             var result = await _permissionService.GetAllRequestsAsync(status, search, page, pageSize);
             return Ok(result);

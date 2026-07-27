@@ -85,6 +85,53 @@ public static class CreateFakeDataExtensions
                 }
             }
 
+            // Seed/Sync Default ChucVus (GD, PGD, TP, PP, CV)
+            var defaultPositions = new List<(string Code, string Name, int Level)>
+            {
+                ("GD", "Giám đốc/Tổng giám đốc", 1),
+                ("PGD", "Phó giám đốc", 2),
+                ("TP", "Trưởng phòng", 3),
+                ("PP", "Phó phòng", 4),
+                ("CV", "Chuyên viên", 5)
+            };
+
+            foreach (var pos in defaultPositions)
+            {
+                var existingByCode = await context.ChucVus.FirstOrDefaultAsync(cv => cv.Code.ToUpper() == pos.Code);
+                if (existingByCode != null)
+                {
+                    existingByCode.Level = pos.Level;
+                }
+                else
+                {
+                    var existingByName = await context.ChucVus.FirstOrDefaultAsync(cv => 
+                        cv.TenChucVu.ToLower() == pos.Name.ToLower() ||
+                        (pos.Code == "GD" && cv.TenChucVu.ToLower() == "giám đốc") ||
+                        (pos.Code == "PGD" && cv.TenChucVu.ToLower() == "phó giám đốc") ||
+                        (pos.Code == "TP" && cv.TenChucVu.ToLower() == "trưởng phòng") ||
+                        (pos.Code == "PP" && (cv.TenChucVu.ToLower() == "phó phòng" || cv.TenChucVu.ToLower() == "phó trưởng phòng")) ||
+                        (pos.Code == "CV" && cv.TenChucVu.ToLower() == "chuyên viên"));
+
+                    if (existingByName != null)
+                    {
+                        existingByName.Code = pos.Code;
+                        existingByName.Level = pos.Level;
+                    }
+                    else
+                    {
+                        context.ChucVus.Add(new ChucVu
+                        {
+                            Id = Guid.NewGuid(),
+                            TenChucVu = pos.Name,
+                            Code = pos.Code,
+                            Level = pos.Level,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+            }
+            await context.SaveChangesAsync();
+
             if (configuration.GetValue<bool>("Database:SeedSampleData"))
             {
                 await DatabaseSeeder.SeedAsync(context);

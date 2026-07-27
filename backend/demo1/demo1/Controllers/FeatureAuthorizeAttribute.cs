@@ -60,10 +60,41 @@ namespace demo1.Controllers
 
             var httpMethod = context.HttpContext.Request.Method.ToUpper();
 
-            // All active users can access/view all features (GET requests) and create new items (POST)
-            if (httpMethod == "GET" || httpMethod == "POST")
+            // All active users can access/view all features (GET requests)
+            if (httpMethod == "GET")
             {
                 return;
+            }
+
+            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature
+            if (httpMethod == "POST")
+            {
+                var requiredPermCode = "CREATE";
+
+                // High-performance Lookup on UserPermissions + Permission Catalog Code
+                var hasPermission = await _dbContext.UserPermissions
+                    .AsNoTracking()
+                    .Include(up => up.Permission)
+                    .AnyAsync(up =>
+                        up.UserId == dbUser.Id &&
+                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) &&
+                        up.Permission != null && up.Permission.Code == requiredPermCode);
+
+                if (!hasPermission)
+                {
+                    context.Result = new JsonResult(new
+                    {
+                        Message = "Bạn chưa có quyền tạo mới trên tính năng này. Vui lòng gửi yêu cầu cấp quyền.",
+                        RequiresPermissionRequest = true,
+                        FeatureCode = _featureCode,
+                        EntityId = string.Empty,
+                        RequiredPermissionCode = requiredPermCode
+                    })
+                    {
+                        StatusCode = StatusCodes.Status403Forbidden
+                    };
+                    return;
+                }
             }
 
             // Requirement: Editing/Deleting specific record requires explicit UserPermission

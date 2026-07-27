@@ -13,10 +13,12 @@ namespace demo1.Services.Implements
     public class AdminService : IAdminService
     {
         private readonly AppDbContext _dbContext;
+        private readonly ICurrentUserService _currentUserService;
 
-        public AdminService(AppDbContext dbContext)
+        public AdminService(AppDbContext dbContext, ICurrentUserService currentUserService)
         {
             _dbContext = dbContext;
+            _currentUserService = currentUserService;
         }
 
         public async Task<bool> IsSystemAdminAsync(string username)
@@ -24,6 +26,13 @@ namespace demo1.Services.Implements
             if (string.IsNullOrEmpty(username)) return false;
             var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
             return dbUser?.IsSystemAdmin == true;
+        }
+
+        public async Task<bool> CanViewUserPermissionsAsync(string username)
+        {
+            if (string.IsNullOrEmpty(username)) return false;
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+            return user != null && (user.IsSystemAdmin || user.IdChucVu.HasValue);
         }
 
         public async Task<IEnumerable<Role>> GetRolesAsync()
@@ -181,10 +190,28 @@ namespace demo1.Services.Implements
 
         public async Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize)
         {
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await _dbContext.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Username == currentUsername);
+
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
 
             IQueryable<User> query = _dbContext.Users.AsNoTracking();
+
+            if (currentUser != null && !currentUser.IsSystemAdmin)
+            {
+                var callerChucVu = currentUser.IdChucVu.HasValue 
+                    ? await _dbContext.ChucVus.FindAsync(currentUser.IdChucVu.Value) 
+                    : null;
+                var callerLevel = callerChucVu?.Level ?? 999;
+
+                query = from u in query
+                        join cv in _dbContext.ChucVus on u.IdChucVu equals cv.Id into ucv
+                        from cv in ucv.DefaultIfEmpty()
+                        where u.Id == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                        select u;
+            }
 
             if (!string.IsNullOrWhiteSpace(search))
             {

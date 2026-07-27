@@ -9,6 +9,7 @@ namespace demo1.Services.Interfaces
     public interface IAdminService
     {
         Task<bool> IsSystemAdminAsync(string username);
+        Task<bool> CanViewUserPermissionsAsync(string username);
         Task<IEnumerable<Role>> GetRolesAsync();
         Task<Role> CreateRoleAsync(CreateRoleDto dto);
         Task<Role> UpdateRoleAsync(Guid roleId, UpdateRoleDto dto);
