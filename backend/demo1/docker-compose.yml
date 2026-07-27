@@ -13,7 +13,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=qlda-postgres-container;Port=5432;Database=QLDA;Username=quangmd;Password=31122001;
       - Database__AutoMigrate=true
-      - Database__SeedSampleData=false
+      - Database__SeedSampleData=true
     networks:
       - qlda-network
     restart: always
