@@ -49,7 +49,7 @@ namespace demo1.Services.Implements
 
             if (!string.IsNullOrWhiteSpace(dto.Code))
             {
-                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Code.ToLower() == dto.Code.Trim().ToLower());
+                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Code != null && cv.Code.ToLower() == dto.Code.Trim().ToLower());
                 if (existsCode)
                 {
                     throw new InvalidOperationException("Mã chức vụ đã tồn tại.");
@@ -108,7 +108,7 @@ namespace demo1.Services.Implements
 
             if (!string.IsNullOrWhiteSpace(dto.Code))
             {
-                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Id != id && cv.Code.ToLower() == dto.Code.Trim().ToLower());
+                var existsCode = await _dbContext.ChucVus.AnyAsync(cv => cv.Id != id && cv.Code != null && cv.Code.ToLower() == dto.Code.Trim().ToLower());
                 if (existsCode)
                 {
                     throw new InvalidOperationException("Mã chức vụ đã tồn tại.");

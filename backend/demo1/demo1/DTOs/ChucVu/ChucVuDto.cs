@@ -6,7 +6,7 @@ namespace demo1.DTOs
     {
         public Guid Id { get; set; }
         public string TenChucVu { get; set; } = string.Empty;
-        public string Code { get; set; } = string.Empty;
+        public string? Code { get; set; }
         public int Level { get; set; }
         public DateTime CreatedAt { get; set; }
     }
@@ -14,14 +14,14 @@ namespace demo1.DTOs
     public class CreateChucVuDto
     {
         public string TenChucVu { get; set; } = string.Empty;
-        public string Code { get; set; } = string.Empty;
+        public string? Code { get; set; }
         public int Level { get; set; } = 999;
     }
 
     public class UpdateChucVuDto
     {
         public string TenChucVu { get; set; } = string.Empty;
-        public string Code { get; set; } = string.Empty;
+        public string? Code { get; set; }
         public int Level { get; set; } = 999;
     }
 

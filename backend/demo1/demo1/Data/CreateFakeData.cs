@@ -97,7 +97,7 @@ public static class CreateFakeDataExtensions
 
             foreach (var pos in defaultPositions)
             {
-                var existingByCode = await context.ChucVus.FirstOrDefaultAsync(cv => cv.Code.ToUpper() == pos.Code);
+                var existingByCode = await context.ChucVus.FirstOrDefaultAsync(cv => cv.Code != null && cv.Code.ToUpper() == pos.Code);
                 if (existingByCode != null)
                 {
                     existingByCode.Level = pos.Level;
