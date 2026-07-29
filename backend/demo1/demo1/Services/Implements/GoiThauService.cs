@@ -18,24 +18,60 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
     }
 
-    public override async Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        return GetAllAsync(new GoiThauFilterDto
+        {
+            Search = search,
+            Page = page,
+            PageSize = pageSize,
+            Cursor = cursor
+        });
+    }
+
+    public async Task<PagedResult<GoiThauDto>> GetAllAsync(GoiThauFilterDto filter)
+    {
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
         IQueryable<GoiThau> query = DbSet.AsNoTracking()
             .Include(gt => gt.DuAn);
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!string.IsNullOrWhiteSpace(filter.Search))
         {
-            var keyword = search.Trim();
+            var keyword = filter.Search.Trim();
             query = ApplySearchFilter(query, keyword);
+        }
+
+        if (filter.DuAnId.HasValue)
+        {
+            query = query.Where(item => item.DuAnId == filter.DuAnId.Value);
+        }
+
+        if (filter.MinGiaTri.HasValue)
+        {
+            query = query.Where(item => item.GiaTriGoiThau >= filter.MinGiaTri.Value);
+        }
+
+        if (filter.MaxGiaTri.HasValue)
+        {
+            query = query.Where(item => item.GiaTriGoiThau <= filter.MaxGiaTri.Value);
+        }
+
+        if (filter.FromDate.HasValue)
+        {
+            query = query.Where(item => item.CreatedAt >= filter.FromDate.Value);
+        }
+
+        if (filter.ToDate.HasValue)
+        {
+            query = query.Where(item => item.CreatedAt <= filter.ToDate.Value);
         }
 
         var totalItems = await query.CountAsync();
 
         List<GoiThau> items;
-        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+        bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
 
         if (isKeyset)
         {

@@ -12,11 +12,21 @@ using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class UserController(IUserService userService) : ControllerBase
+    public class UserController(IUserService userService, IAdminService adminService) : ControllerBase
     {
+        // 0. Hàm Lấy danh sách người dùng (Get Users with Pagination, Search & Filter)
+        [HttpGet]
+        [HttpGet("list")]
+        [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), 200)]
+        public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
+        {
+            var result = await adminService.GetUsersWithRolesAsync(filter);
+            return Ok(result);
+        }
+
         // 1. Hàm Thêm/Cập nhật nhiều (Bulk Upsert Users)
         [HttpPost("bulk-create")]
         public async Task<IActionResult> AddMultiple([FromBody] List<CreateUserDto> dtos)

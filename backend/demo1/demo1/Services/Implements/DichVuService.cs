@@ -47,6 +47,12 @@ public class DichVuService : DbCrudService<DichVu, DichVuDto, CreateDichVuDto, U
         return await base.CreateRangeAsync(dtoList);
     }
 
+    public override async Task<bool> UpdateAsync(Guid id, UpdateDichVuDto dto)
+    {
+        await ValidateParentExistsAsync(new[] { dto.IdParent });
+        return await base.UpdateAsync(id, dto);
+    }
+
     private async Task ValidateParentExistsAsync(IEnumerable<Guid> idParents)
     {
         var distinctIds = idParents.Where(id => id != Guid.Empty).Distinct().ToList();
@@ -55,15 +61,31 @@ public class DichVuService : DbCrudService<DichVu, DichVuDto, CreateDichVuDto, U
             throw new ArgumentException("IdParent không hợp lệ.");
         }
 
-        var existingIds = await DbContext.HopDongs
+        var existingHopDongIds = await DbContext.HopDongs
             .Where(h => distinctIds.Contains(h.Id))
             .Select(h => h.Id)
             .ToListAsync();
 
-        var missingIds = distinctIds.Except(existingIds).ToList();
+        var existingDotThanhToanIds = await DbContext.DotThanhToans
+            .Where(d => distinctIds.Contains(d.Id))
+            .Select(d => d.Id)
+            .ToListAsync();
+
+        var existingGoiThauIds = await DbContext.GoiThaus
+            .Where(g => distinctIds.Contains(g.Id))
+            .Select(g => g.Id)
+            .ToListAsync();
+
+        var validIds = existingHopDongIds
+            .Concat(existingDotThanhToanIds)
+            .Concat(existingGoiThauIds)
+            .Distinct()
+            .ToList();
+
+        var missingIds = distinctIds.Except(validIds).ToList();
         if (missingIds.Any())
         {
-            throw new ArgumentException($"Hóa đơn / Hợp đồng với ID '{string.Join(", ", missingIds)}' không tồn tại trong hệ thống.");
+            throw new ArgumentException($"Hóa đơn / Đợt thanh toán / Hợp đồng với ID '{string.Join(", ", missingIds)}' không tồn tại trong hệ thống.");
         }
     }
 }

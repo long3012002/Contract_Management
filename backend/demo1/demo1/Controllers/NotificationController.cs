@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using demo1.Data;
 using demo1.Entity;
-using demo1.DTOs.Common;
+using demo1.DTOs;
 
 namespace demo1.Controllers
 {
@@ -35,7 +35,7 @@ namespace demo1.Controllers
 
         // 1. GET: api/notification
         [HttpGet]
-        public async Task<IActionResult> GetNotifications()
+        public async Task<ActionResult<PagedResult<NotificationDto>>> GetNotifications([FromQuery] NotificationFilterDto filter)
         {
             var user = await GetCurrentUserAsync();
             if (user == null)
@@ -43,21 +43,61 @@ namespace demo1.Controllers
                 return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
             }
 
-            var notifications = await _dbContext.Notifications
-                .Where(n => n.UserId == user.Id)
+            var page = Math.Max(1, filter.Page);
+            var pageSize = Math.Clamp(filter.PageSize, 1, 100);
+
+            var query = _dbContext.Notifications.AsNoTracking()
+                .Where(n => n.UserId == user.Id);
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var keyword = filter.Search.Trim();
+                query = query.Where(n => 
+                    EF.Functions.Like(n.Title, $"%{keyword}%") || 
+                    EF.Functions.Like(n.Content, $"%{keyword}%"));
+            }
+
+            if (filter.IsRead.HasValue)
+            {
+                query = query.Where(n => n.IsRead == filter.IsRead.Value);
+            }
+
+            if (filter.FromDate.HasValue)
+            {
+                query = query.Where(n => n.CreatedAt >= filter.FromDate.Value);
+            }
+
+            if (filter.ToDate.HasValue)
+            {
+                query = query.Where(n => n.CreatedAt <= filter.ToDate.Value);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var items = await query
                 .OrderByDescending(n => n.CreatedAt)
-                .Select(n => new
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(n => new NotificationDto
                 {
-                    n.Id,
-                    n.Title,
-                    n.Content,
-                    n.Link,
-                    n.IsRead,
-                    n.CreatedAt
+                    Id = n.Id,
+                    Title = n.Title,
+                    Content = n.Content,
+                    Link = n.Link,
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt
                 })
                 .ToListAsync();
 
-            return Ok(notifications);
+            var result = new PagedResult<NotificationDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            };
+
+            return Ok(result);
         }
 
         // 2. PUT: api/notification/{id}/read

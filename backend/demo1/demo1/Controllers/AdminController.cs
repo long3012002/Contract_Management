@@ -146,13 +146,10 @@ namespace demo1.Controllers
 
         [HttpGet("users")]
         [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), 200)]
-        public async Task<IActionResult> GetUsers(
-            [FromQuery] string? search,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
         {
             if (!await CanViewUserPermissionsAsync()) return Forbid();
-            var result = await adminService.GetUsersWithRolesAsync(search, page, pageSize);
+            var result = await adminService.GetUsersWithRolesAsync(filter);
             return Ok(result);
         }
 

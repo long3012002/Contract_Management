@@ -8,6 +8,7 @@ namespace demo1.Controllers;
 
 [Authorize]
 [ApiController]
+[Route("api/[controller]")]
 public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : ControllerBase
     where TDto : IHasId
 {

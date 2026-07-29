@@ -188,14 +188,24 @@ namespace demo1.Services.Implements
             await Task.CompletedTask;
         }
 
-        public async Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize)
+        public Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize)
+        {
+            return GetUsersWithRolesAsync(new UserFilterDto
+            {
+                Search = search,
+                Page = page,
+                PageSize = pageSize
+            });
+        }
+
+        public async Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(UserFilterDto filter)
         {
             var currentUsername = _currentUserService.GetUsername();
             var currentUser = await _dbContext.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Username == currentUsername);
 
-            page = Math.Max(1, page);
-            pageSize = Math.Clamp(pageSize, 1, 100);
+            var page = Math.Max(1, filter.Page);
+            var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
             IQueryable<User> query = _dbContext.Users.AsNoTracking();
 
@@ -213,14 +223,52 @@ namespace demo1.Services.Implements
                         select u;
             }
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (!string.IsNullOrWhiteSpace(filter.Search))
             {
-                var keyword = search.Trim();
+                var keyword = filter.Search.Trim();
                 query = query.Where(u => 
                     EF.Functions.Like(u.Username, $"%{keyword}%") || 
                     EF.Functions.Like(u.FullName, $"%{keyword}%") ||
-                    (u.Email != null && EF.Functions.Like(u.Email, $"%{keyword}%"))
+                    (u.Email != null && EF.Functions.Like(u.Email, $"%{keyword}%")) ||
+                    (u.Phone != null && EF.Functions.Like(u.Phone, $"%{keyword}%"))
                 );
+            }
+
+            if (filter.IsActive.HasValue)
+            {
+                query = query.Where(u => u.IsActive == filter.IsActive.Value);
+            }
+
+            if (filter.IsSystemAdmin.HasValue)
+            {
+                query = query.Where(u => u.IsSystemAdmin == filter.IsSystemAdmin.Value);
+            }
+
+            if (filter.IdPhongBan.HasValue)
+            {
+                query = query.Where(u => u.IdPhongBan == filter.IdPhongBan.Value);
+            }
+
+            if (filter.IdChucVu.HasValue)
+            {
+                query = query.Where(u => u.IdChucVu == filter.IdChucVu.Value);
+            }
+
+            if (filter.IdDonVi.HasValue)
+            {
+                query = query.Where(u => u.IdDonVi == filter.IdDonVi.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Role))
+            {
+                var roleName = filter.Role.Trim().ToLower();
+                var userIdsWithRole = _dbContext.UserRoles
+                    .AsNoTracking()
+                    .Include(ur => ur.Role)
+                    .Where(ur => ur.Role != null && ur.Role.Name.ToLower() == roleName)
+                    .Select(ur => ur.UserId);
+
+                query = query.Where(u => userIdsWithRole.Contains(u.Id));
             }
 
             var totalItems = await query.CountAsync();

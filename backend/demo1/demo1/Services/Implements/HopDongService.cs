@@ -18,10 +18,21 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     {
     }
 
-    public override async Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        return GetAllAsync(new HopDongFilterDto
+        {
+            Search = search,
+            Page = page,
+            PageSize = pageSize,
+            Cursor = cursor
+        });
+    }
+
+    public async Task<PagedResult<HopDongDto>> GetAllAsync(HopDongFilterDto filter)
+    {
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
         IQueryable<HopDong> query = DbSet.AsNoTracking()
             .Include(h => h.GoiThau)
@@ -32,19 +43,69 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau);
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!string.IsNullOrWhiteSpace(filter.Search))
         {
-            var keyword = search.Trim();
+            var keyword = filter.Search.Trim();
             query = query.Where(item => 
                 EF.Functions.Like(item.Code, $"%{keyword}%") || 
                 EF.Functions.Like(item.Name, $"%{keyword}%") ||
                 (item.Description != null && EF.Functions.Like(item.Description, $"%{keyword}%")));
         }
 
+        if (filter.DuAnId.HasValue)
+        {
+            query = query.Where(item => item.DuAnId == filter.DuAnId.Value);
+        }
+
+        if (filter.GoiThauId.HasValue)
+        {
+            query = query.Where(item => item.GoiThauId == filter.GoiThauId.Value);
+        }
+
+        if (filter.ChuDauTuId.HasValue)
+        {
+            query = query.Where(item => item.ChuDauTuId == filter.ChuDauTuId.Value);
+        }
+
+        if (filter.NhaThauId.HasValue)
+        {
+            query = query.Where(item => item.NhaThauId == filter.NhaThauId.Value || item.NhaThauGoiThaus.Any(nt => nt.NhaThauId == filter.NhaThauId.Value));
+        }
+
+        if (filter.LoaiHopDong.HasValue)
+        {
+            query = query.Where(item => item.LoaiHopDong == filter.LoaiHopDong.Value);
+        }
+
+        if (filter.HinhThucThanhToan.HasValue)
+        {
+            query = query.Where(item => item.HinhThucThanhToan == filter.HinhThucThanhToan.Value);
+        }
+
+        if (filter.FromNgayHieuLuc.HasValue)
+        {
+            query = query.Where(item => item.NgayHieuLuc >= filter.FromNgayHieuLuc.Value);
+        }
+
+        if (filter.ToNgayHieuLuc.HasValue)
+        {
+            query = query.Where(item => item.NgayHieuLuc <= filter.ToNgayHieuLuc.Value);
+        }
+
+        if (filter.MinGiaTri.HasValue)
+        {
+            query = query.Where(item => item.GiaTriHopDong >= filter.MinGiaTri.Value);
+        }
+
+        if (filter.MaxGiaTri.HasValue)
+        {
+            query = query.Where(item => item.GiaTriHopDong <= filter.MaxGiaTri.Value);
+        }
+
         var totalItems = await query.CountAsync();
 
         List<HopDong> items;
-        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+        bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
 
         if (isKeyset)
         {

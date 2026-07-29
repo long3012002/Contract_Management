@@ -20,6 +20,7 @@ namespace demo1.Services.Interfaces
         Task<IEnumerable<RolePermissionDto>> GetRolePermissionsAsync(Guid roleId);
         Task UpdateRolePermissionsAsync(Guid roleId, List<UpdateRolePermissionDto> permissions);
         Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(string? search, int page, int pageSize);
+        Task<PagedResult<UserWithRolesDto>> GetUsersWithRolesAsync(UserFilterDto filter);
         Task<IEnumerable<Guid>> GetUserRolesAsync(Guid userId);
         Task UpdateUserRolesAsync(Guid userId, UserRolesUpdateDto dto);
         Task<PagedResult<AuditLog>> GetAuditLogsAsync(string? userId, DateTime? date, string? tableName, int page, int pageSize);

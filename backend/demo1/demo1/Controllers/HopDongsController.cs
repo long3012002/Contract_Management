@@ -15,6 +15,14 @@ public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDt
         _hopDongService = service;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<HopDongDto>>> GetAll([FromQuery] HopDongFilterDto filter)
+    {
+        var result = await _hopDongService.GetAllAsync(filter);
+        return Ok(result);
+    }
+
+
     [HttpPut("dot-thanh-toan/{dotThanhToanId:guid}/pay")]
     public async Task<IActionResult> ConfirmPayment(Guid dotThanhToanId)
     {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using AutoMapper;
 using demo1.Data;
 using demo1.DTOs;
@@ -15,23 +16,47 @@ namespace demo1.Services.Implements
     {
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
+        private readonly IMemoryCache _cache;
+        private const string CacheKeyAll = "PhongBan_All";
+        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
-        public PhongBanService(AppDbContext dbContext, IMapper mapper)
+        public PhongBanService(AppDbContext dbContext, IMapper mapper, IMemoryCache cache)
         {
             _dbContext = dbContext;
             _mapper = mapper;
+            _cache = cache;
+        }
+
+        private void InvalidateCache(Guid? id = null)
+        {
+            _cache.Remove(CacheKeyAll);
+            if (id.HasValue)
+            {
+                _cache.Remove($"PhongBan_{id.Value}");
+            }
         }
 
         public async Task<IEnumerable<PhongBanDto>> GetAllAsync()
         {
-            var items = await _dbContext.PhongBans.OrderBy(pb => pb.TenPhongBan).ToListAsync();
-            return _mapper.Map<IEnumerable<PhongBanDto>>(items);
+            var cachedItems = await _cache.GetOrCreateAsync(CacheKeyAll, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+                var items = await _dbContext.PhongBans.OrderBy(pb => pb.TenPhongBan).ToListAsync();
+                return _mapper.Map<IEnumerable<PhongBanDto>>(items);
+            });
+
+            return cachedItems ?? Enumerable.Empty<PhongBanDto>();
         }
 
         public async Task<PhongBanDto?> GetByIdAsync(Guid id)
         {
-            var item = await _dbContext.PhongBans.FindAsync(id);
-            return item == null ? null : _mapper.Map<PhongBanDto>(item);
+            string cacheKey = $"PhongBan_{id}";
+            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+                var item = await _dbContext.PhongBans.FindAsync(id);
+                return item == null ? null : _mapper.Map<PhongBanDto>(item);
+            });
         }
 
         public async Task<PhongBanDto> CreateAsync(CreatePhongBanDto dto)
@@ -55,6 +80,8 @@ namespace demo1.Services.Implements
 
             _dbContext.PhongBans.Add(item);
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache();
             return _mapper.Map<PhongBanDto>(item);
         }
 
@@ -66,6 +93,7 @@ namespace demo1.Services.Implements
                 var created = await CreateAsync(dto);
                 result.Add(created);
             }
+            InvalidateCache();
             return result;
         }
 
@@ -90,6 +118,8 @@ namespace demo1.Services.Implements
 
             item.TenPhongBan = dto.TenPhongBan.Trim();
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache(id);
             return true;
         }
 
@@ -111,6 +141,8 @@ namespace demo1.Services.Implements
 
             _dbContext.PhongBans.Remove(item);
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache(id);
             return true;
         }
     }

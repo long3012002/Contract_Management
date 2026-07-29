@@ -8,7 +8,17 @@ namespace demo1.Controllers;
 [FeatureAuthorize("BID_PACKAGE")] // Keep BID_PACKAGE feature code for authorization purposes
 public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDto, UpdateGoiThauDto>
 {
+    private readonly IGoiThauService _goiThauService;
+
     public GoiThausController(IGoiThauService service) : base(service)
     {
+        _goiThauService = service;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<GoiThauDto>>> GetAll([FromQuery] GoiThauFilterDto filter)
+    {
+        var result = await _goiThauService.GetAllAsync(filter);
+        return Ok(result);
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using AutoMapper;
 using demo1.Data;
 using demo1.DTOs;
@@ -15,23 +16,47 @@ namespace demo1.Services.Implements
     {
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
+        private readonly IMemoryCache _cache;
+        private const string CacheKeyAll = "ChucVu_All";
+        private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
 
-        public ChucVuService(AppDbContext dbContext, IMapper mapper)
+        public ChucVuService(AppDbContext dbContext, IMapper mapper, IMemoryCache cache)
         {
             _dbContext = dbContext;
             _mapper = mapper;
+            _cache = cache;
+        }
+
+        private void InvalidateCache(Guid? id = null)
+        {
+            _cache.Remove(CacheKeyAll);
+            if (id.HasValue)
+            {
+                _cache.Remove($"ChucVu_{id.Value}");
+            }
         }
 
         public async Task<IEnumerable<ChucVuDto>> GetAllAsync()
         {
-            var items = await _dbContext.ChucVus.OrderBy(cv => cv.TenChucVu).ToListAsync();
-            return _mapper.Map<IEnumerable<ChucVuDto>>(items);
+            var cachedItems = await _cache.GetOrCreateAsync(CacheKeyAll, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+                var items = await _dbContext.ChucVus.OrderBy(cv => cv.TenChucVu).ToListAsync();
+                return _mapper.Map<IEnumerable<ChucVuDto>>(items);
+            });
+
+            return cachedItems ?? Enumerable.Empty<ChucVuDto>();
         }
 
         public async Task<ChucVuDto?> GetByIdAsync(Guid id)
         {
-            var item = await _dbContext.ChucVus.FindAsync(id);
-            return item == null ? null : _mapper.Map<ChucVuDto>(item);
+            string cacheKey = $"ChucVu_{id}";
+            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = CacheDuration;
+                var item = await _dbContext.ChucVus.FindAsync(id);
+                return item == null ? null : _mapper.Map<ChucVuDto>(item);
+            });
         }
 
         public async Task<ChucVuDto> CreateAsync(CreateChucVuDto dto)
@@ -66,6 +91,8 @@ namespace demo1.Services.Implements
 
             _dbContext.ChucVus.Add(item);
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache();
             return _mapper.Map<ChucVuDto>(item);
         }
 
@@ -77,6 +104,7 @@ namespace demo1.Services.Implements
                 var created = await CreateAsync(dto);
                 result.Add(created);
             }
+            InvalidateCache();
             return result;
         }
 
@@ -119,6 +147,8 @@ namespace demo1.Services.Implements
             item.Code = dto.Code?.Trim() ?? string.Empty;
             item.Level = dto.Level;
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache(id);
             return true;
         }
 
@@ -147,6 +177,8 @@ namespace demo1.Services.Implements
 
             _dbContext.ChucVus.Remove(item);
             await _dbContext.SaveChangesAsync();
+
+            InvalidateCache(id);
             return true;
         }
     }
