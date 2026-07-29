@@ -159,6 +159,36 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
+            // XuatXu mappings
+            CreateMap<XuatXu, XuatXuDto>();
+            CreateMap<CreateXuatXuDto, XuatXu>();
+            CreateMap<UpdateXuatXuDto, XuatXu>();
+
+            // DonViTinh mappings
+            CreateMap<DonViTinh, DonViTinhDto>();
+            CreateMap<CreateDonViTinhDto, DonViTinh>();
+            CreateMap<UpdateDonViTinhDto, DonViTinh>();
+
+            // HangSanXuat mappings
+            CreateMap<HangSanXuat, HangSanXuatDto>();
+            CreateMap<CreateHangSanXuatDto, HangSanXuat>();
+            CreateMap<UpdateHangSanXuatDto, HangSanXuat>();
+
+            // HangHoa mappings
+            CreateMap<HangHoa, demo1.DTOs.HangHoa.HangHoaDto>()
+                .ForMember(dest => dest.TenXuatXu, opt => opt.MapFrom(src => src.XuatXu != null ? src.XuatXu.Name : null))
+                .ForMember(dest => dest.TenHangSanXuat, opt => opt.MapFrom(src => src.HangSanXuat != null ? src.HangSanXuat.Name : null))
+                .ForMember(dest => dest.TenLicense, opt => opt.MapFrom(src => src.License != null ? src.License.Name : null))
+                .ForMember(dest => dest.TenDonViTinh, opt => opt.MapFrom(src => src.DonViTinh != null ? src.DonViTinh.Name : null));
+            CreateMap<demo1.DTOs.HangHoa.CreateHangHoaDto, HangHoa>();
+            CreateMap<demo1.DTOs.HangHoa.UpdateHangHoaDto, HangHoa>();
+
+            // DichVu mappings
+            CreateMap<DichVu, demo1.DTOs.DichVu.DichVuDto>()
+                .ForMember(dest => dest.TenDonViTinh, opt => opt.MapFrom(src => src.DonViTinh != null ? src.DonViTinh.Name : null));
+            CreateMap<demo1.DTOs.DichVu.CreateDichVuDto, DichVu>();
+            CreateMap<demo1.DTOs.DichVu.UpdateDichVuDto, DichVu>();
+
             // CongViecGoiThau mappings
             CreateMap<CongViecNguoiLienQuan, CongViecNguoiLienQuanDto>()
                 .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User != null ? src.User.Username : null))

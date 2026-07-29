@@ -114,6 +114,16 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.DotThanhToans)
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau)
+            .Include(h => h.HangHoas)
+                .ThenInclude(hh => hh.DonViTinh)
+            .Include(h => h.HangHoas)
+                .ThenInclude(hh => hh.XuatXu)
+            .Include(h => h.HangHoas)
+                .ThenInclude(hh => hh.HangSanXuat)
+            .Include(h => h.HangHoas)
+                .ThenInclude(hh => hh.License)
+            .Include(h => h.DichVus)
+                .ThenInclude(dv => dv.DonViTinh)
             .FirstOrDefaultAsync(h => h.Id == id);
         return entity is null ? null : Mapper.Map<HopDongDto>(entity);
     }

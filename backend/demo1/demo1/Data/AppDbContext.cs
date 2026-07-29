@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using demo1.Entity;
+using demo1.Entity.DanhMuc;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using demo1.Services.Interfaces;
 using System.Threading;
@@ -46,6 +47,11 @@ namespace demo1.Data
         public DbSet<CommentMention> CommentMentions { get; set; } = null!;
         public DbSet<CongViecNguoiLienQuan> CongViecNguoiLienQuans { get; set; } = null!;
         public DbSet<CongViecLichSuChuyenTiep> CongViecLichSuChuyenTieps { get; set; } = null!;
+        public DbSet<HangHoa> HangHoas { get; set; } = null!;
+        public DbSet<DichVu> DichVus { get; set; } = null!;
+        public DbSet<XuatXu> XuatXus { get; set; } = null!;
+        public DbSet<DonViTinh> DonViTinhs { get; set; } = null!;
+        public DbSet<HangSanXuat> HangSanXuats { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -496,6 +502,70 @@ namespace demo1.Data
                     .WithMany()
                     .HasForeignKey(m => m.MentionedUserId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure Catalog entities
+            modelBuilder.Entity<XuatXu>(entity => ConfigureBaseEntity(entity));
+            modelBuilder.Entity<DonViTinh>(entity => ConfigureBaseEntity(entity));
+            modelBuilder.Entity<HangSanXuat>(entity => ConfigureBaseEntity(entity));
+
+            // Configure HangHoa entity
+            modelBuilder.Entity<HangHoa>(entity =>
+            {
+                entity.HasKey(h => h.Id);
+
+                entity.Property(h => h.DonGia)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.Property(h => h.ThanhTien)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.HasOne(h => h.XuatXu)
+                    .WithMany()
+                    .HasForeignKey(h => h.IdXuatXu)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(h => h.HangSanXuat)
+                    .WithMany()
+                    .HasForeignKey(h => h.IdHangSanXuat)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(h => h.License)
+                    .WithMany()
+                    .HasForeignKey(h => h.IdLicense)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(h => h.DonViTinh)
+                    .WithMany()
+                    .HasForeignKey(h => h.IdDonViTinh)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne<HopDong>()
+                    .WithMany(h => h.HangHoas)
+                    .HasForeignKey(h => h.IdParent)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure DichVu entity
+            modelBuilder.Entity<DichVu>(entity =>
+            {
+                entity.HasKey(d => d.Id);
+
+                entity.Property(d => d.DonGia)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.Property(d => d.ThanhTien)
+                    .HasColumnType("decimal(18,2)");
+
+                entity.HasOne(d => d.DonViTinh)
+                    .WithMany()
+                    .HasForeignKey(d => d.IdDonViTinh)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne<HopDong>()
+                    .WithMany(h => h.DichVus)
+                    .HasForeignKey(d => d.IdParent)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
 

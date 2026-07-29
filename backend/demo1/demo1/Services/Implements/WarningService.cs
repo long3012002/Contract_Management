@@ -105,4 +105,65 @@ public class WarningService : IWarningService
             })
             .ToList();
     }
+
+    public async Task<List<LicenseWarningDto>> GetLicensesExpiringSoonAsync()
+    {
+        var today = DateTime.Today;
+
+        var licenses = await _dbContext.Licenses
+            .AsNoTracking()
+            .Include(l => l.DuAn)
+            .Include(l => l.HopDong)
+            .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
+            .ToListAsync();
+
+        return licenses
+            .Where(l =>
+            {
+                var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
+                return daysRemaining <= l.CanhBaoTruocNgay && daysRemaining >= 0;
+            })
+            .Select(l => new LicenseWarningDto
+            {
+                LicenseId = l.Id,
+                Code = l.Code,
+                Name = l.Name,
+                DuAnName = l.DuAn != null ? l.DuAn.Name : null,
+                HopDongName = l.HopDong != null ? l.HopDong.Name : null,
+                NgayKetThuc = l.NgayKetThuc,
+                DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
+                CanhBaoTruocNgay = l.CanhBaoTruocNgay,
+                WarningMessage = $"License sắp hết hạn trong {(l.NgayKetThuc!.Value.Date - today).Days} ngày."
+            })
+            .OrderBy(l => l.DaysRemaining)
+            .ToList();
+    }
+
+    public async Task<List<LicenseWarningDto>> GetExpiredLicensesAsync()
+    {
+        var today = DateTime.Today;
+
+        var licenses = await _dbContext.Licenses
+            .AsNoTracking()
+            .Include(l => l.DuAn)
+            .Include(l => l.HopDong)
+            .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue && l.NgayKetThuc.Value.Date < today.Date)
+            .ToListAsync();
+
+        return licenses
+            .Select(l => new LicenseWarningDto
+            {
+                LicenseId = l.Id,
+                Code = l.Code,
+                Name = l.Name,
+                DuAnName = l.DuAn != null ? l.DuAn.Name : null,
+                HopDongName = l.HopDong != null ? l.HopDong.Name : null,
+                NgayKetThuc = l.NgayKetThuc,
+                DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
+                CanhBaoTruocNgay = l.CanhBaoTruocNgay,
+                WarningMessage = "License đã quá hạn sử dụng."
+            })
+            .OrderBy(l => l.DaysRemaining)
+            .ToList();
+    }
 }

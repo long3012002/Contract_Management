@@ -7,4 +7,6 @@ public interface IWarningService
     Task<List<ContractWarningDto>> GetContractsExpiringSoonAsync();
     Task<List<ContractWarningDto>> GetExpiredContractsAsync();
     Task<List<BudgetWarningDto>> GetOverBudgetContractsAsync();
+    Task<List<LicenseWarningDto>> GetLicensesExpiringSoonAsync();
+    Task<List<LicenseWarningDto>> GetExpiredLicensesAsync();
 }

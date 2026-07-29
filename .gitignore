@@ -21,6 +21,12 @@ bld/
 [Log]/
 [Log]s/
 
+# Compiled binaries and publish output
+*.dll
+*.exe
+*.pdb
+publish/
+
 # Visual Studio 2015/2017/2019/2022 cache directory
 .vs/
 

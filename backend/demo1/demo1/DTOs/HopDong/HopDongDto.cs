@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using demo1.DTOs.HangHoa;
+using demo1.DTOs.DichVu;
 
 namespace demo1.DTOs;
 
@@ -35,6 +37,8 @@ public class HopDongDto : IHasId
 
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
+    public List<HangHoaDto> HangHoas { get; set; } = new();
+    public List<DichVuDto> DichVus { get; set; } = new();
 
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

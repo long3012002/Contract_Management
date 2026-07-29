@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,20 @@ public class WarningsController : ControllerBase
     public async Task<IActionResult> GetOverBudgetContracts()
     {
         var result = await _service.GetOverBudgetContractsAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("licenses-expiring-soon")]
+    public async Task<IActionResult> GetLicensesExpiringSoon()
+    {
+        var result = await _service.GetLicensesExpiringSoonAsync();
+        return Ok(result);
+    }
+
+    [HttpGet("expired-licenses")]
+    public async Task<IActionResult> GetExpiredLicenses()
+    {
+        var result = await _service.GetExpiredLicensesAsync();
         return Ok(result);
     }
 }

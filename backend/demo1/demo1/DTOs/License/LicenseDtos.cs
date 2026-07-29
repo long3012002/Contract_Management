@@ -38,6 +38,7 @@ public class LicenseDto : IHasId
     public string? ThongTinThietBi { get; set; }
 
     public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
     public DateTime? NgayKetThuc { get; set; }
 
     public int CanhBaoTruocNgay { get; set; } = 30;
@@ -80,6 +81,7 @@ public class CreateLicenseDto
     public string? ThongTinThietBi { get; set; }
 
     public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
     public DateTime? NgayKetThuc { get; set; }
 
     public int CanhBaoTruocNgay { get; set; } = 30;
@@ -101,6 +103,7 @@ public class UpdateLicenseDto
     public string? ThongTinThietBi { get; set; }
 
     public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
     public DateTime? NgayKetThuc { get; set; }
 
     public int CanhBaoTruocNgay { get; set; } = 30;

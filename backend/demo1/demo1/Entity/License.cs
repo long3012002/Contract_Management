@@ -22,6 +22,7 @@ public class License : BaseEntity
     public string? ThongTinThietBi { get; set; }
 
     public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
     public DateTime? NgayKetThuc { get; set; }
 
     // Alert threshold in days before expiration (default 30 days)

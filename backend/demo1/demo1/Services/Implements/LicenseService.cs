@@ -270,6 +270,7 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             entity.Code = $"LIC-{DateTime.Now:yyyyMMdd}-{entity.Id.ToString().Substring(0, 4).ToUpper()}";
         }
 
+        CalculateEndAndDuration(entity);
         entity.TrangThai = RecalculateStatus(entity);
 
         await DbSet.AddAsync(entity);
@@ -312,9 +313,69 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
 
         Mapper.Map(dto, entity);
         entity.UpdatedAt = DateTime.UtcNow;
+        CalculateEndAndDuration(entity);
         entity.TrangThai = RecalculateStatus(entity);
 
         await DbContext.SaveChangesAsync();
         return true;
+    }
+
+    private static void CalculateEndAndDuration(License license)
+    {
+        if (license.LoaiLicense == 2)
+        {
+            license.NgayKetThuc = null;
+            license.ThoiHan = null;
+            return;
+        }
+
+        if (license.NgayBatDau.HasValue && !string.IsNullOrWhiteSpace(license.ThoiHan) && !license.NgayKetThuc.HasValue)
+        {
+            license.NgayKetThuc = CalculateEndDate(license.NgayBatDau.Value, license.ThoiHan);
+        }
+        else if (license.NgayBatDau.HasValue && license.NgayKetThuc.HasValue && string.IsNullOrWhiteSpace(license.ThoiHan))
+        {
+            var days = (license.NgayKetThuc.Value.Date - license.NgayBatDau.Value.Date).Days;
+            if (days >= 30 && days % 30 == 0)
+            {
+                var months = days / 30;
+                license.ThoiHan = $"{months} tháng";
+            }
+            else
+            {
+                license.ThoiHan = $"{days} ngày";
+            }
+        }
+    }
+
+    private static DateTime? CalculateEndDate(DateTime startDate, string durationStr)
+    {
+        durationStr = durationStr.Trim().ToLower();
+
+        if (int.TryParse(durationStr, out var num))
+        {
+            return startDate.AddMonths(num);
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(durationStr, @"\d+");
+        if (match.Success && int.TryParse(match.Value, out var val))
+        {
+            if (durationStr.Contains("ngày") || durationStr.Contains("day"))
+            {
+                return startDate.AddDays(val);
+            }
+            if (durationStr.Contains("tháng") || durationStr.Contains("month"))
+            {
+                return startDate.AddMonths(val);
+            }
+            if (durationStr.Contains("năm") || durationStr.Contains("year"))
+            {
+                return startDate.AddYears(val);
+            }
+
+            return startDate.AddMonths(val);
+        }
+
+        return null;
     }
 }

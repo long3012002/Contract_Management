@@ -173,6 +173,11 @@ public static class ServiceConfiguration
         services.AddScoped<IPhongBanService, PhongBanService>();
         services.AddScoped<IChucVuService, ChucVuService>();
         services.AddScoped<IDonViService, DonViService>();
+        services.AddScoped<IXuatXuService, XuatXuService>();
+        services.AddScoped<IDonViTinhService, DonViTinhService>();
+        services.AddScoped<IHangSanXuatService, HangSanXuatService>();
+        services.AddScoped<IHangHoaService, HangHoaService>();
+        services.AddScoped<IDichVuService, DichVuService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<TotpService>();
         services.AddSingleton<RadiusClient>(sp =>

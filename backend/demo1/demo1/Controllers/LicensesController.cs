@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using demo1.DTOs;
+using demo1.Entity.DanhMuc;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,6 +19,22 @@ public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDt
     public LicensesController(ILicenseService service) : base(service)
     {
         _licenseService = service;
+    }
+
+    [HttpGet("enums")]
+    public IActionResult GetLicenseEnums()
+    {
+        var loaiLicenseOptions = Enum.GetValues<LoaiLicense>()
+            .Select(e => new { Value = (int)e, Code = e.ToString(), Label = e.GetDisplayName() });
+
+        var trangThaiOptions = Enum.GetValues<TrangThaiLicense>()
+            .Select(e => new { Value = (int)e, Code = e.ToString(), Label = e.GetDisplayName() });
+
+        return Ok(new
+        {
+            LoaiLicenseOptions = loaiLicenseOptions,
+            TrangThaiOptions = trangThaiOptions
+        });
     }
 
     [HttpPost("single")]
