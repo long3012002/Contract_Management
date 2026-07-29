@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
-[Route("api/du-an")]
+/// <summary>
+/// API Quản lý Dự án (Thông tin Dự án, Điều chỉnh kinh phí, Chuyển giai đoạn, Đóng dự án, Tra cứu Gói thầu/Hợp đồng thuộc Dự án).
+/// </summary>
+[Route("api/NghiepVu/du-an")]
 [FeatureAuthorize("PROJECT")] // Keep PROJECT feature code for authorization purposes
 public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, UpdateDuAnDto>
 {
@@ -18,7 +21,19 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         _duAnService = service;
     }
 
+    /// <summary>
+    /// Điều chỉnh ngân sách/tổng mức đầu tư của dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <param name="dto">Thông tin kinh phí điều chỉnh, lý do và quyết định phê duyệt</param>
+    /// <returns>Thông tin lịch sử điều chỉnh kinh phí dự án</returns>
+    /// <response code="200">Điều chỉnh kinh phí thành công</response>
+    /// <response code="400">Số tiền hoặc lý do không hợp lệ</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpPost("{id}/dieu-chinh")]
+    [ProducesResponseType(typeof(DieuChinhDuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DieuChinhDuAnDto>> AdjustBudget(Guid id, [FromBody] CreateDieuChinhDuAnDto dto)
     {
         try
@@ -40,14 +55,32 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         }
     }
 
+    /// <summary>
+    /// Lấy danh sách lịch sử các lần điều chỉnh kinh phí của dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Danh sách các đợt điều chỉnh kinh phí</returns>
+    /// <response code="200">Lấy lịch sử điều chỉnh thành công</response>
     [HttpGet("{id}/dieu-chinh")]
+    [ProducesResponseType(typeof(IReadOnlyList<DieuChinhDuAnDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DieuChinhDuAnDto>>> GetAdjustments(Guid id)
     {
         var result = await _duAnService.GetAdjustmentsAsync(id);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Chuyển trạng thái dự án sang giai đoạn tiếp theo (vd: Chuẩn bị -> Thực hiện -> Hoàn thành).
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Thông tin dự án với trạng thái mới</returns>
+    /// <response code="200">Chuyển trạng thái thành công</response>
+    /// <response code="400">Dự án đã ở trạng thái cuối hoặc chưa đủ điều kiện chuyển</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpPost("{id}/advance-status")]
+    [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> AdvanceStatus(Guid id)
     {
         try
@@ -65,7 +98,16 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         }
     }
 
+    /// <summary>
+    /// Quyết toán và Đóng dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Thông tin dự án đã được đóng</returns>
+    /// <response code="200">Đóng dự án thành công</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpPost("{id}/close")]
+    [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> CloseProject(Guid id)
     {
         try
@@ -79,21 +121,42 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         }
     }
 
+    /// <summary>
+    /// Lấy danh sách các Gói thầu thuộc Dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Danh sách gói thầu thuộc dự án</returns>
+    /// <response code="200">Lấy danh sách gói thầu thành công</response>
     [HttpGet("{id}/goi-thau")]
+    [ProducesResponseType(typeof(IReadOnlyList<GoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<GoiThauDto>>> GetGoiThaus(Guid id)
     {
         var result = await _duAnService.GetGoiThausByProjectIdAsync(id);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Lấy danh sách các Hợp đồng thuộc Dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Danh sách hợp đồng thuộc dự án</returns>
+    /// <response code="200">Lấy danh sách hợp đồng thành công</response>
     [HttpGet("{id}/hop-dong")]
+    [ProducesResponseType(typeof(IReadOnlyList<HopDongDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<HopDongDto>>> GetHopDongs(Guid id)
     {
         var result = await _duAnService.GetHopDongsByProjectIdAsync(id);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Lấy danh sách Audit Log (nhật ký thay đổi) của Dự án.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Danh sách audit logs</returns>
+    /// <response code="200">Lấy audit logs thành công</response>
     [HttpGet("{id}/audit-log")]
+    [ProducesResponseType(typeof(IReadOnlyList<demo1.Entity.AuditLog>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<demo1.Entity.AuditLog>>> GetAuditLogs(Guid id)
     {
         var result = await _duAnService.GetAuditLogsByProjectIdAsync(id);

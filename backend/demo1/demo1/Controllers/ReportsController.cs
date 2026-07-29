@@ -11,8 +11,11 @@ using MiniExcelLibs;
 namespace demo1.Controllers;
 
 //[Authorize]
+/// <summary>
+/// API Báo cáo &amp; Thống kê (Báo cáo tổng mức đầu tư dự án, Tiến độ công việc gói thầu, Báo cáo theo dõi thanh toán hợp đồng và xuất Excel/CSV/HTML).
+/// </summary>
 [ApiController]
-[Route("api/report")]
+[Route("api/NghiepVu/report")]
 public class ReportsController : ControllerBase
 {
     private readonly IReportService _reportService;
@@ -22,7 +25,17 @@ public class ReportsController : ControllerBase
         _reportService = reportService;
     }
 
+    /// <summary>
+    /// Lấy dữ liệu báo cáo tổng hợp tình hình thực hiện đầu tư (dự án, gói thầu, hợp đồng).
+    /// </summary>
+    /// <param name="year">Năm báo cáo (mặc định: năm hiện tại)</param>
+    /// <param name="period">Kỳ báo cáo: 1 (6 tháng đầu năm), 2 (Cả năm)</param>
+    /// <returns>Bảng tổng hợp kinh phí đầu tư và danh sách chi tiết các dự án</returns>
+    /// <response code="200">Lấy dữ liệu báo cáo thành công</response>
+    /// <response code="400">Kỳ báo cáo không hợp lệ</response>
     [HttpGet("investment")]
+    [ProducesResponseType(typeof(ReportResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ReportResponseDto>> GetInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
@@ -43,7 +56,16 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Xuất file báo cáo đầu tư (Excel, CSV, HTML hoặc chuỗi mã hóa Base64).
+    /// </summary>
+    /// <param name="year">Năm báo cáo</param>
+    /// <param name="period">Kỳ báo cáo: 1 (6 tháng), 2 (1 năm)</param>
+    /// <param name="format">Định dạng xuất: xlsx, csv, html (mặc định: xlsx)</param>
+    /// <param name="base64">Trả về chuỗi Base64 thay vì download file trực tiếp</param>
+    /// <response code="200">Xuất file thành công</response>
     [HttpGet("investment/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string format = "xlsx", [FromQuery] bool base64 = false)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
@@ -103,7 +125,16 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Lấy báo cáo trình tự thực hiện các công việc thuộc Gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <returns>Danh sách các bước công việc, tiến độ thực hiện và văn bản liên quan</returns>
+    /// <response code="200">Lấy dữ liệu thành công</response>
+    /// <response code="404">Không tìm thấy gói thầu</response>
     [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}")]
+    [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CongViecGoiThauReportDto>> GetCongViecGoiThauReport(Guid idGoiThau)
     {
         try
@@ -121,7 +152,16 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Xuất file Excel báo cáo tiến độ công việc gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <param name="base64">Trả về dữ liệu Base64 thay vì file trực tiếp</param>
+    /// <response code="200">Xuất file Excel thành công</response>
+    /// <response code="404">Không tìm thấy gói thầu</response>
     [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ExportCongViecGoiThauReport(Guid idGoiThau, [FromQuery] bool base64 = false)
     {
         try
@@ -156,7 +196,16 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Lấy báo cáo theo dõi giải ngân / đợt thanh toán hợp đồng.
+    /// </summary>
+    /// <param name="year">Năm thanh toán</param>
+    /// <param name="loaiHopDong">Loại hợp đồng</param>
+    /// <param name="search">Từ khóa tìm kiếm</param>
+    /// <returns>Danh sách các đợt thanh toán hợp đồng và tổng hợp giá trị đã thanh toán</returns>
+    /// <response code="200">Lấy dữ liệu thành công</response>
     [HttpGet("contract-payments")]
+    [ProducesResponseType(typeof(ContractPaymentReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
         [FromQuery] int? year, 
         [FromQuery] int? loaiHopDong, 
@@ -175,7 +224,17 @@ public class ReportsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Xuất báo cáo theo dõi thanh toán hợp đồng (Excel, CSV, HTML).
+    /// </summary>
+    /// <param name="year">Năm thanh toán</param>
+    /// <param name="loaiHopDong">Loại hợp đồng</param>
+    /// <param name="search">Từ khóa tìm kiếm</param>
+    /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
+    /// <param name="base64">Trả về dạng mã hóa Base64</param>
+    /// <response code="200">Xuất file thành công</response>
     [HttpGet("contract-payments/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportContractPaymentReport(
         [FromQuery] int? year, 
         [FromQuery] int? loaiHopDong, 

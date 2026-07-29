@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
-[Route("api/doi-tac")]
+/// <summary>
+/// API Quản lý Danh mục Đối tác / Nhà thầu (Thông tin đối tác, Tìm kiếm, Thêm mới, Cập nhật, Xóa).
+/// </summary>
+[Route("api/DanhMuc/doi-tac")]
 [FeatureAuthorize("PARTNER")]
 public class DoiTacsController : CrudControllerBase<DoiTacDto, CreateDoiTacDto, UpdateDoiTacDto>
 {

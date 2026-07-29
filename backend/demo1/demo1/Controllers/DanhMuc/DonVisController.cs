@@ -8,9 +8,12 @@ using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
+    /// <summary>
+    /// API Quản lý Danh mục Đơn vị (Hội sở chính, Chi nhánh, Đơn vị thành viên).
+    /// </summary>
     [Authorize]
     [ApiController]
-    [Route("api/don-vi")]
+    [Route("api/DanhMuc/don-vi")]
     public class DonVisController : ControllerBase
     {
         private readonly IDonViService _donViService;
@@ -29,8 +32,13 @@ namespace demo1.Controllers
             return await _adminService.IsSystemAdminAsync(username);
         }
 
+        /// <summary>
+        /// Lấy tất cả danh sách Đơn vị trong hệ thống.
+        /// </summary>
+        /// <returns>Danh sách đơn vị</returns>
+        /// <response code="200">Lấy danh sách thành công</response>
         [HttpGet]
-        [ProducesResponseType(typeof(IEnumerable<DonViDto>), 200)]
+        [ProducesResponseType(typeof(IEnumerable<DonViDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {
             if (!await IsAdminAsync()) return Forbid();
@@ -38,8 +46,16 @@ namespace demo1.Controllers
             return Ok(items);
         }
 
+        /// <summary>
+        /// Lấy chi tiết thông tin Đơn vị theo ID.
+        /// </summary>
+        /// <param name="id">Mã định danh Đơn vị (GUID)</param>
+        /// <returns>Thông tin Đơn vị</returns>
+        /// <response code="200">Tìm thấy đơn vị</response>
+        /// <response code="404">Không tìm thấy đơn vị</response>
         [HttpGet("{id:guid}")]
-        [ProducesResponseType(typeof(DonViDto), 200)]
+        [ProducesResponseType(typeof(DonViDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById(Guid id)
         {
             if (!await IsAdminAsync()) return Forbid();
@@ -48,8 +64,14 @@ namespace demo1.Controllers
             return Ok(item);
         }
 
+        /// <summary>
+        /// Tạo mới một Đơn vị.
+        /// </summary>
+        /// <param name="dto">Thông tin đơn vị cần tạo</param>
+        /// <returns>Đơn vị vừa tạo</returns>
+        /// <response code="200">Tạo đơn vị thành công</response>
         [HttpPost]
-        [ProducesResponseType(typeof(DonViDto), 200)]
+        [ProducesResponseType(typeof(DonViDto), StatusCodes.Status200OK)]
         public async Task<IActionResult> Create([FromBody] CreateDonViDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
@@ -68,8 +90,14 @@ namespace demo1.Controllers
             }
         }
 
+        /// <summary>
+        /// Thêm mới danh sách Đơn vị hàng loạt.
+        /// </summary>
+        /// <param name="dtos">Danh sách Đơn vị</param>
+        /// <returns>Danh sách đơn vị vừa tạo</returns>
+        /// <response code="200">Tạo danh sách thành công</response>
         [HttpPost("bulk")]
-        [ProducesResponseType(typeof(IEnumerable<DonViDto>), 200)]
+        [ProducesResponseType(typeof(IEnumerable<DonViDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> CreateRange([FromBody] IEnumerable<CreateDonViDto> dtos)
         {
             if (!await IsAdminAsync()) return Forbid();
@@ -88,7 +116,16 @@ namespace demo1.Controllers
             }
         }
 
+        /// <summary>
+        /// Cập nhật thông tin Đơn vị theo ID.
+        /// </summary>
+        /// <param name="id">Mã định danh Đơn vị (GUID)</param>
+        /// <param name="dto">Dữ liệu cập nhật</param>
+        /// <response code="200">Cập nhật thành công</response>
+        /// <response code="404">Không tìm thấy đơn vị</response>
         [HttpPut("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDonViDto dto)
         {
             if (!await IsAdminAsync()) return Forbid();
@@ -108,7 +145,15 @@ namespace demo1.Controllers
             }
         }
 
+        /// <summary>
+        /// Xóa Đơn vị theo ID.
+        /// </summary>
+        /// <param name="id">Mã định danh Đơn vị (GUID)</param>
+        /// <response code="200">Xóa thành công</response>
+        /// <response code="404">Không tìm thấy đơn vị</response>
         [HttpDelete("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Delete(Guid id)
         {
             if (!await IsAdminAsync()) return Forbid();

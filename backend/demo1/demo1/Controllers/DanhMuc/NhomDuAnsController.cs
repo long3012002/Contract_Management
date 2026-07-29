@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
-[Route("api/nhom-du-an")]
+/// <summary>
+/// API Quản lý Danh mục Nhóm Dự án (vd: Nhóm A, Nhóm B, Nhóm C theo quy định đầu tư công).
+/// </summary>
+[Route("api/DanhMuc/nhom-du-an")]
 [FeatureAuthorize("PROJECT")]
 public class NhomDuAnsController : CrudControllerBase<NhomDuAnDto, CreateNhomDuAnDto, UpdateNhomDuAnDto>
 {

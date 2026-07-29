@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
-[Route("api/cong-viec-goi-thau")]
+/// <summary>
+/// API Quản lý Công việc Gói thầu (Danh sách công việc trình tự, Xác nhận hoàn thành, Chuyển tiếp công việc và Lịch sử).
+/// </summary>
+[Route("api/NghiepVu/cong-viec-goi-thau")]
 [FeatureAuthorize("BID_PACKAGE")]
 public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto, CreateCongViecGoiThauDto, UpdateCongViecGoiThauDto>
 {
@@ -18,14 +21,32 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
         _congViecGoiThauService = service;
     }
 
+    /// <summary>
+    /// Lấy toàn bộ danh sách Công việc thuộc một Gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <returns>Danh sách công việc gói thầu</returns>
+    /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("by-goi-thau/{idGoiThau:guid}")]
+    [ProducesResponseType(typeof(IEnumerable<CongViecGoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CongViecGoiThauDto>>> GetByGoiThauId(Guid idGoiThau)
     {
         var result = await _congViecGoiThauService.GetByParentIdAsync(idGoiThau);
         return Ok(result);
     }
 
+    /// <summary>
+    /// Lấy danh sách Công việc thuộc Gói thầu hỗ trợ phân trang và tìm kiếm.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <param name="search">Từ khóa tìm kiếm (tùy chọn)</param>
+    /// <param name="page">Trang hiện tại (Mặc định: 1)</param>
+    /// <param name="pageSize">Số lượng bản ghi trên một trang (Mặc định: 20)</param>
+    /// <param name="cursor">Con trỏ phân trang (tùy chọn)</param>
+    /// <returns>Danh sách công việc phân trang</returns>
+    /// <response code="200">Lấy danh sách phân trang thành công</response>
     [HttpGet("by-goi-thau/{idGoiThau:guid}/paged")]
+    [ProducesResponseType(typeof(PagedResult<CongViecGoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<CongViecGoiThauDto>>> GetByGoiThauIdPaged(
         Guid idGoiThau,
         [FromQuery] string? search,
@@ -37,21 +58,46 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
         return Ok(result);
     }
 
+    /// <summary>
+    /// Xóa toàn bộ danh sách Công việc thuộc một Gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <response code="204">Xóa thành công (No Content)</response>
+    /// <response code="404">Không tìm thấy công việc thuộc gói thầu</response>
     [HttpDelete("by-goi-thau/{idGoiThau:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteByGoiThauId(Guid idGoiThau)
     {
         var success = await _congViecGoiThauService.DeleteByParentIdAsync(idGoiThau);
         return success ? NoContent() : NotFound(new { message = $"Không tìm thấy công việc nào cho gói thầu '{idGoiThau}'." });
     }
 
+    /// <summary>
+    /// Lấy Báo cáo tình hình tiến độ và hoàn thành công việc của Gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <returns>Báo cáo tiến độ công việc gói thầu</returns>
+    /// <response code="200">Lấy báo cáo thành công</response>
     [HttpGet("by-goi-thau/{idGoiThau:guid}/report")]
+    [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CongViecGoiThauReportDto>> GetReport(Guid idGoiThau)
     {
         var report = await _congViecGoiThauService.GetReportByGoiThauIdAsync(idGoiThau);
         return Ok(report);
     }
 
+    /// <summary>
+    /// Xác nhận hoàn thành một bước Công việc trong Gói thầu.
+    /// </summary>
+    /// <param name="id">Mã định danh Công việc (GUID)</param>
+    /// <param name="context">DbContext injection</param>
+    /// <param name="currentUserService">Dịch vụ người dùng hiện tại</param>
+    /// <response code="200">Xác nhận công việc thành công</response>
+    /// <response code="400">Không có quyền xác nhận hoặc dữ liệu không hợp lệ</response>
     [HttpPost("{id:guid}/xac-nhan")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ConfirmCongViec(
         Guid id,
         [FromServices] demo1.Data.AppDbContext context,
@@ -67,7 +113,18 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
         return Ok(new { message = "Xác nhận công việc thành công." });
     }
 
+    /// <summary>
+    /// Chuyển tiếp công việc cho các cá nhân / nhân sự liên quan khác xử lý.
+    /// </summary>
+    /// <param name="id">Mã định danh Công việc (GUID)</param>
+    /// <param name="body">Danh sách UserIds hoặc DTO thông tin chuyển tiếp kèm ghi chú</param>
+    /// <param name="context">DbContext injection</param>
+    /// <param name="currentUserService">Dịch vụ người dùng hiện tại</param>
+    /// <response code="200">Chuyển tiếp công việc thành công</response>
+    /// <response code="400">Danh sách người nhận không hợp lệ</response>
     [HttpPost("{id:guid}/forward")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ForwardStakeholders(
         Guid id,
         [FromBody] System.Text.Json.JsonElement body,
@@ -111,7 +168,14 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
         return Ok(new { message });
     }
 
+    /// <summary>
+    /// Lấy Lịch sử Chuyển tiếp công việc theo ID Công việc.
+    /// </summary>
+    /// <param name="id">Mã định danh Công việc (GUID)</param>
+    /// <returns>Danh sách lịch sử chuyển tiếp</returns>
+    /// <response code="200">Lấy lịch sử thành công</response>
     [HttpGet("{id:guid}/forward-history")]
+    [ProducesResponseType(typeof(List<CongViecLichSuChuyenTiepDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<CongViecLichSuChuyenTiepDto>>> GetForwardHistory(Guid id)
     {
         var history = await _congViecGoiThauService.GetForwardHistoryAsync(id);

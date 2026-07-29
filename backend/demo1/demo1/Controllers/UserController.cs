@@ -12,23 +12,38 @@ using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
+    /// <summary>
+    /// API Quản lý Người dùng (Danh sách Người dùng, Import Excel, Tải mẫu Import, Cập nhật và Xóa hàng loạt).
+    /// </summary>
     [Authorize]
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/HeThong/user")]
     public class UserController(IUserService userService, IAdminService adminService) : ControllerBase
     {
-        // 0. Hàm Lấy danh sách người dùng (Get Users with Pagination, Search & Filter)
+        /// <summary>
+        /// Lấy danh sách người dùng kèm vai trò (Phân trang, Tìm kiếm, Lọc theo Phòng ban/Đơn vị).
+        /// </summary>
+        /// <param name="filter">Bộ lọc danh sách người dùng</param>
+        /// <returns>Danh sách người dùng phân trang</returns>
+        /// <response code="200">Lấy danh sách người dùng thành công</response>
         [HttpGet]
         [HttpGet("list")]
-        [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), 200)]
+        [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
         {
             var result = await adminService.GetUsersWithRolesAsync(filter);
             return Ok(result);
         }
 
-        // 1. Hàm Thêm/Cập nhật nhiều (Bulk Upsert Users)
+        /// <summary>
+        /// Thêm mới hoặc cập nhật hàng loạt người dùng từ danh sách DTO.
+        /// </summary>
+        /// <param name="dtos">Danh sách dữ liệu người dùng</param>
+        /// <response code="200">Import/Tạo mới thành công</response>
+        /// <response code="400">Dữ liệu đầu vào hoặc lỗi danh sách</response>
         [HttpPost("bulk-create")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> AddMultiple([FromBody] List<CreateUserDto> dtos)
         {
             if (dtos == null || !dtos.Any())
@@ -45,9 +60,16 @@ namespace demo1.Controllers
             return Ok(result);
         }
 
-        // 1b. Hàm Import từ Excel
+        /// <summary>
+        /// Import danh sách người dùng từ file Excel (.xlsx, .xls).
+        /// </summary>
+        /// <param name="file">File Excel chứa thông tin người dùng</param>
+        /// <response code="200">Import file Excel thành công</response>
+        /// <response code="400">File không đúng định dạng hoặc dữ liệu không hợp lệ</response>
         [HttpPost("import-excel")]
         [Consumes("multipart/form-data")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ImportExcel(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -129,8 +151,13 @@ namespace demo1.Controllers
             }
         }
 
-        // 1c. Hàm Tải File Mẫu Excel Import Người Dùng
+        /// <summary>
+        /// Tải xuống file mẫu Excel để Import danh sách Người dùng.
+        /// </summary>
+        /// <returns>File Excel (.xlsx)</returns>
+        /// <response code="200">Tải file mẫu thành công</response>
         [HttpGet("import-template")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public IActionResult DownloadImportTemplate()
         {
             var templateData = new[]
@@ -174,8 +201,16 @@ namespace demo1.Controllers
             );
         }
 
-        // 1d. Hàm Cập nhật người dùng (Update Single User)
+        /// <summary>
+        /// Cập nhật thông tin chi tiết một người dùng theo ID.
+        /// </summary>
+        /// <param name="id">Mã định danh Người dùng (GUID)</param>
+        /// <param name="dto">Thông tin cập nhật</param>
+        /// <response code="200">Cập nhật thành công</response>
+        /// <response code="404">Không tìm thấy người dùng</response>
         [HttpPut("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserDto dto)
         {
             if (dto == null)
@@ -202,8 +237,15 @@ namespace demo1.Controllers
             }
         }
 
-        // 2. Hàm Xoá nhiều (Bulk Delete Users)
+        /// <summary>
+        /// Xóa hàng loạt người dùng theo danh sách ID (GUID).
+        /// </summary>
+        /// <param name="ids">Danh sách GUID người dùng cần xóa</param>
+        /// <response code="200">Xóa thành công</response>
+        /// <response code="404">Không tìm thấy người dùng phù hợp để xóa</response>
         [HttpDelete("bulk-delete")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
         {
             if (ids == null || !ids.Any())

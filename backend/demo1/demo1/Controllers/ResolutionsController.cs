@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
 
-[Route("api/resolutions")]
+/// <summary>
+/// API Quản lý Quyết định / Nghị quyết (Thông tin quyết định phê duyệt dự án, gói thầu, hợp đồng).
+/// </summary>
+[Route("api/NghiepVu/resolutions")]
 [FeatureAuthorize("RESOLUTION")]
 public class ResolutionsController : CrudControllerBase<ResolutionDto, CreateResolutionDto, UpdateResolutionDto>
 {

@@ -75,7 +75,55 @@ public static class ServiceConfiguration
         });
 
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
+        services.AddSwaggerGen(c =>
+        {
+            c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+            {
+                Title = "CoopBank Contract Management API",
+                Version = "v1",
+                Description = "Hệ thống API đặc tả & Quản lý Hợp đồng, Gói thầu, Dự án - Ngân hàng Hợp tác xã Việt Nam (CoopBank)",
+                Contact = new Microsoft.OpenApi.Models.OpenApiContact
+                {
+                    Name = "CoopBank IT Team",
+                    Email = "support@coopbank.vn"
+                }
+            });
+
+            // Xử lý xung đột route trùng lặp giữa CrudControllerBase và Controller kế thừa
+            c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+            c.CustomSchemaIds(type => type.FullName ?? type.Name);
+
+            c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Description = "JWT Authorization header sử dụng chuẩn Bearer. Ví dụ: \"Bearer {token}\"",
+                Name = "Authorization",
+                In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                Scheme = "Bearer"
+            });
+
+            c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+            {
+                {
+                    new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                    {
+                        Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                        {
+                            Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            });
+
+            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+            }
+        });
 
         var jwtSettings = configuration.GetSection("JwtSettings");
         var secretKey = jwtSettings["SecretKey"] ?? "Chuoi_Bi_Mat_Sieu_Manh_Voi_Do_Dai_Toi_Thieu_32_Ky_Tu_!!!";

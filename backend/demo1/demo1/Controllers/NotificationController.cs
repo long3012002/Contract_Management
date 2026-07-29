@@ -12,9 +12,12 @@ using demo1.DTOs;
 
 namespace demo1.Controllers
 {
+    /// <summary>
+    /// API Thông báo Cá nhân (Xem danh sách thông báo, Đánh dấu đã đọc một hoặc tất cả thông báo).
+    /// </summary>
     [Authorize]
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/HeThong/notification")]
     public class NotificationController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
@@ -33,8 +36,16 @@ namespace demo1.Controllers
             return await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
         }
 
-        // 1. GET: api/notification
+        /// <summary>
+        /// Lấy danh sách thông báo của người dùng đăng nhập hiện tại (Có bộ lọc phân trang, tìm kiếm, lọc chưa đọc/đã đọc).
+        /// </summary>
+        /// <param name="filter">Bộ lọc danh sách thông báo</param>
+        /// <returns>Danh sách thông báo phân trang</returns>
+        /// <response code="200">Lấy thông báo thành công</response>
+        /// <response code="401">Chưa xác thực hoặc tài khoản bị khóa</response>
         [HttpGet]
+        [ProducesResponseType(typeof(PagedResult<NotificationDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<PagedResult<NotificationDto>>> GetNotifications([FromQuery] NotificationFilterDto filter)
         {
             var user = await GetCurrentUserAsync();
@@ -100,8 +111,15 @@ namespace demo1.Controllers
             return Ok(result);
         }
 
-        // 2. PUT: api/notification/{id}/read
+        /// <summary>
+        /// Đánh dấu một thông báo cụ thể theo ID là đã đọc.
+        /// </summary>
+        /// <param name="id">Mã định danh Thông báo (GUID)</param>
+        /// <response code="200">Đánh dấu thành công</response>
+        /// <response code="404">Không tìm thấy thông báo</response>
         [HttpPut("{id}/read")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> MarkAsRead(Guid id)
         {
             var user = await GetCurrentUserAsync();
@@ -124,13 +142,17 @@ namespace demo1.Controllers
             return Ok(new { Message = "Đã đánh dấu thông báo là đã đọc." });
         }
 
-        // 3. PUT/POST: api/notification/read-all, api/notification/ConfirmAll, api/notification/confirm-all
+        /// <summary>
+        /// Đánh dấu tất cả thông báo của người dùng hiện tại là đã đọc.
+        /// </summary>
+        /// <response code="200">Đánh dấu toàn bộ thông báo là đã đọc thành công</response>
         [HttpPut("read-all")]
         [HttpPost("read-all")]
         [HttpPut("confirm-all")]
         [HttpPost("confirm-all")]
         [HttpPut("ConfirmAll")]
         [HttpPost("ConfirmAll")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> MarkAllAsRead()
         {
             var user = await GetCurrentUserAsync();
