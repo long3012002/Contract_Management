@@ -33,8 +33,9 @@ public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDt
     }
 
     /// <summary>
-    /// Phương thức cơ sở từ CrudControllerBase được ẩn khỏi Swagger API Explorer để tránh xung đột route.
+    /// Phương thức cơ sở từ CrudControllerBase được vô hiệu hóa khỏi Routing và Swagger API Explorer để tránh xung đột route.
     /// </summary>
+    [NonAction]
     [ApiExplorerSettings(IgnoreApi = true)]
     public override Task<ActionResult<PagedResult<GoiThauDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null)
     {
