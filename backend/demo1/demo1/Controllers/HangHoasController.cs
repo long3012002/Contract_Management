@@ -28,7 +28,7 @@ public class HangHoasController : CrudControllerBase<HangHoaDto, CreateHangHoaDt
     /// <param name="idParent">Mã định danh đối tượng cha (GUID)</param>
     /// <returns>Danh sách hàng hóa</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet("by-parent/{idParent:guid}")]
+    [HttpGet("{idParent:guid}")]
     [ProducesResponseType(typeof(IEnumerable<HangHoaDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<HangHoaDto>>> GetByIdParent(Guid idParent)
     {

@@ -14,7 +14,6 @@ namespace demo1.Controllers;
 /// <typeparam name="TUpdateDto">Kiểu DTO cập nhật dữ liệu</typeparam>
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
 public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : ControllerBase
     where TDto : IHasId
 {

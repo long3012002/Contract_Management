@@ -27,7 +27,6 @@ namespace demo1.Controllers
         /// <returns>Danh sách người dùng phân trang</returns>
         /// <response code="200">Lấy danh sách người dùng thành công</response>
         [HttpGet]
-        [HttpGet("list")]
         [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
         {

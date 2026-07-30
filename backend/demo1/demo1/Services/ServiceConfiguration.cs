@@ -89,8 +89,6 @@ public static class ServiceConfiguration
                 }
             });
 
-            // Xử lý xung đột route trùng lặp giữa CrudControllerBase và Controller kế thừa
-            c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
             c.CustomSchemaIds(type => type.FullName ?? type.Name);
 
             c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme

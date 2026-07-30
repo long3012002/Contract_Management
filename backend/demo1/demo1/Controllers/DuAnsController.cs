@@ -30,7 +30,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <response code="200">Điều chỉnh kinh phí thành công</response>
     /// <response code="400">Số tiền hoặc lý do không hợp lệ</response>
     /// <response code="404">Không tìm thấy dự án</response>
-    [HttpPost("{id}/dieu-chinh")]
+    [HttpPost("{id:guid}/dieu-chinh")]
     [ProducesResponseType(typeof(DieuChinhDuAnDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -61,7 +61,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách các đợt điều chỉnh kinh phí</returns>
     /// <response code="200">Lấy lịch sử điều chỉnh thành công</response>
-    [HttpGet("{id}/dieu-chinh")]
+    [HttpGet("{id:guid}/dieu-chinh")]
     [ProducesResponseType(typeof(IReadOnlyList<DieuChinhDuAnDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DieuChinhDuAnDto>>> GetAdjustments(Guid id)
     {
@@ -77,7 +77,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <response code="200">Chuyển trạng thái thành công</response>
     /// <response code="400">Dự án đã ở trạng thái cuối hoặc chưa đủ điều kiện chuyển</response>
     /// <response code="404">Không tìm thấy dự án</response>
-    [HttpPost("{id}/advance-status")]
+    [HttpPost("{id:guid}/advance-status")]
     [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -105,7 +105,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <returns>Thông tin dự án đã được đóng</returns>
     /// <response code="200">Đóng dự án thành công</response>
     /// <response code="404">Không tìm thấy dự án</response>
-    [HttpPost("{id}/close")]
+    [HttpPost("{id:guid}/close")]
     [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> CloseProject(Guid id)
@@ -127,7 +127,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách gói thầu thuộc dự án</returns>
     /// <response code="200">Lấy danh sách gói thầu thành công</response>
-    [HttpGet("{id}/goi-thau")]
+    [HttpGet("{id:guid}/goi-thau")]
     [ProducesResponseType(typeof(IReadOnlyList<GoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<GoiThauDto>>> GetGoiThaus(Guid id)
     {
@@ -141,7 +141,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách hợp đồng thuộc dự án</returns>
     /// <response code="200">Lấy danh sách hợp đồng thành công</response>
-    [HttpGet("{id}/hop-dong")]
+    [HttpGet("{id:guid}/hop-dong")]
     [ProducesResponseType(typeof(IReadOnlyList<HopDongDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<HopDongDto>>> GetHopDongs(Guid id)
     {
@@ -155,7 +155,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách audit logs</returns>
     /// <response code="200">Lấy audit logs thành công</response>
-    [HttpGet("{id}/audit-log")]
+    [HttpGet("{id:guid}/audit-log")]
     [ProducesResponseType(typeof(IReadOnlyList<demo1.Entity.AuditLog>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<demo1.Entity.AuditLog>>> GetAuditLogs(Guid id)
     {

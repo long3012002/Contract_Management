@@ -10,12 +10,12 @@ using demo1.Services.Interfaces;
 namespace demo1.Controllers
 {
     /// <summary>
-    /// API Quản trị Hệ thống (Quản lý Vai trò/Role, Tính năng/Feature, Phân quyền Vai trò và Nhật ký hoạt động/Audit Logs).
+    /// API Quản lý Vai trò (Roles) và Phân quyền Vai trò.
     /// </summary>
     [Authorize]
     [ApiController]
-    [Route("api/HeThong/admin")]
-    public class AdminController(IAdminService adminService) : ControllerBase
+    [Route("api/HeThong/admin/roles")]
+    public class RolesController(IAdminService adminService) : ControllerBase
     {
         private async Task<bool> IsAdminAsync()
         {
@@ -31,15 +31,13 @@ namespace demo1.Controllers
             return await adminService.CanViewUserPermissionsAsync(username);
         }
 
-        // --- ROLES MANAGEMENT ---
-
         /// <summary>
         /// Lấy danh sách tất cả các Vai trò (Roles) trong hệ thống.
         /// </summary>
         /// <returns>Danh sách vai trò</returns>
         /// <response code="200">Lấy danh sách vai trò thành công</response>
         /// <response code="403">Không có quyền xem vai trò</response>
-        [HttpGet("roles")]
+        [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<Role>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetRoles()
@@ -56,7 +54,7 @@ namespace demo1.Controllers
         /// <returns>Thông tin vai trò vừa tạo</returns>
         /// <response code="200">Tạo mới vai trò thành công</response>
         /// <response code="403">Chỉ Quản trị viên mới được phép tạo</response>
-        [HttpPost("roles")]
+        [HttpPost]
         [ProducesResponseType(typeof(Role), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto dto)
@@ -74,7 +72,7 @@ namespace demo1.Controllers
         /// <returns>Vai trò sau khi cập nhật</returns>
         /// <response code="200">Cập nhật vai trò thành công</response>
         /// <response code="404">Không tìm thấy vai trò</response>
-        [HttpPut("roles/{roleId:guid}")]
+        [HttpPut("{roleId:guid}")]
         [ProducesResponseType(typeof(Role), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateRole(Guid roleId, [FromBody] UpdateRoleDto dto)
@@ -91,84 +89,6 @@ namespace demo1.Controllers
             }
         }
 
-        // --- PERMISSIONS MANAGEMENT ---
-
-        /// <summary>
-        /// Lấy danh sách các Tính năng (Features) của ứng dụng.
-        /// </summary>
-        /// <returns>Danh sách tính năng</returns>
-        /// <response code="200">Lấy danh sách tính năng thành công</response>
-        [HttpGet("features")]
-        [ProducesResponseType(typeof(IEnumerable<Feature>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetFeatures()
-        {
-            if (!await CanViewUserPermissionsAsync()) return Forbid();
-            var features = await adminService.GetFeaturesAsync();
-            return Ok(features);
-        }
-
-        /// <summary>
-        /// Tạo mới một Tính năng (Feature).
-        /// </summary>
-        /// <param name="dto">Thông tin tính năng mới</param>
-        /// <returns>Tính năng vừa tạo</returns>
-        /// <response code="200">Tạo tính năng thành công</response>
-        [HttpPost("features")]
-        [ProducesResponseType(typeof(Feature), StatusCodes.Status200OK)]
-        public async Task<IActionResult> CreateFeature([FromBody] CreateFeatureDto dto)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            var feature = await adminService.CreateFeatureAsync(dto);
-            return Ok(feature);
-        }
-
-        /// <summary>
-        /// Cập nhật thông tin Tính năng theo ID.
-        /// </summary>
-        /// <param name="featureId">Mã định danh Tính năng (GUID)</param>
-        /// <param name="dto">Dữ liệu cập nhật</param>
-        /// <response code="200">Cập nhật thành công</response>
-        /// <response code="404">Không tìm thấy tính năng</response>
-        [HttpPut("features/{featureId:guid}")]
-        [ProducesResponseType(typeof(Feature), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateFeature(Guid featureId, [FromBody] UpdateFeatureDto dto)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                var feature = await adminService.UpdateFeatureAsync(featureId, dto);
-                return Ok(feature);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Xóa một Tính năng theo ID.
-        /// </summary>
-        /// <param name="featureId">Mã định danh Tính năng (GUID)</param>
-        /// <response code="200">Xóa thành công</response>
-        /// <response code="404">Không tìm thấy tính năng</response>
-        [HttpDelete("features/{featureId:guid}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteFeature(Guid featureId)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            try
-            {
-                await adminService.DeleteFeatureAsync(featureId);
-                return Ok(new { Message = "Feature deleted successfully." });
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { Message = ex.Message });
-            }
-        }
-
         /// <summary>
         /// Lấy danh sách quyền hạn chi tiết gắn với một Vai trò (Role).
         /// </summary>
@@ -176,7 +96,7 @@ namespace demo1.Controllers
         /// <returns>Danh sách quyền hạn của vai trò</returns>
         /// <response code="200">Lấy danh sách thành công</response>
         /// <response code="404">Không tìm thấy vai trò</response>
-        [HttpGet("roles/{roleId:guid}/permissions")]
+        [HttpGet("{roleId:guid}/permissions")]
         [ProducesResponseType(typeof(IEnumerable<RolePermissionDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetRolePermissions(Guid roleId)
@@ -200,7 +120,7 @@ namespace demo1.Controllers
         /// <param name="permissions">Danh sách quyền hạn cập nhật</param>
         /// <response code="200">Cập nhật quyền hạn thành công</response>
         /// <response code="404">Không tìm thấy vai trò</response>
-        [HttpPut("roles/{roleId:guid}/permissions")]
+        [HttpPut("{roleId:guid}/permissions")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateRolePermissions(Guid roleId, [FromBody] List<UpdateRolePermissionDto> permissions)
@@ -217,23 +137,6 @@ namespace demo1.Controllers
             }
         }
 
-        // --- USER ROLES MANAGEMENT ---
-
-        /// <summary>
-        /// Lấy danh sách Người dùng kèm thông tin các Vai trò được gán.
-        /// </summary>
-        /// <param name="filter">Bộ lọc tìm kiếm và phân trang người dùng</param>
-        /// <returns>Danh sách người dùng phân trang kèm danh sách Vai trò</returns>
-        /// <response code="200">Lấy danh sách thành công</response>
-        [HttpGet("users")]
-        [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
-        {
-            if (!await CanViewUserPermissionsAsync()) return Forbid();
-            var result = await adminService.GetUsersWithRolesAsync(filter);
-            return Ok(result);
-        }
-
         /// <summary>
         /// Lấy danh sách ID Vai trò đã gán cho một Người dùng.
         /// </summary>
@@ -241,7 +144,7 @@ namespace demo1.Controllers
         /// <returns>Danh sách GUID các Vai trò</returns>
         /// <response code="200">Lấy danh sách thành công</response>
         /// <response code="404">Không tìm thấy người dùng</response>
-        [HttpGet("users/{userId:guid}/roles")]
+        [HttpGet("~/api/HeThong/admin/users/{userId:guid}/roles")]
         [ProducesResponseType(typeof(IEnumerable<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserRoles(Guid userId)
@@ -265,7 +168,7 @@ namespace demo1.Controllers
         /// <param name="dto">Danh sách ID các vai trò gán mới</param>
         /// <response code="200">Gán vai trò thành công</response>
         /// <response code="404">Không tìm thấy người dùng</response>
-        [HttpPut("users/{userId:guid}/roles")]
+        [HttpPut("~/api/HeThong/admin/users/{userId:guid}/roles")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateUserRoles(Guid userId, [FromBody] UserRolesUpdateDto dto)
@@ -280,30 +183,6 @@ namespace demo1.Controllers
             {
                 return NotFound(new { Message = ex.Message });
             }
-        }
-
-        /// <summary>
-        /// Xem Nhật ký Hệ thống (Audit Logs) có phân trang và lọc theo Người dùng / Ngày / Tên bảng.
-        /// </summary>
-        /// <param name="userId">ID Người dùng thực hiện thao tác (tùy chọn)</param>
-        /// <param name="date">Ngày thao tác (tùy chọn)</param>
-        /// <param name="tableName">Tên bảng bị ảnh hưởng (tùy chọn)</param>
-        /// <param name="page">Trang hiện tại (Mặc định: 1)</param>
-        /// <param name="pageSize">Kích thước trang (Mặc định: 20)</param>
-        /// <returns>Danh sách Audit Logs phân trang</returns>
-        /// <response code="200">Lấy nhật ký hệ thống thành công</response>
-        [HttpGet("audit-logs")]
-        [ProducesResponseType(typeof(PagedResult<AuditLog>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAuditLogs(
-            [FromQuery] string? userId,
-            [FromQuery] DateTime? date,
-            [FromQuery] string? tableName,
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20)
-        {
-            if (!await IsAdminAsync()) return Forbid();
-            var result = await adminService.GetAuditLogsAsync(userId, date, tableName, page, pageSize);
-            return Ok(result);
         }
     }
 }

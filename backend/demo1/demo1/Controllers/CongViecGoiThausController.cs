@@ -27,7 +27,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <returns>Danh sách công việc gói thầu</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet("by-goi-thau/{idGoiThau:guid}")]
+    [HttpGet("{idGoiThau:guid}")]
     [ProducesResponseType(typeof(IEnumerable<CongViecGoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CongViecGoiThauDto>>> GetByGoiThauId(Guid idGoiThau)
     {
@@ -45,7 +45,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="cursor">Con trỏ phân trang (tùy chọn)</param>
     /// <returns>Danh sách công việc phân trang</returns>
     /// <response code="200">Lấy danh sách phân trang thành công</response>
-    [HttpGet("by-goi-thau/{idGoiThau:guid}/paged")]
+    [HttpGet("{idGoiThau:guid}/paged")]
     [ProducesResponseType(typeof(PagedResult<CongViecGoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<CongViecGoiThauDto>>> GetByGoiThauIdPaged(
         Guid idGoiThau,
@@ -64,7 +64,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <response code="204">Xóa thành công (No Content)</response>
     /// <response code="404">Không tìm thấy công việc thuộc gói thầu</response>
-    [HttpDelete("by-goi-thau/{idGoiThau:guid}")]
+    [HttpDelete("{idGoiThau:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteByGoiThauId(Guid idGoiThau)
@@ -79,7 +79,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <returns>Báo cáo tiến độ công việc gói thầu</returns>
     /// <response code="200">Lấy báo cáo thành công</response>
-    [HttpGet("by-goi-thau/{idGoiThau:guid}/report")]
+    [HttpGet("{idGoiThau:guid}/report")]
     [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CongViecGoiThauReportDto>> GetReport(Guid idGoiThau)
     {

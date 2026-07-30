@@ -84,7 +84,7 @@ public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDt
     /// <param name="pageSize">Kích thước trang (Mặc định: 20)</param>
     /// <returns>Danh sách License phân trang</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet("by-duan/{duAnId:guid}")]
+    [HttpGet("{duAnId:guid}")]
     [ProducesResponseType(typeof(PagedResult<LicenseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<LicenseDto>>> GetByDuAnId(
         Guid duAnId,

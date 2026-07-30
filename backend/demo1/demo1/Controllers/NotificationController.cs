@@ -117,7 +117,7 @@ namespace demo1.Controllers
         /// <param name="id">Mã định danh Thông báo (GUID)</param>
         /// <response code="200">Đánh dấu thành công</response>
         /// <response code="404">Không tìm thấy thông báo</response>
-        [HttpPut("{id}/read")]
+        [HttpPut("{id:guid}/read")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> MarkAsRead(Guid id)
@@ -147,11 +147,6 @@ namespace demo1.Controllers
         /// </summary>
         /// <response code="200">Đánh dấu toàn bộ thông báo là đã đọc thành công</response>
         [HttpPut("read-all")]
-        [HttpPost("read-all")]
-        [HttpPut("confirm-all")]
-        [HttpPost("confirm-all")]
-        [HttpPut("ConfirmAll")]
-        [HttpPost("ConfirmAll")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> MarkAllAsRead()
         {
