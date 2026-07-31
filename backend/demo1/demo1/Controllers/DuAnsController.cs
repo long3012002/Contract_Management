@@ -122,6 +122,20 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     }
 
     /// <summary>
+    /// Lấy danh sách các Dự án Nguồn (Nguồn vốn/Dự án mua sắm) liên kết với Dự án Triển khai.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Danh sách dự án nguồn liên kết</returns>
+    /// <response code="200">Lấy danh sách dự án nguồn thành công</response>
+    [HttpGet("{id:guid}/du-an-nguon")]
+    [ProducesResponseType(typeof(IReadOnlyList<DuAnNguonSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<DuAnNguonSummaryDto>>> GetSourceProjects(Guid id)
+    {
+        var result = await _duAnService.GetSourceProjectsByProjectIdAsync(id);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Lấy danh sách các Gói thầu thuộc Dự án.
     /// </summary>
     /// <param name="id">Mã định danh Dự án (GUID)</param>

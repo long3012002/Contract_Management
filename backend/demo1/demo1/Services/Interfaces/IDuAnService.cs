@@ -12,6 +12,7 @@ public interface IDuAnService : ICrudService<DuAnDto, CreateDuAnDto, UpdateDuAnD
     Task<IReadOnlyList<DieuChinhDuAnDto>> GetAdjustmentsAsync(Guid id);
     Task<DuAnDto> AdvanceStatusAsync(Guid id);
     Task<DuAnDto> CloseProjectAsync(Guid id);
+    Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id);
     Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id);
     Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id);
     Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id);
