@@ -16,6 +16,7 @@ public class DoiTacDto : IHasId
     public string? Representative { get; set; }
     public string? Position { get; set; }
     public bool IsActive { get; set; }
+    public int ContractCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
