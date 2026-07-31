@@ -113,3 +113,50 @@ Cấu hình mẫu cho CSS (`frontend/src/index.css` hoặc `globals.css`):
   }
 }
 ```
+
+---
+
+## 6. Table Standard (Quy chuẩn Bảng dữ liệu)
+
+> **Quyết định: 2026-07.** Sử dụng phong cách thương hiệu **CoopBank Accent** (Nền header `bg-secondary` `#E6EBF2`, Chữ header `text-secondary-foreground` `#00377B`), không `UPPERCASE`, toàn bộ dữ liệu trong các row dùng kích thước `text-sm` (14px), font weight **`font-normal` (400)** và màu chữ **`text-foreground`**.
+
+### Typography & Color
+
+| Thành phần | Font Size | Font Weight | Color (Token) | Color (Value) |
+| :--- | :---: | :---: | :--- | :--- |
+| **Header `<th>`** | `text-sm` (14px) | `font-medium` (500) | `text-secondary-foreground` | `#00377B` (CoopBank Blue) |
+| **Cell `<td>` (Toàn bộ Row Data)** | `text-sm` (14px) | **`font-normal` (400)** | `text-foreground` | `#09090B` (Zinc-950) |
+
+### Spacing & Layout
+
+| Thành phần | Padding | Background | Border |
+| :--- | :--- | :--- | :--- |
+| **Header row `<tr>`** | `py-3 px-4` | `bg-secondary` (#E6EBF2) | `border-b border-border` |
+| **Data row `<tr>`** | `py-3 px-4` | `bg-card` (hover: `bg-muted/50`) | `border-b border-border` |
+| **Table container** | – | `bg-card` | `border border-border rounded-lg shadow-sm` |
+
+### Cách triển khai chuẩn (raw `<table>`)
+
+```jsx
+<table className="w-full text-left border-collapse">
+  <thead>
+    <tr className="bg-secondary border-b border-border text-sm font-medium text-secondary-foreground">
+      <th className="py-3 px-4">Tên cột</th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-border">
+    <tr className="bg-card hover:bg-muted/50 transition-colors duration-150">
+      <td className="py-3 px-4 text-sm font-normal text-foreground">Giá trị</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+### Quy tắc bắt buộc
+
+- ❌ **KHÔNG** dùng `uppercase`, `tracking-wider`, `text-xs` cho header `<th>`.
+- ✅ **LUÔN** để **`font-normal` (400)**, **`text-sm` (14px)** và màu **`text-foreground`** cho toàn bộ dữ liệu trong ô (`<td>`).
+- ✅ **LUÔN** dùng `bg-secondary` (#E6EBF2) và `text-secondary-foreground` (#00377B) cho header.
+- ✅ **LUÔN** dùng `py-3 px-4` cho cả `<th>` và `<td>` để đảm bảo alignment.
+- ✅ **LUÔN** dùng `divide-y divide-border` trên `<tbody>` để phân cách hàng.
+- ✅ CSS global tại `utilities.css` đã enforce `font-size: text-sm`, `font-weight: 400`, `color: text-foreground`, `padding: py-3 px-4` tự động cho mọi `<table>`.

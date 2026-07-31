@@ -91,6 +91,11 @@ public class DuAnDto : IHasId
     }
     
     /// <summary>
+    /// Danh sách chi tiết các dự án nguồn liên kết
+    /// </summary>
+    public List<DuAnDto>? SourceProjects { get; set; }
+
+    /// <summary>
     /// Tên Chủ đầu tư
     /// </summary>
     public string? ChuDauTu { get; set; }
