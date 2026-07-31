@@ -13,6 +13,7 @@ public class GoiThauDto : IHasId
     public string? DuAnName { get; set; } // Auxiliary for easier UI viewing
     
     public decimal GiaTriGoiThau { get; set; }
+    public decimal TongGiaTriHopDong { get; set; }
     public decimal NguongCanhBaoPercent { get; set; }
     
     public bool IsActive { get; set; }

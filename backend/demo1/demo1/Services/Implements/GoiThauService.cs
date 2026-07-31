@@ -112,6 +112,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             }
 
             var dtos = Mapper.Map<List<GoiThauDto>>(items);
+            await PopulateTongGiaTriHopDongAsync(dtos);
 
             return new PagedResult<GoiThauDto>
             {
@@ -136,7 +137,9 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var items = await DbSet
                 .Include(gt => gt.DuAn)
                 .ToListAsync();
-            return Mapper.Map<List<GoiThauDto>>(items);
+            var dtos = Mapper.Map<List<GoiThauDto>>(items);
+            await PopulateTongGiaTriHopDongAsync(dtos);
+            return dtos;
         }
         catch (Exception ex)
         {
@@ -152,12 +155,34 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var entity = await DbSet
                 .Include(gt => gt.DuAn)
                 .FirstOrDefaultAsync(gt => gt.Id == id);
-            return entity is null ? null : Mapper.Map<GoiThauDto>(entity);
+            if (entity is null) return null;
+
+            var dto = Mapper.Map<GoiThauDto>(entity);
+            await PopulateTongGiaTriHopDongAsync(new List<GoiThauDto> { dto });
+            return dto;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi xảy ra trong GetByIdAsync của GoiThauService cho ID {Id}.", id);
             throw;
+        }
+    }
+
+    private async Task PopulateTongGiaTriHopDongAsync(List<GoiThauDto> dtos)
+    {
+        if (dtos == null || !dtos.Any()) return;
+
+        var goiThauIds = dtos.Select(d => d.Id).ToList();
+
+        var contractSums = await DbContext.HopDongs
+            .Where(h => h.GoiThauId.HasValue && goiThauIds.Contains(h.GoiThauId.Value))
+            .GroupBy(h => h.GoiThauId!.Value)
+            .Select(g => new { GoiThauId = g.Key, Total = g.Sum(h => h.GiaTriHopDong) })
+            .ToDictionaryAsync(x => x.GoiThauId, x => x.Total);
+
+        foreach (var dto in dtos)
+        {
+            dto.TongGiaTriHopDong = contractSums.TryGetValue(dto.Id, out var sum) ? sum : 0;
         }
     }
 
@@ -237,7 +262,9 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var reloaded = await DbSet
                 .Include(gt => gt.DuAn)
                 .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
-            return Mapper.Map<GoiThauDto>(reloaded);
+            var resultDto = Mapper.Map<GoiThauDto>(reloaded);
+            await PopulateTongGiaTriHopDongAsync(new List<GoiThauDto> { resultDto });
+            return resultDto;
         }
         catch (Exception ex)
         {
@@ -270,6 +297,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                     .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
                 result.Add(Mapper.Map<GoiThauDto>(reloaded));
             }
+            await PopulateTongGiaTriHopDongAsync(result);
             return result;
         }
         catch (Exception ex)

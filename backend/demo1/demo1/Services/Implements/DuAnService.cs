@@ -18,26 +18,42 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
     }
 
-    public override async Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 1000);
+        return GetAllAsync(new DuAnFilterDto
+        {
+            Search = search,
+            Page = page,
+            PageSize = pageSize,
+            Cursor = cursor
+        });
+    }
+
+    public async Task<PagedResult<DuAnDto>> GetAllAsync(DuAnFilterDto filter)
+    {
+        var page = Math.Max(1, filter.Page);
+        var pageSize = Math.Clamp(filter.PageSize, 1, 1000);
 
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn);
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!string.IsNullOrWhiteSpace(filter.Search))
         {
-            var keyword = search.Trim();
+            var keyword = filter.Search.Trim();
             query = ApplySearchFilter(query, keyword);
+        }
+
+        if (filter.LoaiDuAn.HasValue)
+        {
+            query = query.Where(item => item.LoaiDuAn == filter.LoaiDuAn.Value);
         }
 
         var totalItems = await query.CountAsync();
 
         List<DuAn> items;
-        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+        bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
 
         if (isKeyset)
         {

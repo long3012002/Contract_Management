@@ -8,6 +8,7 @@ namespace demo1.Services.Interfaces;
 
 public interface IDuAnService : ICrudService<DuAnDto, CreateDuAnDto, UpdateDuAnDto>
 {
+    Task<PagedResult<DuAnDto>> GetAllAsync(DuAnFilterDto filter);
     Task<DieuChinhDuAnDto> AdjustBudgetAsync(Guid id, CreateDieuChinhDuAnDto dto);
     Task<IReadOnlyList<DieuChinhDuAnDto>> GetAdjustmentsAsync(Guid id);
     Task<DuAnDto> AdvanceStatusAsync(Guid id);

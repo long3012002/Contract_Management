@@ -22,6 +22,30 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     }
 
     /// <summary>
+    /// Lấy danh sách dự án với bộ lọc nâng cao (Loại dự án, Từ khóa...).
+    /// </summary>
+    /// <param name="filter">Bộ lọc danh sách dự án</param>
+    /// <returns>Danh sách dự án phân trang</returns>
+    /// <response code="200">Lấy danh sách thành công</response>
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<DuAnDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<DuAnDto>>> GetAll([FromQuery] DuAnFilterDto filter)
+    {
+        var result = await _duAnService.GetAllAsync(filter);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Phương thức cơ sở từ CrudControllerBase được vô hiệu hóa khỏi Routing và Swagger API Explorer để tránh xung đột route.
+    /// </summary>
+    [NonAction]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public override Task<ActionResult<PagedResult<DuAnDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null)
+    {
+        return base.GetAll(search, page, pageSize, cursor);
+    }
+
+    /// <summary>
     /// Điều chỉnh ngân sách/tổng mức đầu tư của dự án.
     /// </summary>
     /// <param name="id">Mã định danh Dự án (GUID)</param>
