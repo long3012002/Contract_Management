@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
@@ -13,22 +14,26 @@ namespace demo1.Services.Implements
     public class UserService : IUserService
     {
         private readonly AppDbContext _dbContext;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(AppDbContext dbContext)
+        public UserService(AppDbContext dbContext, ILogger<UserService> logger)
         {
             _dbContext = dbContext;
+            _logger = logger;
         }
 
         public async Task<UserImportResultDto> ImportUsersAsync(List<CreateUserDto> dtos)
         {
-            if (dtos == null || !dtos.Any())
+            try
             {
-                return new UserImportResultDto
+                if (dtos == null || !dtos.Any())
                 {
-                    Message = "Danh sách người dùng không được để trống.",
-                    Errors = new List<UserImportErrorDto>()
-                };
-            }
+                    return new UserImportResultDto
+                    {
+                        Message = "Danh sách người dùng không được để trống.",
+                        Errors = new List<UserImportErrorDto>()
+                    };
+                }
 
             // Bước 1: Validate dữ liệu từng dòng
             var errors = dtos
@@ -246,6 +251,12 @@ namespace demo1.Services.Implements
                 ErrorCount = 0,
                 Errors = new List<UserImportErrorDto>()
             };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra trong ImportUsersAsync.");
+                throw;
+            }
         }
 
         private List<string> GetUniqueTrimmedNames(List<CreateUserDto> dtos, Func<CreateUserDto, string?> nameSelector)
@@ -310,197 +321,210 @@ namespace demo1.Services.Implements
 
         public async Task<UserImportResultDto> UpdateUserAsync(Guid id, UpdateUserDto dto)
         {
-            var user = await _dbContext.Users.FindAsync(id);
-            if (user == null)
+            try
             {
-                throw new KeyNotFoundException("Không tìm thấy người dùng.");
-            }
-
-            // Xử lý tự động phòng ban
-            if (!string.IsNullOrWhiteSpace(dto.TenPhongBan))
-            {
-                var tenPhongBanTrimmed = dto.TenPhongBan.Trim();
-                var phongBan = await _dbContext.PhongBans
-                    .FirstOrDefaultAsync(pb => pb.TenPhongBan.ToLower() == tenPhongBanTrimmed.ToLower());
-                if (phongBan == null)
+                var user = await _dbContext.Users.FindAsync(id);
+                if (user == null)
                 {
-                    phongBan = new PhongBan { Id = Guid.NewGuid(), TenPhongBan = tenPhongBanTrimmed, CreatedAt = DateTime.UtcNow };
-                    _dbContext.PhongBans.Add(phongBan);
-                    await _dbContext.SaveChangesAsync();
+                    throw new KeyNotFoundException("Không tìm thấy người dùng.");
                 }
-                user.IdPhongBan = phongBan.Id;
-                user.TenPhongBan = phongBan.TenPhongBan;
-            }
-            else
-            {
-                user.IdPhongBan = dto.IdPhongBan ?? user.IdPhongBan;
-                if (dto.IdPhongBan.HasValue)
+
+                // Xử lý tự động phòng ban
+                if (!string.IsNullOrWhiteSpace(dto.TenPhongBan))
                 {
-                    var phongBan = await _dbContext.PhongBans.FindAsync(dto.IdPhongBan.Value);
-                    if (phongBan != null)
+                    var tenPhongBanTrimmed = dto.TenPhongBan.Trim();
+                    var phongBan = await _dbContext.PhongBans
+                        .FirstOrDefaultAsync(pb => pb.TenPhongBan.ToLower() == tenPhongBanTrimmed.ToLower());
+                    if (phongBan == null)
                     {
-                        user.TenPhongBan = phongBan.TenPhongBan;
+                        phongBan = new PhongBan { Id = Guid.NewGuid(), TenPhongBan = tenPhongBanTrimmed, CreatedAt = DateTime.UtcNow };
+                        _dbContext.PhongBans.Add(phongBan);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    user.IdPhongBan = phongBan.Id;
+                    user.TenPhongBan = phongBan.TenPhongBan;
+                }
+                else
+                {
+                    user.IdPhongBan = dto.IdPhongBan ?? user.IdPhongBan;
+                    if (dto.IdPhongBan.HasValue)
+                    {
+                        var phongBan = await _dbContext.PhongBans.FindAsync(dto.IdPhongBan.Value);
+                        if (phongBan != null)
+                        {
+                            user.TenPhongBan = phongBan.TenPhongBan;
+                        }
                     }
                 }
-            }
 
-            // Xử lý tự động chức vụ
-            if (!string.IsNullOrWhiteSpace(dto.TenChucVu))
-            {
-                var tenChucVuTrimmed = dto.TenChucVu.Trim();
-                var chucVu = await _dbContext.ChucVus
-                    .FirstOrDefaultAsync(cv => cv.TenChucVu.ToLower() == tenChucVuTrimmed.ToLower());
-                if (chucVu == null)
+                // Xử lý tự động chức vụ
+                if (!string.IsNullOrWhiteSpace(dto.TenChucVu))
                 {
-                    chucVu = new ChucVu { Id = Guid.NewGuid(), TenChucVu = tenChucVuTrimmed, CreatedAt = DateTime.UtcNow };
-                    _dbContext.ChucVus.Add(chucVu);
-                    await _dbContext.SaveChangesAsync();
-                }
-                user.IdChucVu = chucVu.Id;
-                user.TenChucVu = chucVu.TenChucVu;
-            }
-            else
-            {
-                user.IdChucVu = dto.IdChucVu ?? user.IdChucVu;
-                if (dto.IdChucVu.HasValue)
-                {
-                    var chucVu = await _dbContext.ChucVus.FindAsync(dto.IdChucVu.Value);
-                    if (chucVu != null)
+                    var tenChucVuTrimmed = dto.TenChucVu.Trim();
+                    var chucVu = await _dbContext.ChucVus
+                        .FirstOrDefaultAsync(cv => cv.TenChucVu.ToLower() == tenChucVuTrimmed.ToLower());
+                    if (chucVu == null)
                     {
-                        user.TenChucVu = chucVu.TenChucVu;
+                        chucVu = new ChucVu { Id = Guid.NewGuid(), TenChucVu = tenChucVuTrimmed, CreatedAt = DateTime.UtcNow };
+                        _dbContext.ChucVus.Add(chucVu);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    user.IdChucVu = chucVu.Id;
+                    user.TenChucVu = chucVu.TenChucVu;
+                }
+                else
+                {
+                    user.IdChucVu = dto.IdChucVu ?? user.IdChucVu;
+                    if (dto.IdChucVu.HasValue)
+                    {
+                        var chucVu = await _dbContext.ChucVus.FindAsync(dto.IdChucVu.Value);
+                        if (chucVu != null)
+                        {
+                            user.TenChucVu = chucVu.TenChucVu;
+                        }
                     }
                 }
-            }
 
-            // Xử lý tự động đơn vị
-            if (!string.IsNullOrWhiteSpace(dto.TenDonVi))
-            {
-                var tenDonViTrimmed = dto.TenDonVi.Trim();
-                var donVi = await _dbContext.DonVis
-                    .FirstOrDefaultAsync(dv => dv.TenDonVi.ToLower() == tenDonViTrimmed.ToLower());
-                if (donVi == null)
+                // Xử lý tự động đơn vị
+                if (!string.IsNullOrWhiteSpace(dto.TenDonVi))
                 {
-                    donVi = new DonVi { Id = Guid.NewGuid(), TenDonVi = tenDonViTrimmed, CreatedAt = DateTime.UtcNow };
-                    _dbContext.DonVis.Add(donVi);
-                    await _dbContext.SaveChangesAsync();
-                }
-                user.IdDonVi = donVi.Id;
-                user.TenDonVi = donVi.TenDonVi;
-            }
-            else
-            {
-                user.IdDonVi = dto.IdDonVi ?? user.IdDonVi;
-                if (dto.IdDonVi.HasValue)
-                {
-                    var donVi = await _dbContext.DonVis.FindAsync(dto.IdDonVi.Value);
-                    if (donVi != null)
+                    var tenDonViTrimmed = dto.TenDonVi.Trim();
+                    var donVi = await _dbContext.DonVis
+                        .FirstOrDefaultAsync(dv => dv.TenDonVi.ToLower() == tenDonViTrimmed.ToLower());
+                    if (donVi == null)
                     {
-                        user.TenDonVi = donVi.TenDonVi;
+                        donVi = new DonVi { Id = Guid.NewGuid(), TenDonVi = tenDonViTrimmed, CreatedAt = DateTime.UtcNow };
+                        _dbContext.DonVis.Add(donVi);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    user.IdDonVi = donVi.Id;
+                    user.TenDonVi = donVi.TenDonVi;
+                }
+                else
+                {
+                    user.IdDonVi = dto.IdDonVi ?? user.IdDonVi;
+                    if (dto.IdDonVi.HasValue)
+                    {
+                        var donVi = await _dbContext.DonVis.FindAsync(dto.IdDonVi.Value);
+                        if (donVi != null)
+                        {
+                            user.TenDonVi = donVi.TenDonVi;
+                        }
                     }
                 }
-            }
 
-            user.FullName = dto.FullName?.Trim() ?? string.Empty;
-            user.Email = string.IsNullOrWhiteSpace(dto.Email) 
-                ? $"{user.Username.ToLower()}@co-opbank.vn" 
-                : dto.Email.Trim();
-            
-            if (!string.IsNullOrWhiteSpace(dto.Phone))
-            {
-                user.Phone = dto.Phone.Trim();
-            }
-
-            user.IsActive = dto.IsActive;
-            user.IsSystemAdmin = dto.IsSystemAdmin;
-            user.UpdatedAt = DateTime.UtcNow;
-
-            // Xử lý vai trò (Role)
-            if (!string.IsNullOrWhiteSpace(dto.Role))
-            {
-                var roleNameTrimmed = dto.Role.Trim();
-                var role = await _dbContext.Roles
-                    .FirstOrDefaultAsync(r => r.Name.ToLower() == roleNameTrimmed.ToLower());
-                if (role == null)
+                user.FullName = dto.FullName?.Trim() ?? string.Empty;
+                user.Email = string.IsNullOrWhiteSpace(dto.Email) 
+                    ? $"{user.Username.ToLower()}@co-opbank.vn" 
+                    : dto.Email.Trim();
+                
+                if (!string.IsNullOrWhiteSpace(dto.Phone))
                 {
-                    role = new Role 
-                    { 
-                        Id = Guid.NewGuid(), 
-                        Name = roleNameTrimmed, 
-                        Description = $"Mô tả cho vai trò {roleNameTrimmed} (Tạo tự động khi cập nhật)", 
-                        IsActive = true, 
-                        CreatedAt = DateTime.UtcNow 
-                    };
-                    _dbContext.Roles.Add(role);
-                    await _dbContext.SaveChangesAsync();
+                    user.Phone = dto.Phone.Trim();
                 }
 
-                var currentRoles = await _dbContext.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
-                if (currentRoles.Any())
+                user.IsActive = dto.IsActive;
+                user.IsSystemAdmin = dto.IsSystemAdmin;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                // Xử lý vai trò (Role)
+                if (!string.IsNullOrWhiteSpace(dto.Role))
                 {
-                    _dbContext.UserRoles.RemoveRange(currentRoles);
+                    var roleNameTrimmed = dto.Role.Trim();
+                    var role = await _dbContext.Roles
+                        .FirstOrDefaultAsync(r => r.Name.ToLower() == roleNameTrimmed.ToLower());
+                    if (role == null)
+                    {
+                        role = new Role 
+                        { 
+                            Id = Guid.NewGuid(), 
+                            Name = roleNameTrimmed, 
+                            Description = $"Mô tả cho vai trò {roleNameTrimmed} (Tạo tự động khi cập nhật)", 
+                            IsActive = true, 
+                            CreatedAt = DateTime.UtcNow 
+                        };
+                        _dbContext.Roles.Add(role);
+                        await _dbContext.SaveChangesAsync();
+                    }
+
+                    var currentRoles = await _dbContext.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
+                    if (currentRoles.Any())
+                    {
+                        _dbContext.UserRoles.RemoveRange(currentRoles);
+                    }
+
+                    _dbContext.UserRoles.Add(new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = role.Id,
+                        CreatedAt = DateTime.UtcNow
+                    });
                 }
 
-                _dbContext.UserRoles.Add(new UserRole
+                await _dbContext.SaveChangesAsync();
+
+                return new UserImportResultDto
                 {
-                    UserId = user.Id,
-                    RoleId = role.Id,
-                    CreatedAt = DateTime.UtcNow
-                });
+                    Message = "Cập nhật thông tin người dùng thành công.",
+                    AddedCount = 0,
+                    UpdatedCount = 1,
+                    ErrorCount = 0,
+                    Errors = new List<UserImportErrorDto>()
+                };
             }
-
-            await _dbContext.SaveChangesAsync();
-
-            return new UserImportResultDto
+            catch (Exception ex)
             {
-                Message = "Cập nhật thông tin người dùng thành công.",
-                AddedCount = 0,
-                UpdatedCount = 1,
-                ErrorCount = 0,
-                Errors = new List<UserImportErrorDto>()
-            };
+                _logger.LogError(ex, "Lỗi xảy ra trong UpdateUserAsync cho UserId {Id}.", id);
+                throw;
+            }
         }
 
         public async Task<UserDeleteResultDto> DeleteUsersAsync(List<Guid> ids)
         {
-            if (ids == null || !ids.Any())
+            try
             {
-                throw new ArgumentException("Danh sách ID cần xoá không được để trống.", nameof(ids));
-            }
+                if (ids == null || !ids.Any())
+                {
+                    throw new ArgumentException("Danh sách ID cần xoá không được để trống.", nameof(ids));
+                }
 
-            // Tìm các user có ID trong danh sách
-            var usersToDelete = await _dbContext.Users
-                .Where(u => ids.Contains(u.Id))
-                .ToListAsync();
+                var usersToDelete = await _dbContext.Users
+                    .Where(u => ids.Contains(u.Id))
+                    .ToListAsync();
 
-            if (!usersToDelete.Any())
-            {
+                if (!usersToDelete.Any())
+                {
+                    return new UserDeleteResultDto
+                    {
+                        Message = "Không tìm thấy người dùng nào phù hợp để xoá.",
+                        DeletedCount = 0
+                    };
+                }
+
+                var userIds = usersToDelete.Select(u => u.Id).ToList();
+                var relatedUserRoles = await _dbContext.UserRoles
+                    .Where(ur => userIds.Contains(ur.UserId))
+                    .ToListAsync();
+
+                if (relatedUserRoles.Any())
+                {
+                    _dbContext.UserRoles.RemoveRange(relatedUserRoles);
+                }
+
+                _dbContext.Users.RemoveRange(usersToDelete);
+                await _dbContext.SaveChangesAsync();
+
                 return new UserDeleteResultDto
                 {
-                    Message = "Không tìm thấy người dùng nào phù hợp để xoá.",
-                    DeletedCount = 0
+                    Message = $"Đã xoá thành công {usersToDelete.Count} người dùng.",
+                    DeletedCount = usersToDelete.Count
                 };
             }
-
-            // Xoá liên kết vai trò của các user này trong bảng UserRoles trước (để tránh lỗi khoá ngoại)
-            var userIds = usersToDelete.Select(u => u.Id).ToList();
-            var relatedUserRoles = await _dbContext.UserRoles
-                .Where(ur => userIds.Contains(ur.UserId))
-                .ToListAsync();
-
-            if (relatedUserRoles.Any())
+            catch (Exception ex)
             {
-                _dbContext.UserRoles.RemoveRange(relatedUserRoles);
+                _logger.LogError(ex, "Lỗi xảy ra trong DeleteUsersAsync.");
+                throw;
             }
-
-            // Tiến hành xoá các user
-            _dbContext.Users.RemoveRange(usersToDelete);
-            await _dbContext.SaveChangesAsync();
-
-            return new UserDeleteResultDto
-            {
-                Message = $"Đã xoá thành công {usersToDelete.Count} người dùng.",
-                DeletedCount = usersToDelete.Count
-            };
         }
     }
 }

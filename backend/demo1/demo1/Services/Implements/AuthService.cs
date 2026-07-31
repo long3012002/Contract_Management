@@ -261,128 +261,152 @@ namespace demo1.Services.Implements
 
         public async Task<AuthResult> Enable2FaAsync(Verify2FARequest request, string authHeader)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Code))
+            try
             {
-                return AuthResult.Fail(400, "Tên đăng nhập và mã OTP là bắt buộc.");
+                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Code))
+                {
+                    return AuthResult.Fail(400, "Tên đăng nhập và mã OTP là bắt buộc.");
+                }
+
+                var usernameFromToken = ValidateTemporaryToken(authHeader);
+                if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+                {
+                    return AuthResult.Fail(401, "Yêu cầu mã tạm thời (Temporary Token) hợp lệ.");
+                }
+
+                var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
+                if (dbUser == null)
+                {
+                    return AuthResult.Fail(404, "Không tìm thấy người dùng.");
+                }
+
+                if (dbUser.IsTwoFactorEnabled)
+                {
+                    return AuthResult.Fail(400, "Xác thực hai lớp (2FA) đã được kích hoạt trước đó.");
+                }
+
+                bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
+                if (!isValid)
+                {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Kích hoạt 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
+                    return AuthResult.Fail(400, "Mã OTP không chính xác.");
+                }
+
+                dbUser.IsTwoFactorEnabled = true;
+                dbUser.UpdatedAt = DateTime.UtcNow;
+
+                var accessToken = GenerateJwtToken(dbUser.Username, 180);
+                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+
+                // Store refresh token hash in DB
+                dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+                dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+                await _dbContext.SaveChangesAsync();
+
+                await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Kích hoạt xác thực 2 lớp thành công", dbUser.Id.ToString());
+
+                return AuthResult.Success(new LoginResponse
+                {
+                    Message = "Kích hoạt xác thực 2 lớp thành công",
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    Username = dbUser.Username
+                });
             }
-
-            var usernameFromToken = ValidateTemporaryToken(authHeader);
-            if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                return AuthResult.Fail(401, "Yêu cầu mã tạm thời (Temporary Token) hợp lệ.");
+                _logger.LogError(ex, "Lỗi xảy ra trong Enable2FaAsync.");
+                throw;
             }
-
-            var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
-            if (dbUser == null)
-            {
-                return AuthResult.Fail(404, "Không tìm thấy người dùng.");
-            }
-
-            if (dbUser.IsTwoFactorEnabled)
-            {
-                return AuthResult.Fail(400, "Xác thực hai lớp (2FA) đã được kích hoạt trước đó.");
-            }
-
-            bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
-            if (!isValid)
-            {
-                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Kích hoạt 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
-                return AuthResult.Fail(400, "Mã OTP không chính xác.");
-            }
-
-            dbUser.IsTwoFactorEnabled = true;
-            dbUser.UpdatedAt = DateTime.UtcNow;
-
-            var accessToken = GenerateJwtToken(dbUser.Username, 180);
-            var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
-
-            // Store refresh token hash in DB
-            dbUser.RefreshTokenHash = ComputeHash(refreshToken);
-            dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
-            await _dbContext.SaveChangesAsync();
-
-            await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Kích hoạt xác thực 2 lớp thành công", dbUser.Id.ToString());
-
-            return AuthResult.Success(new LoginResponse
-            {
-                Message = "Kích hoạt xác thực 2 lớp thành công",
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                Username = dbUser.Username
-            });
         }
 
         public async Task<AuthResult> Verify2FaAsync(Verify2FARequest request, string authHeader)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Code))
+            try
             {
-                return AuthResult.Fail(400, "Tên đăng nhập và mã OTP là bắt buộc.");
+                if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Code))
+                {
+                    return AuthResult.Fail(400, "Tên đăng nhập và mã OTP là bắt buộc.");
+                }
+
+                var usernameFromToken = ValidateTemporaryToken(authHeader);
+                if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+                {
+                    return AuthResult.Fail(401, "Yêu cầu mã tạm thời (Temporary Token) hợp lệ.");
+                }
+
+                var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
+                if (dbUser == null)
+                {
+                    return AuthResult.Fail(404, "Không tìm thấy người dùng.");
+                }
+
+                if (!dbUser.IsTwoFactorEnabled)
+                {
+                    return AuthResult.Fail(400, "Xác thực hai lớp (2FA) chưa được kích hoạt.");
+                }
+
+                bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
+                if (!isValid)
+                {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Xác thực 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
+                    return AuthResult.Fail(400, "Mã OTP không chính xác.");
+                }
+
+                var accessToken = GenerateJwtToken(dbUser.Username, 180);
+                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+
+                // Store refresh token hash in DB
+                dbUser.RefreshTokenHash = ComputeHash(refreshToken);
+                dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+                await _dbContext.SaveChangesAsync();
+
+                await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập xác thực 2 lớp thành công", dbUser.Id.ToString());
+
+                return AuthResult.Success(new LoginResponse
+                {
+                    Message = "Đăng nhập xác thực 2 lớp thành công",
+                    AccessToken = accessToken,
+                    RefreshToken = refreshToken,
+                    Username = dbUser.Username
+                });
             }
-
-            var usernameFromToken = ValidateTemporaryToken(authHeader);
-            if (usernameFromToken == null || !usernameFromToken.Equals(request.Username, StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex)
             {
-                return AuthResult.Fail(401, "Yêu cầu mã tạm thời (Temporary Token) hợp lệ.");
+                _logger.LogError(ex, "Lỗi xảy ra trong Verify2FaAsync.");
+                throw;
             }
-
-            var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
-            if (dbUser == null)
-            {
-                return AuthResult.Fail(404, "Không tìm thấy người dùng.");
-            }
-
-            if (!dbUser.IsTwoFactorEnabled)
-            {
-                return AuthResult.Fail(400, "Xác thực hai lớp (2FA) chưa được kích hoạt.");
-            }
-
-            bool isValid = _totpService.VerifyCode(dbUser.TwoFactorSecret ?? "", request.Code);
-            if (!isValid)
-            {
-                await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Xác thực 2FA thất bại: Mã OTP không chính xác", dbUser.Id.ToString());
-                return AuthResult.Fail(400, "Mã OTP không chính xác.");
-            }
-
-            var accessToken = GenerateJwtToken(dbUser.Username, 180);
-            var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
-
-            // Store refresh token hash in DB
-            dbUser.RefreshTokenHash = ComputeHash(refreshToken);
-            dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
-            await _dbContext.SaveChangesAsync();
-
-            await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập xác thực 2 lớp thành công", dbUser.Id.ToString());
-
-            return AuthResult.Success(new LoginResponse
-            {
-                Message = "Đăng nhập xác thực 2 lớp thành công",
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                Username = dbUser.Username
-            });
         }
 
         public async Task<AuthResult> LogoutAsync(string username)
         {
-            if (string.IsNullOrEmpty(username))
+            try
             {
-                return AuthResult.Fail(401, "Tên đăng nhập là bắt buộc.");
-            }
+                if (string.IsNullOrEmpty(username))
+                {
+                    return AuthResult.Fail(401, "Tên đăng nhập là bắt buộc.");
+                }
 
-            var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
-            if (dbUser != null)
-            {
-                dbUser.RefreshTokenHash = null;
-                dbUser.RefreshTokenExpiryTime = null;
-                await _dbContext.SaveChangesAsync();
-                await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công", dbUser.Id.ToString());
-            }
-            else
-            {
-                await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công");
-            }
+                var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
+                if (dbUser != null)
+                {
+                    dbUser.RefreshTokenHash = null;
+                    dbUser.RefreshTokenExpiryTime = null;
+                    await _dbContext.SaveChangesAsync();
+                    await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công", dbUser.Id.ToString());
+                }
+                else
+                {
+                    await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công");
+                }
 
-            return AuthResult.Success(new LoginResponse { Message = "Đăng xuất thành công" });
+                return AuthResult.Success(new LoginResponse { Message = "Đăng xuất thành công" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra trong LogoutAsync cho Username {Username}.", username);
+                throw;
+            }
         }
 
         private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false)

@@ -10,15 +10,19 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
+using Microsoft.Extensions.Logging;
+
 namespace demo1.Services.Implements;
 
 public class ReportService : IReportService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<ReportService> _logger;
 
-    public ReportService(AppDbContext context)
+    public ReportService(AppDbContext context, ILogger<ReportService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period)

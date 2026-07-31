@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace demo1.Data;
 
@@ -17,127 +18,168 @@ public static class CreateFakeDataExtensions
         using var scope = app.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var loggerFactory = scope.ServiceProvider.GetService<ILoggerFactory>();
+        var logger = loggerFactory?.CreateLogger("CreateFakeDataExtensions");
 
         if (configuration.GetValue<bool>("Database:AutoMigrate") ||
             configuration.GetValue<bool>("Database:SeedSampleData"))
         {
-            await context.Database.MigrateAsync();
-            if (!context.Features.Any())
+            try
             {
-                // 1. Seed Features
-                var features = new List<Feature>
-                {
-                    new() { Code = "PROJECT", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
-                    new() { Code = "BID_PACKAGE", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
-                    new() { Code = "CONTRACT", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
-                    new() { Code = "PARTNER", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
-                    new() { Code = "RESOLUTION", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
-                };
-                context.Features.AddRange(features);
-                await context.SaveChangesAsync();
+                // Thử kết nối với DB trước (Retry 3 lần)
+                int maxRetries = 3;
+                int retryDelayMs = 2000;
+                bool connected = false;
 
-                // 2. Seed Roles
-                var adminRole = new Role { Name = "Admin", Description = "Quyền quản trị toàn hệ thống" };
-                var managerRole = new Role { Name = "Manager", Description = "Quản lý dự án, hợp đồng" };
-                var staffRole = new Role { Name = "Staff", Description = "Nhân viên xem và cập nhật thông tin" };
-                context.Roles.AddRange(adminRole, managerRole, staffRole);
-                await context.SaveChangesAsync();
-
-                // 3. Seed Admin User
-                var adminUser = new User
+                for (int i = 1; i <= maxRetries; i++)
                 {
-                    Username = "admin",
-                    FullName = "System Administrator",
-                    IsActive = true,
-                    IsSystemAdmin = true
-                };
-                var normalUser = new User
-                {
-                    Username = "quangmd",
-                    FullName = "Mai Duy Quang",
-                    IsActive = true,
-                    IsSystemAdmin = true
-                };
-                context.Users.AddRange(adminUser, normalUser);
-                await context.SaveChangesAsync();
-
-                context.UserRoles.Add(new UserRole
-                {
-                    UserId = normalUser.Id,
-                    RoleId = adminRole.Id
-                });
-                await context.SaveChangesAsync();
-
-                if (!context.Users.Any(u => u.Username == "anhld2"))
-                {
-                    var anhldUser = new User
+                    try
                     {
-                        Id = Guid.NewGuid(),
-                        Username = "anhld2",
-                        FullName = "Lê Đức Anh",
-                        IsActive = true,
-                        IsSystemAdmin = true,
-                        IsTwoFactorEnabled = false,
-                        CreatedAt = DateTime.UtcNow
+                        if (await context.Database.CanConnectAsync())
+                        {
+                            connected = true;
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.LogWarning(ex, "Lần {Attempt}/{MaxRetries}: Không thể kết nối Database, thử lại sau {Delay}ms...", i, maxRetries, retryDelayMs);
+                    }
+
+                    if (i < maxRetries)
+                    {
+                        await Task.Delay(retryDelayMs);
+                    }
+                }
+
+                if (!connected)
+                {
+                    logger?.LogError("Không thể kết nối Database sau {MaxRetries} lần thử. Server vẫn sẽ tiếp tục khởi chạy mà không thực hiện AutoMigrate/SeedData.", maxRetries);
+                    return;
+                }
+
+                await context.Database.MigrateAsync();
+                if (!context.Features.Any())
+                {
+                    // 1. Seed Features
+                    var features = new List<Feature>
+                    {
+                        new() { Code = "PROJECT", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
+                        new() { Code = "BID_PACKAGE", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
+                        new() { Code = "CONTRACT", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
+                        new() { Code = "PARTNER", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
+                        new() { Code = "RESOLUTION", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
                     };
-                    context.Users.Add(anhldUser);
+                    context.Features.AddRange(features);
                     await context.SaveChangesAsync();
-                }
-            }
 
-            // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
-            var defaultPositions = new List<(string Code, string Name, int Level)>
-            {
-                ("TGD", "Tổng giám đốc", 1),
-                ("GD", "Giám đốc", 2),
-                ("PGD", "Phó giám đốc", 3),
-                ("TP", "Trưởng phòng", 4),
-                ("PP", "Phó phòng", 5),
-                ("CV", "Chuyên viên", 6)
-            };
+                    // 2. Seed Roles
+                    var adminRole = new Role { Name = "Admin", Description = "Quyền quản trị toàn hệ thống" };
+                    var managerRole = new Role { Name = "Manager", Description = "Quản lý dự án, hợp đồng" };
+                    var staffRole = new Role { Name = "Staff", Description = "Nhân viên xem và cập nhật thông tin" };
+                    context.Roles.AddRange(adminRole, managerRole, staffRole);
+                    await context.SaveChangesAsync();
 
-            foreach (var pos in defaultPositions)
-            {
-                var existingByCode = await context.ChucVus.FirstOrDefaultAsync(cv => cv.Code != null && cv.Code.ToUpper() == pos.Code);
-                if (existingByCode != null)
-                {
-                    existingByCode.Level = pos.Level;
-                    existingByCode.TenChucVu = pos.Name;
-                }
-                else
-                {
-                    var existingByName = await context.ChucVus.FirstOrDefaultAsync(cv => 
-                        cv.TenChucVu.ToLower() == pos.Name.ToLower() ||
-                        (pos.Code == "TGD" && cv.TenChucVu.ToLower() == "tổng giám đốc") ||
-                        (pos.Code == "GD" && cv.TenChucVu.ToLower() == "giám đốc") ||
-                        (pos.Code == "PGD" && cv.TenChucVu.ToLower() == "phó giám đốc") ||
-                        (pos.Code == "TP" && cv.TenChucVu.ToLower() == "trưởng phòng") ||
-                        (pos.Code == "PP" && (cv.TenChucVu.ToLower() == "phó phòng" || cv.TenChucVu.ToLower() == "phó trưởng phòng")) ||
-                        (pos.Code == "CV" && cv.TenChucVu.ToLower() == "chuyên viên"));
-
-                    if (existingByName != null)
+                    // 3. Seed Admin User
+                    var adminUser = new User
                     {
-                        existingByName.Code = pos.Code;
-                        existingByName.Level = pos.Level;
+                        Username = "admin",
+                        FullName = "System Administrator",
+                        IsActive = true,
+                        IsSystemAdmin = true
+                    };
+                    var normalUser = new User
+                    {
+                        Username = "quangmd",
+                        FullName = "Mai Duy Quang",
+                        IsActive = true,
+                        IsSystemAdmin = true
+                    };
+                    context.Users.AddRange(adminUser, normalUser);
+                    await context.SaveChangesAsync();
+
+                    context.UserRoles.Add(new UserRole
+                    {
+                        UserId = normalUser.Id,
+                        RoleId = adminRole.Id
+                    });
+                    await context.SaveChangesAsync();
+
+                    if (!context.Users.Any(u => u.Username == "anhld2"))
+                    {
+                        var anhldUser = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Username = "anhld2",
+                            FullName = "Lê Đức Anh",
+                            IsActive = true,
+                            IsSystemAdmin = true,
+                            IsTwoFactorEnabled = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        context.Users.Add(anhldUser);
+                        await context.SaveChangesAsync();
+                    }
+                }
+
+                // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
+                var defaultPositions = new List<(string Code, string Name, int Level)>
+                {
+                    ("TGD", "Tổng giám đốc", 1),
+                    ("GD", "Giám đốc", 2),
+                    ("PGD", "Phó giám đốc", 3),
+                    ("TP", "Trưởng phòng", 4),
+                    ("PP", "Phó phòng", 5),
+                    ("CV", "Chuyên viên", 6)
+                };
+
+                foreach (var pos in defaultPositions)
+                {
+                    var existingByCode = await context.ChucVus.FirstOrDefaultAsync(cv => cv.Code != null && cv.Code.ToUpper() == pos.Code);
+                    if (existingByCode != null)
+                    {
+                        existingByCode.Level = pos.Level;
+                        existingByCode.TenChucVu = pos.Name;
                     }
                     else
                     {
-                        context.ChucVus.Add(new ChucVu
+                        var existingByName = await context.ChucVus.FirstOrDefaultAsync(cv => 
+                            cv.TenChucVu.ToLower() == pos.Name.ToLower() ||
+                            (pos.Code == "TGD" && cv.TenChucVu.ToLower() == "tổng giám đốc") ||
+                            (pos.Code == "GD" && cv.TenChucVu.ToLower() == "giám đốc") ||
+                            (pos.Code == "PGD" && cv.TenChucVu.ToLower() == "phó giám đốc") ||
+                            (pos.Code == "TP" && cv.TenChucVu.ToLower() == "trưởng phòng") ||
+                            (pos.Code == "PP" && (cv.TenChucVu.ToLower() == "phó phòng" || cv.TenChucVu.ToLower() == "phó trưởng phòng")) ||
+                            (pos.Code == "CV" && cv.TenChucVu.ToLower() == "chuyên viên"));
+
+                        if (existingByName != null)
                         {
-                            Id = Guid.NewGuid(),
-                            TenChucVu = pos.Name,
-                            Code = pos.Code,
-                            Level = pos.Level,
-                            CreatedAt = DateTime.UtcNow
-                        });
+                            existingByName.Code = pos.Code;
+                            existingByName.Level = pos.Level;
+                        }
+                        else
+                        {
+                            context.ChucVus.Add(new ChucVu
+                            {
+                                Id = Guid.NewGuid(),
+                                TenChucVu = pos.Name,
+                                Code = pos.Code,
+                                Level = pos.Level,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
                     }
                 }
-            }
-            await context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
-            if (configuration.GetValue<bool>("Database:SeedSampleData"))
+                if (configuration.GetValue<bool>("Database:SeedSampleData"))
+                {
+                    await DatabaseSeeder.SeedAsync(context);
+                }
+            }
+            catch (Exception ex)
             {
-                await DatabaseSeeder.SeedAsync(context);
+                logger?.LogError(ex, "Đã xảy ra ngoại lệ khi kết nối hoặc khởi tạo dữ liệu Database. Khởi chạy Server vẫn sẽ tiếp tục.");
             }
         }
     }

@@ -13,8 +13,11 @@ namespace demo1.Services.Implements;
 
 public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDto, UpdateLicenseDto>, ILicenseService
 {
-    public LicenseService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    private readonly ILogger<LicenseService> _logger;
+
+    public LicenseService(AppDbContext dbContext, IMapper mapper, ILogger<LicenseService> logger) : base(dbContext, mapper)
     {
+        _logger = logger;
     }
 
     private static int RecalculateStatus(License license)
@@ -60,264 +63,328 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
 
     public override async Task<PagedResult<LicenseDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
-
-        IQueryable<License> query = DbSet
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Include(l => l.NhaCungCap)
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(search))
+        try
         {
-            var keyword = search.Trim();
-            query = ApplySearchFilter(query, keyword);
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<License> query = DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                query = ApplySearchFilter(query, keyword);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(l => l.CreatedAt)
+                .ThenByDescending(l => l.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var dtos = items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+
+            return new PagedResult<LicenseDto>
+            {
+                Items = dtos,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            };
         }
-
-        var totalItems = await query.CountAsync();
-
-        var items = await query
-            .OrderByDescending(l => l.CreatedAt)
-            .ThenByDescending(l => l.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        var dtos = items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
-
-        return new PagedResult<LicenseDto>
+        catch (Exception ex)
         {
-            Items = dtos,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
-        };
+            _logger.LogError(ex, "Lỗi xảy ra trong GetAllAsync.");
+            throw;
+        }
     }
 
     public override async Task<IReadOnlyList<LicenseDto>> GetAllItemsAsync()
     {
-        var items = await DbSet
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Include(l => l.NhaCungCap)
-            .AsNoTracking()
-            .ToListAsync();
+        try
+        {
+            var items = await DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .AsNoTracking()
+                .ToListAsync();
 
-        return items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+            return items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetAllItemsAsync.");
+            throw;
+        }
     }
 
     public override async Task<LicenseDto?> GetByIdAsync(Guid id)
     {
-        var entity = await DbSet
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Include(l => l.NhaCungCap)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == id);
+        try
+        {
+            var entity = await DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.Id == id);
 
-        if (entity is null) return null;
+            if (entity is null) return null;
 
-        var dto = Mapper.Map<LicenseDto>(entity);
-        return EnrichDtoStatus(dto, entity);
+            var dto = Mapper.Map<LicenseDto>(entity);
+            return EnrichDtoStatus(dto, entity);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetByIdAsync cho ID {Id}.", id);
+            throw;
+        }
     }
 
     public async Task<PagedResult<LicenseDto>> GetByDuAnIdAsync(Guid duAnId, string? search, int page, int pageSize)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
-
-        IQueryable<License> query = DbSet
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Include(l => l.NhaCungCap)
-            .Where(l => l.DuAnId == duAnId)
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(search))
+        try
         {
-            var keyword = search.Trim();
-            query = ApplySearchFilter(query, keyword);
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<License> query = DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .Where(l => l.DuAnId == duAnId)
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                query = ApplySearchFilter(query, keyword);
+            }
+
+            var totalItems = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(l => l.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var dtos = items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+
+            return new PagedResult<LicenseDto>
+            {
+                Items = dtos,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            };
         }
-
-        var totalItems = await query.CountAsync();
-
-        var items = await query
-            .OrderByDescending(l => l.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        var dtos = items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
-
-        return new PagedResult<LicenseDto>
+        catch (Exception ex)
         {
-            Items = dtos,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems
-        };
+            _logger.LogError(ex, "Lỗi xảy ra trong GetByDuAnIdAsync cho DuAnId {DuAnId}.", duAnId);
+            throw;
+        }
     }
 
     public async Task<IReadOnlyList<LicenseDto>> GetExpiringLicensesAsync(int? daysThreshold = null)
     {
-        var today = DateTime.Today;
-
-        var query = DbSet
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Include(l => l.NhaCungCap)
-            .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
-            .AsNoTracking();
-
-        if (daysThreshold.HasValue)
+        try
         {
-            var thresholdDate = today.AddDays(daysThreshold.Value);
-            query = query.Where(l => l.NgayKetThuc!.Value.Date <= thresholdDate.Date);
-        }
-        else
-        {
-            query = query.Where(l => (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay);
-        }
+            var today = DateTime.Today;
 
-        var items = await query.OrderBy(l => l.NgayKetThuc).ToListAsync();
-        return items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+            var query = DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
+                .AsNoTracking();
+
+            if (daysThreshold.HasValue)
+            {
+                var thresholdDate = today.AddDays(daysThreshold.Value);
+                query = query.Where(l => l.NgayKetThuc!.Value.Date <= thresholdDate.Date);
+            }
+            else
+            {
+                query = query.Where(l => (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay);
+            }
+
+            var items = await query.OrderBy(l => l.NgayKetThuc).ToListAsync();
+            return items.Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetExpiringLicensesAsync.");
+            throw;
+        }
     }
 
     public async Task<LicenseSummaryDto> GetLicenseSummaryAsync(Guid? duAnId = null)
     {
-        IQueryable<License> query = DbSet.AsNoTracking();
-
-        if (duAnId.HasValue)
+        try
         {
-            query = query.Where(l => l.DuAnId == duAnId.Value);
-        }
+            IQueryable<License> query = DbSet.AsNoTracking();
 
-        var today = DateTime.Today;
-
-        var stats = await query
-            .GroupBy(l => 1)
-            .Select(g => new
+            if (duAnId.HasValue)
             {
-                TotalCount = g.Count(),
-                PerpetualCount = g.Count(l => l.LoaiLicense == 2),
-                TermBasedCount = g.Count(l => l.LoaiLicense == 1),
-                HardwareBasedCount = g.Count(l => l.LoaiLicense == 3),
-                PerUserCount = g.Count(l => l.LoaiLicense == 4),
+                query = query.Where(l => l.DuAnId == duAnId.Value);
+            }
 
-                TerminatedCount = g.Count(l => !l.IsActive || l.TrangThai == 4),
+            var today = DateTime.Today;
 
-                ExpiredCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
-                    && l.NgayKetThuc!.Value.Date < today.Date),
+            var stats = await query
+                .GroupBy(l => 1)
+                .Select(g => new
+                {
+                    TotalCount = g.Count(),
+                    PerpetualCount = g.Count(l => l.LoaiLicense == 2),
+                    TermBasedCount = g.Count(l => l.LoaiLicense == 1),
+                    HardwareBasedCount = g.Count(l => l.LoaiLicense == 3),
+                    PerUserCount = g.Count(l => l.LoaiLicense == 4),
 
-                ExpiringSoonCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
-                    && (l.NgayKetThuc!.Value - today).TotalDays >= 0 
-                    && (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay)
-            })
-            .FirstOrDefaultAsync();
+                    TerminatedCount = g.Count(l => !l.IsActive || l.TrangThai == 4),
 
-        if (stats == null)
-        {
-            return new LicenseSummaryDto();
+                    ExpiredCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
+                        && l.NgayKetThuc!.Value.Date < today.Date),
+
+                    ExpiringSoonCount = g.Count(l => l.IsActive && l.TrangThai != 4 && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue 
+                        && (l.NgayKetThuc!.Value - today).TotalDays >= 0 
+                        && (l.NgayKetThuc!.Value - today).TotalDays <= l.CanhBaoTruocNgay)
+                })
+                .FirstOrDefaultAsync();
+
+            if (stats == null)
+            {
+                return new LicenseSummaryDto();
+            }
+
+            return new LicenseSummaryDto
+            {
+                TotalCount = stats.TotalCount,
+                PerpetualCount = stats.PerpetualCount,
+                TermBasedCount = stats.TermBasedCount,
+                HardwareBasedCount = stats.HardwareBasedCount,
+                PerUserCount = stats.PerUserCount,
+                ActiveCount = stats.TotalCount - stats.TerminatedCount - stats.ExpiredCount - stats.ExpiringSoonCount,
+                ExpiringSoonCount = stats.ExpiringSoonCount,
+                ExpiredCount = stats.ExpiredCount,
+                TerminatedCount = stats.TerminatedCount
+            };
         }
-
-        return new LicenseSummaryDto
+        catch (Exception ex)
         {
-            TotalCount = stats.TotalCount,
-            PerpetualCount = stats.PerpetualCount,
-            TermBasedCount = stats.TermBasedCount,
-            HardwareBasedCount = stats.HardwareBasedCount,
-            PerUserCount = stats.PerUserCount,
-            ActiveCount = stats.TotalCount - stats.TerminatedCount - stats.ExpiredCount - stats.ExpiringSoonCount,
-            ExpiringSoonCount = stats.ExpiringSoonCount,
-            ExpiredCount = stats.ExpiredCount,
-            TerminatedCount = stats.TerminatedCount
-        };
+            _logger.LogError(ex, "Lỗi xảy ra trong GetLicenseSummaryAsync.");
+            throw;
+        }
     }
 
     public override async Task<LicenseDto> CreateAsync(CreateLicenseDto dto)
     {
-        var duAnExists = await DbContext.DuAns.AnyAsync(d => d.Id == dto.DuAnId);
-        if (!duAnExists)
+        try
         {
-            throw new KeyNotFoundException($"Không tìm thấy Dự án với ID '{dto.DuAnId}'.");
-        }
-
-        if (dto.HopDongId.HasValue)
-        {
-            var hopDongExists = await DbContext.HopDongs.AnyAsync(h => h.Id == dto.HopDongId.Value);
-            if (!hopDongExists)
+            var duAnExists = await DbContext.DuAns.AnyAsync(d => d.Id == dto.DuAnId);
+            if (!duAnExists)
             {
-                throw new KeyNotFoundException($"Không tìm thấy Hợp đồng với ID '{dto.HopDongId.Value}'.");
+                throw new KeyNotFoundException($"Không tìm thấy Dự án với ID '{dto.DuAnId}'.");
             }
-        }
 
-        if (dto.NhaCungCapId.HasValue)
-        {
-            var doiTacExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaCungCapId.Value);
-            if (!doiTacExists)
+            if (dto.HopDongId.HasValue)
             {
-                throw new KeyNotFoundException($"Không tìm thấy Đối tác với ID '{dto.NhaCungCapId.Value}'.");
+                var hopDongExists = await DbContext.HopDongs.AnyAsync(h => h.Id == dto.HopDongId.Value);
+                if (!hopDongExists)
+                {
+                    throw new KeyNotFoundException($"Không tìm thấy Hợp đồng với ID '{dto.HopDongId.Value}'.");
+                }
             }
+
+            if (dto.NhaCungCapId.HasValue)
+            {
+                var doiTacExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaCungCapId.Value);
+                if (!doiTacExists)
+                {
+                    throw new KeyNotFoundException($"Không tìm thấy Đối tác với ID '{dto.NhaCungCapId.Value}'.");
+                }
+            }
+
+            var entity = Mapper.Map<License>(dto);
+            entity.Id = Guid.NewGuid();
+            entity.CreatedAt = DateTime.UtcNow;
+
+            if (string.IsNullOrWhiteSpace(entity.Code))
+            {
+                entity.Code = $"LIC-{DateTime.Now:yyyyMMdd}-{entity.Id.ToString().Substring(0, 4).ToUpper()}";
+            }
+
+            CalculateEndAndDuration(entity);
+            entity.TrangThai = RecalculateStatus(entity);
+
+            await DbSet.AddAsync(entity);
+            await DbContext.SaveChangesAsync();
+
+            return (await GetByIdAsync(entity.Id))!;
         }
-
-        var entity = Mapper.Map<License>(dto);
-        entity.Id = Guid.NewGuid();
-        entity.CreatedAt = DateTime.UtcNow;
-
-        if (string.IsNullOrWhiteSpace(entity.Code))
+        catch (Exception ex)
         {
-            entity.Code = $"LIC-{DateTime.Now:yyyyMMdd}-{entity.Id.ToString().Substring(0, 4).ToUpper()}";
+            _logger.LogError(ex, "Lỗi xảy ra trong CreateAsync của LicenseService.");
+            throw;
         }
-
-        CalculateEndAndDuration(entity);
-        entity.TrangThai = RecalculateStatus(entity);
-
-        await DbSet.AddAsync(entity);
-        await DbContext.SaveChangesAsync();
-
-        return (await GetByIdAsync(entity.Id))!;
     }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateLicenseDto dto)
     {
-        var entity = await DbSet.FindAsync(id);
-        if (entity is null)
+        try
         {
-            return false;
-        }
-
-        var duAnExists = await DbContext.DuAns.AnyAsync(d => d.Id == dto.DuAnId);
-        if (!duAnExists)
-        {
-            throw new KeyNotFoundException($"Không tìm thấy Dự án với ID '{dto.DuAnId}'.");
-        }
-
-        if (dto.HopDongId.HasValue)
-        {
-            var hopDongExists = await DbContext.HopDongs.AnyAsync(h => h.Id == dto.HopDongId.Value);
-            if (!hopDongExists)
+            var entity = await DbSet.FindAsync(id);
+            if (entity is null)
             {
-                throw new KeyNotFoundException($"Không tìm thấy Hợp đồng với ID '{dto.HopDongId.Value}'.");
+                return false;
             }
-        }
 
-        if (dto.NhaCungCapId.HasValue)
-        {
-            var doiTacExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaCungCapId.Value);
-            if (!doiTacExists)
+            var duAnExists = await DbContext.DuAns.AnyAsync(d => d.Id == dto.DuAnId);
+            if (!duAnExists)
             {
-                throw new KeyNotFoundException($"Không tìm thấy Đối tác với ID '{dto.NhaCungCapId.Value}'.");
+                throw new KeyNotFoundException($"Không tìm thấy Dự án với ID '{dto.DuAnId}'.");
             }
+
+            if (dto.HopDongId.HasValue)
+            {
+                var hopDongExists = await DbContext.HopDongs.AnyAsync(h => h.Id == dto.HopDongId.Value);
+                if (!hopDongExists)
+                {
+                    throw new KeyNotFoundException($"Không tìm thấy Hợp đồng với ID '{dto.HopDongId.Value}'.");
+                }
+            }
+
+            if (dto.NhaCungCapId.HasValue)
+            {
+                var doiTacExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaCungCapId.Value);
+                if (!doiTacExists)
+                {
+                    throw new KeyNotFoundException($"Không tìm thấy Đối tác với ID '{dto.NhaCungCapId.Value}'.");
+                }
+            }
+
+            Mapper.Map(dto, entity);
+            entity.UpdatedAt = DateTime.UtcNow;
+            CalculateEndAndDuration(entity);
+            entity.TrangThai = RecalculateStatus(entity);
+
+            await DbContext.SaveChangesAsync();
+            return true;
         }
-
-        Mapper.Map(dto, entity);
-        entity.UpdatedAt = DateTime.UtcNow;
-        CalculateEndAndDuration(entity);
-        entity.TrangThai = RecalculateStatus(entity);
-
-        await DbContext.SaveChangesAsync();
-        return true;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong UpdateAsync của LicenseService cho ID {Id}.", id);
+            throw;
+        }
     }
 
     private static void CalculateEndAndDuration(License license)

@@ -25,64 +25,71 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
 
     public virtual async Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
-
-        IQueryable<TEntity> query = DbSet.AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(search))
+        try
         {
-            var keyword = search.Trim();
-            query = ApplySearchFilter(query, keyword);
-        }
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var totalItems = await query.CountAsync();
+            IQueryable<TEntity> query = DbSet.AsNoTracking();
 
-        List<TEntity> items;
-        bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
-
-        if (isKeyset)
-        {
-            items = await query
-                .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
-                .OrderByDescending(item => item.CreatedAt)
-                .ThenByDescending(item => item.Id)
-                .Take(pageSize)
-                .ToListAsync();
-        }
-        else
-        {
-            items = await query
-                .OrderByDescending(item => item.CreatedAt)
-                .ThenByDescending(item => item.Id)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-        }
-
-        string? nextCursor = null;
-        if (items.Any())
-        {
-            var lastItem = items.Last();
-            var hasMore = await query
-                .Where(item => item.CreatedAt < lastItem.CreatedAt || (item.CreatedAt == lastItem.CreatedAt && item.Id.CompareTo(lastItem.Id) < 0))
-                .AnyAsync();
-            if (hasMore)
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                nextCursor = EncodeCursor(lastItem.CreatedAt, lastItem.Id);
+                var keyword = search.Trim();
+                query = ApplySearchFilter(query, keyword);
             }
+
+            var totalItems = await query.CountAsync();
+
+            List<TEntity> items;
+            bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+
+            if (isKeyset)
+            {
+                items = await query
+                    .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
+                    .OrderByDescending(item => item.CreatedAt)
+                    .ThenByDescending(item => item.Id)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+            else
+            {
+                items = await query
+                    .OrderByDescending(item => item.CreatedAt)
+                    .ThenByDescending(item => item.Id)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+
+            string? nextCursor = null;
+            if (items.Any())
+            {
+                var lastItem = items.Last();
+                var hasMore = await query
+                    .Where(item => item.CreatedAt < lastItem.CreatedAt || (item.CreatedAt == lastItem.CreatedAt && item.Id.CompareTo(lastItem.Id) < 0))
+                    .AnyAsync();
+                if (hasMore)
+                {
+                    nextCursor = EncodeCursor(lastItem.CreatedAt, lastItem.Id);
+                }
+            }
+
+            var dtos = Mapper.Map<List<TDto>>(items);
+
+            return new PagedResult<TDto>
+            {
+                Items = dtos,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                NextCursor = nextCursor
+            };
         }
-
-        var dtos = Mapper.Map<List<TDto>>(items);
-
-        return new PagedResult<TDto>
+        catch (Exception)
         {
-            Items = dtos,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems,
-            NextCursor = nextCursor
-        };
+            throw;
+        }
     }
 
     protected string EncodeCursor(DateTime createdAt, Guid id)
@@ -115,73 +122,114 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         return false;
     }
 
-
     public virtual async Task<IReadOnlyList<TDto>> GetAllItemsAsync()
     {
-        var items = await DbSet.ToListAsync();
-        return Mapper.Map<List<TDto>>(items);
+        try
+        {
+            var items = await DbSet.ToListAsync();
+            return Mapper.Map<List<TDto>>(items);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public virtual async Task<TDto?> GetByIdAsync(Guid id)
     {
-        var entity = await DbSet.FindAsync(id);
-        return entity is null ? null : Mapper.Map<TDto>(entity);
+        try
+        {
+            var entity = await DbSet.FindAsync(id);
+            return entity is null ? null : Mapper.Map<TDto>(entity);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public virtual async Task<TDto> CreateAsync(TCreateDto dto)
     {
-        var entity = CreateEntity(dto);
-        await EnsureCodeIsUniqueAsync(entity.Code);
+        try
+        {
+            var entity = CreateEntity(dto);
+            await EnsureCodeIsUniqueAsync(entity.Code);
 
-        entity.CreatedAt = DateTime.UtcNow;
-        await DbSet.AddAsync(entity);
-        await DbContext.SaveChangesAsync();
+            entity.CreatedAt = DateTime.UtcNow;
+            await DbSet.AddAsync(entity);
+            await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<TDto>(entity);
+            return Mapper.Map<TDto>(entity);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public virtual async Task<IEnumerable<TDto>> CreateRangeAsync(IEnumerable<TCreateDto> dtos)
     {
-        var entities = new List<TEntity>();
-        foreach (var dto in dtos)
+        try
         {
-            var entity = CreateEntity(dto);
-            await EnsureCodeIsUniqueAsync(entity.Code);
-            entity.CreatedAt = DateTime.UtcNow;
-            entities.Add(entity);
+            var entities = new List<TEntity>();
+            foreach (var dto in dtos)
+            {
+                var entity = CreateEntity(dto);
+                await EnsureCodeIsUniqueAsync(entity.Code);
+                entity.CreatedAt = DateTime.UtcNow;
+                entities.Add(entity);
+            }
+            await DbSet.AddRangeAsync(entities);
+            await DbContext.SaveChangesAsync();
+            return Mapper.Map<List<TDto>>(entities);
         }
-        await DbSet.AddRangeAsync(entities);
-        await DbContext.SaveChangesAsync();
-        return Mapper.Map<List<TDto>>(entities);
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public virtual async Task<bool> UpdateAsync(Guid id, TUpdateDto dto)
     {
-        var entity = await DbSet.FindAsync(id);
-        if (entity is null)
+        try
         {
-            return false;
+            var entity = await DbSet.FindAsync(id);
+            if (entity is null)
+            {
+                return false;
+            }
+
+            UpdateEntity(entity, dto);
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            await DbContext.SaveChangesAsync();
+
+            return true;
         }
-
-        UpdateEntity(entity, dto);
-        entity.UpdatedAt = DateTime.UtcNow;
-
-        await DbContext.SaveChangesAsync();
-
-        return true;
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     public virtual async Task<bool> DeleteAsync(Guid id)
     {
-        var entity = await DbSet.FindAsync(id);
-        if (entity is null)
+        try
         {
-            return false;
-        }
+            var entity = await DbSet.FindAsync(id);
+            if (entity is null)
+            {
+                return false;
+            }
 
-        DbSet.Remove(entity);
-        await DbContext.SaveChangesAsync();
-        return true;
+            DbSet.Remove(entity);
+            await DbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
     protected virtual IQueryable<TEntity> ApplySearchFilter(IQueryable<TEntity> query, string keyword)

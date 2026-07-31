@@ -11,6 +11,8 @@ using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
+using Microsoft.Extensions.Logging;
+
 namespace demo1.Services.Implements;
 
 public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
@@ -20,19 +22,22 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly IMapper _mapper;
     private readonly CongViecReminderHangfireService _reminderService;
+    private readonly ILogger<CommentCongViecGoiThauService> _logger;
 
     public CommentCongViecGoiThauService(
         AppDbContext context,
         ICurrentUserService currentUserService,
         IHubContext<NotificationHub> hubContext,
         IMapper mapper,
-        CongViecReminderHangfireService reminderService)
+        CongViecReminderHangfireService reminderService,
+        ILogger<CommentCongViecGoiThauService> logger)
     {
         _context = context;
         _currentUserService = currentUserService;
         _hubContext = hubContext;
         _mapper = mapper;
         _reminderService = reminderService;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<CommentCongViecGoiThauDto>> GetCommentsByCongViecIdAsync(Guid idCongViec)

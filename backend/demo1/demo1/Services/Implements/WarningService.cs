@@ -6,6 +6,7 @@ using demo1.Data;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace demo1.Services.Implements;
 
@@ -13,157 +14,199 @@ public class WarningService : IWarningService
 {
     private const int ExpiringSoonDays = 30;
     private readonly AppDbContext _dbContext;
+    private readonly ILogger<WarningService> _logger;
 
-    public WarningService(AppDbContext dbContext)
+    public WarningService(AppDbContext dbContext, ILogger<WarningService> logger)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task<List<ContractWarningDto>> GetContractsExpiringSoonAsync()
     {
-        var today = DateTime.Today;
-        var thresholdDate = today.AddDays(ExpiringSoonDays);
+        try
+        {
+            var today = DateTime.Today;
+            var thresholdDate = today.AddDays(ExpiringSoonDays);
 
-        var dbContracts = await _dbContext.HopDongs
-            .AsNoTracking()
-            .Where(c => c.IsActive 
-                && c.IsRenewalRequired 
-                && c.ExpiredDate.HasValue 
-                && c.ExpiredDate.Value.Date >= today.Date 
-                && c.ExpiredDate.Value.Date <= thresholdDate.Date)
-            .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })
-            .ToListAsync();
+            var dbContracts = await _dbContext.HopDongs
+                .AsNoTracking()
+                .Where(c => c.IsActive 
+                    && c.IsRenewalRequired 
+                    && c.ExpiredDate.HasValue 
+                    && c.ExpiredDate.Value.Date >= today.Date 
+                    && c.ExpiredDate.Value.Date <= thresholdDate.Date)
+                .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })
+                .ToListAsync();
 
-        return dbContracts
-            .Select(c => new ContractWarningDto
-            {
-                ContractId = c.Id,
-                ContractNumber = c.Code,
-                Title = c.Name,
-                ExpiredDate = c.ExpiredDate,
-                DaysRemaining = (c.ExpiredDate!.Value.Date - today).Days,
-                WarningMessage = "Hợp đồng sắp hết hạn."
-            })
-            .ToList();
+            return dbContracts
+                .Select(c => new ContractWarningDto
+                {
+                    ContractId = c.Id,
+                    ContractNumber = c.Code,
+                    Title = c.Name,
+                    ExpiredDate = c.ExpiredDate,
+                    DaysRemaining = (c.ExpiredDate!.Value.Date - today).Days,
+                    WarningMessage = "Hợp đồng sắp hết hạn."
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetContractsExpiringSoonAsync.");
+            throw;
+        }
     }
 
     public async Task<List<ContractWarningDto>> GetExpiredContractsAsync()
     {
-        var today = DateTime.Today;
+        try
+        {
+            var today = DateTime.Today;
 
-        var dbContracts = await _dbContext.HopDongs
-            .AsNoTracking()
-            .Where(c => c.IsActive 
-                && c.ExpiredDate.HasValue 
-                && c.ExpiredDate.Value.Date < today.Date)
-            .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })
-            .ToListAsync();
+            var dbContracts = await _dbContext.HopDongs
+                .AsNoTracking()
+                .Where(c => c.IsActive 
+                    && c.ExpiredDate.HasValue 
+                    && c.ExpiredDate.Value.Date < today.Date)
+                .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })
+                .ToListAsync();
 
-        return dbContracts
-            .Select(c => new ContractWarningDto
-            {
-                ContractId = c.Id,
-                ContractNumber = c.Code,
-                Title = c.Name,
-                ExpiredDate = c.ExpiredDate,
-                DaysRemaining = (c.ExpiredDate!.Value.Date - today).Days,
-                WarningMessage = "Hợp đồng đã hết hạn."
-            })
-            .ToList();
+            return dbContracts
+                .Select(c => new ContractWarningDto
+                {
+                    ContractId = c.Id,
+                    ContractNumber = c.Code,
+                    Title = c.Name,
+                    ExpiredDate = c.ExpiredDate,
+                    DaysRemaining = (c.ExpiredDate!.Value.Date - today).Days,
+                    WarningMessage = "Hợp đồng đã hết hạn."
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetExpiredContractsAsync.");
+            throw;
+        }
     }
 
     public async Task<List<BudgetWarningDto>> GetOverBudgetContractsAsync()
     {
-        var dbData = await _dbContext.HopDongs
-            .AsNoTracking()
-            .Where(h => h.IsActive && h.GoiThauId.HasValue)
-            .Join(_dbContext.GoiThaus.AsNoTracking(),
-                h => h.GoiThauId,
-                gt => gt.Id,
-                (h, gt) => new { Contract = h, GoiThau = gt })
-            .Where(x => x.GoiThau.GiaTriGoiThau > 0 
-                && x.Contract.GiaTriHopDong > (x.GoiThau.GiaTriGoiThau * x.GoiThau.NguongCanhBaoPercent / 100))
-            .Select(x => new 
-            {
-                ContractId = x.Contract.Id,
-                ContractNumber = x.Contract.Code,
-                EstimatedValue = x.GoiThau.GiaTriGoiThau,
-                ContractValue = x.Contract.GiaTriHopDong
-            })
-            .ToListAsync();
+        try
+        {
+            var dbData = await _dbContext.HopDongs
+                .AsNoTracking()
+                .Where(h => h.IsActive && h.GoiThauId.HasValue)
+                .Join(_dbContext.GoiThaus.AsNoTracking(),
+                    h => h.GoiThauId,
+                    gt => gt.Id,
+                    (h, gt) => new { Contract = h, GoiThau = gt })
+                .Where(x => x.GoiThau.GiaTriGoiThau > 0 
+                    && x.Contract.GiaTriHopDong > (x.GoiThau.GiaTriGoiThau * x.GoiThau.NguongCanhBaoPercent / 100))
+                .Select(x => new 
+                {
+                    ContractId = x.Contract.Id,
+                    ContractNumber = x.Contract.Code,
+                    EstimatedValue = x.GoiThau.GiaTriGoiThau,
+                    ContractValue = x.Contract.GiaTriHopDong
+                })
+                .ToListAsync();
 
-        return dbData
-            .Select(x => new BudgetWarningDto
-            {
-                ContractId = x.ContractId,
-                ContractNumber = x.ContractNumber,
-                EstimatedValue = x.EstimatedValue,
-                ContractValue = x.ContractValue,
-                OverValue = x.ContractValue - x.EstimatedValue,
-                UsedPercent = Math.Round(x.ContractValue / x.EstimatedValue * 100, 2),
-                WarningMessage = "Giá trị hợp đồng vượt ngưỡng gói thầu."
-            })
-            .ToList();
+            return dbData
+                .Select(x => new BudgetWarningDto
+                {
+                    ContractId = x.ContractId,
+                    ContractNumber = x.ContractNumber,
+                    EstimatedValue = x.EstimatedValue,
+                    ContractValue = x.ContractValue,
+                    OverValue = x.ContractValue - x.EstimatedValue,
+                    UsedPercent = Math.Round(x.ContractValue / x.EstimatedValue * 100, 2),
+                    WarningMessage = "Giá trị hợp đồng vượt ngưỡng gói thầu."
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetOverBudgetContractsAsync.");
+            throw;
+        }
     }
 
     public async Task<List<LicenseWarningDto>> GetLicensesExpiringSoonAsync()
     {
-        var today = DateTime.Today;
+        try
+        {
+            var today = DateTime.Today;
 
-        var licenses = await _dbContext.Licenses
-            .AsNoTracking()
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
-            .ToListAsync();
+            var licenses = await _dbContext.Licenses
+                .AsNoTracking()
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
+                .ToListAsync();
 
-        return licenses
-            .Where(l =>
-            {
-                var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
-                return daysRemaining <= l.CanhBaoTruocNgay && daysRemaining >= 0;
-            })
-            .Select(l => new LicenseWarningDto
-            {
-                LicenseId = l.Id,
-                Code = l.Code,
-                Name = l.Name,
-                DuAnName = l.DuAn != null ? l.DuAn.Name : null,
-                HopDongName = l.HopDong != null ? l.HopDong.Name : null,
-                NgayKetThuc = l.NgayKetThuc,
-                DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
-                CanhBaoTruocNgay = l.CanhBaoTruocNgay,
-                WarningMessage = $"License sắp hết hạn trong {(l.NgayKetThuc!.Value.Date - today).Days} ngày."
-            })
-            .OrderBy(l => l.DaysRemaining)
-            .ToList();
+            return licenses
+                .Where(l =>
+                {
+                    var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
+                    return daysRemaining <= l.CanhBaoTruocNgay && daysRemaining >= 0;
+                })
+                .Select(l => new LicenseWarningDto
+                {
+                    LicenseId = l.Id,
+                    Code = l.Code,
+                    Name = l.Name,
+                    DuAnName = l.DuAn != null ? l.DuAn.Name : null,
+                    HopDongName = l.HopDong != null ? l.HopDong.Name : null,
+                    NgayKetThuc = l.NgayKetThuc,
+                    DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
+                    CanhBaoTruocNgay = l.CanhBaoTruocNgay,
+                    WarningMessage = $"License sắp hết hạn trong {(l.NgayKetThuc!.Value.Date - today).Days} ngày."
+                })
+                .OrderBy(l => l.DaysRemaining)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetLicensesExpiringSoonAsync.");
+            throw;
+        }
     }
 
     public async Task<List<LicenseWarningDto>> GetExpiredLicensesAsync()
     {
-        var today = DateTime.Today;
+        try
+        {
+            var today = DateTime.Today;
 
-        var licenses = await _dbContext.Licenses
-            .AsNoTracking()
-            .Include(l => l.DuAn)
-            .Include(l => l.HopDong)
-            .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue && l.NgayKetThuc.Value.Date < today.Date)
-            .ToListAsync();
+            var licenses = await _dbContext.Licenses
+                .AsNoTracking()
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue && l.NgayKetThuc.Value.Date < today.Date)
+                .ToListAsync();
 
-        return licenses
-            .Select(l => new LicenseWarningDto
-            {
-                LicenseId = l.Id,
-                Code = l.Code,
-                Name = l.Name,
-                DuAnName = l.DuAn != null ? l.DuAn.Name : null,
-                HopDongName = l.HopDong != null ? l.HopDong.Name : null,
-                NgayKetThuc = l.NgayKetThuc,
-                DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
-                CanhBaoTruocNgay = l.CanhBaoTruocNgay,
-                WarningMessage = "License đã quá hạn sử dụng."
-            })
-            .OrderBy(l => l.DaysRemaining)
-            .ToList();
+            return licenses
+                .Select(l => new LicenseWarningDto
+                {
+                    LicenseId = l.Id,
+                    Code = l.Code,
+                    Name = l.Name,
+                    DuAnName = l.DuAn != null ? l.DuAn.Name : null,
+                    HopDongName = l.HopDong != null ? l.HopDong.Name : null,
+                    NgayKetThuc = l.NgayKetThuc,
+                    DaysRemaining = (l.NgayKetThuc!.Value.Date - today).Days,
+                    CanhBaoTruocNgay = l.CanhBaoTruocNgay,
+                    WarningMessage = "License đã quá hạn sử dụng."
+                })
+                .OrderBy(l => l.DaysRemaining)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetExpiredLicensesAsync.");
+            throw;
+        }
     }
 }

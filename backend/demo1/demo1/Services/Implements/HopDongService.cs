@@ -10,12 +10,17 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using demo1.Data;
 
+using Microsoft.Extensions.Logging;
+
 namespace demo1.Services.Implements;
 
 public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDto, UpdateHopDongDto>, IHopDongService
 {
-    public HopDongService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    private readonly ILogger<HopDongService> _logger;
+
+    public HopDongService(AppDbContext dbContext, IMapper mapper, ILogger<HopDongService> logger) : base(dbContext, mapper)
     {
+        _logger = logger;
     }
 
     public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -31,6 +36,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public async Task<PagedResult<HopDongDto>> GetAllAsync(HopDongFilterDto filter)
     {
+        try
+        {
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
@@ -149,6 +156,12 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             TotalItems = totalItems,
             NextCursor = nextCursor
         };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetAllAsync của HopDongService.");
+            throw;
+        }
     }
 
     public override async Task<IReadOnlyList<HopDongDto>> GetAllItemsAsync()

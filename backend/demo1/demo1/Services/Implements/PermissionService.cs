@@ -15,31 +15,41 @@ namespace demo1.Services.Implements
     {
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ILogger<PermissionService> _logger;
 
-        public PermissionService(AppDbContext context, ICurrentUserService currentUserService)
+        public PermissionService(AppDbContext context, ICurrentUserService currentUserService, ILogger<PermissionService> logger)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _logger = logger;
         }
 
         public async Task<bool> HasPermissionAsync(Guid userId, string featureCode, string entityName, string entityId, string action)
         {
-            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
-            if (user == null) return false;
-            if (user.IsSystemAdmin) return true;
+            try
+            {
+                var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+                if (user == null) return false;
+                if (user.IsSystemAdmin) return true;
 
-            var actCode = NormalizeActionCode(action);
-            if (actCode == "VIEW") return true;
+                var actCode = NormalizeActionCode(action);
+                if (actCode == "VIEW") return true;
 
-            return await _context.UserPermissions
-                .AsNoTracking()
-                .Include(up => up.Permission)
-                .AnyAsync(up =>
-                    up.UserId == userId &&
-                    (string.IsNullOrEmpty(featureCode) || up.FeatureCode == featureCode) &&
-                    (string.IsNullOrEmpty(entityName) || up.EntityName.ToLower() == entityName.ToLower()) &&
-                    up.EntityId == entityId &&
-                    up.Permission != null && up.Permission.Code == actCode);
+                return await _context.UserPermissions
+                    .AsNoTracking()
+                    .Include(up => up.Permission)
+                    .AnyAsync(up =>
+                        up.UserId == userId &&
+                        (string.IsNullOrEmpty(featureCode) || up.FeatureCode == featureCode) &&
+                        (string.IsNullOrEmpty(entityName) || up.EntityName.ToLower() == entityName.ToLower()) &&
+                        up.EntityId == entityId &&
+                        up.Permission != null && up.Permission.Code == actCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra trong HasPermissionAsync cho UserId {UserId}.", userId);
+                throw;
+            }
         }
 
         public async Task<PermissionRequestDto> CreateRequestAsync(Guid userId, CreatePermissionRequestDto dto)
