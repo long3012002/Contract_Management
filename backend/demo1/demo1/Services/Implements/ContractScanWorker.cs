@@ -128,8 +128,8 @@ namespace demo1.Services.Implements
                 var daysRemaining = (contract.ExpiredDate!.Value.Date - today).Days;
                 _logger.LogInformation("[ContractScan] Phát hiện hợp đồng sắp hết hạn: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", contract.Code, contract.Name, contract.ExpiredDate.Value, daysRemaining);
                 
-                var title = "Cảnh báo: Hợp đồng sắp hết hạn";
-                var content = $"Hợp đồng '{contract.Name}' (Mã: {contract.Code}) sẽ hết hạn vào ngày {contract.ExpiredDate!.Value:dd/MM/yyyy} (còn lại {daysRemaining} ngày).";
+                var title = "Hợp đồng: Sắp hết hạn";
+                var content = $"Hợp đồng '{contract.Name}' sắp hết hạn (còn {daysRemaining} ngày).";
                 var link = $"/contracts/{contract.Id}";
 
                 foreach (var user in activeUsers)
@@ -204,8 +204,8 @@ namespace demo1.Services.Implements
                     var daysRemaining = (license.NgayKetThuc!.Value.Date - today).Days;
                     _logger.LogInformation("[LicenseScan] Phát hiện License sắp hết hạn: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", license.Code, license.Name, license.NgayKetThuc.Value, daysRemaining);
 
-                    var title = "Cảnh báo: License sắp hết hạn";
-                    var content = $"License '{license.Name}' (Mã: {license.Code}) sẽ hết hạn vào ngày {license.NgayKetThuc!.Value:dd/MM/yyyy} (còn lại {daysRemaining} ngày).";
+                    var title = "License: Sắp hết hạn";
+                    var content = $"License '{license.Name}' sắp hết hạn (còn {daysRemaining} ngày).";
                     var link = $"/licenses/{license.Id}";
 
                     foreach (var user in activeUsers)

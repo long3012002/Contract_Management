@@ -254,13 +254,13 @@ namespace demo1.Services.Implements
             }
 
             // Create notification for requester
-            var notiStatusText = dto.IsApproved ? "được phê duyệt" : "bị từ chối";
+            var notiStatusText = dto.IsApproved ? "được duyệt" : "bị từ chối";
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),
                 UserId = request.UserId,
-                Title = $"Yêu cầu cấp quyền {notiStatusText}",
-                Content = $"Yêu cầu cấp quyền cho bản ghi '{request.EntityTitle}' đã {notiStatusText} bởi quản trị viên. {(!string.IsNullOrEmpty(dto.ReviewNote) ? $"Ghi chú: {dto.ReviewNote}" : "")}",
+                Title = $"Quyền truy cập: { (dto.IsApproved ? "Được duyệt" : "Bị từ chối") }",
+                Content = $"Yêu cầu quyền truy cập '{request.EntityTitle}' đã {notiStatusText}.{(!string.IsNullOrEmpty(dto.ReviewNote) ? $" Ghi chú: {dto.ReviewNote}" : "")}",
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
             };

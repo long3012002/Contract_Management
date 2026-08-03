@@ -141,8 +141,8 @@ namespace demo1.Services.Implements
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Nhắc nhở xác nhận công việc",
-                    Content = $"{customMessage} trong công việc '{taskTitle}'. Vui lòng xác nhận hoặc bình luận.",
+                    Title = "Nhắc nhở: Công việc",
+                    Content = $"{customMessage} trong '{taskTitle}'.",
                     Link = link,
                     UserId = record.UserId,
                     IsRead = false,
@@ -193,8 +193,8 @@ namespace demo1.Services.Implements
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Cảnh báo: Quá hạn xác nhận công việc",
-                    Content = $"Công việc '{taskTitle}' đã quá {formattedDeadline} và chưa được xác nhận/bình luận. Trạng thái đã chuyển sang 'Quá hạn'.",
+                    Title = "Cảnh báo: Quá hạn công việc",
+                    Content = $"Công việc '{taskTitle}' đã quá hạn ({formattedDeadline}).",
                     Link = link,
                     UserId = record.UserId,
                     IsRead = false,
@@ -235,8 +235,8 @@ namespace demo1.Services.Implements
                         var overdueNotification = new Notification
                         {
                             Id = Guid.NewGuid(),
-                            Title = "Người liên quan quá hạn xác nhận công việc",
-                            Content = $"Người liên quan {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận công việc '{taskTitle}'.",
+                            Title = "Quá hạn: Người liên quan",
+                            Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
                             Link = link,
                             UserId = targetUser.Id,
                             IsRead = false,

@@ -110,8 +110,8 @@ namespace demo1.Services.Implements
                     var notification = new Notification
                     {
                         Id = Guid.NewGuid(),
-                        Title = "Cảnh báo: Quá hạn xác nhận công việc",
-                        Content = $"Bạn chưa xác nhận hoặc bình luận trong công việc '{taskTitle}' trong vòng 24 giờ. Trạng thái đã chuyển sang 'Quá hạn'.",
+                        Title = "Cảnh báo: Quá hạn công việc",
+                        Content = $"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.",
                         Link = link,
                         UserId = record.UserId,
                         IsRead = false,
@@ -145,8 +145,8 @@ namespace demo1.Services.Implements
                         var overdueNotification = new Notification
                         {
                             Id = Guid.NewGuid(),
-                            Title = "Người liên quan quá hạn xác nhận công việc",
-                            Content = $"Người liên quan {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận công việc '{taskTitle}'.",
+                            Title = "Quá hạn: Người liên quan",
+                            Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
                             Link = link,
                             UserId = targetUser.Id,
                             IsRead = false,
@@ -180,8 +180,8 @@ namespace demo1.Services.Implements
                     var notification = new Notification
                     {
                         Id = Guid.NewGuid(),
-                        Title = "Nhắc nhở: Sắp hết hạn xác nhận công việc",
-                        Content = $"Công việc '{taskTitle}' còn lại khoảng {hoursLeft} giờ để xác nhận hoặc bình luận. Vui lòng xử lý.",
+                        Title = "Nhắc nhở: Sắp hết hạn",
+                        Content = $"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).",
                         Link = link,
                         UserId = record.UserId,
                         IsRead = false,

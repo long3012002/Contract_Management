@@ -131,8 +131,8 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Bạn được nhắc đến trong một bình luận",
-                    Content = $"{user.FullName} đã nhắc đến bạn trong công việc gói thầu '{congViec.TenTaiLieu}'",
+                    Title = "Bình luận: Được nhắc tên",
+                    Content = $"{user.FullName} đã nhắc đến bạn trong '{congViec.TenTaiLieu}'",
                     Link = $"/goi-thau/cong-viec/{congViec.Id}",
                     UserId = mUser.Id,
                     IsRead = false,
@@ -156,8 +156,8 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Có câu trả lời cho bình luận của bạn",
-                    Content = $"{user.FullName} đã trả lời bình luận của bạn trong công việc gói thầu '{congViec.TenTaiLieu}'",
+                    Title = "Bình luận: Phản hồi mới",
+                    Content = $"{user.FullName} đã trả lời bình luận của bạn trong '{congViec.TenTaiLieu}'",
                     Link = $"/goi-thau/cong-viec/{congViec.Id}",
                     UserId = parentComment.UserId,
                     IsRead = false,

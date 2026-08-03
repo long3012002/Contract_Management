@@ -527,8 +527,8 @@ public class CongViecGoiThauService
                 var notification = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    Title = "Công việc đã được xác nhận",
-                    Content = $"Người liên quan {record.User?.FullName ?? record.User?.Username ?? "Ẩn danh"} đã xác nhận công việc '{task.TenTaiLieu}'.",
+                    Title = "Xác nhận: Công việc",
+                    Content = $"Thành viên {record.User?.FullName ?? record.User?.Username ?? "Ẩn danh"} đã xác nhận công việc '{task.TenTaiLieu}'.",
                     Link = $"/bid-packages/{task.GoiThauId}",
                     UserId = targetUser.Id,
                     IsRead = false,
@@ -636,8 +636,8 @@ public class CongViecGoiThauService
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),
-                Title = "Bạn được gán là người liên quan công việc mới",
-                Content = $"Bạn vừa được thêm làm người liên quan công việc '{task.TenTaiLieu}'. Vui lòng xác nhận hoặc bình luận trong 24 giờ.",
+                Title = "Công việc: Giao việc mới",
+                Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
                 Link = $"/bid-packages/{task.GoiThauId}",
                 UserId = targetUser.Id,
                 IsRead = false,
