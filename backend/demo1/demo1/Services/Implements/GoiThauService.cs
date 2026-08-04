@@ -16,10 +16,12 @@ namespace demo1.Services.Implements;
 public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDto, UpdateGoiThauDto>, IGoiThauService
 {
     private readonly ILogger<GoiThauService> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GoiThauService(AppDbContext dbContext, IMapper mapper, ILogger<GoiThauService> logger) : base(dbContext, mapper)
+    public GoiThauService(AppDbContext dbContext, IMapper mapper, ILogger<GoiThauService> logger, ICurrentUserService currentUserService) : base(dbContext, mapper)
     {
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
     public override Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -42,6 +44,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             IQueryable<GoiThau> query = DbSet.AsNoTracking()
                 .Include(gt => gt.DuAn);
+
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            if (currentUser != null && !currentUser.IsSystemAdmin)
+            {
+                query = query.Where(gt => gt.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+            }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
@@ -134,9 +143,14 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         try
         {
-            var items = await DbSet
-                .Include(gt => gt.DuAn)
-                .ToListAsync();
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            IQueryable<GoiThau> query = DbSet.AsNoTracking().Include(gt => gt.DuAn);
+            if (currentUser != null && !currentUser.IsSystemAdmin)
+            {
+                query = query.Where(gt => gt.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+            }
+            var items = await query.ToListAsync();
             var dtos = Mapper.Map<List<GoiThauDto>>(items);
             await PopulateTongGiaTriHopDongAsync(dtos);
             return dtos;
@@ -204,6 +218,25 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
             }
 
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            if (currentUser == null)
+            {
+                throw new UnauthorizedAccessException("Bạn chưa đăng nhập.");
+            }
+
+            if (!currentUser.IsSystemAdmin && project.CreatedByUserId != currentUser.Id)
+            {
+                var hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
+                    up.UserId == currentUser.Id &&
+                    up.DuAnId == project.Id &&
+                    up.Permission != null && up.Permission.Code == "CREATE");
+
+                if (!hasCreatePerm)
+                {
+                    throw new UnauthorizedAccessException("Bạn không có quyền tạo gói thầu trong dự án này.");
+                }
+            }
             var projectBudget = project.DuToanPheDuyet + (project.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0);
             var existingPackagesSum = project.GoiThaus?.Sum(gt => gt.GiaTriGoiThau) ?? 0;
 

@@ -14,8 +14,11 @@ namespace demo1.Services.Implements;
 
 public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuAnDto>, IDuAnService
 {
-    public DuAnService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    private readonly ICurrentUserService _currentUserService;
+
+    public DuAnService(AppDbContext dbContext, IMapper mapper, ICurrentUserService currentUserService) : base(dbContext, mapper)
     {
+        _currentUserService = currentUserService;
     }
 
     public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -38,6 +41,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn);
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            query = query.Where(da => da.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -128,6 +138,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var entity = Mapper.Map<DuAn>(dto);
         entity.Id = Guid.NewGuid();
         entity.CreatedAt = DateTime.UtcNow;
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null)
+        {
+            entity.CreatedByUserId = currentUser.Id;
+        }
 
         if (dto.LoaiDuAn == 2) // Du an trien khai
         {
@@ -264,11 +281,19 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var entities = new List<DuAn>();
         var now = DateTime.UtcNow;
 
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+
         foreach (var dto in dtoList)
         {
             var entity = Mapper.Map<DuAn>(dto);
             entity.Id = Guid.NewGuid();
             entity.CreatedAt = now;
+
+            if (currentUser != null)
+            {
+                entity.CreatedByUserId = currentUser.Id;
+            }
 
             if (dto.LoaiDuAn == 2)
             {

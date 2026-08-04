@@ -37,6 +37,9 @@ public class DuAn : BaseEntity
     public bool? DaTrienKhai { get; set; }
     public string? SoQuyetDinh { get; set; }
 
+    public Guid? CreatedByUserId { get; set; }
+    public virtual User? CreatedByUser { get; set; }
+
     public virtual ICollection<DieuChinhDuAn> DieuChinhs { get; set; } = new List<DieuChinhDuAn>();
     public virtual ICollection<GoiThau> GoiThaus { get; set; } = new List<GoiThau>();
     public virtual ICollection<License> Licenses { get; set; } = new List<License>();

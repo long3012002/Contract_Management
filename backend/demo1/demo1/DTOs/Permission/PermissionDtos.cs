@@ -81,6 +81,16 @@ namespace demo1.DTOs.Permission
         public Guid? DuAnId { get; set; }
     }
 
+    public class CreateBatchUserPermissionsDto
+    {
+        public List<Guid> UserIds { get; set; } = new List<Guid>();
+        public Guid PermissionId { get; set; }
+        public string FeatureCode { get; set; } = string.Empty;
+        public string EntityName { get; set; } = string.Empty;
+        public string EntityId { get; set; } = string.Empty;
+        public Guid? DuAnId { get; set; }
+    }
+
     public class DuAnPermissionCheckDto
     {
         public Guid DuAnId { get; set; }

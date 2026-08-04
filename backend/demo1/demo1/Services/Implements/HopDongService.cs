@@ -17,10 +17,12 @@ namespace demo1.Services.Implements;
 public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDto, UpdateHopDongDto>, IHopDongService
 {
     private readonly ILogger<HopDongService> _logger;
+    private readonly ICurrentUserService _currentUserService;
 
-    public HopDongService(AppDbContext dbContext, IMapper mapper, ILogger<HopDongService> logger) : base(dbContext, mapper)
+    public HopDongService(AppDbContext dbContext, IMapper mapper, ILogger<HopDongService> logger, ICurrentUserService currentUserService) : base(dbContext, mapper)
     {
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
     public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -49,6 +51,13 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.DotThanhToans)
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau);
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            query = query.Where(h => h.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -166,15 +175,21 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public override async Task<IReadOnlyList<HopDongDto>> GetAllItemsAsync()
     {
-        var items = await DbSet
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        IQueryable<HopDong> query = DbSet.AsNoTracking()
             .Include(h => h.GoiThau)
             .Include(h => h.DuAn)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
             .Include(h => h.NhaThauGoiThaus)
-                .ThenInclude(nt => nt.NhaThau)
-            .ToListAsync();
+                .ThenInclude(nt => nt.NhaThau);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            query = query.Where(h => h.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+        }
+        var items = await query.ToListAsync();
         return Mapper.Map<List<HopDongDto>>(items);
     }
 
@@ -227,13 +242,33 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             HopDongValidator.ValidateBidders(dto.GiaTriHopDong, dto.NhaThauGoiThaus);
         }
 
-        // Check DuAn existence
+        // Check DuAn existence & permissions
         if (dto.DuAnId.HasValue)
         {
-            var duAnExists = await DbContext.DuAns.AnyAsync(da => da.Id == dto.DuAnId.Value);
-            if (!duAnExists)
+            var project = await DbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+            if (project == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
+            }
+
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            if (currentUser == null)
+            {
+                throw new UnauthorizedAccessException("Bạn chưa đăng nhập.");
+            }
+
+            if (!currentUser.IsSystemAdmin && project.CreatedByUserId != currentUser.Id)
+            {
+                var hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
+                    up.UserId == currentUser.Id &&
+                    up.DuAnId == project.Id &&
+                    up.Permission != null && up.Permission.Code == "CREATE");
+
+                if (!hasCreatePerm)
+                {
+                    throw new UnauthorizedAccessException("Bạn không có quyền tạo hợp đồng trong dự án này.");
+                }
             }
         }
 
@@ -347,14 +382,40 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             throw new InvalidOperationException($"Các số ký hiệu hợp đồng sau đã tồn tại: {string.Join(", ", existingCodes)}");
         }
 
-        // 3. Kiểm tra tính tồn tại của Dự án liên kết
+        // 3. Kiểm tra tính tồn tại và quyền hạn của Dự án liên kết
         var duAnIds = dtoList.Where(d => d.DuAnId.HasValue).Select(d => d.DuAnId!.Value).Distinct().ToList();
         if (duAnIds.Any())
         {
-            var existingDuAnCount = await DbContext.DuAns.CountAsync(da => duAnIds.Contains(da.Id));
-            if (existingDuAnCount != duAnIds.Count)
+            var projects = await DbContext.DuAns.AsNoTracking().Where(da => duAnIds.Contains(da.Id)).ToListAsync();
+            if (projects.Count != duAnIds.Count)
             {
                 throw new KeyNotFoundException("Một số dự án được liên kết không tồn tại.");
+            }
+
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            if (currentUser == null)
+            {
+                throw new UnauthorizedAccessException("Bạn chưa đăng nhập.");
+            }
+
+            if (!currentUser.IsSystemAdmin)
+            {
+                foreach (var project in projects)
+                {
+                    if (project.CreatedByUserId != currentUser.Id)
+                    {
+                        var hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
+                            up.UserId == currentUser.Id &&
+                            up.DuAnId == project.Id &&
+                            up.Permission != null && up.Permission.Code == "CREATE");
+
+                        if (!hasCreatePerm)
+                        {
+                            throw new UnauthorizedAccessException($"Bạn không có quyền tạo hợp đồng trong dự án '{project.Name}'.");
+                        }
+                    }
+                }
             }
         }
 

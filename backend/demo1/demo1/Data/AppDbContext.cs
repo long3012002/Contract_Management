@@ -174,6 +174,12 @@ namespace demo1.Data
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<DuAn>()
+                .HasOne(da => da.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(da => da.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<DuAn>()
                 .Property(da => da.ChuDauTu)
                 .HasMaxLength(255);
             modelBuilder.Entity<DuAn>()

@@ -14,6 +14,7 @@ namespace demo1.Services.Interfaces
         Task<PagedResult<PermissionRequestDto>> GetAllRequestsAsync(string? status, string? search, int page = 1, int pageSize = 20);
         Task<PermissionRequestDto> ReviewRequestAsync(Guid requestId, Guid reviewerId, ReviewPermissionRequestDto dto);
         Task<UserPermissionDto> GrantUserPermissionAsync(Guid adminId, CreateUserPermissionDto dto);
+        Task<IEnumerable<UserPermissionDto>> GrantUserPermissionsBatchAsync(Guid adminId, CreateBatchUserPermissionsDto dto);
         Task<bool> RevokeUserPermissionAsync(Guid permissionId);
         Task<IEnumerable<UserPermissionDto>> GetUserPermissionsAsync(Guid? userId, string? featureCode);
         Task<DuAnPermissionCheckDto> GetDuAnPermissionAsync(Guid userId, Guid duAnId);

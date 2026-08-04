@@ -320,6 +320,74 @@ namespace demo1.Services.Implements
             return MapToUserPermissionDto(perm, user, permCatalog, admin?.Username);
         }
 
+        public async Task<IEnumerable<UserPermissionDto>> GrantUserPermissionsBatchAsync(Guid adminId, CreateBatchUserPermissionsDto dto)
+        {
+            if (dto.UserIds == null || !dto.UserIds.Any())
+            {
+                return Enumerable.Empty<UserPermissionDto>();
+            }
+
+            var permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId);
+            if (permCatalog == null) throw new KeyNotFoundException("Không tìm thấy quyền trong danh mục.");
+
+            var admin = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
+
+            Guid? duAnId = dto.DuAnId;
+            if (!duAnId.HasValue && dto.EntityName.Equals("DuAn", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(dto.EntityId, out var parsedId))
+            {
+                duAnId = parsedId;
+            }
+
+            var users = await _context.Users.Where(u => dto.UserIds.Contains(u.Id)).ToListAsync();
+            var foundUserIds = users.Select(u => u.Id).ToHashSet();
+            var missingUserIds = dto.UserIds.Where(id => !foundUserIds.Contains(id)).ToList();
+            if (missingUserIds.Any())
+            {
+                throw new KeyNotFoundException($"Không tìm thấy người dùng với các ID: {string.Join(", ", missingUserIds)}");
+            }
+
+            var result = new List<UserPermissionDto>();
+            var now = DateTime.UtcNow;
+
+            var existingPerms = await _context.UserPermissions
+                .Where(up => dto.UserIds.Contains(up.UserId) && up.PermissionId == dto.PermissionId &&
+                             (duAnId.HasValue && up.DuAnId == duAnId.Value || (up.EntityName == dto.EntityName && up.EntityId == dto.EntityId)))
+                .ToListAsync();
+
+            var existingPermsMap = existingPerms.ToDictionary(up => up.UserId);
+
+            foreach (var user in users)
+            {
+                if (existingPermsMap.TryGetValue(user.Id, out var existingPerm))
+                {
+                    existingPerm.DuAnId = duAnId;
+                    existingPerm.GrantedAt = now;
+                    existingPerm.GrantedByUserId = adminId;
+                    result.Add(MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username));
+                }
+                else
+                {
+                    var newPerm = new UserPermission
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = user.Id,
+                        PermissionId = dto.PermissionId,
+                        FeatureCode = dto.FeatureCode,
+                        EntityName = dto.EntityName,
+                        EntityId = dto.EntityId,
+                        DuAnId = duAnId,
+                        GrantedAt = now,
+                        GrantedByUserId = adminId
+                    };
+                    _context.UserPermissions.Add(newPerm);
+                    result.Add(MapToUserPermissionDto(newPerm, user, permCatalog, admin?.Username));
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
         public async Task<bool> RevokeUserPermissionAsync(Guid permissionId)
         {
             var perm = await _context.UserPermissions.FirstOrDefaultAsync(up => up.Id == permissionId);

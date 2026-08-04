@@ -85,14 +85,74 @@ namespace demo1.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GrantPermission([FromBody] CreateUserPermissionDto dto)
         {
-            if (!await IsAdminAsync()) return Forbid();
-
+            var isSystemAdmin = await IsAdminAsync();
             var adminId = await GetCurrentUserIdAsync();
             if (!adminId.HasValue) return Unauthorized();
+
+            if (!isSystemAdmin)
+            {
+                if (dto.DuAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+                    if (project == null || project.CreatedByUserId != adminId.Value)
+                    {
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    return Forbid();
+                }
+            }
 
             try
             {
                 var result = await _permissionService.GrantUserPermissionAsync(adminId.Value, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Quản trị viên hoặc Chủ dự án cấp quyền đặc thù cho nhiều Người dùng cùng lúc.
+        /// </summary>
+        /// <param name="dto">Dữ liệu thông tin phân quyền theo lô cho danh sách người dùng</param>
+        /// <returns>Danh sách thông tin quyền vừa được cấp</returns>
+        /// <response code="200">Cấp quyền thành công</response>
+        /// <response code="403">Yêu cầu quyền Quản trị hoặc Chủ dự án</response>
+        /// <response code="404">Không tìm thấy người dùng hoặc tính năng</response>
+        [HttpPost("batch")]
+        [ProducesResponseType(typeof(IEnumerable<UserPermissionDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GrantPermissionBatch([FromBody] CreateBatchUserPermissionsDto dto)
+        {
+            var isSystemAdmin = await IsAdminAsync();
+            var adminId = await GetCurrentUserIdAsync();
+            if (!adminId.HasValue) return Unauthorized();
+
+            if (!isSystemAdmin)
+            {
+                if (dto.DuAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+                    if (project == null || project.CreatedByUserId != adminId.Value)
+                    {
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    return Forbid();
+                }
+            }
+
+            try
+            {
+                var result = await _permissionService.GrantUserPermissionsBatchAsync(adminId.Value, dto);
                 return Ok(result);
             }
             catch (KeyNotFoundException ex)
@@ -140,7 +200,28 @@ namespace demo1.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> RevokePermission(Guid id)
         {
-            if (!await IsAdminAsync()) return Forbid();
+            var isSystemAdmin = await IsAdminAsync();
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue) return Unauthorized();
+
+            if (!isSystemAdmin)
+            {
+                var userPerm = await _context.UserPermissions.AsNoTracking().FirstOrDefaultAsync(up => up.Id == id);
+                if (userPerm == null) return NotFound(new { Message = "Không tìm thấy quyền người dùng." });
+
+                if (userPerm.DuAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == userPerm.DuAnId.Value);
+                    if (project == null || project.CreatedByUserId != currentUserId.Value)
+                    {
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    return Forbid();
+                }
+            }
 
             var success = await _permissionService.RevokeUserPermissionAsync(id);
             if (!success) return NotFound(new { Message = "Không tìm thấy quyền người dùng." });

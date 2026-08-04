@@ -32,6 +32,27 @@ namespace demo1.Controllers
         }
 
         /// <summary>
+        /// Lấy danh mục các mã tính năng (Feature Codes) đang hoạt động phục vụ phân quyền frontend.
+        /// </summary>
+        /// <returns>Danh sách mã và tên tính năng</returns>
+        /// <response code="200">Lấy danh sách mã tính năng thành công</response>
+        [HttpGet("catalog")]
+        [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetFeatureCatalog()
+        {
+            var features = await adminService.GetFeaturesAsync();
+            var activeFeatures = features
+                .Where(f => f.IsActive)
+                .Select(f => new 
+                { 
+                    f.Code, 
+                    f.Name,
+                    f.Description
+                });
+            return Ok(activeFeatures);
+        }
+
+        /// <summary>
         /// Lấy danh sách các Tính năng (Features) của ứng dụng.
         /// </summary>
         /// <returns>Danh sách tính năng</returns>
