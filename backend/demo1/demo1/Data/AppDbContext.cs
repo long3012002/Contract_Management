@@ -52,6 +52,7 @@ namespace demo1.Data
         public DbSet<XuatXu> XuatXus { get; set; } = null!;
         public DbSet<DonViTinh> DonViTinhs { get; set; } = null!;
         public DbSet<HangSanXuat> HangSanXuats { get; set; } = null!;
+        public DbSet<FileAttachment> FileAttachments { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -572,6 +573,18 @@ namespace demo1.Data
                     .WithMany(h => h.DichVus)
                     .HasForeignKey(d => d.IdParent)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure FileAttachment entity
+            modelBuilder.Entity<FileAttachment>(entity =>
+            {
+                entity.HasKey(fa => fa.Id);
+                entity.Property(fa => fa.FileName).HasMaxLength(255).IsRequired();
+                entity.Property(fa => fa.FilePath).HasMaxLength(500).IsRequired();
+                entity.Property(fa => fa.ContentType).HasMaxLength(100);
+                entity.Property(fa => fa.EntityType).HasMaxLength(100).IsRequired();
+                entity.HasIndex(fa => new { fa.EntityType, fa.EntityId })
+                    .HasDatabaseName("IX_FileAttachment_EntityType_EntityId");
             });
         }
 
