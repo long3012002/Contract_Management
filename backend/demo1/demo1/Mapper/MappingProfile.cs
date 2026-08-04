@@ -52,10 +52,16 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
-            // NhaThauGoiThau mappings
             CreateMap<NhaThauGoiThau, NhaThauGoiThauDto>()
                 .ForMember(dest => dest.NhaThauName, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Name : null))
-                .ForMember(dest => dest.NhaThauCode, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Code : null));
+                .ForMember(dest => dest.NhaThauCode, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Code : null))
+                .ForMember(dest => dest.TaxCode, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.TaxCode : null))
+                .ForMember(dest => dest.Phone, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Phone : null))
+                .ForMember(dest => dest.Email, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Email : null))
+                .ForMember(dest => dest.Address, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Address : null))
+                .ForMember(dest => dest.Account, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Account : null))
+                .ForMember(dest => dest.Representative, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Representative : null))
+                .ForMember(dest => dest.Position, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Position : null));
             CreateMap<NhaThauGoiThauInputDto, NhaThauGoiThau>()
                     .ForMember(dest => dest.Id, opt => opt.MapFrom(src => Guid.NewGuid()))
                     .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow))
