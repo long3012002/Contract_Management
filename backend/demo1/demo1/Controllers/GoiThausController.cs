@@ -33,6 +33,22 @@ public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDt
     }
 
     /// <summary>
+    /// Lấy thông tin chi tiết của gói thầu và danh sách công việc kèm theo số lượng bình luận.
+    /// </summary>
+    /// <param name="id">Mã định danh gói thầu (GUID)</param>
+    /// <returns>Thông tin chi tiết gói thầu và danh sách công việc</returns>
+    /// <response code="200">Lấy dữ liệu thành công</response>
+    /// <response code="404">Không tìm thấy gói thầu</response>
+    [HttpGet("{id:guid}/chi-tiet-va-cong-viec")]
+    [ProducesResponseType(typeof(GoiThauDetailWithTasksDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GoiThauDetailWithTasksDto>> GetDetailWithTasks(Guid id)
+    {
+        var result = await _goiThauService.GetDetailWithTasksAsync(id);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>
     /// Phương thức cơ sở từ CrudControllerBase được vô hiệu hóa khỏi Routing và Swagger API Explorer để tránh xung đột route.
     /// </summary>
     [NonAction]

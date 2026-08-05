@@ -73,6 +73,11 @@ public class CongViecGoiThauDto : IHasId, IHasParentId
     public string? CreateUserFullName { get; set; }
     public Guid? ModifiedUserId { get; set; }
     public string? ModifiedUserFullName { get; set; }
+
+    /// <summary>
+    /// Số lượng bình luận của công việc gói thầu
+    /// </summary>
+    public int SoBinhLuan { get; set; }
 }
 
 public class CreateCongViecGoiThauDto
