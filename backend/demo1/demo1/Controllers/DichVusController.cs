@@ -28,7 +28,7 @@ public class DichVusController : CrudControllerBase<DichVuDto, CreateDichVuDto, 
     /// <param name="idParent">Mã định danh đối tượng cha (GUID)</param>
     /// <returns>Danh sách dịch vụ</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet("{idParent:guid}")]
+    [HttpGet("parent/{idParent:guid}")]
     [ProducesResponseType(typeof(IEnumerable<DichVuDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<DichVuDto>>> GetByIdParent(Guid idParent)
     {

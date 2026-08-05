@@ -27,7 +27,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <returns>Danh sách công việc gói thầu</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet("{idGoiThau:guid}")]
+    [HttpGet("goi-thau/{idGoiThau:guid}")]
     [ProducesResponseType(typeof(IEnumerable<CongViecGoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CongViecGoiThauDto>>> GetByGoiThauId(Guid idGoiThau)
     {
@@ -64,7 +64,7 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <response code="204">Xóa thành công (No Content)</response>
     /// <response code="404">Không tìm thấy công việc thuộc gói thầu</response>
-    [HttpDelete("{idGoiThau:guid}")]
+    [HttpDelete("goi-thau/{idGoiThau:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteByGoiThauId(Guid idGoiThau)
