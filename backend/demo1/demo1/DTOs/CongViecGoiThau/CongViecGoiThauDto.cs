@@ -73,6 +73,11 @@ public class CongViecGoiThauDto : IHasId, IHasParentId
     public string? CreateUserFullName { get; set; }
     public Guid? ModifiedUserId { get; set; }
     public string? ModifiedUserFullName { get; set; }
+
+    /// <summary>
+    /// Số lượng bình luận tổng hợp (bao gồm cả replies). Được tính sẵn từ backend.
+    /// </summary>
+    public int CommentCount { get; set; }
 }
 
 public class CreateCongViecGoiThauDto
