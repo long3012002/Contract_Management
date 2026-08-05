@@ -410,16 +410,18 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
             if (!currentUser.IsSystemAdmin)
             {
+                var allowedProjectIds = await DbContext.UserPermissions
+                    .Where(up => up.UserId == currentUser.Id && up.DuAnId.HasValue && duAnIds.Contains(up.DuAnId.Value) && up.Permission != null && up.Permission.Code == "CREATE")
+                    .Select(up => up.DuAnId.Value)
+                    .ToListAsync();
+
+                var allowedProjectIdsSet = new HashSet<Guid>(allowedProjectIds);
+
                 foreach (var project in projects)
                 {
                     if (project.CreatedByUserId != currentUser.Id)
                     {
-                        var hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
-                            up.UserId == currentUser.Id &&
-                            up.DuAnId == project.Id &&
-                            up.Permission != null && up.Permission.Code == "CREATE");
-
-                        if (!hasCreatePerm)
+                        if (!allowedProjectIdsSet.Contains(project.Id))
                         {
                             throw new UnauthorizedAccessException($"Bạn không có quyền tạo hợp đồng trong dự án '{project.Name}'.");
                         }

@@ -203,23 +203,45 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     private async Task<GoiThau> CreateEntityInternalAsync(
         CreateGoiThauDto dto, 
         HashSet<string>? existingCodesInBatch = null,
-        Dictionary<Guid, decimal>? projectBatchSum = null)
+        Dictionary<Guid, decimal>? projectBatchSum = null,
+        User? preFetchedUser = null,
+        Dictionary<Guid, DuAn>? preFetchedProjects = null,
+        HashSet<Guid>? allowedProjectIds = null,
+        HashSet<string>? existingCodesInDb = null)
     {
         GoiThauValidator.EnsureValid(dto.GiaTriGoiThau, dto.NguongCanhBaoPercent);
 
         if (dto.DuAnId.HasValue)
         {
             // Verify project budget limits
-            var project = await DbContext.DuAns.Include(da => da.DieuChinhs)
-                                             .Include(da => da.GoiThaus)
-                                             .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+            DuAn? project = null;
+            if (preFetchedProjects != null && preFetchedProjects.TryGetValue(dto.DuAnId.Value, out var cachedProject))
+            {
+                project = cachedProject;
+            }
+            else
+            {
+                project = await DbContext.DuAns.Include(da => da.DieuChinhs)
+                                                 .Include(da => da.GoiThaus)
+                                                 .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+            }
+
             if (project == null)
             {
                 throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
             }
 
-            var currentUsername = _currentUserService.GetUsername();
-            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            User? currentUser = null;
+            if (preFetchedUser != null)
+            {
+                currentUser = preFetchedUser;
+            }
+            else
+            {
+                var currentUsername = _currentUserService.GetUsername();
+                currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            }
+
             if (currentUser == null)
             {
                 throw new UnauthorizedAccessException("Bạn chưa đăng nhập.");
@@ -227,10 +249,18 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             if (!currentUser.IsSystemAdmin && project.CreatedByUserId != currentUser.Id)
             {
-                var hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
-                    up.UserId == currentUser.Id &&
-                    up.DuAnId == project.Id &&
-                    up.Permission != null && up.Permission.Code == "CREATE");
+                bool hasCreatePerm = false;
+                if (allowedProjectIds != null)
+                {
+                    hasCreatePerm = allowedProjectIds.Contains(project.Id);
+                }
+                else
+                {
+                    hasCreatePerm = await DbContext.UserPermissions.AnyAsync(up =>
+                        up.UserId == currentUser.Id &&
+                        up.DuAnId == project.Id &&
+                        up.Permission != null && up.Permission.Code == "CREATE");
+                }
 
                 if (!hasCreatePerm)
                 {
@@ -263,7 +293,16 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
         var codeLower = entity.Code.ToLower();
         // Validate unique code in DB
-        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == codeLower);
+        bool exists = false;
+        if (existingCodesInDb != null)
+        {
+            exists = existingCodesInDb.Contains(codeLower);
+        }
+        else
+        {
+            exists = await DbSet.AnyAsync(item => item.Code.ToLower() == codeLower);
+        }
+
         if (exists)
         {
             throw new InvalidOperationException($"Mã gói thầu '{entity.Code}' đã tồn tại.");
@@ -310,26 +349,96 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         try
         {
+            var dtoList = dtos.ToList();
+            if (!dtoList.Any())
+            {
+                return Enumerable.Empty<GoiThauDto>();
+            }
+
+            var projectIds = dtoList
+                .Where(d => d.DuAnId.HasValue)
+                .Select(d => d.DuAnId!.Value)
+                .Distinct()
+                .ToList();
+
+            var codes = dtoList
+                .Where(d => !string.IsNullOrWhiteSpace(d.Code))
+                .Select(d => d.Code.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            // 1. Fetch current user once
+            var currentUsername = _currentUserService.GetUsername();
+            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+
+            // 2. Fetch all projects in one query
+            var projectsDict = new Dictionary<Guid, DuAn>();
+            if (projectIds.Any())
+            {
+                var projectList = await DbContext.DuAns
+                    .Include(da => da.DieuChinhs)
+                    .Include(da => da.GoiThaus)
+                    .Where(da => projectIds.Contains(da.Id))
+                    .ToListAsync();
+                projectsDict = projectList.ToDictionary(da => da.Id, da => da);
+            }
+
+            // 3. Fetch user permissions for all projects in one query
+            var allowedProjectIds = new HashSet<Guid>();
+            if (currentUser != null && projectIds.Any())
+            {
+                if (currentUser.IsSystemAdmin)
+                {
+                    allowedProjectIds = new HashSet<Guid>(projectIds);
+                }
+                else
+                {
+                    var allowed = await DbContext.UserPermissions
+                        .Where(up => up.UserId == currentUser.Id && up.DuAnId.HasValue && projectIds.Contains(up.DuAnId.Value) && up.Permission != null && up.Permission.Code == "CREATE")
+                        .Select(up => up.DuAnId.Value)
+                        .ToListAsync();
+                    allowedProjectIds = new HashSet<Guid>(allowed);
+                }
+            }
+
+            // 4. Fetch existing codes in DB for the codes in the batch
+            var existingCodesInDb = new HashSet<string>();
+            if (codes.Any())
+            {
+                var dbCodes = await DbSet
+                    .Where(item => codes.Contains(item.Code.ToLower()))
+                    .Select(item => item.Code.ToLower())
+                    .ToListAsync();
+                existingCodesInDb = new HashSet<string>(dbCodes);
+            }
+
             var entities = new List<GoiThau>();
             var codesInBatch = new HashSet<string>();
             var projectBatchSum = new Dictionary<Guid, decimal>();
 
-            foreach (var dto in dtos)
+            foreach (var dto in dtoList)
             {
-                var entity = await CreateEntityInternalAsync(dto, codesInBatch, projectBatchSum);
+                var entity = await CreateEntityInternalAsync(
+                    dto, 
+                    codesInBatch, 
+                    projectBatchSum, 
+                    currentUser, 
+                    projectsDict, 
+                    allowedProjectIds, 
+                    existingCodesInDb);
                 entities.Add(entity);
             }
 
             await DbContext.SaveChangesAsync();
 
-            var result = new List<GoiThauDto>();
-            foreach (var entity in entities)
-            {
-                var reloaded = await DbSet
-                    .Include(gt => gt.DuAn)
-                    .FirstOrDefaultAsync(gt => gt.Id == entity.Id);
-                result.Add(Mapper.Map<GoiThauDto>(reloaded));
-            }
+            // Bulk reload
+            var createdIds = entities.Select(e => e.Id).ToList();
+            var reloadedEntities = await DbSet
+                .Include(gt => gt.DuAn)
+                .Where(gt => createdIds.Contains(gt.Id))
+                .ToListAsync();
+
+            var result = Mapper.Map<List<GoiThauDto>>(reloadedEntities);
             await PopulateTongGiaTriHopDongAsync(result);
             return result;
         }

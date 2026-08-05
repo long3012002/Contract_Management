@@ -624,14 +624,56 @@ public class CongViecGoiThauService
 
     private async Task SendStakeholderNotificationsAsync(List<CongViecGoiThau> tasks)
     {
+        if (tasks == null || !tasks.Any()) return;
+
+        var allUserIds = tasks
+            .Where(t => t.NguoiLienQuans != null)
+            .SelectMany(t => t.NguoiLienQuans.Select(n => n.UserId))
+            .Distinct()
+            .ToList();
+
+        if (!allUserIds.Any()) return;
+
+        var usersDict = await DbContext.Users
+            .Where(u => allUserIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u);
+
+        var notificationsToSend = new List<(Notification Notification, string Username)>();
+
         foreach (var task in tasks)
         {
             if (task.NguoiLienQuans == null || !task.NguoiLienQuans.Any()) continue;
 
-            var userIds = task.NguoiLienQuans.Select(n => n.UserId).ToList();
-            var users = await DbContext.Users.Where(u => userIds.Contains(u.Id)).ToListAsync();
+            var taskUserIds = task.NguoiLienQuans.Select(n => n.UserId).Distinct().ToList();
+            foreach (var userId in taskUserIds)
+            {
+                if (usersDict.TryGetValue(userId, out var targetUser))
+                {
+                    var notification = new Notification
+                    {
+                        Id = Guid.NewGuid(),
+                        Title = "Công việc: Giao việc mới",
+                        Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
+                        Link = $"/bid-packages/{task.GoiThauId}",
+                        UserId = targetUser.Id,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
 
-            await SendNotificationsToUsersAsync(task, users);
+                    DbContext.Notifications.Add(notification);
+                    notificationsToSend.Add((notification, targetUser.Username));
+                }
+            }
+        }
+
+        if (notificationsToSend.Any())
+        {
+            await DbContext.SaveChangesAsync();
+
+            foreach (var item in notificationsToSend)
+            {
+                await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", item.Notification);
+            }
         }
     }
 

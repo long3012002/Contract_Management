@@ -171,14 +171,43 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
+            var dtoList = dtos.ToList();
             var entities = new List<TEntity>();
-            foreach (var dto in dtos)
+            var codes = new List<string>();
+
+            foreach (var dto in dtoList)
             {
                 var entity = CreateEntity(dto);
-                await EnsureCodeIsUniqueAsync(entity.Code);
                 entity.CreatedAt = DateTime.UtcNow;
                 entities.Add(entity);
+
+                if (!string.IsNullOrWhiteSpace(entity.Code))
+                {
+                    codes.Add(entity.Code.Trim().ToLower());
+                }
             }
+
+            // Check duplicate codes within the batch itself
+            var duplicateCodesInBatch = codes.GroupBy(c => c).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            if (duplicateCodesInBatch.Any())
+            {
+                throw new InvalidOperationException($"Mã bị trùng lặp trong danh sách thêm mới: '{duplicateCodesInBatch.First()}'");
+            }
+
+            // Check duplicate codes in the database in a single query
+            if (codes.Any())
+            {
+                var existingCodes = await DbSet
+                    .Where(item => codes.Contains(item.Code.ToLower()))
+                    .Select(item => item.Code)
+                    .ToListAsync();
+
+                if (existingCodes.Any())
+                {
+                    throw new InvalidOperationException($"Mã '{existingCodes.First()}' đã tồn tại.");
+                }
+            }
+
             await DbSet.AddRangeAsync(entities);
             await DbContext.SaveChangesAsync();
             return Mapper.Map<List<TDto>>(entities);

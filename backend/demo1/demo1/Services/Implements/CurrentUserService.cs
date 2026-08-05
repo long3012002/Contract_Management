@@ -19,6 +19,17 @@ namespace demo1.Services.Implements
             return user?.FindFirst(ClaimTypes.Name)?.Value ?? user?.Identity?.Name;
         }
 
+        public System.Guid? GetUserId()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            var userIdStr = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (System.Guid.TryParse(userIdStr, out var userId))
+            {
+                return userId;
+            }
+            return null;
+        }
+
         public string? GetIpAddress()
         {
             var context = _httpContextAccessor.HttpContext;

@@ -606,22 +606,41 @@ namespace demo1.Data
 
          public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var username = _currentUserService?.GetUsername();
-            if (!string.IsNullOrEmpty(username))
+            var userId = _currentUserService?.GetUserId();
+            if (userId.HasValue && userId.Value != System.Guid.Empty)
             {
-                var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
-                if (user != null)
+                foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
                 {
-                    foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
+                    if (entry.State == EntityState.Added)
                     {
-                        if (entry.State == EntityState.Added)
+                        entry.Entity.CreateUserId = userId.Value;
+                        entry.Entity.ModifiedUserId = userId.Value;
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        entry.Entity.ModifiedUserId = userId.Value;
+                    }
+                }
+            }
+            else
+            {
+                var username = _currentUserService?.GetUsername();
+                if (!string.IsNullOrEmpty(username))
+                {
+                    var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+                    if (user != null)
+                    {
+                        foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
                         {
-                            entry.Entity.CreateUserId = user.Id;
-                            entry.Entity.ModifiedUserId = user.Id;
-                        }
-                        else if (entry.State == EntityState.Modified)
-                        {
-                            entry.Entity.ModifiedUserId = user.Id;
+                            if (entry.State == EntityState.Added)
+                            {
+                                entry.Entity.CreateUserId = user.Id;
+                                entry.Entity.ModifiedUserId = user.Id;
+                            }
+                            else if (entry.State == EntityState.Modified)
+                            {
+                                entry.Entity.ModifiedUserId = user.Id;
+                            }
                         }
                     }
                 }

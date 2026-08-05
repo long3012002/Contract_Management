@@ -104,8 +104,8 @@ namespace demo1.Services.Implements
 
 #if DEBUG
                     // Môi trường Dev (DEBUG): Bỏ qua xác thực Google Authenticator (2FA) để tiện test
-                    var accessToken = GenerateJwtToken(dbUser.Username, 180);
-                    var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+                    var accessToken = GenerateJwtToken(dbUser.Username, 180, false, dbUser.Id);
+                    var refreshToken = GenerateJwtToken(dbUser.Username, 10080, false, dbUser.Id);
 
                     dbUser.RefreshTokenHash = ComputeHash(refreshToken);
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
@@ -124,8 +124,8 @@ namespace demo1.Services.Implements
                 // Môi trường Product (RELEASE): Bắt buộc xác thực qua Google Authenticator 2FA
                 if (isBypass)
                 {
-                    var accessToken = GenerateJwtToken(dbUser.Username, 180);
-                    var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+                    var accessToken = GenerateJwtToken(dbUser.Username, 180, false, dbUser.Id);
+                    var refreshToken = GenerateJwtToken(dbUser.Username, 10080, false, dbUser.Id);
 
                     dbUser.RefreshTokenHash = ComputeHash(refreshToken);
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
@@ -143,7 +143,7 @@ namespace demo1.Services.Implements
                 }
 
                 // Generate short-lived Temporary Token (3 minutes) for 2FA validation
-                var tempToken = GenerateJwtToken(request.Username, 3, isTemp: true);
+                var tempToken = GenerateJwtToken(request.Username, 3, isTemp: true, userId: dbUser.Id);
 
                 // If user is not system admin (or system admin too - we require 2FA for all users as requested)
                 // Check if Google Authenticator 2FA is enabled
@@ -237,8 +237,8 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(401, "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
                 }
 
-                var newAccessToken = GenerateJwtToken(username, 180);
-                var newRefreshToken = GenerateJwtToken(username, 10080);
+                var newAccessToken = GenerateJwtToken(username, 180, false, dbUser.Id);
+                var newRefreshToken = GenerateJwtToken(username, 10080, false, dbUser.Id);
 
                 // Update database with the new refresh token hash
                 dbUser.RefreshTokenHash = ComputeHash(newRefreshToken);
@@ -295,8 +295,8 @@ namespace demo1.Services.Implements
                 dbUser.IsTwoFactorEnabled = true;
                 dbUser.UpdatedAt = DateTime.UtcNow;
 
-                var accessToken = GenerateJwtToken(dbUser.Username, 180);
-                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+                var accessToken = GenerateJwtToken(dbUser.Username, 180, false, dbUser.Id);
+                var refreshToken = GenerateJwtToken(dbUser.Username, 10080, false, dbUser.Id);
 
                 // Store refresh token hash in DB
                 dbUser.RefreshTokenHash = ComputeHash(refreshToken);
@@ -353,8 +353,8 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(400, "Mã OTP không chính xác.");
                 }
 
-                var accessToken = GenerateJwtToken(dbUser.Username, 180);
-                var refreshToken = GenerateJwtToken(dbUser.Username, 10080);
+                var accessToken = GenerateJwtToken(dbUser.Username, 180, false, dbUser.Id);
+                var refreshToken = GenerateJwtToken(dbUser.Username, 10080, false, dbUser.Id);
 
                 // Store refresh token hash in DB
                 dbUser.RefreshTokenHash = ComputeHash(refreshToken);
@@ -409,7 +409,7 @@ namespace demo1.Services.Implements
             }
         }
 
-        private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false)
+        private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false, Guid? userId = null)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
@@ -421,6 +421,11 @@ namespace demo1.Services.Implements
                 new Claim(JwtRegisteredClaimNames.Sub, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString()));
+            }
 
             if (isTemp || expiryInMinutes <= 5)
             {
