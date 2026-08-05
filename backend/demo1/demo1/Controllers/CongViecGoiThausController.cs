@@ -11,7 +11,7 @@ namespace demo1.Controllers;
 /// API Quản lý Công việc Gói thầu (Danh sách công việc trình tự, Xác nhận hoàn thành, Chuyển tiếp công việc và Lịch sử).
 /// </summary>
 [Route("api/NghiepVu/cong-viec-goi-thau")]
-[FeatureAuthorize("BID_PACKAGE")]
+[FeatureAuthorize("GOI_THAU")]
 public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto, CreateCongViecGoiThauDto, UpdateCongViecGoiThauDto>
 {
     private readonly ICongViecGoiThauService _congViecGoiThauService;

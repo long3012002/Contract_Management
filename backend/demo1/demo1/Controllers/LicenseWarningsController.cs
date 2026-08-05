@@ -9,7 +9,7 @@ namespace demo1.Controllers;
 /// API Cảnh báo License Phần mềm (Sắp hết hạn, Đã hết hạn).
 /// </summary>
 [Authorize]
-[FeatureAuthorize("CONTRACT_MANAGEMENT")]
+[FeatureAuthorize("QUAN_LY_HOP_DONG")]
 [ApiController]
 [Route("api/HeThong/warnings/licenses")]
 public class LicenseWarningsController(IWarningService service) : ControllerBase

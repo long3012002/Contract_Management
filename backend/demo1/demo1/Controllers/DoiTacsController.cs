@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Danh mục Đối tác / Nhà thầu (Thông tin đối tác, Tìm kiếm, Thêm mới, Cập nhật, Xóa).
 /// </summary>
 [Route("api/DanhMuc/doi-tac")]
-[FeatureAuthorize("PARTNER")]
+[FeatureAuthorize("DOI_TAC")]
 public class DoiTacsController : CrudControllerBase<DoiTacDto, CreateDoiTacDto, UpdateDoiTacDto>
 {
     public DoiTacsController(IDoiTacService service) : base(service)

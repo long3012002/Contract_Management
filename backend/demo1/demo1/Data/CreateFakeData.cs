@@ -59,16 +59,94 @@ public static class CreateFakeDataExtensions
                 }
 
                 await context.Database.MigrateAsync();
+
+                // Di chuyển các mã tính năng cũ sang mã Tiếng Việt mới để tránh mất quyền của người dùng hiện có
+                var existingFeatures = await context.Features.ToListAsync();
+                if (existingFeatures.Any())
+                {
+                    var updated = false;
+                    foreach (var f in existingFeatures)
+                    {
+                        if (f.Code == "PROJECT") { f.Code = "DU_AN"; updated = true; }
+                        else if (f.Code == "BID_PACKAGE") { f.Code = "GOI_THAU"; updated = true; }
+                        else if (f.Code == "CONTRACT" || f.Code == "CONTRACT_MANAGEMENT") { f.Code = "QUAN_LY_HOP_DONG"; updated = true; }
+                        else if (f.Code == "PARTNER") { f.Code = "DOI_TAC"; updated = true; }
+                        else if (f.Code == "RESOLUTION") { f.Code = "NGHI_QUYET"; updated = true; }
+                    }
+                    if (updated)
+                    {
+                        await context.SaveChangesAsync();
+                        logger?.LogInformation("Đã chuyển đổi mã tính năng cũ sang Tiếng Việt trong bảng Features.");
+                    }
+                }
+
+                var existingPermissions = await context.UserPermissions.ToListAsync();
+                if (existingPermissions.Any())
+                {
+                    var updated = false;
+                    foreach (var up in existingPermissions)
+                    {
+                        if (up.FeatureCode == "PROJECT") { up.FeatureCode = "DU_AN"; updated = true; }
+                        else if (up.FeatureCode == "BID_PACKAGE") { up.FeatureCode = "GOI_THAU"; updated = true; }
+                        else if (up.FeatureCode == "CONTRACT" || up.FeatureCode == "CONTRACT_MANAGEMENT") { up.FeatureCode = "QUAN_LY_HOP_DONG"; updated = true; }
+                        else if (up.FeatureCode == "PARTNER") { up.FeatureCode = "DOI_TAC"; updated = true; }
+                        else if (up.FeatureCode == "RESOLUTION") { up.FeatureCode = "NGHI_QUYET"; updated = true; }
+                    }
+                    if (updated)
+                    {
+                        await context.SaveChangesAsync();
+                        logger?.LogInformation("Đã chuyển đổi mã tính năng cũ sang Tiếng Việt trong bảng UserPermissions.");
+                    }
+                }
+
+                var existingRequests = await context.PermissionRequests.ToListAsync();
+                if (existingRequests.Any())
+                {
+                    var updated = false;
+                    foreach (var pr in existingRequests)
+                    {
+                        if (pr.FeatureCode == "PROJECT") { pr.FeatureCode = "DU_AN"; updated = true; }
+                        else if (pr.FeatureCode == "BID_PACKAGE") { pr.FeatureCode = "GOI_THAU"; updated = true; }
+                        else if (pr.FeatureCode == "CONTRACT" || pr.FeatureCode == "CONTRACT_MANAGEMENT") { pr.FeatureCode = "QUAN_LY_HOP_DONG"; updated = true; }
+                        else if (pr.FeatureCode == "PARTNER") { pr.FeatureCode = "DOI_TAC"; updated = true; }
+                        else if (pr.FeatureCode == "RESOLUTION") { pr.FeatureCode = "NGHI_QUYET"; updated = true; }
+                    }
+                    if (updated)
+                    {
+                        await context.SaveChangesAsync();
+                        logger?.LogInformation("Đã chuyển đổi mã tính năng cũ sang Tiếng Việt trong bảng PermissionRequests.");
+                    }
+                }
+
+                var existingAttachments = await context.FileAttachments.ToListAsync();
+                if (existingAttachments.Any())
+                {
+                    var updated = false;
+                    foreach (var fa in existingAttachments)
+                    {
+                        if (fa.EntityType == "PROJECT") { fa.EntityType = "DU_AN"; updated = true; }
+                        else if (fa.EntityType == "BID_PACKAGE") { fa.EntityType = "GOI_THAU"; updated = true; }
+                        else if (fa.EntityType == "CONTRACT" || fa.EntityType == "CONTRACT_MANAGEMENT") { fa.EntityType = "QUAN_LY_HOP_DONG"; updated = true; }
+                        else if (fa.EntityType == "PARTNER") { fa.EntityType = "DOI_TAC"; updated = true; }
+                        else if (fa.EntityType == "RESOLUTION") { fa.EntityType = "NGHI_QUYET"; updated = true; }
+                    }
+                    if (updated)
+                    {
+                        await context.SaveChangesAsync();
+                        logger?.LogInformation("Đã chuyển đổi EntityType cũ sang Tiếng Việt trong bảng FileAttachments.");
+                    }
+                }
+
                 if (!context.Features.Any())
                 {
                     // 1. Seed Features
                     var features = new List<Feature>
                     {
-                        new() { Code = "PROJECT", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
-                        new() { Code = "BID_PACKAGE", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
-                        new() { Code = "CONTRACT", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
-                        new() { Code = "PARTNER", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
-                        new() { Code = "RESOLUTION", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
+                        new() { Code = "DU_AN", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
+                        new() { Code = "GOI_THAU", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
+                        new() { Code = "QUAN_LY_HOP_DONG", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
+                        new() { Code = "DOI_TAC", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
+                        new() { Code = "NGHI_QUYET", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
                     };
                     context.Features.AddRange(features);
                     await context.SaveChangesAsync();

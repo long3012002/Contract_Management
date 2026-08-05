@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Quyết định / Nghị quyết (Thông tin quyết định phê duyệt dự án, gói thầu, hợp đồng).
 /// </summary>
 [Route("api/NghiepVu/resolutions")]
-[FeatureAuthorize("RESOLUTION")]
+[FeatureAuthorize("NGHI_QUYET")]
 public class ResolutionsController : CrudControllerBase<ResolutionDto, CreateResolutionDto, UpdateResolutionDto>
 {
     public ResolutionsController(IResolutionService service) : base(service)

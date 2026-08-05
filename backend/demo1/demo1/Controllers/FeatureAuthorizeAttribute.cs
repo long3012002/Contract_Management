@@ -83,8 +83,8 @@ namespace demo1.Controllers
                 Guid? duAnId = null;
                 if (Guid.TryParse(entityId, out var parsedEntityId))
                 {
-                    if (_featureCode == "PROJECT") duAnId = parsedEntityId;
-                    else if (_featureCode == "BID_PACKAGE")
+                    if (_featureCode == "DU_AN") duAnId = parsedEntityId;
+                    else if (_featureCode == "GOI_THAU")
                     {
                         var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
                         duAnId = gt?.DuAnId;
@@ -98,7 +98,7 @@ namespace demo1.Controllers
                             }
                         }
                     }
-                    else if (_featureCode == "CONTRACT_MANAGEMENT")
+                    else if (_featureCode == "QUAN_LY_HOP_DONG")
                     {
                         var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
                         duAnId = hd?.DuAnId;

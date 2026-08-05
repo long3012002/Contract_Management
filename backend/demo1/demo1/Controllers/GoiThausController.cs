@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Gói thầu (Thông tin Gói thầu, Lọc danh sách, Trạng thái đấu thầu và Nhà thầu tham gia).
 /// </summary>
 [Route("api/NghiepVu/goi-thau")]
-[FeatureAuthorize("BID_PACKAGE")] // Keep BID_PACKAGE feature code for authorization purposes
+[FeatureAuthorize("GOI_THAU")] // Keep GOI_THAU feature code for authorization purposes
 public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDto, UpdateGoiThauDto>
 {
     private readonly IGoiThauService _goiThauService;

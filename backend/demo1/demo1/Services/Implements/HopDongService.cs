@@ -766,7 +766,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var hopDongIds = dtos.Select(d => d.Id).ToList();
         var attachments = await DbContext.FileAttachments
             .AsNoTracking()
-            .Where(fa => fa.EntityType == "CONTRACT_MANAGEMENT" && hopDongIds.Contains(fa.EntityId) && fa.IsActive)
+            .Where(fa => fa.EntityType == "QUAN_LY_HOP_DONG" && hopDongIds.Contains(fa.EntityId) && fa.IsActive)
             .ToListAsync();
 
         var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)

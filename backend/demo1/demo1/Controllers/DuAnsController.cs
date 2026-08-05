@@ -11,7 +11,7 @@ namespace demo1.Controllers;
 /// API Quản lý Dự án (Thông tin Dự án, Điều chỉnh kinh phí, Chuyển giai đoạn, Đóng dự án, Tra cứu Gói thầu/Hợp đồng thuộc Dự án).
 /// </summary>
 [Route("api/NghiepVu/du-an")]
-[FeatureAuthorize("PROJECT")] // Keep PROJECT feature code for authorization purposes
+[FeatureAuthorize("DU_AN")] // Keep DU_AN feature code for authorization purposes
 public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, UpdateDuAnDto>
 {
     private readonly IDuAnService _duAnService;

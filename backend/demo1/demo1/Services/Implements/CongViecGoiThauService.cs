@@ -813,7 +813,7 @@ public class CongViecGoiThauService
         var taskIds = dtos.Select(d => d.Id).ToList();
         var attachments = await DbContext.FileAttachments
             .AsNoTracking()
-            .Where(fa => fa.EntityType == "BID_PACKAGE" && taskIds.Contains(fa.EntityId) && fa.IsActive)
+            .Where(fa => fa.EntityType == "GOI_THAU" && taskIds.Contains(fa.EntityId) && fa.IsActive)
             .ToListAsync();
 
         var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)

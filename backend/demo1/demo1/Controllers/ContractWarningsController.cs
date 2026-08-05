@@ -9,7 +9,7 @@ namespace demo1.Controllers;
 /// API Cảnh báo Hợp đồng (Sắp hết hạn, Đã quá hạn, Vượt ngân sách).
 /// </summary>
 [Authorize]
-[FeatureAuthorize("CONTRACT_MANAGEMENT")]
+[FeatureAuthorize("QUAN_LY_HOP_DONG")]
 [ApiController]
 [Route("api/HeThong/warnings/contracts")]
 public class ContractWarningsController(IWarningService service) : ControllerBase
