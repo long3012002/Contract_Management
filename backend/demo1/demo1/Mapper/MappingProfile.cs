@@ -263,7 +263,10 @@ namespace demo1.Mapper
             CreateMap<CommentMention, UserMentionDto>()
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.MentionedUserId))
                 .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.Username : string.Empty))
-                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.FullName : string.Empty));
+                .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.FullName : string.Empty))
+                .ForMember(dest => dest.TenPhongBan, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.TenPhongBan : null))
+                .ForMember(dest => dest.TenDonVi, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.TenDonVi : null))
+                .ForMember(dest => dest.TenChucVu, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.TenChucVu : null));
 
             CreateMap<User, UserMentionDto>();
 
@@ -271,6 +274,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.ParentId, opt => opt.MapFrom(src => src.CongViecGoiThauId))
                 .ForMember(dest => dest.UserFullName, opt => opt.MapFrom(src => src.User != null ? src.User.FullName : "Unknown"))
                 .ForMember(dest => dest.UserUsername, opt => opt.MapFrom(src => src.User != null ? src.User.Username : "Unknown"))
+                .ForMember(dest => dest.UserTenPhongBan, opt => opt.MapFrom(src => src.User != null ? src.User.TenPhongBan : null))
+                .ForMember(dest => dest.UserTenDonVi, opt => opt.MapFrom(src => src.User != null ? src.User.TenDonVi : null))
                 .ForMember(dest => dest.Content, opt => opt.MapFrom(src => src.IsDeleted ? "Bình luận này đã bị xóa." : src.Content))
                 .ForMember(dest => dest.Mentions, opt => opt.MapFrom(src => src.Mentions))
                 .ForMember(dest => dest.Replies, opt => opt.Ignore());

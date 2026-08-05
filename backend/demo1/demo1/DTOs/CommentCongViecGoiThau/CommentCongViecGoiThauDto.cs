@@ -26,6 +26,10 @@ public class CommentCongViecGoiThauDto : IHasId, IHasParentId
     public Guid UserId { get; set; }
     public string UserFullName { get; set; } = string.Empty;
     public string UserUsername { get; set; } = string.Empty;
+    /// <summary>Tên phòng ban của tác giả bình luận, lấy từ User entity.</summary>
+    public string? UserTenPhongBan { get; set; }
+    /// <summary>Tên đơn vị của tác giả bình luận, lấy từ User entity.</summary>
+    public string? UserTenDonVi { get; set; }
     public string Content { get; set; } = string.Empty;
     public Guid? ParentCommentId { get; set; }
     public bool IsEdited { get; set; }
