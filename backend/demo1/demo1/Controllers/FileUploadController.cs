@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using demo1.Data;
 using demo1.Entity;
+using demo1.DTOs;
 
 namespace demo1.Controllers
 {
@@ -139,6 +140,41 @@ namespace demo1.Controllers
                     Detail = ex.Message 
                 });
             }
+        }
+
+        /// <summary>
+        /// Lấy danh sách tài liệu đính kèm của một bản ghi chức năng cụ thể.
+        /// </summary>
+        /// <param name="featureCode">Mã tính năng hệ thống (ví dụ: CONTRACT_MANAGEMENT)</param>
+        /// <param name="entityId">Mã định danh thực thể chức năng (GUID)</param>
+        /// <response code="200">Trả về danh sách tài liệu đính kèm</response>
+        [HttpGet("by-entity")]
+        [ProducesResponseType(typeof(IEnumerable<FileAttachmentDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<FileAttachmentDto>>> GetAttachmentsByEntity(
+            [FromQuery] string featureCode, 
+            [FromQuery] Guid entityId)
+        {
+            if (string.IsNullOrWhiteSpace(featureCode))
+                return BadRequest(new { Message = "Mã tính năng (featureCode) không được để trống." });
+
+            if (entityId == Guid.Empty)
+                return BadRequest(new { Message = "Mã thực thể (entityId) không hợp lệ." });
+
+            var attachments = await _dbContext.FileAttachments
+                .Where(fa => fa.EntityType == featureCode.Trim() && fa.EntityId == entityId && fa.IsActive)
+                .OrderByDescending(fa => fa.CreatedAt)
+                .Select(fa => new FileAttachmentDto
+                {
+                    Id = fa.Id,
+                    FileName = fa.FileName,
+                    FilePath = fa.FilePath,
+                    ContentType = fa.ContentType,
+                    FileSize = fa.FileSize,
+                    CreatedAt = fa.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(attachments);
         }
 
         /// <summary>

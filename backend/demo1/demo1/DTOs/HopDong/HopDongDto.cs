@@ -39,6 +39,7 @@ public class HopDongDto : IHasId
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
     public List<HangHoaDto> HangHoas { get; set; } = new();
     public List<DichVuDto> DichVus { get; set; } = new();
+    public List<FileAttachmentDto> FileAttachments { get; set; } = new();
 
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

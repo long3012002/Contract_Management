@@ -60,6 +60,7 @@ public class CongViecGoiThauDto : IHasId, IHasParentId
     public List<Guid> NguoiLienQuanIds { get; set; } = new List<Guid>();
     public List<CongViecNguoiLienQuanDto> NguoiLienQuans { get; set; } = new List<CongViecNguoiLienQuanDto>();
     public List<CongViecLichSuChuyenTiepDto> LichSuChuyenTieps { get; set; } = new List<CongViecLichSuChuyenTiepDto>();
+    public List<FileAttachmentDto> FileAttachments { get; set; } = new List<FileAttachmentDto>();
 
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

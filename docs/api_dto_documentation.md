@@ -177,6 +177,12 @@ Authorization: Bearer <your_jwt_access_token>
 - **`GET /api/DanhMuc/xuat-xu`**: Danh mục Xuất xứ hàng hóa.
 - **`GET /api/DanhMuc/doi-tac`**: Danh mục Đối tác / Nhà thầu.
 
+### 2.10 Quản lý Tải lên & Tải xuống Tệp tin (`/api/HeThong/files`)
+- **`POST /api/HeThong/files/upload`**: Tải lên tệp đính kèm (PDF, DOCX, XLSX, v.v.), lưu trữ ổ đĩa theo cấu trúc động `id/FeatureCode/id chức năng/filename` và lưu thông tin vào bảng CSDL `FileAttachments`.
+- **`GET /api/HeThong/files/download/{id}`**: Tải xuống/Xem file đính kèm bằng mã định danh GUID (khuyên dùng vì độ bảo mật cao).
+- **`GET /api/HeThong/files/download`**: Tải xuống/Xem file đính kèm bằng đường dẫn tương đối (Query `relativePath`), tự động phòng chống tấn công Directory Traversal.
+- **`GET /api/HeThong/files/by-entity`**: Lấy danh sách tài liệu đính kèm của một bản ghi chức năng cụ thể (ví dụ: danh sách file của Hợp đồng X) để biết bản ghi đó có file hay không và hiển thị nút tải về.
+
 ---
 
 ## 3. Hướng dẫn Xem & Thử nghiệm trên Swagger UI

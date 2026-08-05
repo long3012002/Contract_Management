@@ -156,6 +156,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         var dtos = Mapper.Map<List<HopDongDto>>(items);
+        await PopulateAttachmentsAsync(dtos);
 
         return new PagedResult<HopDongDto>
         {
@@ -190,7 +191,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             query = query.Where(h => h.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
         }
         var items = await query.ToListAsync();
-        return Mapper.Map<List<HopDongDto>>(items);
+        var dtos = Mapper.Map<List<HopDongDto>>(items);
+        await PopulateAttachmentsAsync(dtos);
+        return dtos;
     }
 
     public override async Task<HopDongDto?> GetByIdAsync(Guid id)
@@ -214,7 +217,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.DichVus)
                 .ThenInclude(dv => dv.DonViTinh)
             .FirstOrDefaultAsync(h => h.Id == id);
-        return entity is null ? null : Mapper.Map<HopDongDto>(entity);
+        if (entity is null) return null;
+        var dto = Mapper.Map<HopDongDto>(entity);
+        await PopulateAttachmentsAsync(new List<HopDongDto> { dto });
+        return dto;
     }
 
     public override async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
@@ -356,7 +362,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 .ThenInclude(nt => nt.NhaThau)
             .FirstOrDefaultAsync(h => h.Id == entity.Id);
 
-        return Mapper.Map<HopDongDto>(reloaded);
+        if (reloaded is null) return null!;
+        var mappedDto = Mapper.Map<HopDongDto>(reloaded);
+        await PopulateAttachmentsAsync(new List<HopDongDto> { mappedDto });
+        return mappedDto;
     }
 
     public override async Task<IEnumerable<HopDongDto>> CreateRangeAsync(IEnumerable<CreateHopDongDto> dtos)
@@ -536,7 +545,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Where(h => reloadedIds.Contains(h.Id))
             .ToListAsync();
 
-        return Mapper.Map<List<HopDongDto>>(reloadedEntities);
+        var mappedDtos = Mapper.Map<List<HopDongDto>>(reloadedEntities);
+        await PopulateAttachmentsAsync(mappedDtos);
+        return mappedDtos;
     }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateHopDongDto dto)
@@ -745,5 +756,34 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         await DbContext.SaveChangesAsync();
         return true;
+    }
+
+    private async Task PopulateAttachmentsAsync(List<HopDongDto> dtos)
+    {
+        if (dtos == null || !dtos.Any()) return;
+        var hopDongIds = dtos.Select(d => d.Id).ToList();
+        var attachments = await DbContext.FileAttachments
+            .AsNoTracking()
+            .Where(fa => fa.EntityType == "CONTRACT_MANAGEMENT" && hopDongIds.Contains(fa.EntityId) && fa.IsActive)
+            .ToListAsync();
+
+        var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)
+            .ToDictionary(g => g.Key, g => g.Select(fa => new FileAttachmentDto
+            {
+                Id = fa.Id,
+                FileName = fa.FileName,
+                FilePath = fa.FilePath,
+                ContentType = fa.ContentType,
+                FileSize = fa.FileSize,
+                CreatedAt = fa.CreatedAt
+            }).ToList());
+
+        foreach (var dto in dtos)
+        {
+            if (attachmentGroup.TryGetValue(dto.Id, out var fileList))
+            {
+                dto.FileAttachments = fileList;
+            }
+        }
     }
 }

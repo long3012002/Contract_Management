@@ -55,7 +55,9 @@ public class CongViecGoiThauService
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entity == null) return null;
-        return Mapper.Map<CongViecGoiThauDto>(entity);
+        var dto = Mapper.Map<CongViecGoiThauDto>(entity);
+        await PopulateAttachmentsAsync(new List<CongViecGoiThauDto> { dto });
+        return dto;
     }
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
@@ -70,7 +72,9 @@ public class CongViecGoiThauService
             .ThenBy(e => e.CreatedAt)
             .ToListAsync();
 
-        return Mapper.Map<List<CongViecGoiThauDto>>(entities);
+        var dtos = Mapper.Map<List<CongViecGoiThauDto>>(entities);
+        await PopulateAttachmentsAsync(dtos);
+        return dtos;
     }
 
     public override async Task<PagedResult<CongViecGoiThauDto>> GetByParentIdPagedAsync(
@@ -102,6 +106,7 @@ public class CongViecGoiThauService
             .ToListAsync();
 
         var dtos = Mapper.Map<List<CongViecGoiThauDto>>(items);
+        await PopulateAttachmentsAsync(dtos);
 
         return new PagedResult<CongViecGoiThauDto>
         {
@@ -318,7 +323,9 @@ public class CongViecGoiThauService
             .OrderBy(e => e.Stt)
             .ToListAsync();
 
-        return Mapper.Map<List<CongViecGoiThauDto>>(resultEntities);
+        var mappedDtos = Mapper.Map<List<CongViecGoiThauDto>>(resultEntities);
+        await PopulateAttachmentsAsync(mappedDtos);
+        return mappedDtos;
     }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateCongViecGoiThauDto dto)
@@ -568,6 +575,7 @@ public class CongViecGoiThauService
             .ToList();
 
         var congViecDtos = Mapper.Map<List<CongViecGoiThauDto>>(congViecs);
+        await PopulateAttachmentsAsync(congViecDtos);
 
         int completed = congViecs.Count(c => c.TinhTrang != null && (c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase) || c.TinhTrang.Equals("Đã hoàn thành", StringComparison.OrdinalIgnoreCase) || c.TinhTrang.Equals("Đã ký", StringComparison.OrdinalIgnoreCase)));
         int inProgress = congViecs.Count(c => c.TinhTrang != null && (c.TinhTrang.Equals("Đang thực hiện", StringComparison.OrdinalIgnoreCase)));
@@ -755,5 +763,34 @@ public class CongViecGoiThauService
         }
 
         return dtos;
+    }
+
+    private async Task PopulateAttachmentsAsync(List<CongViecGoiThauDto> dtos)
+    {
+        if (dtos == null || !dtos.Any()) return;
+        var taskIds = dtos.Select(d => d.Id).ToList();
+        var attachments = await DbContext.FileAttachments
+            .AsNoTracking()
+            .Where(fa => fa.EntityType == "BID_PACKAGE" && taskIds.Contains(fa.EntityId) && fa.IsActive)
+            .ToListAsync();
+
+        var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)
+            .ToDictionary(g => g.Key, g => g.Select(fa => new FileAttachmentDto
+            {
+                Id = fa.Id,
+                FileName = fa.FileName,
+                FilePath = fa.FilePath,
+                ContentType = fa.ContentType,
+                FileSize = fa.FileSize,
+                CreatedAt = fa.CreatedAt
+            }).ToList());
+
+        foreach (var dto in dtos)
+        {
+            if (attachmentGroup.TryGetValue(dto.Id, out var fileList))
+            {
+                dto.FileAttachments = fileList;
+            }
+        }
     }
 }
