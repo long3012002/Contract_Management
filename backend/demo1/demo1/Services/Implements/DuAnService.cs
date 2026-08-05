@@ -475,39 +475,75 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await DbContext.SaveChangesAsync();
 
         // Update all implementation projects linked to this source project
-        var implementationProjects = await DbSet.Where(da => da.LoaiDuAn == 2 && da.NguonDuAnIds != null).ToListAsync();
-        foreach (var ip in implementationProjects)
+        var targetIdString = id.ToString();
+        var implementationProjects = await DbSet
+            .Where(da => da.LoaiDuAn == 2 && da.NguonDuAnIds != null && EF.Functions.Like(da.NguonDuAnIds, $"%{targetIdString}%"))
+            .ToListAsync();
+        if (implementationProjects.Any())
         {
-            var sourceIds = ip.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                           .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                           .ToList();
-            if (sourceIds.Contains(id))
+            var allSourceIds = implementationProjects
+                .SelectMany(ip => ip.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                 .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty))
+                .Where(g => g != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            var sourceProjectsDict = new Dictionary<Guid, DuAn>();
+            if (allSourceIds.Any())
             {
-                // Re-evaluate aggregate budget of this implementation project
-                var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
-                                                .Where(da => sourceIds.Contains(da.Id))
-                                                .ToListAsync();
-                decimal totalAggregatedBudget = 0;
-                foreach (var sp in sourceProjects)
-                {
-                    var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                    totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
-                }
-
-                ip.DuToanPheDuyet = totalAggregatedBudget;
-
-                var goiThauBudgetsSum = await DbContext.GoiThaus
-                    .Where(gt => gt.DuAnId == ip.Id)
-                    .SumAsync(gt => gt.GiaTriGoiThau);
-                if (totalAggregatedBudget < goiThauBudgetsSum)
-                {
-                    throw new InvalidOperationException($"Điều chỉnh ngân sách làm cho tổng ngân sách của dự án triển khai liên kết '{ip.Name}' ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
-                }
-
-                ip.UpdatedAt = DateTime.UtcNow;
+                var sourceProjectsList = await DbSet.Include(da => da.DieuChinhs)
+                                                    .Where(da => allSourceIds.Contains(da.Id))
+                                                    .ToListAsync();
+                sourceProjectsDict = sourceProjectsList.ToDictionary(sp => sp.Id, sp => sp);
             }
+
+            var implementationProjectIds = implementationProjects.Select(ip => ip.Id).ToList();
+            var goiThauBudgetsDict = new Dictionary<Guid, decimal>();
+            if (implementationProjectIds.Any())
+            {
+                goiThauBudgetsDict = await DbContext.GoiThaus
+                    .Where(gt => gt.DuAnId.HasValue && implementationProjectIds.Contains(gt.DuAnId.Value))
+                    .GroupBy(gt => gt.DuAnId!.Value)
+                    .ToDictionaryAsync(g => g.Key, g => g.Sum(gt => gt.GiaTriGoiThau));
+            }
+
+            foreach (var ip in implementationProjects)
+            {
+                var sourceIds = ip.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                               .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                               .Where(g => g != Guid.Empty)
+                                               .ToList();
+
+                if (sourceIds.Contains(id))
+                {
+                    decimal totalAggregatedBudget = 0;
+                    foreach (var spId in sourceIds)
+                    {
+                        if (sourceProjectsDict.TryGetValue(spId, out var sp))
+                        {
+                            var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
+                            totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
+                        }
+                    }
+
+                    ip.DuToanPheDuyet = totalAggregatedBudget;
+
+                    decimal goiThauBudgetsSum = 0;
+                    if (goiThauBudgetsDict.TryGetValue(ip.Id, out var sum))
+                    {
+                        goiThauBudgetsSum = sum;
+                    }
+
+                    if (totalAggregatedBudget < goiThauBudgetsSum)
+                    {
+                        throw new InvalidOperationException($"Điều chỉnh ngân sách làm cho tổng ngân sách của dự án triển khai liên kết '{ip.Name}' ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
+                    }
+
+                    ip.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            await DbContext.SaveChangesAsync();
         }
-        await DbContext.SaveChangesAsync();
 
         return Mapper.Map<DieuChinhDuAnDto>(adjustment);
     }

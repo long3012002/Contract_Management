@@ -94,66 +94,87 @@ namespace demo1.Services.Implements
 
             var notificationsToPush = new List<(string TargetUsername, Notification NotificationPayload)>();
 
-            foreach (var record in expiredRecords)
+            if (expiredRecords.Any())
             {
-                record.TrangThaiXacNhan = "Overdue";
-                record.UpdatedAt = now;
+                var expiredUserIds = expiredRecords.Select(r => r.UserId).Distinct().ToList();
+                var expiredTaskLinks = expiredRecords.Select(r => $"/goi-thau/cong-viec/{r.CongViecGoiThauId}").Distinct().ToList();
 
-                var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
-                var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
+                var existingExpiredNotifs = await dbContext.Notifications
+                    .Where(n => n.UserId.HasValue && expiredUserIds.Contains(n.UserId.Value) && n.Link != null && expiredTaskLinks.Contains(n.Link) && n.Title.Contains("Quá hạn"))
+                    .Select(n => new { n.UserId, n.Link })
+                    .ToListAsync();
 
-                var alreadyNotified = await dbContext.Notifications
-                    .AnyAsync(n => n.UserId == record.UserId && n.Link == link && n.Title.Contains("Quá hạn"));
+                var existingExpiredNotifsSet = new HashSet<(Guid UserId, string Link)>(
+                    existingExpiredNotifs.Select(n => (n.UserId!.Value, n.Link ?? ""))
+                );
 
-                if (!alreadyNotified && record.User != null)
+                var expiredTaskIds = expiredRecords.Select(r => r.CongViecGoiThauId).Distinct().ToList();
+                var tasksDict = new Dictionary<Guid, CongViecGoiThau>();
+                if (expiredTaskIds.Any())
                 {
-                    var notification = new Notification
-                    {
-                        Id = Guid.NewGuid(),
-                        Title = "Cảnh báo: Quá hạn công việc",
-                        Content = $"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.",
-                        Link = link,
-                        UserId = record.UserId,
-                        IsRead = false,
-                        CreatedAt = now
-                    };
-
-                    dbContext.Notifications.Add(notification);
-                    notificationsToPush.Add((record.User.Username, notification));
+                    var tasksList = await dbContext.CongViecGoiThaus
+                        .Include(t => t.CreateUser)
+                        .Include(t => t.ModifiedUser)
+                        .Where(t => expiredTaskIds.Contains(t.Id))
+                        .ToListAsync();
+                    tasksDict = tasksList.ToDictionary(t => t.Id, t => t);
                 }
 
-                // Notify CreateUser and ModifiedUser
-                var task = await dbContext.CongViecGoiThaus
-                    .Include(t => t.CreateUser)
-                    .Include(t => t.ModifiedUser)
-                    .FirstOrDefaultAsync(t => t.Id == record.CongViecGoiThauId);
-
-                if (task != null && record.User != null)
+                foreach (var record in expiredRecords)
                 {
-                    var usersToNotify = new List<User>();
-                    if (task.CreateUser != null)
-                    {
-                        usersToNotify.Add(task.CreateUser);
-                    }
-                    if (task.ModifiedUser != null && (task.CreateUserId == null || task.ModifiedUserId != task.CreateUserId))
-                    {
-                        usersToNotify.Add(task.ModifiedUser);
-                    }
+                    record.TrangThaiXacNhan = "Overdue";
+                    record.UpdatedAt = now;
 
-                    foreach (var targetUser in usersToNotify)
+                    var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
+                    var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
+
+                    var alreadyNotified = existingExpiredNotifsSet.Contains((record.UserId, link));
+
+                    if (!alreadyNotified && record.User != null)
                     {
-                        var overdueNotification = new Notification
+                        var notification = new Notification
                         {
                             Id = Guid.NewGuid(),
-                            Title = "Quá hạn: Người liên quan",
-                            Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
+                            Title = "Cảnh báo: Quá hạn công việc",
+                            Content = $"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.",
                             Link = link,
-                            UserId = targetUser.Id,
+                            UserId = record.UserId,
                             IsRead = false,
                             CreatedAt = now
                         };
-                        dbContext.Notifications.Add(overdueNotification);
-                        notificationsToPush.Add((targetUser.Username, overdueNotification));
+
+                        dbContext.Notifications.Add(notification);
+                        notificationsToPush.Add((record.User.Username, notification));
+                    }
+
+                    // Notify CreateUser and ModifiedUser
+                    if (tasksDict.TryGetValue(record.CongViecGoiThauId, out var task) && record.User != null)
+                    {
+                        var usersToNotify = new List<User>();
+                        if (task.CreateUser != null)
+                        {
+                            usersToNotify.Add(task.CreateUser);
+                        }
+                        if (task.ModifiedUser != null && (task.CreateUserId == null || task.ModifiedUserId != task.CreateUserId))
+                        {
+                            usersToNotify.Add(task.ModifiedUser);
+                        }
+
+                        foreach (var targetUser in usersToNotify)
+                        {
+                            var overdueNotification = new Notification
+                            {
+                                Id = Guid.NewGuid(),
+                                Title = "Quá hạn: Người liên quan",
+                                Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
+                                Link = link,
+                                UserId = targetUser.Id,
+                                IsRead = false,
+                                CreatedAt = now
+                            };
+                            dbContext.Notifications.Add(overdueNotification);
+                            notificationsToPush.Add((targetUser.Username, overdueNotification));
+                        }
                     }
                 }
             }
@@ -166,30 +187,44 @@ namespace demo1.Services.Implements
                 .Where(nlq => nlq.TrangThaiXacNhan == "Pending" && nlq.HanXacNhanAt > now && nlq.HanXacNhanAt <= warningThresholdTime)
                 .ToListAsync();
 
-            foreach (var record in upcomingRecords)
+            if (upcomingRecords.Any())
             {
-                var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
-                var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
+                var upcomingUserIds = upcomingRecords.Select(r => r.UserId).Distinct().ToList();
+                var upcomingTaskLinks = upcomingRecords.Select(r => $"/goi-thau/cong-viec/{r.CongViecGoiThauId}").Distinct().ToList();
 
-                var hoursLeft = Math.Max(1, (int)Math.Round((record.HanXacNhanAt - now).TotalHours));
-                var alreadyNotified = await dbContext.Notifications
-                    .AnyAsync(n => n.UserId == record.UserId && n.Link == link && n.Title.Contains("Sắp hết hạn"));
+                var existingUpcomingNotifs = await dbContext.Notifications
+                    .Where(n => n.UserId.HasValue && upcomingUserIds.Contains(n.UserId.Value) && n.Link != null && upcomingTaskLinks.Contains(n.Link) && n.Title.Contains("Sắp hết hạn"))
+                    .Select(n => new { n.UserId, n.Link })
+                    .ToListAsync();
 
-                if (!alreadyNotified && record.User != null)
+                var existingUpcomingNotifsSet = new HashSet<(Guid UserId, string Link)>(
+                    existingUpcomingNotifs.Select(n => (n.UserId!.Value, n.Link ?? ""))
+                );
+
+                foreach (var record in upcomingRecords)
                 {
-                    var notification = new Notification
-                    {
-                        Id = Guid.NewGuid(),
-                        Title = "Nhắc nhở: Sắp hết hạn",
-                        Content = $"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).",
-                        Link = link,
-                        UserId = record.UserId,
-                        IsRead = false,
-                        CreatedAt = now
-                    };
+                    var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
+                    var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
 
-                    dbContext.Notifications.Add(notification);
-                    notificationsToPush.Add((record.User.Username, notification));
+                    var hoursLeft = Math.Max(1, (int)Math.Round((record.HanXacNhanAt - now).TotalHours));
+                    var alreadyNotified = existingUpcomingNotifsSet.Contains((record.UserId, link));
+
+                    if (!alreadyNotified && record.User != null)
+                    {
+                        var notification = new Notification
+                        {
+                            Id = Guid.NewGuid(),
+                            Title = "Nhắc nhở: Sắp hết hạn",
+                            Content = $"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).",
+                            Link = link,
+                            UserId = record.UserId,
+                            IsRead = false,
+                            CreatedAt = now
+                        };
+
+                        dbContext.Notifications.Add(notification);
+                        notificationsToPush.Add((record.User.Username, notification));
+                    }
                 }
             }
 

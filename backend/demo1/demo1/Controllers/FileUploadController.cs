@@ -52,7 +52,7 @@ namespace demo1.Controllers
         /// Thư mục lưu trữ dạng: {StoragePath}/{FileAttachmentId}/{FeatureCode}/{EntityId}/{FileName}
         /// </summary>
         /// <param name="file">Tệp tin cần tải lên</param>
-        /// <param name="featureCode">Mã tính năng hệ thống (ví dụ: CONTRACT_MANAGEMENT)</param>
+        /// <param name="featureCode">Mã tính năng hệ thống (ví dụ: QUAN_LY_HOP_DONG)</param>
         /// <param name="entityId">Mã thực thể liên quan (ví dụ: GUID của Hợp đồng)</param>
         /// <response code="200">Tải lên thành công</response>
         /// <response code="400">Tệp tin hoặc tham số không hợp lệ</response>
@@ -145,7 +145,7 @@ namespace demo1.Controllers
         /// <summary>
         /// Lấy danh sách tài liệu đính kèm của một bản ghi chức năng cụ thể.
         /// </summary>
-        /// <param name="featureCode">Mã tính năng hệ thống (ví dụ: CONTRACT_MANAGEMENT)</param>
+        /// <param name="featureCode">Mã tính năng hệ thống (ví dụ: QUAN_LY_HOP_DONG)</param>
         /// <param name="entityId">Mã định danh thực thể chức năng (GUID)</param>
         /// <response code="200">Trả về danh sách tài liệu đính kèm</response>
         [HttpGet("by-entity")]

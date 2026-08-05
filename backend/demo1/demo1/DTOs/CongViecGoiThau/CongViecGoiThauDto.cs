@@ -79,9 +79,9 @@ public class CongViecGoiThauDto : IHasId, IHasParentId
     public string? ModifiedUserFullName { get; set; }
 
     /// <summary>
-    /// Số lượng bình luận tổng hợp (bao gồm cả replies). Được tính sẵn từ backend.
+    /// Số lượng bình luận của công việc gói thầu
     /// </summary>
-    public int CommentCount { get; set; }
+    public int SoBinhLuan { get; set; }
 }
 
 public class CreateCongViecGoiThauDto

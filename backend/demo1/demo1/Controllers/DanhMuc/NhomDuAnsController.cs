@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Danh mục Nhóm Dự án (vd: Nhóm A, Nhóm B, Nhóm C theo quy định đầu tư công).
 /// </summary>
 [Route("api/DanhMuc/nhom-du-an")]
-[FeatureAuthorize("PROJECT")]
+[FeatureAuthorize("DU_AN")]
 public class NhomDuAnsController : CrudControllerBase<NhomDuAnDto, CreateNhomDuAnDto, UpdateNhomDuAnDto>
 {
     public NhomDuAnsController(INhomDuAnService service) : base(service)

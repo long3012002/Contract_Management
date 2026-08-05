@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Gói thầu (Thông tin Gói thầu, Lọc danh sách, Trạng thái đấu thầu và Nhà thầu tham gia).
 /// </summary>
 [Route("api/NghiepVu/goi-thau")]
-[FeatureAuthorize("BID_PACKAGE")] // Keep BID_PACKAGE feature code for authorization purposes
+[FeatureAuthorize("GOI_THAU")] // Keep GOI_THAU feature code for authorization purposes
 public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDto, UpdateGoiThauDto>
 {
     private readonly IGoiThauService _goiThauService;
@@ -30,6 +30,22 @@ public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDt
     {
         var result = await _goiThauService.GetAllAsync(filter);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy thông tin chi tiết của gói thầu và danh sách công việc kèm theo số lượng bình luận.
+    /// </summary>
+    /// <param name="id">Mã định danh gói thầu (GUID)</param>
+    /// <returns>Thông tin chi tiết gói thầu và danh sách công việc</returns>
+    /// <response code="200">Lấy dữ liệu thành công</response>
+    /// <response code="404">Không tìm thấy gói thầu</response>
+    [HttpGet("{id:guid}/chi-tiet-va-cong-viec")]
+    [ProducesResponseType(typeof(GoiThauDetailWithTasksDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GoiThauDetailWithTasksDto>> GetDetailWithTasks(Guid id)
+    {
+        var result = await _goiThauService.GetDetailWithTasksAsync(id);
+        return result is null ? NotFound() : Ok(result);
     }
 
     /// <summary>

@@ -501,4 +501,75 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             throw;
         }
     }
+
+    public async Task<GoiThauDetailWithTasksDto?> GetDetailWithTasksAsync(Guid id)
+    {
+        try
+        {
+            var goiThauDto = await GetByIdAsync(id);
+            if (goiThauDto == null) return null;
+
+            var tasks = await DbContext.CongViecGoiThaus.AsNoTracking()
+                .Include(e => e.NguoiLienQuans)
+                    .ThenInclude(n => n.User)
+                .Include(e => e.CreateUser)
+                .Include(e => e.ModifiedUser)
+                .Where(e => e.GoiThauId == id)
+                .OrderBy(e => e.Stt)
+                .ThenBy(e => e.CreatedAt)
+                .ToListAsync();
+
+            var taskDtos = Mapper.Map<List<CongViecGoiThauDto>>(tasks);
+
+            if (taskDtos.Any())
+            {
+                var taskIds = taskDtos.Select(d => d.Id).ToList();
+                
+                // Populate Attachments
+                var attachments = await DbContext.FileAttachments
+                    .AsNoTracking()
+                    .Where(fa => fa.EntityType == "GOI_THAU" && taskIds.Contains(fa.EntityId) && fa.IsActive)
+                    .ToListAsync();
+
+                var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)
+                    .ToDictionary(g => g.Key, g => g.Select(fa => new FileAttachmentDto
+                    {
+                        Id = fa.Id,
+                        FileName = fa.FileName,
+                        FilePath = fa.FilePath,
+                        ContentType = fa.ContentType,
+                        FileSize = fa.FileSize,
+                        CreatedAt = fa.CreatedAt
+                    }).ToList());
+
+                // Count Comments
+                var commentCounts = await DbContext.CommentCongViecGoiThaus
+                    .Where(c => taskIds.Contains(c.CongViecGoiThauId) && !c.IsDeleted)
+                    .GroupBy(c => c.CongViecGoiThauId)
+                    .Select(g => new { CongViecGoiThauId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.CongViecGoiThauId, x => x.Count);
+
+                foreach (var dto in taskDtos)
+                {
+                    if (attachmentGroup.TryGetValue(dto.Id, out var fileList))
+                    {
+                        dto.FileAttachments = fileList;
+                    }
+                    
+                    dto.SoBinhLuan = commentCounts.TryGetValue(dto.Id, out var count) ? count : 0;
+                }
+            }
+
+            return new GoiThauDetailWithTasksDto
+            {
+                Detail = goiThauDto,
+                CongViecs = taskDtos
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetDetailWithTasksAsync của GoiThauService cho ID {Id}.", id);
+            throw;
+        }
+    }
 }

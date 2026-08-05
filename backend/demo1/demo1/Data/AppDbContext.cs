@@ -243,6 +243,10 @@ namespace demo1.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<CongViecGoiThau>()
+                .HasIndex(cv => cv.GoiThauId)
+                .HasDatabaseName("IX_CongViecGoiThau_GoiThauId");
+
+            modelBuilder.Entity<CongViecGoiThau>()
                 .HasOne(cv => cv.CreateUser)
                 .WithMany()
                 .HasForeignKey(cv => cv.CreateUserId)
@@ -458,6 +462,9 @@ namespace demo1.Data
                 entity.Property(e => e.Username).HasMaxLength(255);
                 entity.Property(e => e.UserId).HasMaxLength(255);
                 entity.Property(e => e.IpAddress).HasMaxLength(100);
+
+                entity.HasIndex(e => new { e.Username, e.Timestamp })
+                    .HasDatabaseName("IX_AuditLog_Username_Timestamp");
             });
 
             // Configure Notification entity

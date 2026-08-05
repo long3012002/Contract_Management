@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Hợp đồng và Đợt thanh toán (Tạo hợp đồng, Tìm kiếm/Lọc nâng cao, Xác nhận thanh toán).
 /// </summary>
 [Route("api/NghiepVu/hop-dong")]
-[FeatureAuthorize("CONTRACT_MANAGEMENT")]
+[FeatureAuthorize("QUAN_LY_HOP_DONG")]
 public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDto, UpdateHopDongDto>
 {
     private readonly IHopDongService _hopDongService;

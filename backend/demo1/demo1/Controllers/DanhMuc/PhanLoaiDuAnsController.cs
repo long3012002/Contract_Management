@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Danh mục Phân loại Dự án (vd: Dự án CNTT, Dự án Xây dựng, Mua sắm hàng hóa...).
 /// </summary>
 [Route("api/DanhMuc/phan-loai-du-an")]
-[FeatureAuthorize("PROJECT")]
+[FeatureAuthorize("DU_AN")]
 public class PhanLoaiDuAnsController : CrudControllerBase<PhanLoaiDuAnDto, CreatePhanLoaiDuAnDto, UpdatePhanLoaiDuAnDto>
 {
     public PhanLoaiDuAnsController(IPhanLoaiDuAnService service) : base(service)

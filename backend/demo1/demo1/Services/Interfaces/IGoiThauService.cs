@@ -5,5 +5,6 @@ namespace demo1.Services.Interfaces;
 public interface IGoiThauService : ICrudService<GoiThauDto, CreateGoiThauDto, UpdateGoiThauDto>
 {
     Task<PagedResult<GoiThauDto>> GetAllAsync(GoiThauFilterDto filter);
+    Task<GoiThauDetailWithTasksDto?> GetDetailWithTasksAsync(Guid id);
 }
 
