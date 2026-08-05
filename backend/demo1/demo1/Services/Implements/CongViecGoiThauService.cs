@@ -74,6 +74,7 @@ public class CongViecGoiThauService
 
         var dtos = Mapper.Map<List<CongViecGoiThauDto>>(entities);
         await PopulateAttachmentsAsync(dtos);
+        await PopulateCommentCountsAsync(dtos);
         return dtos;
     }
 
@@ -107,6 +108,7 @@ public class CongViecGoiThauService
 
         var dtos = Mapper.Map<List<CongViecGoiThauDto>>(items);
         await PopulateAttachmentsAsync(dtos);
+        await PopulateCommentCountsAsync(dtos);
 
         return new PagedResult<CongViecGoiThauDto>
         {
@@ -833,6 +835,25 @@ public class CongViecGoiThauService
             {
                 dto.FileAttachments = fileList;
             }
+        }
+    }
+    private async Task PopulateCommentCountsAsync(List<CongViecGoiThauDto> dtos)
+    {
+        if (dtos == null || !dtos.Any()) return;
+
+        var taskIds = dtos.Select(d => d.Id).ToList();
+
+        // Count all non-deleted comments (including replies) grouped by CongViecGoiThauId
+        var commentCounts = await DbContext.CommentCongViecGoiThaus
+            .AsNoTracking()
+            .Where(c => taskIds.Contains(c.CongViecGoiThauId) && !c.IsDeleted)
+            .GroupBy(c => c.CongViecGoiThauId)
+            .Select(g => new { CongViecId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CongViecId, x => x.Count);
+
+        foreach (var dto in dtos)
+        {
+            dto.CommentCount = commentCounts.TryGetValue(dto.Id, out var count) ? count : 0;
         }
     }
 }

@@ -16,6 +16,10 @@ public class CongViecNguoiLienQuanDto
     public string? LoaiXacNhan { get; set; }
     public double SoGioConLai { get; set; }
     public bool IsOverdue { get; set; }
+    /// <summary>Tên phòng ban của người liên quan, lấy trực tiếp từ User entity.</summary>
+    public string? TenPhongBan { get; set; }
+    /// <summary>Tên đơn vị của người liên quan, lấy trực tiếp từ User entity.</summary>
+    public string? TenDonVi { get; set; }
 }
 
 public class ForwardStakeholdersRequestDto
