@@ -853,7 +853,7 @@ public class CongViecGoiThauService
 
         foreach (var dto in dtos)
         {
-            dto.CommentCount = commentCounts.TryGetValue(dto.Id, out var count) ? count : 0;
+            dto.SoBinhLuan = commentCounts.TryGetValue(dto.Id, out var count) ? count : 0;
         }
     }
 }
