@@ -35,3 +35,6 @@ app.MapHub<demo1.Hubs.NotificationHub>("/hub/notifications");
 await app.CreateFakeDataAsync();
 
 app.Run();
+
+public partial class Program { }
+
