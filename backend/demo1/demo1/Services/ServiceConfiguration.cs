@@ -206,6 +206,7 @@ public static class ServiceConfiguration
         services.AddScoped<ILicenseService, LicenseService>();
 
         services.AddScoped<IHopDongService, HopDongService>();
+        services.AddScoped<IDotThanhToanService, DotThanhToanService>();
         services.AddScoped<IResolutionService, ResolutionService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<INhomDuAnService, NhomDuAnService>();
