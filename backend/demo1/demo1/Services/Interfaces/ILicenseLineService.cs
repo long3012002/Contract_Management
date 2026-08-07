@@ -5,7 +5,7 @@ using demo1.DTOs.HangHoaDichVu;
 
 namespace demo1.Services.Interfaces;
 
-public interface IDichVuService : ICrudService<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
+public interface ILicenseLineService : ICrudService<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {
     Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent);
 }

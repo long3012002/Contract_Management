@@ -1,14 +1,19 @@
 using System;
-using demo1.DTOs;
+using demo1.Entity;
 
-namespace demo1.DTOs.HangHoa;
+namespace demo1.DTOs.HangHoaDichVu;
 
-public class HangHoaDto : IHasId
+public class HangHoaDichVuDto : IHasId
 {
     public Guid Id { get; set; }
     public Guid IdParent { get; set; }
 
     public string? Stt { get; set; }
+    
+    // Type field to distinguish
+    public LoaiHangHoaDichVu Loai { get; set; }
+
+    // Hang Hoa specific / common fields
     public string? DanhMucHangHoa { get; set; }
     public string? KyMaHieu { get; set; }
     public string? NhanHieu { get; set; }
@@ -31,6 +36,16 @@ public class HangHoaDto : IHasId
     public int KhoiLuong { get; set; }
     public string? MaHS { get; set; }
 
+    // Dich Vu specific fields
+    public string? TenDichVu { get; set; }
+    public string? MoTaDichVu { get; set; }
+    public string? DiaDiemThucHienDichVu { get; set; }
+    public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
+    public DateTime? NgayKetThuc { get; set; }
+    public string? NgayHoanThanhDichVu { get; set; }
+
+    // Common fields
     public decimal DonGia { get; set; }
     public decimal ThanhTien { get; set; }
 
@@ -38,11 +53,14 @@ public class HangHoaDto : IHasId
     public DateTime? UpdatedAt { get; set; }
 }
 
-public class CreateHangHoaDto
+public class CreateHangHoaDichVuDto
 {
     public Guid IdParent { get; set; }
 
     public string? Stt { get; set; }
+    public LoaiHangHoaDichVu Loai { get; set; }
+
+    // Hang Hoa fields
     public string? DanhMucHangHoa { get; set; }
     public string? KyMaHieu { get; set; }
     public string? NhanHieu { get; set; }
@@ -57,10 +75,20 @@ public class CreateHangHoaDto
     public int KhoiLuong { get; set; }
     public string? MaHS { get; set; }
 
+    // Dich Vu fields
+    public string? TenDichVu { get; set; }
+    public string? MoTaDichVu { get; set; }
+    public string? DiaDiemThucHienDichVu { get; set; }
+    public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
+    public DateTime? NgayKetThuc { get; set; }
+    public string? NgayHoanThanhDichVu { get; set; }
+
+    // Common fields
     public decimal DonGia { get; set; }
     public decimal ThanhTien { get; set; }
 }
 
-public class UpdateHangHoaDto : CreateHangHoaDto
+public class UpdateHangHoaDichVuDto : CreateHangHoaDichVuDto
 {
 }

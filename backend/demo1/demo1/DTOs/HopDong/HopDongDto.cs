@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using demo1.DTOs.HangHoa;
-using demo1.DTOs.DichVu;
+using demo1.DTOs.HangHoaDichVu;
 
 namespace demo1.DTOs;
 
@@ -37,8 +36,7 @@ public class HopDongDto : IHasId
 
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
-    public List<HangHoaDto> HangHoas { get; set; } = new();
-    public List<DichVuDto> DichVus { get; set; } = new();
+    public List<HangHoaDichVuDto> HangHoaDichVus { get; set; } = new();
     public List<FileAttachmentDto> FileAttachments { get; set; } = new();
 
     public bool IsActive { get; set; }

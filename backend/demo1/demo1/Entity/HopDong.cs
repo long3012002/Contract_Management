@@ -31,6 +31,5 @@ public class HopDong : BaseEntity
 
     public virtual ICollection<DotThanhToan> DotThanhToans { get; set; } = new List<DotThanhToan>();
     public virtual ICollection<NhaThauGoiThau> NhaThauGoiThaus { get; set; } = new List<NhaThauGoiThau>();
-    public virtual ICollection<HangHoa> HangHoas { get; set; } = new List<HangHoa>();
-    public virtual ICollection<DichVu> DichVus { get; set; } = new List<DichVu>();
+    public virtual ICollection<HangHoaDichVu> HangHoaDichVus { get; set; } = new List<HangHoaDichVu>();
 }

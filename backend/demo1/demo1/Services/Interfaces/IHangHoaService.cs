@@ -1,8 +1,11 @@
-using demo1.DTOs.HangHoa;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using demo1.DTOs.HangHoaDichVu;
 
 namespace demo1.Services.Interfaces;
 
-public interface IHangHoaService : ICrudService<HangHoaDto, CreateHangHoaDto, UpdateHangHoaDto>
+public interface IHangHoaService : ICrudService<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {
-    Task<IEnumerable<HangHoaDto>> GetByIdParentAsync(Guid idParent);
+    Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent);
 }

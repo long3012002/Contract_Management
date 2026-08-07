@@ -11,33 +11,36 @@ using Microsoft.EntityFrameworkCore;
 
 namespace demo1.Services.Implements;
 
-public class DichVuService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>, IDichVuService
+public class LicenseLineService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>, ILicenseLineService
 {
-    public DichVuService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    public LicenseLineService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
     }
 
     protected override IQueryable<HangHoaDichVu> GetQueryable()
     {
-        return DbSet.Where(h => h.Loai == LoaiHangHoaDichVu.DichVu);
+        return DbSet.Where(h => h.Loai == LoaiHangHoaDichVu.License);
     }
 
     protected override HangHoaDichVu CreateEntity(CreateHangHoaDichVuDto dto)
     {
         var entity = base.CreateEntity(dto);
-        entity.Loai = LoaiHangHoaDichVu.DichVu;
+        entity.Loai = LoaiHangHoaDichVu.License;
         return entity;
     }
 
     protected override void UpdateEntity(HangHoaDichVu entity, UpdateHangHoaDichVuDto dto)
     {
         base.UpdateEntity(entity, dto);
-        entity.Loai = LoaiHangHoaDichVu.DichVu;
+        entity.Loai = LoaiHangHoaDichVu.License;
     }
 
     public async Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent)
     {
         var entities = await GetQueryable()
+            .Include(h => h.XuatXu)
+            .Include(h => h.HangSanXuat)
+            .Include(h => h.License)
             .Include(h => h.DonViTinh)
             .Where(h => h.IdParent == idParent)
             .ToListAsync();

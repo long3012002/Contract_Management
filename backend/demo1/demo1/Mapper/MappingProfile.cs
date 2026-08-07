@@ -1,6 +1,7 @@
 using AutoMapper;
 using demo1.DTOs;
 using demo1.Entity;
+using demo1.DTOs.HangHoaDichVu;
 
 namespace demo1.Mapper
 {
@@ -116,8 +117,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
                 .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()))
                 .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus))
-                .ForMember(dest => dest.HangHoas, opt => opt.MapFrom(src => src.HangHoas))
-                .ForMember(dest => dest.DichVus, opt => opt.MapFrom(src => src.DichVus));
+                .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus));
             CreateMap<CreateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
@@ -185,20 +185,14 @@ namespace demo1.Mapper
             CreateMap<CreateHangSanXuatDto, HangSanXuat>();
             CreateMap<UpdateHangSanXuatDto, HangSanXuat>();
 
-            // HangHoa mappings
-            CreateMap<HangHoa, demo1.DTOs.HangHoa.HangHoaDto>()
+            // HangHoaDichVu mappings
+            CreateMap<HangHoaDichVu, HangHoaDichVuDto>()
                 .ForMember(dest => dest.TenXuatXu, opt => opt.MapFrom(src => src.XuatXu != null ? src.XuatXu.Name : null))
                 .ForMember(dest => dest.TenHangSanXuat, opt => opt.MapFrom(src => src.HangSanXuat != null ? src.HangSanXuat.Name : null))
                 .ForMember(dest => dest.TenLicense, opt => opt.MapFrom(src => src.License != null ? src.License.Name : null))
                 .ForMember(dest => dest.TenDonViTinh, opt => opt.MapFrom(src => src.DonViTinh != null ? src.DonViTinh.Name : null));
-            CreateMap<demo1.DTOs.HangHoa.CreateHangHoaDto, HangHoa>();
-            CreateMap<demo1.DTOs.HangHoa.UpdateHangHoaDto, HangHoa>();
-
-            // DichVu mappings
-            CreateMap<DichVu, demo1.DTOs.DichVu.DichVuDto>()
-                .ForMember(dest => dest.TenDonViTinh, opt => opt.MapFrom(src => src.DonViTinh != null ? src.DonViTinh.Name : null));
-            CreateMap<demo1.DTOs.DichVu.CreateDichVuDto, DichVu>();
-            CreateMap<demo1.DTOs.DichVu.UpdateDichVuDto, DichVu>();
+            CreateMap<CreateHangHoaDichVuDto, HangHoaDichVu>();
+            CreateMap<UpdateHangHoaDichVuDto, HangHoaDichVu>();
 
             // CongViecGoiThau mappings
             CreateMap<CongViecNguoiLienQuan, CongViecNguoiLienQuanDto>()

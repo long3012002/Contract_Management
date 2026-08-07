@@ -225,6 +225,8 @@ public static class ServiceConfiguration
         services.AddScoped<IHangSanXuatService, HangSanXuatService>();
         services.AddScoped<IHangHoaService, HangHoaService>();
         services.AddScoped<IDichVuService, DichVuService>();
+        services.AddScoped<ILicenseLineService, LicenseLineService>();
+        services.AddScoped<IHangHoaDichVuService, HangHoaDichVuService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddSingleton<TotpService>();
         services.AddSingleton<RadiusClient>(sp =>

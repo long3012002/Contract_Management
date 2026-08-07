@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using demo1.DTOs.HangHoa;
+using demo1.DTOs.HangHoaDichVu;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace demo1.Controllers;
@@ -13,7 +14,7 @@ namespace demo1.Controllers;
 /// </summary>
 [Authorize]
 [Route("api/NghiepVu/hang-hoa")]
-public class HangHoasController : CrudControllerBase<HangHoaDto, CreateHangHoaDto, UpdateHangHoaDto>
+public class HangHoasController : CrudControllerBase<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {
     private readonly IHangHoaService _hangHoaService;
 
@@ -29,8 +30,8 @@ public class HangHoasController : CrudControllerBase<HangHoaDto, CreateHangHoaDt
     /// <returns>Danh sách hàng hóa</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("parent/{idParent:guid}")]
-    [ProducesResponseType(typeof(IEnumerable<HangHoaDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<HangHoaDto>>> GetByIdParent(Guid idParent)
+    [ProducesResponseType(typeof(IEnumerable<HangHoaDichVuDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<HangHoaDichVuDto>>> GetByIdParent(Guid idParent)
     {
         var result = await _hangHoaService.GetByIdParentAsync(idParent);
         return Ok(result);
@@ -43,8 +44,8 @@ public class HangHoasController : CrudControllerBase<HangHoaDto, CreateHangHoaDt
     /// <returns>Danh sách hàng hóa đã tạo</returns>
     /// <response code="200">Tạo danh sách hàng hóa thành công</response>
     [HttpPost("batch")]
-    [ProducesResponseType(typeof(IEnumerable<HangHoaDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<HangHoaDto>>> CreateBatch([FromBody] IEnumerable<CreateHangHoaDto> dtos)
+    [ProducesResponseType(typeof(IEnumerable<HangHoaDichVuDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<HangHoaDichVuDto>>> CreateBatch([FromBody] IEnumerable<CreateHangHoaDichVuDto> dtos)
     {
         var result = await _hangHoaService.CreateRangeAsync(dtos);
         return Ok(result);

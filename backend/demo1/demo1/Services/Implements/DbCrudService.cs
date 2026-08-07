@@ -23,6 +23,8 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         DbSet = dbContext.Set<TEntity>();
     }
 
+    protected virtual IQueryable<TEntity> GetQueryable() => DbSet;
+
     public virtual async Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
     {
         try
@@ -30,7 +32,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
 
-            IQueryable<TEntity> query = DbSet.AsNoTracking();
+            IQueryable<TEntity> query = GetQueryable().AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -126,7 +128,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var items = await DbSet.ToListAsync();
+            var items = await GetQueryable().ToListAsync();
             return Mapper.Map<List<TDto>>(items);
         }
         catch (Exception)
@@ -139,7 +141,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await DbSet.FindAsync(id);
+            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
             return entity is null ? null : Mapper.Map<TDto>(entity);
         }
         catch (Exception)
@@ -197,7 +199,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             // Check duplicate codes in the database in a single query
             if (codes.Any())
             {
-                var existingCodes = await DbSet
+                var existingCodes = await GetQueryable()
                     .Where(item => codes.Contains(item.Code.ToLower()))
                     .Select(item => item.Code)
                     .ToListAsync();
@@ -222,7 +224,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await DbSet.FindAsync(id);
+            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
             if (entity is null)
             {
                 return false;
@@ -245,7 +247,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await DbSet.FindAsync(id);
+            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
             if (entity is null)
             {
                 return false;
@@ -265,7 +267,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await DbSet.FindAsync(id);
+            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
             if (entity is null || entity.IsDeleted)
             {
                 return false;
@@ -306,7 +308,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
+            var entity = await GetQueryable().IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
             if (entity is null || !entity.IsDeleted)
             {
                 return false;
@@ -345,7 +347,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             return;
         }
 
-        var exists = await DbSet.AnyAsync(item =>
+        var exists = await GetQueryable().AnyAsync(item =>
             item.Code.ToLower() == code.ToLower());
 
         if (exists)

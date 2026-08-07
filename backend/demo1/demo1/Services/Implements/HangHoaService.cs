@@ -4,22 +4,40 @@ using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using demo1.Data;
-using demo1.DTOs.HangHoa;
+using demo1.DTOs.HangHoaDichVu;
 using demo1.Entity;
 using demo1.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace demo1.Services.Implements;
 
-public class HangHoaService : DbCrudService<HangHoa, HangHoaDto, CreateHangHoaDto, UpdateHangHoaDto>, IHangHoaService
+public class HangHoaService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>, IHangHoaService
 {
     public HangHoaService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
     }
 
-    public async Task<IEnumerable<HangHoaDto>> GetByIdParentAsync(Guid idParent)
+    protected override IQueryable<HangHoaDichVu> GetQueryable()
     {
-        var entities = await DbContext.HangHoas
+        return DbSet.Where(h => h.Loai == LoaiHangHoaDichVu.HangHoa);
+    }
+
+    protected override HangHoaDichVu CreateEntity(CreateHangHoaDichVuDto dto)
+    {
+        var entity = base.CreateEntity(dto);
+        entity.Loai = LoaiHangHoaDichVu.HangHoa;
+        return entity;
+    }
+
+    protected override void UpdateEntity(HangHoaDichVu entity, UpdateHangHoaDichVuDto dto)
+    {
+        base.UpdateEntity(entity, dto);
+        entity.Loai = LoaiHangHoaDichVu.HangHoa;
+    }
+
+    public async Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent)
+    {
+        var entities = await GetQueryable()
             .Include(h => h.XuatXu)
             .Include(h => h.HangSanXuat)
             .Include(h => h.License)
@@ -27,21 +45,21 @@ public class HangHoaService : DbCrudService<HangHoa, HangHoaDto, CreateHangHoaDt
             .Where(h => h.IdParent == idParent)
             .ToListAsync();
 
-        return Mapper.Map<IEnumerable<HangHoaDto>>(entities);
+        return Mapper.Map<IEnumerable<HangHoaDichVuDto>>(entities);
     }
 
-    public override async Task<HangHoaDto> CreateAsync(CreateHangHoaDto dto)
+    public override async Task<HangHoaDichVuDto> CreateAsync(CreateHangHoaDichVuDto dto)
     {
         await ValidateParentExistsAsync(new[] { dto.IdParent });
         return await base.CreateAsync(dto);
     }
 
-    public override async Task<IEnumerable<HangHoaDto>> CreateRangeAsync(IEnumerable<CreateHangHoaDto> dtos)
+    public override async Task<IEnumerable<HangHoaDichVuDto>> CreateRangeAsync(IEnumerable<CreateHangHoaDichVuDto> dtos)
     {
-        var dtoList = dtos?.ToList() ?? new List<CreateHangHoaDto>();
+        var dtoList = dtos?.ToList() ?? new List<CreateHangHoaDichVuDto>();
         if (!dtoList.Any())
         {
-            return new List<HangHoaDto>();
+            return new List<HangHoaDichVuDto>();
         }
 
         var parentIds = dtoList.Select(d => d.IdParent).Distinct();
@@ -50,7 +68,7 @@ public class HangHoaService : DbCrudService<HangHoa, HangHoaDto, CreateHangHoaDt
         return await base.CreateRangeAsync(dtoList);
     }
 
-    public override async Task<bool> UpdateAsync(Guid id, UpdateHangHoaDto dto)
+    public override async Task<bool> UpdateAsync(Guid id, UpdateHangHoaDichVuDto dto)
     {
         await ValidateParentExistsAsync(new[] { dto.IdParent });
         return await base.UpdateAsync(id, dto);

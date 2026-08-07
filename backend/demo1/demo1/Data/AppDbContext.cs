@@ -48,8 +48,7 @@ namespace demo1.Data
         public DbSet<CommentMention> CommentMentions { get; set; } = null!;
         public DbSet<CongViecNguoiLienQuan> CongViecNguoiLienQuans { get; set; } = null!;
         public DbSet<CongViecLichSuChuyenTiep> CongViecLichSuChuyenTieps { get; set; } = null!;
-        public DbSet<HangHoa> HangHoas { get; set; } = null!;
-        public DbSet<DichVu> DichVus { get; set; } = null!;
+        public DbSet<HangHoaDichVu> HangHoaDichVus { get; set; } = null!;
         public DbSet<XuatXu> XuatXus { get; set; } = null!;
         public DbSet<DonViTinh> DonViTinhs { get; set; } = null!;
         public DbSet<HangSanXuat> HangSanXuats { get; set; } = null!;
@@ -524,10 +523,10 @@ namespace demo1.Data
             modelBuilder.Entity<DonViTinh>(entity => ConfigureBaseEntity(entity));
             modelBuilder.Entity<HangSanXuat>(entity => ConfigureBaseEntity(entity));
 
-            // Configure HangHoa entity
-            modelBuilder.Entity<HangHoa>(entity =>
+            // Configure HangHoaDichVu entity
+            modelBuilder.Entity<HangHoaDichVu>(entity =>
             {
-                entity.HasKey(h => h.Id);
+                ConfigureBaseEntity(entity);
 
                 entity.Property(h => h.DonGia)
                     .HasColumnType("decimal(18,2)");
@@ -556,30 +555,8 @@ namespace demo1.Data
                     .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasOne<HopDong>()
-                    .WithMany(h => h.HangHoas)
+                    .WithMany(h => h.HangHoaDichVus)
                     .HasForeignKey(h => h.IdParent)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // Configure DichVu entity
-            modelBuilder.Entity<DichVu>(entity =>
-            {
-                entity.HasKey(d => d.Id);
-
-                entity.Property(d => d.DonGia)
-                    .HasColumnType("decimal(18,2)");
-
-                entity.Property(d => d.ThanhTien)
-                    .HasColumnType("decimal(18,2)");
-
-                entity.HasOne(d => d.DonViTinh)
-                    .WithMany()
-                    .HasForeignKey(d => d.IdDonViTinh)
-                    .OnDelete(DeleteBehavior.SetNull);
-
-                entity.HasOne<HopDong>()
-                    .WithMany(h => h.DichVus)
-                    .HasForeignKey(d => d.IdParent)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

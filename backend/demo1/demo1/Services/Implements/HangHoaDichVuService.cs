@@ -11,37 +11,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace demo1.Services.Implements;
 
-public class DichVuService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>, IDichVuService
+public class HangHoaDichVuService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>, IHangHoaDichVuService
 {
-    public DichVuService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
+    public HangHoaDichVuService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
     }
 
-    protected override IQueryable<HangHoaDichVu> GetQueryable()
+    public async Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent, LoaiHangHoaDichVu? loai = null)
     {
-        return DbSet.Where(h => h.Loai == LoaiHangHoaDichVu.DichVu);
-    }
-
-    protected override HangHoaDichVu CreateEntity(CreateHangHoaDichVuDto dto)
-    {
-        var entity = base.CreateEntity(dto);
-        entity.Loai = LoaiHangHoaDichVu.DichVu;
-        return entity;
-    }
-
-    protected override void UpdateEntity(HangHoaDichVu entity, UpdateHangHoaDichVuDto dto)
-    {
-        base.UpdateEntity(entity, dto);
-        entity.Loai = LoaiHangHoaDichVu.DichVu;
-    }
-
-    public async Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent)
-    {
-        var entities = await GetQueryable()
+        var query = DbSet.AsNoTracking()
+            .Include(h => h.XuatXu)
+            .Include(h => h.HangSanXuat)
+            .Include(h => h.License)
             .Include(h => h.DonViTinh)
-            .Where(h => h.IdParent == idParent)
-            .ToListAsync();
+            .Where(h => h.IdParent == idParent);
 
+        if (loai.HasValue)
+        {
+            query = query.Where(h => h.Loai == loai.Value);
+        }
+
+        var entities = await query.ToListAsync();
         return Mapper.Map<IEnumerable<HangHoaDichVuDto>>(entities);
     }
 
