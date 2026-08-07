@@ -6,5 +6,6 @@ public interface IHopDongService : ICrudService<HopDongDto, CreateHopDongDto, Up
 {
     Task<PagedResult<HopDongDto>> GetAllAsync(HopDongFilterDto filter);
     Task<bool> ConfirmPaymentAsync(Guid dotThanhToanId);
+    Task<bool> UndoPaymentAsync(Guid dotThanhToanId);
 }
 

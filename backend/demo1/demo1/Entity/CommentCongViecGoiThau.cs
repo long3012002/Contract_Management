@@ -27,7 +27,6 @@ public class CommentCongViecGoiThau : BaseEntity, IHasParentId
     public virtual ICollection<CommentCongViecGoiThau> Replies { get; set; } = new List<CommentCongViecGoiThau>();
 
     public bool IsEdited { get; set; } = false;
-    public bool IsDeleted { get; set; } = false;
 
     public virtual ICollection<CommentMention> Mentions { get; set; } = new List<CommentMention>();
 }

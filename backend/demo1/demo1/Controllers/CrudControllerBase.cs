@@ -109,4 +109,34 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         var success = await _service.DeleteAsync(id);
         return success ? NoContent() : NotFound();
     }
+
+    /// <summary>
+    /// Xóa mềm bản ghi theo ID (Xóa tạm/Xóa nháp).
+    /// </summary>
+    /// <param name="id">Mã định danh duy nhất (GUID)</param>
+    /// <response code="204">Xóa mềm thành công (No Content)</response>
+    /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi đã bị xóa mềm</response>
+    [HttpPost("{id:guid}/soft-delete")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public virtual async Task<IActionResult> SoftDelete(Guid id)
+    {
+        var success = await _service.SoftDeleteAsync(id);
+        return success ? NoContent() : NotFound();
+    }
+
+    /// <summary>
+    /// Khôi phục bản ghi đã bị xóa mềm theo ID.
+    /// </summary>
+    /// <param name="id">Mã định danh duy nhất (GUID)</param>
+    /// <response code="204">Khôi phục thành công (No Content)</response>
+    /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi chưa bị xóa</response>
+    [HttpPost("{id:guid}/restore")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public virtual async Task<IActionResult> Restore(Guid id)
+    {
+        var success = await _service.RestoreAsync(id);
+        return success ? NoContent() : NotFound();
+    }
 }

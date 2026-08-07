@@ -760,6 +760,22 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         return true;
     }
 
+    public async Task<bool> UndoPaymentAsync(Guid dotThanhToanId)
+    {
+        var dotThanhToan = await DbContext.DotThanhToans.FirstOrDefaultAsync(d => d.Id == dotThanhToanId);
+        if (dotThanhToan == null)
+        {
+            return false;
+        }
+
+        dotThanhToan.IsPaid = false;
+        dotThanhToan.UpdatedAt = DateTime.UtcNow;
+        dotThanhToan.NgayThanhToan = null;
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
     private async Task PopulateAttachmentsAsync(List<HopDongDto> dtos)
     {
         if (dtos == null || !dtos.Any()) return;

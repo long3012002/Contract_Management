@@ -58,4 +58,21 @@ public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDt
             ? Ok(new { message = "Xác nhận thanh toán thành công." }) 
             : NotFound(new { message = "Không tìm thấy đợt thanh toán." });
     }
+
+    /// <summary>
+    /// Hoàn tác xác nhận thanh toán cho một Đợt thanh toán của Hợp đồng.
+    /// </summary>
+    /// <param name="dotThanhToanId">Mã định danh Đợt thanh toán (GUID)</param>
+    /// <response code="200">Hoàn tác thanh toán thành công</response>
+    /// <response code="404">Không tìm thấy đợt thanh toán</response>
+    [HttpPut("dot-thanh-toan/{dotThanhToanId:guid}/undo-pay")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UndoPayment(Guid dotThanhToanId)
+    {
+        var success = await _hopDongService.UndoPaymentAsync(dotThanhToanId);
+        return success 
+            ? Ok(new { message = "Hoàn tác thanh toán thành công." }) 
+            : NotFound(new { message = "Không tìm thấy đợt thanh toán." });
+    }
 }

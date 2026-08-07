@@ -11,6 +11,7 @@ namespace demo1.Data
     public class AppDbContext : DbContext
     {
         private readonly ICurrentUserService? _currentUserService;
+        public ICurrentUserService? CurrentUserService => _currentUserService;
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options,
@@ -607,29 +608,20 @@ namespace demo1.Data
                 .IsRequired();
             builder.Property(entity => entity.Description)
                 .HasMaxLength(1000);
+            
+            builder.HasQueryFilter(entity => !entity.IsDeleted);
+
             builder.HasIndex(entity => entity.Code)
+                .HasFilter("\"IsDeleted\" = false")
                 .IsUnique();
         }
 
-         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var userId = _currentUserService?.GetUserId();
-            if (userId.HasValue && userId.Value != System.Guid.Empty)
-            {
-                foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
-                {
-                    if (entry.State == EntityState.Added)
-                    {
-                        entry.Entity.CreateUserId = userId.Value;
-                        entry.Entity.ModifiedUserId = userId.Value;
-                    }
-                    else if (entry.State == EntityState.Modified)
-                    {
-                        entry.Entity.ModifiedUserId = userId.Value;
-                    }
-                }
-            }
-            else
+            Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
+
+            if (!resolvedUserId.HasValue)
             {
                 var username = _currentUserService?.GetUsername();
                 if (!string.IsNullOrEmpty(username))
@@ -637,18 +629,23 @@ namespace demo1.Data
                     var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
                     if (user != null)
                     {
-                        foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
-                        {
-                            if (entry.State == EntityState.Added)
-                            {
-                                entry.Entity.CreateUserId = user.Id;
-                                entry.Entity.ModifiedUserId = user.Id;
-                            }
-                            else if (entry.State == EntityState.Modified)
-                            {
-                                entry.Entity.ModifiedUserId = user.Id;
-                            }
-                        }
+                        resolvedUserId = user.Id;
+                    }
+                }
+            }
+
+            if (resolvedUserId.HasValue)
+            {
+                foreach (var entry in ChangeTracker.Entries<CongViecGoiThau>())
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        entry.Entity.CreateUserId = resolvedUserId.Value;
+                        entry.Entity.ModifiedUserId = resolvedUserId.Value;
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        entry.Entity.ModifiedUserId = resolvedUserId.Value;
                     }
                 }
             }

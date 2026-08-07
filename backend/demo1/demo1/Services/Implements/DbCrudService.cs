@@ -261,6 +261,71 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
+    public virtual async Task<bool> SoftDeleteAsync(Guid id)
+    {
+        try
+        {
+            var entity = await DbSet.FindAsync(id);
+            if (entity is null || entity.IsDeleted)
+            {
+                return false;
+            }
+
+            entity.IsDeleted = true;
+            entity.DeletedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            var userId = DbContext.CurrentUserService?.GetUserId();
+            if (userId.HasValue && userId.Value != Guid.Empty)
+            {
+                entity.DeletedByUserId = userId.Value;
+            }
+            else
+            {
+                var username = DbContext.CurrentUserService?.GetUsername();
+                if (!string.IsNullOrEmpty(username))
+                {
+                    var user = await DbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
+                    if (user != null)
+                    {
+                        entity.DeletedByUserId = user.Id;
+                    }
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    public virtual async Task<bool> RestoreAsync(Guid id)
+    {
+        try
+        {
+            var entity = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
+            if (entity is null || !entity.IsDeleted)
+            {
+                return false;
+            }
+
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedByUserId = null;
+            entity.UpdatedAt = DateTime.UtcNow;
+
+            await DbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
     protected virtual IQueryable<TEntity> ApplySearchFilter(IQueryable<TEntity> query, string keyword)
     {
         return query.Where(item => 

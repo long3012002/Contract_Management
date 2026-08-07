@@ -720,5 +720,111 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await DbContext.SaveChangesAsync();
         return true;
     }
+
+    public override async Task<bool> SoftDeleteAsync(Guid id)
+    {
+        var entity = await DbSet.FindAsync(id);
+        if (entity is null || entity.IsDeleted) return false;
+
+        entity.IsDeleted = true;
+        entity.DeletedAt = DateTime.UtcNow;
+        entity.DeletedByUserId = _currentUserService.GetUserId();
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        // Cascade Soft Delete cho Hợp đồng
+        var hopDongs = await DbContext.HopDongs
+            .Where(hd => hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id))
+            .ToListAsync();
+        foreach (var hd in hopDongs)
+        {
+            hd.IsDeleted = true;
+            hd.DeletedAt = DateTime.UtcNow;
+            hd.DeletedByUserId = _currentUserService.GetUserId();
+        }
+
+        // Cascade Soft Delete cho Gói thầu
+        var goiThaus = await DbContext.GoiThaus
+            .Where(gt => gt.DuAnId == id)
+            .ToListAsync();
+        foreach (var gt in goiThaus)
+        {
+            gt.IsDeleted = true;
+            gt.DeletedAt = DateTime.UtcNow;
+            gt.DeletedByUserId = _currentUserService.GetUserId();
+        }
+
+        // Hủy trạng thái đã triển khai dự án nguồn
+        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        {
+            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                .Where(g => g != Guid.Empty)
+                                                .ToList();
+            if (sourceIds.Any())
+            {
+                var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
+                foreach (var sp in sourceProjects)
+                {
+                    sp.DaTrienKhai = false;
+                }
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public override async Task<bool> RestoreAsync(Guid id)
+    {
+        var entity = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
+        if (entity is null || !entity.IsDeleted) return false;
+
+        entity.IsDeleted = false;
+        entity.DeletedAt = null;
+        entity.DeletedByUserId = null;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        // Khôi phục tất cả hợp đồng liên quan bị xóa mềm
+        var hopDongs = await DbContext.HopDongs.IgnoreQueryFilters()
+            .Where(hd => (hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id)) && hd.IsDeleted)
+            .ToListAsync();
+        foreach (var hd in hopDongs)
+        {
+            hd.IsDeleted = false;
+            hd.DeletedAt = null;
+            hd.DeletedByUserId = null;
+        }
+
+        // Khôi phục tất cả gói thầu liên quan bị xóa mềm
+        var goiThaus = await DbContext.GoiThaus.IgnoreQueryFilters()
+            .Where(gt => gt.DuAnId == id && gt.IsDeleted)
+            .ToListAsync();
+        foreach (var gt in goiThaus)
+        {
+            gt.IsDeleted = false;
+            gt.DeletedAt = null;
+            gt.DeletedByUserId = null;
+        }
+
+        // Đánh dấu lại trạng thái đã triển khai dự án nguồn nếu cần
+        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        {
+            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                .Where(g => g != Guid.Empty)
+                                                .ToList();
+            if (sourceIds.Any())
+            {
+                var sourceProjects = await DbSet.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();
+                foreach (var sp in sourceProjects)
+                {
+                    sp.DaTrienKhai = true;
+                }
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
 }
 

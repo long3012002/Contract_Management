@@ -13,4 +13,6 @@ public interface ICrudService<TDto, in TCreateDto, in TUpdateDto>
     Task<IEnumerable<TDto>> CreateRangeAsync(IEnumerable<TCreateDto> dtos);
     Task<bool> UpdateAsync(Guid id, TUpdateDto dto);
     Task<bool> DeleteAsync(Guid id);
+    Task<bool> SoftDeleteAsync(Guid id);
+    Task<bool> RestoreAsync(Guid id);
 }
