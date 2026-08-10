@@ -283,8 +283,24 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
             throw new UnauthorizedAccessException("Bạn không có quyền xóa bình luận này.");
         }
 
+        var now = DateTime.UtcNow;
         comment.IsDeleted = true;
-        comment.UpdatedAt = DateTime.UtcNow;
+        comment.DeletedAt = now;
+        comment.DeletedByUserId = user.Id;
+        comment.UpdatedAt = now;
+
+        // Cascade Soft Delete cho các câu trả lời/bình luận con
+        var childComments = await _context.CommentCongViecGoiThaus
+            .Where(c => c.ParentCommentId == id)
+            .ToListAsync();
+        foreach (var child in childComments)
+        {
+            child.IsDeleted = true;
+            child.DeletedAt = now;
+            child.DeletedByUserId = user.Id;
+            child.UpdatedAt = now;
+        }
+
         await _context.SaveChangesAsync();
 
         // Broadcast Real-time Comment Delete to Group

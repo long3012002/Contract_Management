@@ -111,32 +111,46 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     }
 
     /// <summary>
-    /// Xóa mềm bản ghi theo ID (Xóa tạm/Xóa nháp).
+    /// Xóa mềm một hoặc nhiều bản ghi theo danh sách ID (Xóa tạm/Xóa nháp).
     /// </summary>
-    /// <param name="id">Mã định danh duy nhất (GUID)</param>
+    /// <param name="ids">Danh sách mã định danh (List GUID)</param>
     /// <response code="204">Xóa mềm thành công (No Content)</response>
+    /// <response code="400">Danh sách ID không hợp lệ</response>
     /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi đã bị xóa mềm</response>
-    [HttpPost("{id:guid}/soft-delete")]
+    [HttpPost("soft-delete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public virtual async Task<IActionResult> SoftDelete(Guid id)
+    public virtual async Task<IActionResult> SoftDelete([FromBody] List<Guid> ids)
     {
-        var success = await _service.SoftDeleteAsync(id);
+        if (ids == null || !ids.Any())
+        {
+            return BadRequest(new { Message = "Danh sách ID không được rỗng." });
+        }
+
+        var success = await _service.SoftDeleteAsync(ids);
         return success ? NoContent() : NotFound();
     }
 
     /// <summary>
-    /// Khôi phục bản ghi đã bị xóa mềm theo ID.
+    /// Khôi phục một hoặc nhiều bản ghi đã bị xóa mềm theo danh sách ID.
     /// </summary>
-    /// <param name="id">Mã định danh duy nhất (GUID)</param>
+    /// <param name="ids">Danh sách mã định danh (List GUID)</param>
     /// <response code="204">Khôi phục thành công (No Content)</response>
+    /// <response code="400">Danh sách ID không hợp lệ</response>
     /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi chưa bị xóa</response>
-    [HttpPost("{id:guid}/restore")]
+    [HttpPost("restore")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public virtual async Task<IActionResult> Restore(Guid id)
+    public virtual async Task<IActionResult> Restore([FromBody] List<Guid> ids)
     {
-        var success = await _service.RestoreAsync(id);
+        if (ids == null || !ids.Any())
+        {
+            return BadRequest(new { Message = "Danh sách ID không được rỗng." });
+        }
+
+        var success = await _service.RestoreAsync(ids);
         return success ? NoContent() : NotFound();
     }
 }

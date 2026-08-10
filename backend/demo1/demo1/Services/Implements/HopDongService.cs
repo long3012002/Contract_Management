@@ -802,4 +802,101 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             }
         }
     }
+
+    public override Task<bool> SoftDeleteAsync(Guid id)
+    {
+        return SoftDeleteAsync(new[] { id });
+    }
+
+    public override async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.Where(hd => idList.Contains(hd.Id) && !hd.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var userId = _currentUserService.GetUserId();
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = true;
+            entity.DeletedAt = now;
+            entity.DeletedByUserId = userId;
+            entity.UpdatedAt = now;
+        }
+
+        // Cascade Soft Delete cho License / Bản quyền
+        var licenses = await DbContext.Licenses
+            .Where(l => l.HopDongId.HasValue && idList.Contains(l.HopDongId.Value))
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = true;
+            l.DeletedAt = now;
+            l.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho Hàng hóa / Dịch vụ
+        var hangHoas = await DbContext.HangHoaDichVus
+            .Where(h => idList.Contains(h.IdParent))
+            .ToListAsync();
+        foreach (var h in hangHoas)
+        {
+            h.IsDeleted = true;
+            h.DeletedAt = now;
+            h.DeletedByUserId = userId;
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public override Task<bool> RestoreAsync(Guid id)
+    {
+        return RestoreAsync(new[] { id });
+    }
+
+    public override async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.IgnoreQueryFilters().Where(e => idList.Contains(e.Id) && e.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedByUserId = null;
+            entity.UpdatedAt = now;
+        }
+
+        var licenses = await DbContext.Licenses.IgnoreQueryFilters()
+            .Where(l => l.HopDongId.HasValue && idList.Contains(l.HopDongId.Value) && l.IsDeleted)
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = false;
+            l.DeletedAt = null;
+            l.DeletedByUserId = null;
+        }
+
+        var hangHoas = await DbContext.HangHoaDichVus.IgnoreQueryFilters()
+            .Where(h => idList.Contains(h.IdParent) && h.IsDeleted)
+            .ToListAsync();
+        foreach (var h in hangHoas)
+        {
+            h.IsDeleted = false;
+            h.DeletedAt = null;
+            h.DeletedByUserId = null;
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
 }

@@ -263,26 +263,29 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
-    public virtual async Task<bool> SoftDeleteAsync(Guid id)
+    public virtual Task<bool> SoftDeleteAsync(Guid id)
+    {
+        return SoftDeleteAsync(new[] { id });
+    }
+
+    public virtual async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
     {
         try
         {
-            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
-            if (entity is null || entity.IsDeleted)
+            var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+            if (idList is null || !idList.Any())
             {
                 return false;
             }
 
-            entity.IsDeleted = true;
-            entity.DeletedAt = DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
+            var entities = await GetQueryable().Where(e => idList.Contains(e.Id)).ToListAsync();
+            if (!entities.Any())
+            {
+                return false;
+            }
 
             var userId = DbContext.CurrentUserService?.GetUserId();
-            if (userId.HasValue && userId.Value != Guid.Empty)
-            {
-                entity.DeletedByUserId = userId.Value;
-            }
-            else
+            if (!userId.HasValue || userId.Value == Guid.Empty)
             {
                 var username = DbContext.CurrentUserService?.GetUsername();
                 if (!string.IsNullOrEmpty(username))
@@ -290,7 +293,22 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
                     var user = await DbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
                     if (user != null)
                     {
-                        entity.DeletedByUserId = user.Id;
+                        userId = user.Id;
+                    }
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var entity in entities)
+            {
+                if (!entity.IsDeleted)
+                {
+                    entity.IsDeleted = true;
+                    entity.DeletedAt = now;
+                    entity.UpdatedAt = now;
+                    if (userId.HasValue && userId.Value != Guid.Empty)
+                    {
+                        entity.DeletedByUserId = userId.Value;
                     }
                 }
             }
@@ -304,20 +322,35 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         }
     }
 
-    public virtual async Task<bool> RestoreAsync(Guid id)
+    public virtual Task<bool> RestoreAsync(Guid id)
+    {
+        return RestoreAsync(new[] { id });
+    }
+
+    public virtual async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
     {
         try
         {
-            var entity = await GetQueryable().IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
-            if (entity is null || !entity.IsDeleted)
+            var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+            if (idList is null || !idList.Any())
             {
                 return false;
             }
 
-            entity.IsDeleted = false;
-            entity.DeletedAt = null;
-            entity.DeletedByUserId = null;
-            entity.UpdatedAt = DateTime.UtcNow;
+            var entities = await GetQueryable().IgnoreQueryFilters().Where(e => idList.Contains(e.Id) && e.IsDeleted).ToListAsync();
+            if (!entities.Any())
+            {
+                return false;
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var entity in entities)
+            {
+                entity.IsDeleted = false;
+                entity.DeletedAt = null;
+                entity.DeletedByUserId = null;
+                entity.UpdatedAt = now;
+            }
 
             await DbContext.SaveChangesAsync();
             return true;

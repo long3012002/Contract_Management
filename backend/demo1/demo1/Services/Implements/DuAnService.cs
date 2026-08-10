@@ -721,51 +721,154 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return true;
     }
 
-    public override async Task<bool> SoftDeleteAsync(Guid id)
+    public override Task<bool> SoftDeleteAsync(Guid id)
     {
-        var entity = await DbSet.FindAsync(id);
-        if (entity is null || entity.IsDeleted) return false;
+        return SoftDeleteAsync(new[] { id });
+    }
 
-        entity.IsDeleted = true;
-        entity.DeletedAt = DateTime.UtcNow;
-        entity.DeletedByUserId = _currentUserService.GetUserId();
-        entity.UpdatedAt = DateTime.UtcNow;
+    public override async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
 
-        // Cascade Soft Delete cho Hợp đồng
-        var hopDongs = await DbContext.HopDongs
-            .Where(hd => hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id))
-            .ToListAsync();
-        foreach (var hd in hopDongs)
+        var entities = await DbSet.Where(da => idList.Contains(da.Id) && !da.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var userId = _currentUserService.GetUserId();
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
         {
-            hd.IsDeleted = true;
-            hd.DeletedAt = DateTime.UtcNow;
-            hd.DeletedByUserId = _currentUserService.GetUserId();
+            entity.IsDeleted = true;
+            entity.DeletedAt = now;
+            entity.DeletedByUserId = userId;
+            entity.UpdatedAt = now;
         }
 
         // Cascade Soft Delete cho Gói thầu
         var goiThaus = await DbContext.GoiThaus
-            .Where(gt => gt.DuAnId == id)
+            .Where(gt => gt.DuAnId.HasValue && idList.Contains(gt.DuAnId.Value))
             .ToListAsync();
+        var goiThauIds = goiThaus.Select(gt => gt.Id).ToList();
+
         foreach (var gt in goiThaus)
         {
             gt.IsDeleted = true;
-            gt.DeletedAt = DateTime.UtcNow;
-            gt.DeletedByUserId = _currentUserService.GetUserId();
+            gt.DeletedAt = now;
+            gt.DeletedByUserId = userId;
         }
 
-        // Hủy trạng thái đã triển khai dự án nguồn
-        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        // Cascade Soft Delete cho Hợp đồng
+        var hopDongs = await DbContext.HopDongs
+            .Where(hd => (hd.DuAnId.HasValue && idList.Contains(hd.DuAnId.Value)) || (hd.GoiThauId.HasValue && goiThauIds.Contains(hd.GoiThauId.Value)))
+            .ToListAsync();
+        var hopDongIds = hopDongs.Select(hd => hd.Id).ToList();
+
+        foreach (var hd in hopDongs)
         {
-            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                .Where(g => g != Guid.Empty)
-                                                .ToList();
-            if (sourceIds.Any())
+            hd.IsDeleted = true;
+            hd.DeletedAt = now;
+            hd.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho Công việc gói thầu
+        var congViecs = await DbContext.CongViecGoiThaus
+            .Where(cv => cv.GoiThau != null && cv.GoiThau.DuAnId.HasValue && idList.Contains(cv.GoiThau.DuAnId.Value))
+            .ToListAsync();
+        var congViecIds = congViecs.Select(cv => cv.Id).ToList();
+
+        foreach (var cv in congViecs)
+        {
+            cv.IsDeleted = true;
+            cv.DeletedAt = now;
+            cv.DeletedByUserId = userId;
+        }
+
+        if (congViecIds.Any())
+        {
+            var comments = await DbContext.CommentCongViecGoiThaus
+                .Where(c => congViecIds.Contains(c.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var c in comments)
             {
-                var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
-                foreach (var sp in sourceProjects)
+                c.IsDeleted = true;
+                c.DeletedAt = now;
+                c.DeletedByUserId = userId;
+            }
+
+            var nlqs = await DbContext.CongViecNguoiLienQuans
+                .Where(nlq => congViecIds.Contains(nlq.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var nlq in nlqs)
+            {
+                nlq.IsDeleted = true;
+                nlq.DeletedAt = now;
+                nlq.DeletedByUserId = userId;
+            }
+
+            var lss = await DbContext.CongViecLichSuChuyenTieps
+                .Where(ls => congViecIds.Contains(ls.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var ls in lss)
+            {
+                ls.IsDeleted = true;
+                ls.DeletedAt = now;
+                ls.DeletedByUserId = userId;
+            }
+        }
+
+        // Cascade Soft Delete cho Điều chỉnh dự án
+        var dieuChinhs = await DbContext.DieuChinhDuAns
+            .Where(dc => idList.Contains(dc.DuAnId))
+            .ToListAsync();
+        foreach (var dc in dieuChinhs)
+        {
+            dc.IsDeleted = true;
+            dc.DeletedAt = now;
+            dc.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho License / Bản quyền
+        var licenses = await DbContext.Licenses
+            .Where(l => idList.Contains(l.DuAnId) || (l.HopDongId.HasValue && hopDongIds.Contains(l.HopDongId.Value)))
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = true;
+            l.DeletedAt = now;
+            l.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho Hàng hóa dịch vụ thuộc Hợp đồng
+        if (hopDongIds.Any())
+        {
+            var hangHoas = await DbContext.HangHoaDichVus
+                .Where(h => hopDongIds.Contains(h.IdParent))
+                .ToListAsync();
+            foreach (var h in hangHoas)
+            {
+                h.IsDeleted = true;
+                h.DeletedAt = now;
+                h.DeletedByUserId = userId;
+            }
+        }
+
+        // Hủy trạng thái đã triển khai dự án nguồn nếu có
+        foreach (var entity in entities)
+        {
+            if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+            {
+                var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                    .Where(g => g != Guid.Empty)
+                                                    .ToList();
+                if (sourceIds.Any())
                 {
-                    sp.DaTrienKhai = false;
+                    var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
+                    foreach (var sp in sourceProjects)
+                    {
+                        sp.DaTrienKhai = false;
+                    }
                 }
             }
         }
@@ -774,31 +877,34 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return true;
     }
 
-    public override async Task<bool> RestoreAsync(Guid id)
+    public override Task<bool> RestoreAsync(Guid id)
     {
-        var entity = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
-        if (entity is null || !entity.IsDeleted) return false;
+        return RestoreAsync(new[] { id });
+    }
 
-        entity.IsDeleted = false;
-        entity.DeletedAt = null;
-        entity.DeletedByUserId = null;
-        entity.UpdatedAt = DateTime.UtcNow;
+    public override async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
 
-        // Khôi phục tất cả hợp đồng liên quan bị xóa mềm
-        var hopDongs = await DbContext.HopDongs.IgnoreQueryFilters()
-            .Where(hd => (hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id)) && hd.IsDeleted)
-            .ToListAsync();
-        foreach (var hd in hopDongs)
+        var entities = await DbSet.IgnoreQueryFilters().Where(e => idList.Contains(e.Id) && e.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
         {
-            hd.IsDeleted = false;
-            hd.DeletedAt = null;
-            hd.DeletedByUserId = null;
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedByUserId = null;
+            entity.UpdatedAt = now;
         }
 
         // Khôi phục tất cả gói thầu liên quan bị xóa mềm
         var goiThaus = await DbContext.GoiThaus.IgnoreQueryFilters()
-            .Where(gt => gt.DuAnId == id && gt.IsDeleted)
+            .Where(gt => gt.DuAnId.HasValue && idList.Contains(gt.DuAnId.Value) && gt.IsDeleted)
             .ToListAsync();
+        var goiThauIds = goiThaus.Select(gt => gt.Id).ToList();
         foreach (var gt in goiThaus)
         {
             gt.IsDeleted = false;
@@ -806,19 +912,112 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             gt.DeletedByUserId = null;
         }
 
-        // Đánh dấu lại trạng thái đã triển khai dự án nguồn nếu cần
-        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        // Khôi phục tất cả hợp đồng liên quan bị xóa mềm
+        var hopDongs = await DbContext.HopDongs.IgnoreQueryFilters()
+            .Where(hd => ((hd.DuAnId.HasValue && idList.Contains(hd.DuAnId.Value)) || (hd.GoiThauId.HasValue && goiThauIds.Contains(hd.GoiThauId.Value))) && hd.IsDeleted)
+            .ToListAsync();
+        var hopDongIds = hopDongs.Select(hd => hd.Id).ToList();
+        foreach (var hd in hopDongs)
         {
-            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                .Where(g => g != Guid.Empty)
-                                                .ToList();
-            if (sourceIds.Any())
+            hd.IsDeleted = false;
+            hd.DeletedAt = null;
+            hd.DeletedByUserId = null;
+        }
+
+        // Khôi phục tất cả công việc liên quan bị xóa mềm
+        var congViecs = await DbContext.CongViecGoiThaus.IgnoreQueryFilters()
+            .Where(cv => cv.GoiThau != null && cv.GoiThau.DuAnId.HasValue && idList.Contains(cv.GoiThau.DuAnId.Value) && cv.IsDeleted)
+            .ToListAsync();
+        var congViecIds = congViecs.Select(cv => cv.Id).ToList();
+        foreach (var cv in congViecs)
+        {
+            cv.IsDeleted = false;
+            cv.DeletedAt = null;
+            cv.DeletedByUserId = null;
+        }
+
+        if (congViecIds.Any())
+        {
+            var comments = await DbContext.CommentCongViecGoiThaus.IgnoreQueryFilters()
+                .Where(c => congViecIds.Contains(c.CongViecGoiThauId) && c.IsDeleted)
+                .ToListAsync();
+            foreach (var c in comments)
             {
-                var sourceProjects = await DbSet.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();
-                foreach (var sp in sourceProjects)
+                c.IsDeleted = false;
+                c.DeletedAt = null;
+                c.DeletedByUserId = null;
+            }
+
+            var nlqs = await DbContext.CongViecNguoiLienQuans.IgnoreQueryFilters()
+                .Where(nlq => congViecIds.Contains(nlq.CongViecGoiThauId) && nlq.IsDeleted)
+                .ToListAsync();
+            foreach (var nlq in nlqs)
+            {
+                nlq.IsDeleted = false;
+                nlq.DeletedAt = null;
+                nlq.DeletedByUserId = null;
+            }
+
+            var lss = await DbContext.CongViecLichSuChuyenTieps.IgnoreQueryFilters()
+                .Where(ls => congViecIds.Contains(ls.CongViecGoiThauId) && ls.IsDeleted)
+                .ToListAsync();
+            foreach (var ls in lss)
+            {
+                ls.IsDeleted = false;
+                ls.DeletedAt = null;
+                ls.DeletedByUserId = null;
+            }
+        }
+
+        var dieuChinhs = await DbContext.DieuChinhDuAns.IgnoreQueryFilters()
+            .Where(dc => idList.Contains(dc.DuAnId) && dc.IsDeleted)
+            .ToListAsync();
+        foreach (var dc in dieuChinhs)
+        {
+            dc.IsDeleted = false;
+            dc.DeletedAt = null;
+            dc.DeletedByUserId = null;
+        }
+
+        var licenses = await DbContext.Licenses.IgnoreQueryFilters()
+            .Where(l => (idList.Contains(l.DuAnId) || (l.HopDongId.HasValue && hopDongIds.Contains(l.HopDongId.Value))) && l.IsDeleted)
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = false;
+            l.DeletedAt = null;
+            l.DeletedByUserId = null;
+        }
+
+        if (hopDongIds.Any())
+        {
+            var hangHoas = await DbContext.HangHoaDichVus.IgnoreQueryFilters()
+                .Where(h => hopDongIds.Contains(h.IdParent) && h.IsDeleted)
+                .ToListAsync();
+            foreach (var h in hangHoas)
+            {
+                h.IsDeleted = false;
+                h.DeletedAt = null;
+                h.DeletedByUserId = null;
+            }
+        }
+
+        // Đánh dấu lại trạng thái đã triển khai dự án nguồn nếu cần
+        foreach (var entity in entities)
+        {
+            if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+            {
+                var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                                                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                                                    .Where(g => g != Guid.Empty)
+                                                    .ToList();
+                if (sourceIds.Any())
                 {
-                    sp.DaTrienKhai = true;
+                    var sourceProjects = await DbSet.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();
+                    foreach (var sp in sourceProjects)
+                    {
+                        sp.DaTrienKhai = true;
+                    }
                 }
             }
         }

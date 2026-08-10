@@ -106,4 +106,75 @@ public class DichVuService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, Crea
             throw new ArgumentException($"Hóa đơn / Đợt thanh toán / Hợp đồng với ID '{string.Join(", ", missingIds)}' không tồn tại trong hệ thống.");
         }
     }
+
+    public override Task<bool> SoftDeleteAsync(Guid id)
+    {
+        return SoftDeleteAsync(new[] { id });
+    }
+
+    public override async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.Where(h => idList.Contains(h.Id) && !h.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var userId = DbContext.CurrentUserService?.GetUserId();
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = true;
+            entity.DeletedAt = now;
+            entity.DeletedByUserId = userId;
+            entity.UpdatedAt = now;
+        }
+
+        var childItems = await DbSet.Where(h => idList.Contains(h.IdParent)).ToListAsync();
+        foreach (var child in childItems)
+        {
+            child.IsDeleted = true;
+            child.DeletedAt = now;
+            child.DeletedByUserId = userId;
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public override Task<bool> RestoreAsync(Guid id)
+    {
+        return RestoreAsync(new[] { id });
+    }
+
+    public override async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.IgnoreQueryFilters().Where(e => idList.Contains(e.Id) && e.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedByUserId = null;
+            entity.UpdatedAt = now;
+        }
+
+        var childItems = await DbSet.IgnoreQueryFilters().Where(h => idList.Contains(h.IdParent) && h.IsDeleted).ToListAsync();
+        foreach (var child in childItems)
+        {
+            child.IsDeleted = false;
+            child.DeletedAt = null;
+            child.DeletedByUserId = null;
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
 }

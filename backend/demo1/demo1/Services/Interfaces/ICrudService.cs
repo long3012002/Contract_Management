@@ -14,5 +14,7 @@ public interface ICrudService<TDto, in TCreateDto, in TUpdateDto>
     Task<bool> UpdateAsync(Guid id, TUpdateDto dto);
     Task<bool> DeleteAsync(Guid id);
     Task<bool> SoftDeleteAsync(Guid id);
+    Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids);
     Task<bool> RestoreAsync(Guid id);
+    Task<bool> RestoreAsync(IEnumerable<Guid> ids);
 }

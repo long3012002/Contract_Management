@@ -572,4 +572,219 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             throw;
         }
     }
+
+    public override Task<bool> SoftDeleteAsync(Guid id)
+    {
+        return SoftDeleteAsync(new[] { id });
+    }
+
+    public override async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.Where(gt => idList.Contains(gt.Id) && !gt.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var userId = _currentUserService.GetUserId();
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = true;
+            entity.DeletedAt = now;
+            entity.DeletedByUserId = userId;
+            entity.UpdatedAt = now;
+        }
+
+        // Cascade Soft Delete cho Hợp đồng thuộc Gói thầu
+        var hopDongs = await DbContext.HopDongs
+            .Where(hd => hd.GoiThauId.HasValue && idList.Contains(hd.GoiThauId.Value))
+            .ToListAsync();
+        var hopDongIds = hopDongs.Select(hd => hd.Id).ToList();
+        foreach (var hd in hopDongs)
+        {
+            hd.IsDeleted = true;
+            hd.DeletedAt = now;
+            hd.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho Công việc thuộc Gói thầu
+        var congViecs = await DbContext.CongViecGoiThaus
+            .Where(cv => idList.Contains(cv.GoiThauId))
+            .ToListAsync();
+        var congViecIds = congViecs.Select(cv => cv.Id).ToList();
+        foreach (var cv in congViecs)
+        {
+            cv.IsDeleted = true;
+            cv.DeletedAt = now;
+            cv.DeletedByUserId = userId;
+        }
+
+        if (congViecIds.Any())
+        {
+            var comments = await DbContext.CommentCongViecGoiThaus
+                .Where(c => congViecIds.Contains(c.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var c in comments)
+            {
+                c.IsDeleted = true;
+                c.DeletedAt = now;
+                c.DeletedByUserId = userId;
+            }
+
+            var nlqs = await DbContext.CongViecNguoiLienQuans
+                .Where(nlq => congViecIds.Contains(nlq.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var nlq in nlqs)
+            {
+                nlq.IsDeleted = true;
+                nlq.DeletedAt = now;
+                nlq.DeletedByUserId = userId;
+            }
+
+            var lss = await DbContext.CongViecLichSuChuyenTieps
+                .Where(ls => congViecIds.Contains(ls.CongViecGoiThauId))
+                .ToListAsync();
+            foreach (var ls in lss)
+            {
+                ls.IsDeleted = true;
+                ls.DeletedAt = now;
+                ls.DeletedByUserId = userId;
+            }
+        }
+
+        // Cascade Soft Delete cho License / Bản quyền thuộc Gói thầu
+        var licenses = await DbContext.Licenses
+            .Where(l => (l.HopDongId.HasValue && hopDongIds.Contains(l.HopDongId.Value)))
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = true;
+            l.DeletedAt = now;
+            l.DeletedByUserId = userId;
+        }
+
+        // Cascade Soft Delete cho Hàng hóa dịch vụ thuộc Hợp đồng của Gói thầu
+        if (hopDongIds.Any())
+        {
+            var hangHoas = await DbContext.HangHoaDichVus
+                .Where(h => hopDongIds.Contains(h.IdParent))
+                .ToListAsync();
+            foreach (var h in hangHoas)
+            {
+                h.IsDeleted = true;
+                h.DeletedAt = now;
+                h.DeletedByUserId = userId;
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public override Task<bool> RestoreAsync(Guid id)
+    {
+        return RestoreAsync(new[] { id });
+    }
+
+    public override async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList is null || !idList.Any()) return false;
+
+        var entities = await DbSet.IgnoreQueryFilters().Where(e => idList.Contains(e.Id) && e.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        var now = DateTime.UtcNow;
+
+        foreach (var entity in entities)
+        {
+            entity.IsDeleted = false;
+            entity.DeletedAt = null;
+            entity.DeletedByUserId = null;
+            entity.UpdatedAt = now;
+        }
+
+        var hopDongs = await DbContext.HopDongs.IgnoreQueryFilters()
+            .Where(hd => hd.GoiThauId.HasValue && idList.Contains(hd.GoiThauId.Value) && hd.IsDeleted)
+            .ToListAsync();
+        var hopDongIds = hopDongs.Select(hd => hd.Id).ToList();
+        foreach (var hd in hopDongs)
+        {
+            hd.IsDeleted = false;
+            hd.DeletedAt = null;
+            hd.DeletedByUserId = null;
+        }
+
+        var congViecs = await DbContext.CongViecGoiThaus.IgnoreQueryFilters()
+            .Where(cv => idList.Contains(cv.GoiThauId) && cv.IsDeleted)
+            .ToListAsync();
+        var congViecIds = congViecs.Select(cv => cv.Id).ToList();
+        foreach (var cv in congViecs)
+        {
+            cv.IsDeleted = false;
+            cv.DeletedAt = null;
+            cv.DeletedByUserId = null;
+        }
+
+        if (congViecIds.Any())
+        {
+            var comments = await DbContext.CommentCongViecGoiThaus.IgnoreQueryFilters()
+                .Where(c => congViecIds.Contains(c.CongViecGoiThauId) && c.IsDeleted)
+                .ToListAsync();
+            foreach (var c in comments)
+            {
+                c.IsDeleted = false;
+                c.DeletedAt = null;
+                c.DeletedByUserId = null;
+            }
+
+            var nlqs = await DbContext.CongViecNguoiLienQuans.IgnoreQueryFilters()
+                .Where(nlq => congViecIds.Contains(nlq.CongViecGoiThauId) && nlq.IsDeleted)
+                .ToListAsync();
+            foreach (var nlq in nlqs)
+            {
+                nlq.IsDeleted = false;
+                nlq.DeletedAt = null;
+                nlq.DeletedByUserId = null;
+            }
+
+            var lss = await DbContext.CongViecLichSuChuyenTieps.IgnoreQueryFilters()
+                .Where(ls => congViecIds.Contains(ls.CongViecGoiThauId) && ls.IsDeleted)
+                .ToListAsync();
+            foreach (var ls in lss)
+            {
+                ls.IsDeleted = false;
+                ls.DeletedAt = null;
+                ls.DeletedByUserId = null;
+            }
+        }
+
+        var licenses = await DbContext.Licenses.IgnoreQueryFilters()
+            .Where(l => (l.HopDongId.HasValue && hopDongIds.Contains(l.HopDongId.Value)) && l.IsDeleted)
+            .ToListAsync();
+        foreach (var l in licenses)
+        {
+            l.IsDeleted = false;
+            l.DeletedAt = null;
+            l.DeletedByUserId = null;
+        }
+
+        if (hopDongIds.Any())
+        {
+            var hangHoas = await DbContext.HangHoaDichVus.IgnoreQueryFilters()
+                .Where(h => hopDongIds.Contains(h.IdParent) && h.IsDeleted)
+                .ToListAsync();
+            foreach (var h in hangHoas)
+            {
+                h.IsDeleted = false;
+                h.DeletedAt = null;
+                h.DeletedByUserId = null;
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
 }
