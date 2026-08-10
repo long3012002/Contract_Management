@@ -526,9 +526,10 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 var taskIds = taskDtos.Select(d => d.Id).ToList();
                 
                 // Populate Attachments
+                var validTaskEntityTypes = new[] { "CONG_VIEC_GOI_THAU", "CONG_VIEC", "GOI_THAU_CONG_VIEC", "GOI_THAU" };
                 var attachments = await DbContext.FileAttachments
                     .AsNoTracking()
-                    .Where(fa => fa.EntityType == "GOI_THAU" && taskIds.Contains(fa.EntityId) && fa.IsActive)
+                    .Where(fa => validTaskEntityTypes.Contains(fa.EntityType) && taskIds.Contains(fa.EntityId) && fa.IsActive)
                     .ToListAsync();
 
                 var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)

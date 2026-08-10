@@ -57,7 +57,33 @@ public class CongViecGoiThauService
         if (entity == null) return null;
         var dto = Mapper.Map<CongViecGoiThauDto>(entity);
         await PopulateAttachmentsAsync(new List<CongViecGoiThauDto> { dto });
+        await PopulateCommentCountsAsync(new List<CongViecGoiThauDto> { dto });
         return dto;
+    }
+
+    public override async Task<PagedResult<CongViecGoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        var result = await base.GetAllAsync(search, page, pageSize, cursor);
+        if (result.Items != null && result.Items.Any())
+        {
+            var dtos = result.Items.ToList();
+            await PopulateAttachmentsAsync(dtos);
+            await PopulateCommentCountsAsync(dtos);
+        }
+        return result;
+    }
+
+    public override async Task<IReadOnlyList<CongViecGoiThauDto>> GetAllItemsAsync()
+    {
+        var items = await base.GetAllItemsAsync();
+        if (items != null && items.Any())
+        {
+            var dtos = items.ToList();
+            await PopulateAttachmentsAsync(dtos);
+            await PopulateCommentCountsAsync(dtos);
+            return dtos;
+        }
+        return items;
     }
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
@@ -813,9 +839,10 @@ public class CongViecGoiThauService
     {
         if (dtos == null || !dtos.Any()) return;
         var taskIds = dtos.Select(d => d.Id).ToList();
+        var validEntityTypes = new[] { "CONG_VIEC_GOI_THAU", "CONG_VIEC", "GOI_THAU_CONG_VIEC", "GOI_THAU" };
         var attachments = await DbContext.FileAttachments
             .AsNoTracking()
-            .Where(fa => fa.EntityType == "GOI_THAU" && taskIds.Contains(fa.EntityId) && fa.IsActive)
+            .Where(fa => validEntityTypes.Contains(fa.EntityType) && taskIds.Contains(fa.EntityId) && fa.IsActive)
             .ToListAsync();
 
         var attachmentGroup = attachments.GroupBy(fa => fa.EntityId)
