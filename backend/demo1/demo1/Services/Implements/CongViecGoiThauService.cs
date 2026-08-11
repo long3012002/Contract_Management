@@ -83,7 +83,7 @@ public class CongViecGoiThauService
             await PopulateCommentCountsAsync(dtos);
             return dtos;
         }
-        return items;
+        return items ?? [];
     }
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
