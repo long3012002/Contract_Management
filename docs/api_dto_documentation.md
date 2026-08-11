@@ -182,6 +182,7 @@ Authorization: Bearer <your_jwt_access_token>
 - **`GET /api/HeThong/files/download/{id}`**: Tải xuống/Xem file đính kèm bằng mã định danh GUID (khuyên dùng vì độ bảo mật cao).
 - **`GET /api/HeThong/files/download`**: Tải xuống/Xem file đính kèm bằng đường dẫn tương đối (Query `relativePath`), tự động phòng chống tấn công Directory Traversal.
 - **`GET /api/HeThong/files/by-entity`**: Lấy danh sách tài liệu đính kèm của một bản ghi chức năng cụ thể (ví dụ: danh sách file của Hợp đồng X) để biết bản ghi đó có file hay không và hiển thị nút tải về.
+- **`DELETE /api/HeThong/files/delete-multiple`**: Xóa hàng loạt tệp đính kèm theo danh sách ID (Guid) truyền dưới body dạng JSON Array. Thực hiện xóa cứng (xóa hoàn toàn bản ghi khỏi các bảng FileAttachments và FileVersions trong CSDL) và xóa tệp tin vật lý tương ứng trên đĩa.
 
 ---
 

@@ -107,10 +107,12 @@ namespace demo1.Controllers
 
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
+                    .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty || (duAnId.HasValue && up.DuAnId == duAnId.Value && up.FeatureCode == "DU_AN")) &&
-                        (up.EntityId == entityId || (duAnId.HasValue && up.DuAnId == duAnId.Value)));
+                        (up.EntityId == entityId || (duAnId.HasValue && up.DuAnId == duAnId.Value)) &&
+                        up.Permission != null && up.Permission.Code == "VIEW");
 
                 if (!hasViewPermission)
                 {

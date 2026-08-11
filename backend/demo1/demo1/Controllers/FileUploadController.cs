@@ -410,5 +410,188 @@ namespace demo1.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Không thể lấy lịch sử phiên bản tệp tin." });
             }
         }
+
+        /// <summary>
+        /// Xóa hàng loạt tệp tin đính kèm theo danh sách ID (GUID).
+        /// Thực hiện kiểm tra quyền hạn của người dùng đối với thực thể cha chứa file trước khi xóa.
+        /// Thực hiện xóa cứng trên CSDL và xóa file vật lý trên đĩa.
+        /// </summary>
+        /// <param name="ids">Danh sách GUID file cần xóa</param>
+        /// <param name="currentUserService">Service người dùng hiện tại để xác thực quyền</param>
+        /// <response code="200">Xóa thành công</response>
+        /// <response code="400">Danh sách ID rỗng hoặc không hợp lệ</response>
+        /// <response code="403">Không có quyền xóa một hoặc nhiều file trong danh sách</response>
+        /// <response code="404">Không tìm thấy file nào phù hợp để xóa</response>
+        [HttpDelete("delete-multiple")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteMultiple(
+            [FromBody] List<Guid> ids,
+            [FromServices] ICurrentUserService currentUserService = null!)
+        {
+            if (ids == null || !ids.Any())
+            {
+                return BadRequest(new { Message = "Danh sách ID cần xoá không được để trống." });
+            }
+
+            var attachments = await _dbContext.FileAttachments
+                .Include(fa => fa.Versions)
+                .Where(fa => ids.Contains(fa.Id))
+                .ToListAsync();
+
+            if (!attachments.Any())
+            {
+                return NotFound(new { Message = "Không tìm thấy file nào phù hợp để xóa." });
+            }
+
+            var userId = currentUserService?.GetUserId() ?? Guid.Empty;
+            if (userId == Guid.Empty)
+            {
+                return Unauthorized(new { Message = "Không xác định được danh tính người dùng." });
+            }
+
+            // Lấy thông tin user hiện tại và kiểm tra tính hợp lệ
+            var user = await _dbContext.Users.FindAsync(userId);
+            if (user == null || !user.IsActive)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { Message = "Tài khoản của bạn đã bị khóa hoặc không hợp lệ." });
+            }
+
+            var filesToDelete = new List<FileAttachment>();
+            var unauthorizedFileNames = new List<string>();
+
+            foreach (var attachment in attachments)
+            {
+                // System Admin hoặc người dùng có đủ quyền trên thực thể cha
+                if (user.IsSystemAdmin || await HasFileDeletePermissionAsync(userId, attachment))
+                {
+                    filesToDelete.Add(attachment);
+                }
+                else
+                {
+                    unauthorizedFileNames.Add(attachment.FileName);
+                }
+            }
+
+            // Nếu có ít nhất 1 file không có quyền xóa, chặn toàn bộ yêu cầu để bảo đảm tính nhất quán
+            if (unauthorizedFileNames.Any())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new 
+                { 
+                    Message = "Bạn không có quyền xóa một số file trong danh sách yêu cầu.", 
+                    UnauthorizedFiles = unauthorizedFileNames 
+                });
+            }
+
+            foreach (var attachment in filesToDelete)
+            {
+                // 1. Xóa file vật lý trên server (cả file gốc và các phiên bản cũ)
+                try
+                {
+                    var mainFullPath = Path.Combine(_storagePath, attachment.FilePath.Replace('/', Path.DirectorySeparatorChar));
+                    if (System.IO.File.Exists(mainFullPath))
+                    {
+                        System.IO.File.Delete(mainFullPath);
+                    }
+
+                    if (attachment.Versions != null)
+                    {
+                        foreach (var version in attachment.Versions)
+                        {
+                            var versionFullPath = Path.Combine(_storagePath, version.FilePath.Replace('/', Path.DirectorySeparatorChar));
+                            if (System.IO.File.Exists(versionFullPath))
+                            {
+                                System.IO.File.Delete(versionFullPath);
+                            }
+                        }
+                    }
+
+                    // Xóa thư mục cha nếu rỗng
+                    var parentDir = Path.GetDirectoryName(mainFullPath);
+                    if (!string.IsNullOrEmpty(parentDir) && Directory.Exists(parentDir) && !Directory.EnumerateFileSystemEntries(parentDir).Any())
+                    {
+                        Directory.Delete(parentDir);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Chỉ bỏ qua lỗi đĩa, không chặn luồng cập nhật DB
+                }
+
+                // 2. Xóa các bản ghi FileVersion liên quan
+                if (attachment.Versions != null && attachment.Versions.Any())
+                {
+                    _dbContext.FileVersions.RemoveRange(attachment.Versions);
+                }
+            }
+
+            // 3. Xóa các bản ghi FileAttachment liên quan
+            _dbContext.FileAttachments.RemoveRange(filesToDelete);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                Message = $"Đã xóa cứng thành công {filesToDelete.Count} file.",
+                DeletedIds = filesToDelete.Select(a => a.Id).ToList()
+            });
+        }
+
+        /// <summary>
+        /// Helper kiểm tra xem người dùng có quyền xóa file dựa trên thực thể cha chứa file đó hay không.
+        /// </summary>
+        private async Task<bool> HasFileDeletePermissionAsync(Guid userId, FileAttachment attachment)
+        {
+            var entityId = attachment.EntityId;
+            var featureCode = attachment.EntityType;
+
+            // 1. Tìm Project ID tương ứng chứa thực thể cha
+            Guid? duAnId = null;
+            if (featureCode == "DU_AN")
+            {
+                duAnId = entityId;
+            }
+            else if (featureCode == "GOI_THAU")
+            {
+                var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                duAnId = gt?.DuAnId;
+                if (duAnId == null)
+                {
+                    var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                    if (cv != null)
+                    {
+                        var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
+                        duAnId = pgt?.DuAnId;
+                    }
+                }
+            }
+            else if (featureCode == "QUAN_LY_HOP_DONG")
+            {
+                var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                duAnId = hd?.DuAnId;
+            }
+
+            // 2. Nếu là Chủ dự án (Project Owner) -> Có toàn quyền edit/delete đối với tất cả tài nguyên con thuộc dự án
+            if (duAnId.HasValue)
+            {
+                var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
+                if (isProjectOwner) return true;
+            }
+
+            // 3. Nếu không phải chủ dự án, kiểm tra quyền chi tiết trong bảng UserPermissions (yêu cầu quyền DELETE trên thực thể cha)
+            var hasPermission = await _dbContext.UserPermissions
+                .AsNoTracking()
+                .Include(up => up.Permission)
+                .AnyAsync(up =>
+                    up.UserId == userId &&
+                    (
+                        ((up.FeatureCode == featureCode || up.FeatureCode == string.Empty) && up.EntityId == entityId.ToString()) ||
+                        (duAnId.HasValue && up.FeatureCode == "DU_AN" && up.DuAnId == duAnId.Value)
+                    ) &&
+                    up.Permission != null && up.Permission.Code == "DELETE");
+
+            return hasPermission;
+        }
     }
 }

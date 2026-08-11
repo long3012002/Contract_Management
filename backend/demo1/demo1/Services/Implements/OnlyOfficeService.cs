@@ -87,8 +87,71 @@ namespace demo1.Services.Implements
 
             if (isEditMode)
             {
-                var hasEditPermission = await _permissionService.HasPermissionAsync(
-                    userId, attachment.EntityType, attachment.EntityType, attachment.EntityId.ToString(), "EDIT");
+                var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+                var hasEditPermission = false;
+                if (user != null)
+                {
+                    if (user.IsSystemAdmin)
+                    {
+                        hasEditPermission = true;
+                    }
+                    else
+                    {
+                        // 1. Tìm Project ID tương ứng chứa thực thể cha
+                        var entityId = attachment.EntityId;
+                        var featureCode = attachment.EntityType;
+                        Guid? duAnId = null;
+
+                        if (string.Equals(featureCode, "DU_AN", StringComparison.OrdinalIgnoreCase))
+                        {
+                            duAnId = entityId;
+                        }
+                        else if (string.Equals(featureCode, "GOI_THAU", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                            duAnId = gt?.DuAnId;
+                            if (duAnId == null)
+                            {
+                                var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                                if (cv != null)
+                                {
+                                    var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
+                                    duAnId = pgt?.DuAnId;
+                                }
+                            }
+                        }
+                        else if (string.Equals(featureCode, "QUAN_LY_HOP_DONG", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                            duAnId = hd?.DuAnId;
+                        }
+
+                        // 2. Nếu là Chủ dự án (Project Owner) -> Có toàn quyền đối với tất cả tài nguyên con thuộc dự án
+                        if (duAnId.HasValue)
+                        {
+                            var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
+                            if (isProjectOwner)
+                            {
+                                hasEditPermission = true;
+                            }
+                        }
+
+                        // 3. Nếu không phải chủ dự án, kiểm tra quyền chi tiết trong bảng UserPermissions (yêu cầu quyền EDIT trên thực thể cha)
+                        if (!hasEditPermission)
+                        {
+                            hasEditPermission = await _dbContext.UserPermissions
+                                .AsNoTracking()
+                                .Include(up => up.Permission)
+                                .AnyAsync(up =>
+                                    up.UserId == userId &&
+                                    (
+                                        ((up.FeatureCode.ToLower() == featureCode.ToLower() || string.IsNullOrEmpty(up.FeatureCode)) && up.EntityId == entityId.ToString()) ||
+                                        (duAnId.HasValue && up.FeatureCode == "DU_AN" && up.DuAnId == duAnId.Value)
+                                    ) &&
+                                    up.Permission != null && up.Permission.Code == "EDIT");
+                        }
+                    }
+                }
 
                 if (!hasEditPermission)
                 {

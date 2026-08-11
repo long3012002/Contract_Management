@@ -22,10 +22,15 @@ namespace demo1.Services.Implements
         public System.Guid? GetUserId()
         {
             var user = _httpContextAccessor.HttpContext?.User;
-            var userIdStr = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (System.Guid.TryParse(userIdStr, out var userId))
+            if (user == null) return null;
+
+            var nameIdentifierClaims = user.FindAll(ClaimTypes.NameIdentifier);
+            foreach (var claim in nameIdentifierClaims)
             {
-                return userId;
+                if (System.Guid.TryParse(claim.Value, out var userId))
+                {
+                    return userId;
+                }
             }
             return null;
         }
