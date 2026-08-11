@@ -60,16 +60,41 @@ namespace demo1.Controllers
 
             var httpMethod = context.HttpContext.Request.Method.ToUpper();
 
+            var routeValues = context.RouteData.Values;
+            string? entityId = null;
+            if (routeValues.ContainsKey("id") && routeValues["id"] != null)
+            {
+                entityId = routeValues["id"]?.ToString();
+            }
+
+            Guid? duAnId = null;
+            if (!string.IsNullOrEmpty(entityId) && Guid.TryParse(entityId, out var parsedEntityId))
+            {
+                if (_featureCode == "DU_AN") duAnId = parsedEntityId;
+                else if (_featureCode == "GOI_THAU")
+                {
+                    var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                    duAnId = gt?.DuAnId;
+                    if (duAnId == null)
+                    {
+                        var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                        if (cv != null)
+                        {
+                            var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
+                            duAnId = pgt?.DuAnId;
+                        }
+                    }
+                }
+                else if (_featureCode == "QUAN_LY_HOP_DONG")
+                {
+                    var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                    duAnId = hd?.DuAnId;
+                }
+            }
+
             // 1. GET requests: check if they are project owner, or if they have VIEW permission
             if (httpMethod == "GET")
             {
-                var routeValues = context.RouteData.Values;
-                string? entityId = null;
-                if (routeValues.ContainsKey("id") && routeValues["id"] != null)
-                {
-                    entityId = routeValues["id"]?.ToString();
-                }
-
                 if (string.IsNullOrEmpty(entityId))
                 {
                     return; // Listing endpoint, handled by service-level filtering
@@ -80,36 +105,11 @@ namespace demo1.Controllers
                     return;
                 }
 
-                Guid? duAnId = null;
-                if (Guid.TryParse(entityId, out var parsedEntityId))
-                {
-                    if (_featureCode == "DU_AN") duAnId = parsedEntityId;
-                    else if (_featureCode == "GOI_THAU")
-                    {
-                        var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
-                        duAnId = gt?.DuAnId;
-                        if (duAnId == null)
-                        {
-                            var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
-                            if (cv != null)
-                            {
-                                var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
-                                duAnId = pgt?.DuAnId;
-                            }
-                        }
-                    }
-                    else if (_featureCode == "QUAN_LY_HOP_DONG")
-                    {
-                        var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
-                        duAnId = hd?.DuAnId;
-                    }
-                }
-
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) &&
+                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty || (duAnId.HasValue && up.DuAnId == duAnId.Value && up.FeatureCode == "DU_AN")) &&
                         (up.EntityId == entityId || (duAnId.HasValue && up.DuAnId == duAnId.Value)));
 
                 if (!hasViewPermission)
@@ -141,7 +141,7 @@ namespace demo1.Controllers
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) &&
+                        (up.FeatureCode == _featureCode || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
                 if (!hasPermission)
@@ -164,13 +164,6 @@ namespace demo1.Controllers
             // Requirement: Editing/Deleting specific record requires explicit UserPermission
             if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
             {
-                var routeValues = context.RouteData.Values;
-                string? entityId = null;
-                if (routeValues.ContainsKey("id") && routeValues["id"] != null)
-                {
-                    entityId = routeValues["id"]?.ToString();
-                }
-
                 if (string.IsNullOrEmpty(entityId))
                 {
                     return;
@@ -189,8 +182,10 @@ namespace demo1.Controllers
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) &&
-                        up.EntityId == entityId &&
+                        (
+                            ((up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) && up.EntityId == entityId) ||
+                            (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
+                        ) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
                 if (!hasPermission)

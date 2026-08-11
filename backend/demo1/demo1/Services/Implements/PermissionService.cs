@@ -250,6 +250,11 @@ namespace demo1.Services.Implements
                     }
 
                     request.PermissionId = existingPerm.Id;
+
+                    if (request.FeatureCode == "DU_AN" && request.DuAnId.HasValue)
+                    {
+                        await CascadeProjectPermissionsAsync(request.UserId, permCatalog.Id, request.DuAnId.Value, reviewerId);
+                    }
                 }
             }
 
@@ -297,6 +302,10 @@ namespace demo1.Services.Implements
                 existingPerm.DuAnId = duAnId;
                 existingPerm.GrantedAt = DateTime.UtcNow;
                 existingPerm.GrantedByUserId = adminId;
+                if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+                {
+                    await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
+                }
                 await _context.SaveChangesAsync();
                 return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
             }
@@ -315,6 +324,10 @@ namespace demo1.Services.Implements
             };
 
             _context.UserPermissions.Add(perm);
+            if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+            {
+                await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
+            }
             await _context.SaveChangesAsync();
 
             return MapToUserPermissionDto(perm, user, permCatalog, admin?.Username);
@@ -363,6 +376,10 @@ namespace demo1.Services.Implements
                     existingPerm.DuAnId = duAnId;
                     existingPerm.GrantedAt = now;
                     existingPerm.GrantedByUserId = adminId;
+                    if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+                    {
+                        await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
+                    }
                     result.Add(MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username));
                 }
                 else
@@ -380,6 +397,10 @@ namespace demo1.Services.Implements
                         GrantedByUserId = adminId
                     };
                     _context.UserPermissions.Add(newPerm);
+                    if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+                    {
+                        await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
+                    }
                     result.Add(MapToUserPermissionDto(newPerm, user, permCatalog, admin?.Username));
                 }
             }
@@ -394,6 +415,22 @@ namespace demo1.Services.Implements
             if (perm == null) return false;
 
             _context.UserPermissions.Remove(perm);
+
+            if (perm.FeatureCode == "DU_AN" && perm.DuAnId.HasValue)
+            {
+                var cascadedPerms = await _context.UserPermissions
+                    .Where(up => up.UserId == perm.UserId &&
+                                 up.PermissionId == perm.PermissionId &&
+                                 up.DuAnId == perm.DuAnId &&
+                                 (up.FeatureCode == "GOI_THAU" || up.FeatureCode == "QUAN_LY_HOP_DONG"))
+                    .ToListAsync();
+
+                if (cascadedPerms.Any())
+                {
+                    _context.UserPermissions.RemoveRange(cascadedPerms);
+                }
+            }
+
             await _context.SaveChangesAsync();
             return true;
         }
@@ -570,6 +607,41 @@ namespace demo1.Services.Implements
                 GrantedAt = up.GrantedAt,
                 GrantedByUsername = grantedByUsername
             };
+        }
+
+        private async Task CascadeProjectPermissionsAsync(Guid userId, Guid permissionId, Guid duAnId, Guid grantedByUserId)
+        {
+            var childFeatures = new List<(string FeatureCode, string EntityName)>
+            {
+                ("GOI_THAU", "GoiThau"),
+                ("QUAN_LY_HOP_DONG", "HopDong")
+            };
+
+            foreach (var child in childFeatures)
+            {
+                var exists = await _context.UserPermissions.AnyAsync(up =>
+                    up.UserId == userId &&
+                    up.PermissionId == permissionId &&
+                    up.FeatureCode == child.FeatureCode &&
+                    up.DuAnId == duAnId);
+
+                if (!exists)
+                {
+                    var childPerm = new UserPermission
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = userId,
+                        PermissionId = permissionId,
+                        FeatureCode = child.FeatureCode,
+                        EntityName = child.EntityName,
+                        EntityId = string.Empty,
+                        DuAnId = duAnId,
+                        GrantedAt = DateTime.UtcNow,
+                        GrantedByUserId = grantedByUserId
+                    };
+                    _context.UserPermissions.Add(childPerm);
+                }
+            }
         }
     }
 }
