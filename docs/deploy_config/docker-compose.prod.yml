@@ -18,19 +18,23 @@ services:
       - Database__AutoMigrate=false
       - Database__SeedSampleData=false
       # JWT Settings (SecretKey >= 256 bits)
-      - JwtSettings__SecretKey=Secret_Key_2026_Secure!
+      - JwtSettings__SecretKey=${JWT_SECRET_KEY:?Set JWT_SECRET_KEY}
       - JwtSettings__Issuer=https://qlda.coopbank.vn
       - JwtSettings__Audience=https://qlda.coopbank.vn
-      - JwtSettings__ExpiryMinutes=120
+      - JwtSettings__ExpiryInMinutes=120
+      - Auth__EnableDevBypass=false
+      - Auth__EnableLocalPasswordLogin=false
       # RADIUS Server Integration (10.224.0.94)
-      - RadiusSettings__Server=10.224.0.94
-      - RadiusSettings__SharedSecret=CoopBank_Radius_Secret
-      - RadiusSettings__Port=1812
+      - Radius__Enabled=true
+      - Radius__Server=10.224.0.94
+      - Radius__SharedSecret=${RADIUS_SHARED_SECRET:?Set RADIUS_SHARED_SECRET}
+      - Radius__Port=1812
+      - Radius__Timeout=30000
       # SMTP Mail Server
-      - MailSettings__Host=smtp.coopbank.vn
-      - MailSettings__Port=587
-      - MailSettings__EnableSsl=true
-      - MailSettings__SenderEmail=no-reply-qlda@coopbank.vn
+      - EmailSettings__Host=smtp.coopbank.vn
+      - EmailSettings__Port=587
+      - EmailSettings__EnableSsl=true
+      - EmailSettings__SenderEmail=no-reply-qlda@coopbank.vn
     volumes:
       - /var/log/qlda/backend:/app/logs
       - /var/qlda/uploads:/app/uploads

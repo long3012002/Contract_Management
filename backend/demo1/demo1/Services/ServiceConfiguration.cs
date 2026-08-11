@@ -231,16 +231,8 @@ public static class ServiceConfiguration
         services.AddHttpClient();
         services.AddScoped<IOnlyOfficeService, OnlyOfficeService>();
         services.AddSingleton<TotpService>();
-        services.AddSingleton<RadiusClient>(sp =>
-        {
-            var config = sp.GetRequiredService<IConfiguration>();
-            var server = config["Radius:Server"] ?? "127.0.0.1";
-            var port = int.TryParse(config["Radius:Port"], out var parsedPort) ? parsedPort : 1812;
-            var sharedSecret = config["Radius:SharedSecret"] ?? string.Empty;
-            var timeout = int.TryParse(config["Radius:Timeout"], out var parsedTimeout) ? parsedTimeout : 3000;
-
-            return new RadiusClient(server, port, sharedSecret, timeout);
-        });
+        services.Configure<RadiusSettings>(configuration.GetSection("Radius"));
+        services.AddSingleton<RadiusClient>();
 
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
