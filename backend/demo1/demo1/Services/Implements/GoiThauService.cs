@@ -49,7 +49,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
             if (currentUser != null && !currentUser.IsSystemAdmin)
             {
-                query = query.Where(gt => gt.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -148,7 +148,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             IQueryable<GoiThau> query = DbSet.AsNoTracking().Include(gt => gt.DuAn);
             if (currentUser != null && !currentUser.IsSystemAdmin)
             {
-                query = query.Where(gt => gt.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
             }
             var items = await query.ToListAsync();
             var dtos = Mapper.Map<List<GoiThauDto>>(items);
@@ -395,7 +395,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 {
                     var allowed = await DbContext.UserPermissions
                         .Where(up => up.UserId == currentUser.Id && up.DuAnId.HasValue && projectIds.Contains(up.DuAnId.Value) && up.Permission != null && up.Permission.Code == "CREATE")
-                        .Select(up => up.DuAnId.Value)
+                        .Select(up => up.DuAnId!.Value)
                         .ToListAsync();
                     allowedProjectIds = new HashSet<Guid>(allowed);
                 }

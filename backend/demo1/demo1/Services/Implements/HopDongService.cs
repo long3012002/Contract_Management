@@ -56,7 +56,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
-            query = query.Where(h => h.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -188,7 +188,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 .ThenInclude(nt => nt.NhaThau);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
-            query = query.Where(h => h.DuAn.CreatedByUserId == currentUser.Id || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
         }
         var items = await query.ToListAsync();
         var dtos = Mapper.Map<List<HopDongDto>>(items);
@@ -410,7 +410,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             {
                 var allowedProjectIds = await DbContext.UserPermissions
                     .Where(up => up.UserId == currentUser.Id && up.DuAnId.HasValue && duAnIds.Contains(up.DuAnId.Value) && up.Permission != null && up.Permission.Code == "CREATE")
-                    .Select(up => up.DuAnId.Value)
+                    .Select(up => up.DuAnId!.Value)
                     .ToListAsync();
 
                 var allowedProjectIdsSet = new HashSet<Guid>(allowedProjectIds);

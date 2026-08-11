@@ -62,3 +62,14 @@ logs/
 [Log]/
 [Log]s/
 
+# Local/generated reports and database backups
+.tmp_weekly_report*/
+.tmp_migration_*.sql
+.tmp_weekly_report_style.json
+~$*
+database/backups/
+*.dump
+
+# Local maintenance scripts
+remove-360-*.ps1
+
