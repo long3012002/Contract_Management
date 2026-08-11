@@ -27,6 +27,7 @@ namespace demo1.Services.Implements
         private readonly IConfiguration _configuration;
         private readonly ILogger<OnlyOfficeService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly string _storagePath;
         private readonly string _jwtSecret;
         private readonly string _publicBaseUrl;
@@ -38,13 +39,15 @@ namespace demo1.Services.Implements
             IConfiguration configuration,
             IWebHostEnvironment env,
             ILogger<OnlyOfficeService> logger,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            IHttpContextAccessor httpContextAccessor)
         {
             _dbContext = dbContext;
             _permissionService = permissionService;
             _configuration = configuration;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _httpContextAccessor = httpContextAccessor;
 
             var uploadSettings = configuration.GetSection("UploadSettings");
             var configPath = uploadSettings["StoragePath"] ?? "uploads";
@@ -54,15 +57,34 @@ namespace demo1.Services.Implements
 
             var ooSettings = configuration.GetSection("OnlyOfficeSettings");
             _jwtSecret = ooSettings["JwtSecret"] ?? "OnlyOffice_Secret_Key_For_Contract_Management_2026";
-            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "http://localhost:5000").TrimEnd('/');
+            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "http://10.225.11.201:64950").TrimEnd('/');
             _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://localhost:8080").TrimEnd('/');
+        }
+
+        private string GetPublicBaseUrl()
+        {
+            var request = _httpContextAccessor.HttpContext?.Request;
+            if (request != null)
+            {
+                var scheme = request.Scheme;
+                var hostStr = request.Host.Value;
+
+                if (hostStr.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || hostStr.StartsWith("127.0.0.1"))
+                {
+                    var portSuffix = request.Host.Port.HasValue ? $":{request.Host.Port.Value}" : "";
+                    return $"{scheme}://10.225.11.201{portSuffix}";
+                }
+
+                return $"{scheme}://{hostStr}";
+            }
+
+            return _publicBaseUrl;
         }
 
         public async Task<OnlyOfficeConfigDto> GenerateConfigAsync(FileAttachment attachment, string mode, Guid userId, string userName)
         {
             var isEditMode = string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase);
 
-            // Kiểm tra phân quyền thực tế từ Backend nếu FE yêu cầu mode=edit
             if (isEditMode)
             {
                 var hasEditPermission = await _permissionService.HasPermissionAsync(
@@ -79,14 +101,13 @@ namespace demo1.Services.Implements
             var ext = Path.GetExtension(attachment.FileName).ToLowerInvariant();
             var docType = GetDocumentType(ext);
 
-            // document.key động chứa AttachmentId + CurrentVersion + UpdatedAt Ticks
             var ticks = attachment.UpdatedAt?.Ticks ?? attachment.CreatedAt.Ticks;
             var documentKey = $"FA_{attachment.Id:N}_v{attachment.CurrentVersion}_{ticks}";
 
-            // Sinh Temporary Download Token có TTL ngắn (3 phút) và ràng buộc với AttachmentId
             var downloadToken = GenerateDownloadToken(attachment.Id);
-            var downloadUrl = $"{_publicBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
-            var callbackUrl = $"{_publicBaseUrl}/api/HeThong/files/onlyoffice-callback";
+            var activeBaseUrl = GetPublicBaseUrl();
+            var downloadUrl = $"{activeBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
+            var callbackUrl = $"{activeBaseUrl}/api/HeThong/files/onlyoffice-callback";
 
             var config = new OnlyOfficeConfigDto
             {
@@ -137,15 +158,15 @@ namespace demo1.Services.Implements
 
         public string GenerateDownloadToken(Guid attachmentId)
         {
-            // TTL = 3 phút, Purpose = "onlyoffice-download", Binding = attachmentId
-            var expiry = DateTimeOffset.UtcNow.AddMinutes(3).ToUnixTimeSeconds();
+            // TTL = 15 phút, Purpose = "onlyoffice-download", Binding = attachmentId
+            var expiry = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
             var payload = $"id={attachmentId:N}&purpose=onlyoffice-download&exp={expiry}";
 
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_jwtSecret));
-            var hash = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+            var hash = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
 
             var raw = $"{payload}&sig={hash}";
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
+            return Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(raw));
         }
 
         public bool ValidateDownloadToken(Guid attachmentId, string token)
@@ -154,7 +175,8 @@ namespace demo1.Services.Implements
 
             try
             {
-                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(token));
+                var decodedBytes = Base64UrlEncoder.DecodeBytes(token);
+                var decoded = Encoding.UTF8.GetString(decodedBytes);
                 var queryParams = decoded.Split('&').Select(p => p.Split('=')).ToDictionary(p => p[0], p => p.Length > 1 ? p[1] : "");
 
                 if (!queryParams.TryGetValue("id", out var idStr) ||
@@ -172,7 +194,7 @@ namespace demo1.Services.Implements
                 if (!string.Equals(idStr, attachmentId.ToString("N"), StringComparison.OrdinalIgnoreCase))
                     return false;
 
-                // 3. Kiểm tra hết hạn (TTL 3 phút)
+                // 3. Kiểm tra hết hạn (TTL 15 phút)
                 if (!long.TryParse(expStr, out var expiry) || DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiry)
                 {
                     _logger.LogWarning("Download token cho FileAttachment {Id} đã hết hạn.", attachmentId);
@@ -182,7 +204,7 @@ namespace demo1.Services.Implements
                 // 4. Kiểm tra HMAC signature
                 var payload = $"id={idStr}&purpose={purpose}&exp={expStr}";
                 using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_jwtSecret));
-                var expectedSig = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+                var expectedSig = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
 
                 return string.Equals(providedSig, expectedSig, StringComparison.Ordinal);
             }

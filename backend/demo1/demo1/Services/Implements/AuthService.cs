@@ -1,4 +1,5 @@
 using System;
+using System.Net.Sockets;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -66,19 +67,40 @@ namespace demo1.Services.Implements
 
                 if (!isAuthenticated && !_radiusClient.IsEnabled)
                 {
-                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Radius authentication is disabled.");
-                    return AuthResult.Fail(503, "Radius authentication is disabled.");
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Dịch vụ xác thực Radius hiện đang bị tắt.");
+                    return AuthResult.Fail(503, "Dịch vụ xác thực Radius hiện đang bị tắt.");
                 }
 
                 if (!isAuthenticated && !_radiusClient.IsConfigured)
                 {
-                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Radius configuration is incomplete.");
-                    return AuthResult.Fail(503, "Radius configuration is incomplete.");
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Cấu hình máy chủ xác thực Radius chưa hoàn thiện (Thiếu Server, Shared Secret hoặc Port).");
+                    return AuthResult.Fail(503, "Cấu hình máy chủ xác thực Radius chưa hoàn thiện.");
                 }
 
                 if (!isAuthenticated)
                 {
-                    isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+                    try
+                    {
+                        isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+                    }
+                    catch (SocketException ex)
+                    {
+                        _logger.LogError(ex, "Lỗi kết nối Socket tới máy chủ Radius.");
+                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", $"Lỗi kết nối máy chủ Radius: {ex.Message}");
+                        return AuthResult.Fail(503, "Không thể kết nối tới máy chủ xác thực (Radius). Vui lòng kiểm tra đường truyền.");
+                    }
+                    catch (TimeoutException ex)
+                    {
+                        _logger.LogError(ex, "Hết thời gian chờ phản hồi từ máy chủ Radius.");
+                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Hết thời gian chờ phản hồi từ máy chủ Radius.");
+                        return AuthResult.Fail(503, "Hết thời gian chờ kết nối máy chủ xác thực (Radius). Vui lòng thử lại.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Lỗi bất thường khi gọi máy chủ xác thực Radius.");
+                        await LogAuthEventAsync(request.Username, "LOGIN_FAILED", $"Lỗi xác thực Radius bất thường: {ex.Message}");
+                        return AuthResult.Fail(500, "Có lỗi xảy ra trong quá trình xác thực tài khoản.");
+                    }
                 }
 
                 if (isAuthenticated)

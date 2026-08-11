@@ -88,7 +88,7 @@ namespace demo1.Services
                         _settings.Timeout,
                         _settings.Server,
                         _settings.Port);
-                    return false;
+                    throw new TimeoutException("Hết thời gian chờ phản hồi từ máy chủ Radius.");
                 }
 
                 if (result.Buffer.Length < 20)
@@ -113,12 +113,12 @@ namespace demo1.Services
                     _settings.Server,
                     _settings.Port,
                     ex.SocketErrorCode);
-                return false;
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[RADIUS] Unexpected authentication error.");
-                return false;
+                throw;
             }
         }
 
