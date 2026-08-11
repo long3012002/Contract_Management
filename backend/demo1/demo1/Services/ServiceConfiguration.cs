@@ -228,6 +228,8 @@ public static class ServiceConfiguration
         services.AddScoped<ILicenseLineService, LicenseLineService>();
         services.AddScoped<IHangHoaDichVuService, HangHoaDichVuService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddHttpClient();
+        services.AddScoped<IOnlyOfficeService, OnlyOfficeService>();
         services.AddSingleton<TotpService>();
         services.AddSingleton<RadiusClient>(sp =>
         {

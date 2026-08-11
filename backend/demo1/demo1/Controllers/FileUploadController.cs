@@ -11,6 +11,7 @@ using Microsoft.Extensions.Configuration;
 using demo1.Data;
 using demo1.Entity;
 using demo1.DTOs;
+using demo1.Services.Interfaces;
 
 namespace demo1.Controllers
 {
@@ -262,6 +263,76 @@ namespace demo1.Controllers
                 ".jpeg" => "image/jpeg",
                 _ => "application/octet-stream",
             };
+        }
+
+        /// <summary>
+        /// Lấy cấu hình JSON khởi tạo ONLYOFFICE Editor cho một FileAttachment.
+        /// </summary>
+        /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
+        /// <param name="mode">Chế độ: "view" (mặc định) hoặc "edit"</param>
+        /// <param name="onlyOfficeService">Service xử lý ONLYOFFICE</param>
+        /// <param name="currentUserService">Service người dùng hiện tại</param>
+        [HttpGet("{id:guid}/onlyoffice-config")]
+        [ProducesResponseType(typeof(OnlyOfficeConfigDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetOnlyOfficeConfig(
+            Guid id,
+            [FromQuery] string mode = "view",
+            [FromServices] IOnlyOfficeService onlyOfficeService = null!,
+            [FromServices] ICurrentUserService currentUserService = null!)
+        {
+            var attachment = await _dbContext.FileAttachments.FirstOrDefaultAsync(f => f.Id == id && f.IsActive);
+            if (attachment == null)
+                return NotFound(new { Message = "Không tìm thấy file đính kèm." });
+
+            var userId = currentUserService?.GetUserId() ?? Guid.Empty;
+            var userName = currentUserService?.GetUsername() ?? "User";
+
+            var config = onlyOfficeService.GenerateConfig(attachment, mode, userId, userName);
+            return Ok(config);
+        }
+
+        /// <summary>
+        /// Tải xuống tệp tin dành riêng cho máy chủ ONLYOFFICE Document Server (xác thực qua Token).
+        /// </summary>
+        [HttpGet("onlyoffice-download/{id:guid}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> DownloadForOnlyOffice(
+            Guid id,
+            [FromQuery] string token,
+            [FromServices] IOnlyOfficeService onlyOfficeService = null!)
+        {
+            if (!onlyOfficeService.ValidateDownloadToken(id, token))
+                return Unauthorized(new { Message = "Download token không hợp lệ hoặc đã hết hạn." });
+
+            var attachment = await _dbContext.FileAttachments.FirstOrDefaultAsync(f => f.Id == id && f.IsActive);
+            if (attachment == null)
+                return NotFound(new { Message = "Không tìm thấy tệp đính kèm." });
+
+            var fullPath = Path.Combine(_storagePath, attachment.FilePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!System.IO.File.Exists(fullPath))
+                return NotFound(new { Message = "Tệp tin không tồn tại trên hệ thống." });
+
+            var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
+            return File(bytes, attachment.ContentType, attachment.FileName);
+        }
+
+        /// <summary>
+        /// Callback từ ONLYOFFICE Document Server để cập nhật nội dung tệp tin đính kèm khi sửa đổi xong.
+        /// </summary>
+        [HttpPost("onlyoffice-callback")]
+        [AllowAnonymous]
+        public async Task<IActionResult> OnlyOfficeCallback(
+            [FromBody] OnlyOfficeCallbackDto dto,
+            [FromServices] IOnlyOfficeService onlyOfficeService = null!)
+        {
+            var success = await onlyOfficeService.HandleCallbackAsync(dto);
+            if (success)
+            {
+                return Ok(new { error = 0 });
+            }
+
+            return Ok(new { error = 1 });
         }
     }
 }
