@@ -18,6 +18,9 @@ namespace demo1.DTOs
         [JsonPropertyName("editorConfig")]
         public EditorConfigInfo EditorConfig { get; set; } = new();
 
+        [JsonPropertyName("serverUrl")]
+        public string ServerUrl { get; set; } = string.Empty;
+
         [JsonPropertyName("token")]
         public string? Token { get; set; }
     }

@@ -125,7 +125,8 @@ namespace demo1.Services.Implements
                         Comments = true,
                         CompactHeader = false
                     }
-                }
+                },
+                ServerUrl = _onlyOfficeServerUrl
             };
 
             // Tạo mã hóa JWT cho đối tượng Config gửi sang ONLYOFFICE nếu cấu hình JwtSecret
