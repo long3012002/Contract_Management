@@ -456,16 +456,19 @@ namespace demo1.Services.Implements
                     DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
                 };
 
-                var jsonPayload = System.Text.Json.JsonSerializer.Serialize(payloadObj, options);
-                var payload = JwtPayload.Deserialize(jsonPayload);
+                var headerJson = "{\"alg\":\"HS256\",\"typ\":\"JWT\"}";
+                var payloadJson = System.Text.Json.JsonSerializer.Serialize(payloadObj, options);
 
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
-                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                var headerBase64 = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(headerJson));
+                var payloadBase64 = Base64UrlEncoder.Encode(Encoding.UTF8.GetBytes(payloadJson));
 
-                var header = new JwtHeader(creds);
-                var token = new JwtSecurityToken(header, payload);
+                var unsignedToken = $"{headerBase64}.{payloadBase64}";
 
-                return new JwtSecurityTokenHandler().WriteToken(token);
+                using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_jwtSecret));
+                var signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(unsignedToken));
+                var signatureBase64 = Base64UrlEncoder.Encode(signatureBytes);
+
+                return $"{unsignedToken}.{signatureBase64}";
             }
             catch (Exception ex)
             {
