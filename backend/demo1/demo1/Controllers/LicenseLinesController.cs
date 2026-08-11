@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 /// <summary>
-/// API Quản lý License Line Items trong Hợp đồng/Gói thầu.
+/// API Quản lý License Line Items trong Hợp đồng.
 /// </summary>
 [Authorize]
 [Route("api/NghiepVu/license-lines")]
@@ -24,9 +24,9 @@ public class LicenseLinesController : CrudControllerBase<HangHoaDichVuDto, Creat
     }
 
     /// <summary>
-    /// Lấy danh sách License Line theo ID của đối tượng cha (vd: ID Hợp đồng hoặc ID Gói thầu).
+    /// Lấy danh sách License Line theo ID Hợp đồng.
     /// </summary>
-    /// <param name="idParent">Mã định danh đối tượng cha (GUID)</param>
+    /// <param name="idParent">Mã định danh Hợp đồng (GUID)</param>
     /// <returns>Danh sách License Line</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("parent/{idParent:guid}")]

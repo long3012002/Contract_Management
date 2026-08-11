@@ -87,26 +87,10 @@ public class HangHoaService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, Cre
             .Select(h => h.Id)
             .ToListAsync();
 
-        var existingDotThanhToanIds = await DbContext.DotThanhToans
-            .Where(d => distinctIds.Contains(d.Id))
-            .Select(d => d.Id)
-            .ToListAsync();
-
-        var existingGoiThauIds = await DbContext.GoiThaus
-            .Where(g => distinctIds.Contains(g.Id))
-            .Select(g => g.Id)
-            .ToListAsync();
-
-        var validIds = existingHopDongIds
-            .Concat(existingDotThanhToanIds)
-            .Concat(existingGoiThauIds)
-            .Distinct()
-            .ToList();
-
-        var missingIds = distinctIds.Except(validIds).ToList();
+        var missingIds = distinctIds.Except(existingHopDongIds).ToList();
         if (missingIds.Any())
         {
-            throw new ArgumentException($"Hóa đơn / Đợt thanh toán / Hợp đồng với ID '{string.Join(", ", missingIds)}' không tồn tại trong hệ thống.");
+            throw new ArgumentException($"Hợp đồng với ID '{string.Join(", ", missingIds)}' không tồn tại trong hệ thống.");
         }
     }
 

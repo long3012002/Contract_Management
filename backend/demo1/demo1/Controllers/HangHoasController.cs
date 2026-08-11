@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 /// <summary>
-/// API Quản lý Hàng hóa / Thiết bị (Danh sách hàng hóa, Thêm mới hàng loạt, Tra cứu theo Hợp đồng/Gói thầu).
+/// API Quản lý Hàng hóa / Thiết bị trong Hợp đồng (Danh sách hàng hóa, Thêm mới hàng loạt, Tra cứu theo Hợp đồng).
 /// </summary>
 [Authorize]
 [Route("api/NghiepVu/hang-hoa")]
@@ -24,9 +24,9 @@ public class HangHoasController : CrudControllerBase<HangHoaDichVuDto, CreateHan
     }
 
     /// <summary>
-    /// Lấy danh sách Hàng hóa theo ID của đối tượng cha (vd: ID Hợp đồng hoặc ID Gói thầu).
+    /// Lấy danh sách Hàng hóa theo ID Hợp đồng.
     /// </summary>
-    /// <param name="idParent">Mã định danh đối tượng cha (GUID)</param>
+    /// <param name="idParent">Mã định danh Hợp đồng (GUID)</param>
     /// <returns>Danh sách hàng hóa</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("parent/{idParent:guid}")]
