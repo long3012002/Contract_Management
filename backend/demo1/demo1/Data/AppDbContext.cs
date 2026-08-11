@@ -53,6 +53,7 @@ namespace demo1.Data
         public DbSet<DonViTinh> DonViTinhs { get; set; } = null!;
         public DbSet<HangSanXuat> HangSanXuats { get; set; } = null!;
         public DbSet<FileAttachment> FileAttachments { get; set; } = null!;
+        public DbSet<FileVersion> FileVersions { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -570,6 +571,22 @@ namespace demo1.Data
                 entity.Property(fa => fa.EntityType).HasMaxLength(100).IsRequired();
                 entity.HasIndex(fa => new { fa.EntityType, fa.EntityId })
                     .HasDatabaseName("IX_FileAttachment_EntityType_EntityId");
+            });
+
+            // Configure FileVersion entity
+            modelBuilder.Entity<FileVersion>(entity =>
+            {
+                entity.HasKey(fv => fv.Id);
+                entity.Property(fv => fv.FileName).HasMaxLength(255).IsRequired();
+                entity.Property(fv => fv.FilePath).HasMaxLength(500).IsRequired();
+                entity.Property(fv => fv.ContentType).HasMaxLength(100);
+                entity.HasOne(fv => fv.FileAttachment)
+                    .WithMany(fa => fa.Versions)
+                    .HasForeignKey(fv => fv.FileAttachmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(fv => new { fv.FileAttachmentId, fv.VersionNumber })
+                    .IsUnique()
+                    .HasDatabaseName("IX_FileVersion_AttachmentId_VersionNumber");
             });
         }
 

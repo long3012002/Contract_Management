@@ -274,6 +274,9 @@ namespace demo1.Controllers
         /// <param name="currentUserService">Service người dùng hiện tại</param>
         [HttpGet("{id:guid}/onlyoffice-config")]
         [ProducesResponseType(typeof(OnlyOfficeConfigDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetOnlyOfficeConfig(
             Guid id,
@@ -285,18 +288,32 @@ namespace demo1.Controllers
             if (attachment == null)
                 return NotFound(new { Message = "Không tìm thấy file đính kèm." });
 
+            var ext = Path.GetExtension(attachment.FileName).ToLowerInvariant();
+            if (!_allowedExtensions.Contains(ext))
+                return BadRequest(new { Message = "Định dạng file không được hỗ trợ bởi ONLYOFFICE." });
+
             var userId = currentUserService?.GetUserId() ?? Guid.Empty;
             var userName = currentUserService?.GetUsername() ?? "User";
 
-            var config = onlyOfficeService.GenerateConfig(attachment, mode, userId, userName);
-            return Ok(config);
+            try
+            {
+                var config = await onlyOfficeService.GenerateConfigAsync(attachment, mode, userId, userName);
+                return Ok(config);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
+            }
         }
 
         /// <summary>
-        /// Tải xuống tệp tin dành riêng cho máy chủ ONLYOFFICE Document Server (xác thực qua Token).
+        /// Tải xuống tệp tin dành riêng cho máy chủ ONLYOFFICE Document Server (xác thực qua Token bảo mật, hỗ trợ File Streaming).
         /// </summary>
         [HttpGet("onlyoffice-download/{id:guid}")]
         [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DownloadForOnlyOffice(
             Guid id,
             [FromQuery] string token,
@@ -313,8 +330,9 @@ namespace demo1.Controllers
             if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { Message = "Tệp tin không tồn tại trên hệ thống." });
 
-            var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
-            return File(bytes, attachment.ContentType, attachment.FileName);
+            // Trả về file dưới dạng Streaming (FileStreamResult) tránh nạp toàn bộ file lớn vào RAM
+            var fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return File(fileStream, attachment.ContentType, attachment.FileName);
         }
 
         /// <summary>
@@ -326,13 +344,34 @@ namespace demo1.Controllers
             [FromBody] OnlyOfficeCallbackDto dto,
             [FromServices] IOnlyOfficeService onlyOfficeService = null!)
         {
-            var success = await onlyOfficeService.HandleCallbackAsync(dto);
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            var success = await onlyOfficeService.HandleCallbackAsync(dto, authHeader);
             if (success)
             {
                 return Ok(new { error = 0 });
             }
 
             return Ok(new { error = 1 });
+        }
+
+        /// <summary>
+        /// Lấy danh sách lịch sử các phiên bản của tệp tin đính kèm (FileAttachment).
+        /// </summary>
+        /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
+        /// <param name="onlyOfficeService">Service xử lý ONLYOFFICE</param>
+        [HttpGet("{id:guid}/versions")]
+        [ProducesResponseType(typeof(IEnumerable<FileVersionDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetFileVersions(
+            Guid id,
+            [FromServices] IOnlyOfficeService onlyOfficeService = null!)
+        {
+            var attachment = await _dbContext.FileAttachments.FirstOrDefaultAsync(f => f.Id == id && f.IsActive);
+            if (attachment == null)
+                return NotFound(new { Message = "Không tìm thấy file đính kèm." });
+
+            var versions = await onlyOfficeService.GetFileVersionsAsync(id);
+            return Ok(versions);
         }
     }
 }

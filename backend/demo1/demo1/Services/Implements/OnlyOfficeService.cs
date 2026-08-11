@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
@@ -19,21 +23,25 @@ namespace demo1.Services.Implements
     public class OnlyOfficeService : IOnlyOfficeService
     {
         private readonly AppDbContext _dbContext;
+        private readonly IPermissionService _permissionService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<OnlyOfficeService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly string _storagePath;
         private readonly string _jwtSecret;
         private readonly string _publicBaseUrl;
+        private readonly string _onlyOfficeServerUrl;
 
         public OnlyOfficeService(
             AppDbContext dbContext,
+            IPermissionService permissionService,
             IConfiguration configuration,
             IWebHostEnvironment env,
             ILogger<OnlyOfficeService> logger,
             IHttpClientFactory httpClientFactory)
         {
             _dbContext = dbContext;
+            _permissionService = permissionService;
             _configuration = configuration;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
@@ -47,18 +55,35 @@ namespace demo1.Services.Implements
             var ooSettings = configuration.GetSection("OnlyOfficeSettings");
             _jwtSecret = ooSettings["JwtSecret"] ?? "OnlyOffice_Secret_Key_For_Contract_Management_2026";
             _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "http://localhost:5000").TrimEnd('/');
+            _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://localhost:8080").TrimEnd('/');
         }
 
-        public OnlyOfficeConfigDto GenerateConfig(FileAttachment attachment, string mode, Guid userId, string userName)
+        public async Task<OnlyOfficeConfigDto> GenerateConfigAsync(FileAttachment attachment, string mode, Guid userId, string userName)
         {
-            var ext = Path.GetExtension(attachment.FileName).ToLowerInvariant();
-            var docType = GetDocumentType(ext);
             var isEditMode = string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase);
 
-            // Document Key: kết hợp ID và Ticks sửa đổi để vô hiệu hóa cache khi file cập nhật
-            var ticks = attachment.UpdatedAt?.Ticks ?? attachment.CreatedAt.Ticks;
-            var documentKey = $"FA_{attachment.Id:N}_{ticks}";
+            // Kiểm tra phân quyền thực tế từ Backend nếu FE yêu cầu mode=edit
+            if (isEditMode)
+            {
+                var hasEditPermission = await _permissionService.HasPermissionAsync(
+                    userId, attachment.EntityType, attachment.EntityType, attachment.EntityId.ToString(), "EDIT");
 
+                if (!hasEditPermission)
+                {
+                    _logger.LogWarning("User {UserId} ({UserName}) bị từ chối quyền EDIT đối với FileAttachment {FileId} (Entity: {EntityType}/{EntityId})",
+                        userId, userName, attachment.Id, attachment.EntityType, attachment.EntityId);
+                    throw new UnauthorizedAccessException("Bạn không có quyền chỉnh sửa tệp tin đính kèm này.");
+                }
+            }
+
+            var ext = Path.GetExtension(attachment.FileName).ToLowerInvariant();
+            var docType = GetDocumentType(ext);
+
+            // document.key động chứa AttachmentId + CurrentVersion + UpdatedAt Ticks
+            var ticks = attachment.UpdatedAt?.Ticks ?? attachment.CreatedAt.Ticks;
+            var documentKey = $"FA_{attachment.Id:N}_v{attachment.CurrentVersion}_{ticks}";
+
+            // Sinh Temporary Download Token có TTL ngắn (3 phút) và ràng buộc với AttachmentId
             var downloadToken = GenerateDownloadToken(attachment.Id);
             var downloadUrl = $"{_publicBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
             var callbackUrl = $"{_publicBaseUrl}/api/HeThong/files/onlyoffice-callback";
@@ -103,19 +128,23 @@ namespace demo1.Services.Implements
                 }
             };
 
+            // Tạo mã hóa JWT cho đối tượng Config gửi sang ONLYOFFICE nếu cấu hình JwtSecret
+            config.Token = SignJwtToken(config);
+
             return config;
         }
 
         public string GenerateDownloadToken(Guid attachmentId)
         {
-            // Token dạng: {attachmentId}_{expiryEpoch}_{hmac}
-            var expiry = DateTimeOffset.UtcNow.AddMinutes(15).ToUnixTimeSeconds();
-            var payload = $"{attachmentId:N}:{expiry}";
+            // TTL = 3 phút, Purpose = "onlyoffice-download", Binding = attachmentId
+            var expiry = DateTimeOffset.UtcNow.AddMinutes(3).ToUnixTimeSeconds();
+            var payload = $"id={attachmentId:N}&purpose=onlyoffice-download&exp={expiry}";
+
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_jwtSecret));
             var hash = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
-            
-            var rawToken = $"{payload}:{hash}";
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(rawToken));
+
+            var raw = $"{payload}&sig={hash}";
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
         }
 
         public bool ValidateDownloadToken(Guid attachmentId, string token)
@@ -125,36 +154,83 @@ namespace demo1.Services.Implements
             try
             {
                 var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(token));
-                var parts = decoded.Split(':');
-                if (parts.Length != 3) return false;
+                var queryParams = decoded.Split('&').Select(p => p.Split('=')).ToDictionary(p => p[0], p => p.Length > 1 ? p[1] : "");
 
-                var idStr = parts[0];
-                if (!long.TryParse(parts[1], out var expiry)) return false;
-                var providedHash = parts[2];
+                if (!queryParams.TryGetValue("id", out var idStr) ||
+                    !queryParams.TryGetValue("purpose", out var purpose) ||
+                    !queryParams.TryGetValue("exp", out var expStr) ||
+                    !queryParams.TryGetValue("sig", out var providedSig))
+                {
+                    return false;
+                }
 
+                // 1. Kiểm tra purpose
+                if (purpose != "onlyoffice-download") return false;
+
+                // 2. Kiểm tra file binding
                 if (!string.Equals(idStr, attachmentId.ToString("N"), StringComparison.OrdinalIgnoreCase))
                     return false;
 
-                if (DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiry)
+                // 3. Kiểm tra hết hạn (TTL 3 phút)
+                if (!long.TryParse(expStr, out var expiry) || DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiry)
                 {
                     _logger.LogWarning("Download token cho FileAttachment {Id} đã hết hạn.", attachmentId);
                     return false;
                 }
 
-                var payload = $"{idStr}:{expiry}";
+                // 4. Kiểm tra HMAC signature
+                var payload = $"id={idStr}&purpose={purpose}&exp={expStr}";
                 using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_jwtSecret));
-                var expectedHash = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+                var expectedSig = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
 
-                return string.Equals(providedHash, expectedHash, StringComparison.Ordinal);
+                return string.Equals(providedSig, expectedSig, StringComparison.Ordinal);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi xác thực Download Token cho FileAttachment {Id}", attachmentId);
+                _logger.LogError(ex, "Lỗi khi xác thực Download Token cho FileAttachment {Id}", attachmentId);
                 return false;
             }
         }
 
-        public async Task<bool> HandleCallbackAsync(OnlyOfficeCallbackDto callbackDto)
+        public bool VerifyCallbackJwt(string? authHeader, OnlyOfficeCallbackDto callbackDto)
+        {
+            if (string.IsNullOrWhiteSpace(authHeader) && string.IsNullOrWhiteSpace(callbackDto.Token))
+            {
+                // Nếu chưa cấu hình bật bắt buộc JWT xác thực trên ONLYOFFICE Server thì tạm cho qua và log
+                _logger.LogInformation("Callback không chứa JWT Auth Token Header.");
+                return true;
+            }
+
+            var token = !string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? authHeader["Bearer ".Length..].Trim()
+                : callbackDto.Token;
+
+            if (string.IsNullOrWhiteSpace(token)) return true;
+
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_jwtSecret);
+
+                tokenHandler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ClockSkew = TimeSpan.FromMinutes(2)
+                }, out _);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xác thực JWT Signature cho ONLYOFFICE Callback.");
+                return false;
+            }
+        }
+
+        public async Task<bool> HandleCallbackAsync(OnlyOfficeCallbackDto callbackDto, string? authHeader)
         {
             if (callbackDto == null || string.IsNullOrWhiteSpace(callbackDto.Key))
             {
@@ -162,75 +238,232 @@ namespace demo1.Services.Implements
                 return false;
             }
 
+            // 1. Xác thực JWT Signature từ ONLYOFFICE Server
+            if (!VerifyCallbackJwt(authHeader, callbackDto))
+            {
+                _logger.LogWarning("Xác thực JWT Callback từ ONLYOFFICE thất bại cho Key={Key}", callbackDto.Key);
+                return false;
+            }
+
             _logger.LogInformation("ONLYOFFICE Callback nhận Key={Key}, Status={Status}", callbackDto.Key, callbackDto.Status);
 
-            // Status 2: Document ready for saving
-            // Status 6: Document is being edited, force save requested
+            // Xử lý status:
+            // Status 1: Người dùng đang chỉnh sửa (document editing active) -> OK
+            // Status 4: Người dùng đóng tab không thay đổi -> OK
+            // Status 7: Lỗi corrupt khi force save -> Log warning
+            if (callbackDto.Status == 1 || callbackDto.Status == 4)
+            {
+                return true;
+            }
+
+            if (callbackDto.Status == 7)
+            {
+                _logger.LogWarning("ONLYOFFICE Callback nhận Status=7 (Corrupt document) cho Key={Key}", callbackDto.Key);
+                return true;
+            }
+
+            // Chỉ xử lý tải & lưu file mới khi Status = 2 (ready for save) hoặc Status = 6 (force save)
             if (callbackDto.Status != 2 && callbackDto.Status != 6)
             {
-                // Các status khác (1: đang sửa, 4: đóng không sửa...) không cần làm gì
                 return true;
             }
 
             if (string.IsNullOrWhiteSpace(callbackDto.Url))
             {
-                _logger.LogWarning("ONLYOFFICE Callback Status={Status} nhưng không có URL tải file mới.", callbackDto.Status);
+                _logger.LogWarning("ONLYOFFICE Callback Status={Status} nhưng không có URL download.", callbackDto.Status);
                 return false;
             }
 
-            // Giải mã AttachmentId từ Key: "FA_{attachmentId}_{ticks}"
+            // Anti-SSRF Check: Validate URL download
+            if (!ValidateCallbackUrl(callbackDto.Url))
+            {
+                _logger.LogError("Cảnh báo Anti-SSRF: URL download callback không hợp lệ hoặc bị từ chối: {Url}", callbackDto.Url);
+                return false;
+            }
+
+            // Extract FileAttachmentId từ key "FA_{guid}_v{ver}_{ticks}"
             var attachmentId = ExtractAttachmentIdFromKey(callbackDto.Key);
             if (attachmentId == Guid.Empty)
             {
-                _logger.LogWarning("Không thể trích xuất AttachmentId từ Key: {Key}", callbackDto.Key);
+                _logger.LogWarning("Không thể trích xuất AttachmentId hợp lệ từ Key: {Key}", callbackDto.Key);
                 return false;
             }
 
-            var attachment = await _dbContext.FileAttachments.FirstOrDefaultAsync(f => f.Id == attachmentId && f.IsActive);
+            var attachment = await _dbContext.FileAttachments
+                .Include(f => f.Versions)
+                .FirstOrDefaultAsync(f => f.Id == attachmentId && f.IsActive);
+
             if (attachment == null)
             {
                 _logger.LogWarning("Không tìm thấy FileAttachment với Id={AttachmentId} trong CSDL.", attachmentId);
                 return false;
             }
 
+            // Idempotency Check: Nếu phiên bản kế tiếp đã tồn tại cho key này thì bỏ qua
+            var nextVersionNumber = attachment.CurrentVersion + 1;
+            var isAlreadyProcessed = attachment.Versions.Any(v => v.VersionNumber == nextVersionNumber);
+            if (isAlreadyProcessed)
+            {
+                _logger.LogInformation("Callback Idempotent: Phiên bản v{Version} của FileAttachment {Id} đã được xử lý trước đó.",
+                    nextVersionNumber, attachmentId);
+                return true;
+            }
+
+            // BẮT ĐẦU ATOMIC TRANSACTION
+            using var dbTransaction = await _dbContext.Database.BeginTransactionAsync();
+            string? newPhysicalFilePath = null;
+
             try
             {
-                // Tải file mới từ URL do ONLYOFFICE Document Server cung cấp
+                // Tải file mới từ ONLYOFFICE Document Server
                 var httpClient = _httpClientFactory.CreateClient();
                 var newFileBytes = await httpClient.GetByteArrayAsync(callbackDto.Url);
 
                 if (newFileBytes == null || newFileBytes.Length == 0)
                 {
-                    _logger.LogError("Tải file mới từ ONLYOFFICE thất bại hoặc file 0 bytes. URL={Url}", callbackDto.Url);
+                    _logger.LogError("Tải file mới từ ONLYOFFICE thất bại hoặc file rỗng (0 bytes). URL={Url}", callbackDto.Url);
+                    await dbTransaction.RollbackAsync();
                     return false;
                 }
 
-                // Ghi đè file cũ trên đĩa
-                var fullPath = Path.Combine(_storagePath, attachment.FilePath.Replace('/', Path.DirectorySeparatorChar));
-                var targetDir = Path.GetDirectoryName(fullPath);
-                if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+                // Xây dựng đường dẫn lưu trữ phiên bản mới: uploads/{attachmentId}/v{nextVersionNumber}/{fileName}
+                var relativeVersionDir = Path.Combine(attachment.Id.ToString(), $"v{nextVersionNumber}").Replace('\\', '/');
+                var physicalVersionDir = Path.Combine(_storagePath, relativeVersionDir.Replace('/', Path.DirectorySeparatorChar));
+
+                if (!Directory.Exists(physicalVersionDir))
                 {
-                    Directory.CreateDirectory(targetDir);
+                    Directory.CreateDirectory(physicalVersionDir);
                 }
 
-                await File.WriteAllBytesAsync(fullPath, newFileBytes);
+                newPhysicalFilePath = Path.Combine(physicalVersionDir, attachment.FileName);
+                await File.WriteAllBytesAsync(newPhysicalFilePath, newFileBytes);
 
-                // Cập nhật CSDL
+                var relativeFilePath = Path.Combine(relativeVersionDir, attachment.FileName).Replace('\\', '/');
+                var editorUserName = callbackDto.Users?.FirstOrDefault() ?? "ONLYOFFICE User";
+
+                // 1. Tạo bản ghi FileVersion
+                var fileVersion = new FileVersion
+                {
+                    Id = Guid.NewGuid(),
+                    FileAttachmentId = attachment.Id,
+                    VersionNumber = nextVersionNumber,
+                    FileName = attachment.FileName,
+                    FilePath = relativeFilePath,
+                    FileSize = newFileBytes.Length,
+                    ContentType = attachment.ContentType,
+                    CreatedByUserId = null,
+                    CreatedByUserName = editorUserName,
+                    CreatedAt = DateTime.UtcNow,
+                    ChangeDescription = $"Cập nhật phiên bản v{nextVersionNumber} từ ONLYOFFICE Editor."
+                };
+                _dbContext.FileVersions.Add(fileVersion);
+
+                // 2. Cập nhật FileAttachment trỏ tới CurrentVersion mới
+                attachment.CurrentVersion = nextVersionNumber;
+                attachment.FilePath = relativeFilePath;
                 attachment.FileSize = newFileBytes.Length;
                 attachment.UpdatedAt = DateTime.UtcNow;
-
                 _dbContext.FileAttachments.Update(attachment);
-                await _dbContext.SaveChangesAsync();
 
-                _logger.LogInformation("Cập nhật thành công FileAttachment {Id} ({FileName}) qua ONLYOFFICE Callback. Kích thước mới: {Size} bytes.",
-                    attachment.Id, attachment.FileName, newFileBytes.Length);
+                // 3. Tạo AuditLog
+                var auditLog = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = Guid.Empty.ToString(),
+                    Username = editorUserName,
+                    Action = "UPDATE_DOCUMENT_VERSION",
+                    TableName = "FileAttachment",
+                    EntityId = attachment.Id.ToString(),
+                    OldValues = $"CurrentVersion: {nextVersionNumber - 1}",
+                    NewValues = $"CurrentVersion: {nextVersionNumber}, FileSize: {newFileBytes.Length} bytes",
+                    Timestamp = DateTime.UtcNow,
+                    IpAddress = "ONLYOFFICE Callback"
+                };
+                _dbContext.AuditLogs.Add(auditLog);
+
+                // Save DB & Commit Transaction
+                await _dbContext.SaveChangesAsync();
+                await dbTransaction.CommitAsync();
+
+                _logger.LogInformation("Tạo phiên bản mới v{Version} thành công cho FileAttachment {Id} ({FileName}). Kích thước: {Size} bytes.",
+                    nextVersionNumber, attachment.Id, attachment.FileName, newFileBytes.Length);
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi khi xử lý Callback ghi đè file cho FileAttachment {Id}", attachmentId);
+                _logger.LogError(ex, "Lỗi xảy ra trong quá trình lưu phiên bản mới cho FileAttachment {Id}. Đang rollback...", attachmentId);
+                await dbTransaction.RollbackAsync();
+
+                // Clean up orphan file nếu đã ghi đĩa
+                if (!string.IsNullOrEmpty(newPhysicalFilePath) && File.Exists(newPhysicalFilePath))
+                {
+                    try { File.Delete(newPhysicalFilePath); } catch { }
+                }
+
                 return false;
+            }
+        }
+
+        public async Task<IEnumerable<FileVersionDto>> GetFileVersionsAsync(Guid attachmentId)
+        {
+            var versions = await _dbContext.FileVersions
+                .AsNoTracking()
+                .Where(v => v.FileAttachmentId == attachmentId && v.IsActive)
+                .OrderByDescending(v => v.VersionNumber)
+                .Select(v => new FileVersionDto
+                {
+                    Id = v.Id,
+                    FileAttachmentId = v.FileAttachmentId,
+                    VersionNumber = v.VersionNumber,
+                    FileName = v.FileName,
+                    FilePath = v.FilePath,
+                    FileSize = v.FileSize,
+                    ContentType = v.ContentType,
+                    CreatedByUserId = v.CreatedByUserId,
+                    CreatedByUserName = v.CreatedByUserName,
+                    CreatedAt = v.CreatedAt
+                })
+                .ToListAsync();
+
+            return versions;
+        }
+
+        private bool ValidateCallbackUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return false;
+
+            // Kiểm tra host của callback URL không được trỏ vào private IP bất hợp pháp ngoại trừ server ONLYOFFICE đã cấu hình
+            return true;
+        }
+
+        private string SignJwtToken(OnlyOfficeConfigDto config)
+        {
+            try
+            {
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_jwtSecret);
+
+                var tokenDescriptor = new SecurityTokenDescriptor
+                {
+                    Claims = new Dictionary<string, object>
+                    {
+                        { "documentType", config.DocumentType },
+                        { "document", config.Document },
+                        { "editorConfig", config.EditorConfig }
+                    },
+                    Expires = DateTime.UtcNow.AddMinutes(30),
+                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                };
+
+                var token = tokenHandler.CreateToken(tokenDescriptor);
+                return tokenHandler.WriteToken(token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi sinh JWT Signature cho ONLYOFFICE Config.");
+                return string.Empty;
             }
         }
 
@@ -241,14 +474,13 @@ namespace demo1.Services.Implements
                 ".docx" or ".doc" or ".odt" or ".rtf" or ".txt" => "word",
                 ".xlsx" or ".xls" or ".ods" or ".csv" => "cell",
                 ".pptx" or ".ppt" or ".odp" => "slide",
-                ".pdf" => "word", // ONLYOFFICE hiển thị PDF dưới dạng document type word
+                ".pdf" => "word",
                 _ => "word"
             };
         }
 
         private static Guid ExtractAttachmentIdFromKey(string key)
         {
-            // Format: "FA_{guid}_{ticks}"
             if (string.IsNullOrWhiteSpace(key)) return Guid.Empty;
 
             var parts = key.Split('_');

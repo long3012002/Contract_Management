@@ -129,4 +129,21 @@ namespace demo1.DTOs
         [JsonPropertyName("token")]
         public string? Token { get; set; }
     }
+
+    /// <summary>
+    /// DTO thông tin phiên bản của tệp tin đính kèm.
+    /// </summary>
+    public class FileVersionDto
+    {
+        public Guid Id { get; set; }
+        public Guid FileAttachmentId { get; set; }
+        public int VersionNumber { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public string ContentType { get; set; } = string.Empty;
+        public Guid? CreatedByUserId { get; set; }
+        public string? CreatedByUserName { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace demo1.Entity
 {
@@ -10,5 +11,8 @@ namespace demo1.Entity
         public long FileSize { get; set; }
         public string EntityType { get; set; } = string.Empty;
         public Guid EntityId { get; set; }
+
+        public int CurrentVersion { get; set; } = 1;
+        public ICollection<FileVersion> Versions { get; set; } = new List<FileVersion>();
     }
 }
