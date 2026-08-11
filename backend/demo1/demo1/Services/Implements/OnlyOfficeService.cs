@@ -443,23 +443,29 @@ namespace demo1.Services.Implements
         {
             try
             {
-                var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_jwtSecret);
-
-                var tokenDescriptor = new SecurityTokenDescriptor
+                var payloadObj = new
                 {
-                    Claims = new Dictionary<string, object>
-                    {
-                        { "documentType", config.DocumentType },
-                        { "document", config.Document },
-                        { "editorConfig", config.EditorConfig }
-                    },
-                    Expires = DateTime.UtcNow.AddMinutes(30),
-                    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+                    documentType = config.DocumentType,
+                    document = config.Document,
+                    editorConfig = config.EditorConfig
                 };
 
-                var token = tokenHandler.CreateToken(tokenDescriptor);
-                return tokenHandler.WriteToken(token);
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+                };
+
+                var jsonPayload = System.Text.Json.JsonSerializer.Serialize(payloadObj, options);
+                var payload = JwtPayload.Deserialize(jsonPayload);
+
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+                var header = new JwtHeader(creds);
+                var token = new JwtSecurityToken(header, payload);
+
+                return new JwtSecurityTokenHandler().WriteToken(token);
             }
             catch (Exception ex)
             {
