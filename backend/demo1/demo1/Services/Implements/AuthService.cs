@@ -51,12 +51,38 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(400, "Tên đăng nhập và mật khẩu là bắt buộc.");
                 }
 
-                bool isBypass = request.Username == "admin" && request.Password == "admin_bypass_dev";
-                bool isAuthenticated = isBypass || await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+                var enableDevBypass = _configuration.GetValue<bool>("Auth:EnableDevBypass");
+                bool isBypass = enableDevBypass &&
+                    request.Username == "admin" &&
+                    request.Password == "admin_bypass_dev";
+
+                var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+                var enableLocalPasswordLogin = _configuration.GetValue<bool>("Auth:EnableLocalPasswordLogin");
+                bool isLocalPasswordAuthenticated = enableLocalPasswordLogin &&
+                    dbUser != null &&
+                    VerifyPasswordHash(request.Password, dbUser.PasswordHash);
+
+                bool isAuthenticated = isBypass || isLocalPasswordAuthenticated;
+
+                if (!isAuthenticated && !_radiusClient.IsEnabled)
+                {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Radius authentication is disabled.");
+                    return AuthResult.Fail(503, "Radius authentication is disabled.");
+                }
+
+                if (!isAuthenticated && !_radiusClient.IsConfigured)
+                {
+                    await LogAuthEventAsync(request.Username, "LOGIN_FAILED", "Radius configuration is incomplete.");
+                    return AuthResult.Fail(503, "Radius configuration is incomplete.");
+                }
+
+                if (!isAuthenticated)
+                {
+                    isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+                }
 
                 if (isAuthenticated)
                 {
-                    var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
                     if (dbUser == null)
                     {
                         if (isBypass)
@@ -116,7 +142,10 @@ namespace demo1.Services.Implements
                     return AuthResult.Success(new LoginResponse
                     {
                         Message = "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)",
+                        UserId = dbUser.Id,
                         Username = dbUser.Username,
+                        FullName = dbUser.FullName,
+                        IsSystemAdmin = dbUser.IsSystemAdmin,
                         AccessToken = accessToken,
                         RefreshToken = refreshToken
                     });
@@ -136,7 +165,10 @@ namespace demo1.Services.Implements
                     return AuthResult.Success(new LoginResponse
                     {
                         Message = "Bypass Login Success",
+                        UserId = dbUser.Id,
                         Username = dbUser.Username,
+                        FullName = dbUser.FullName,
+                        IsSystemAdmin = dbUser.IsSystemAdmin,
                         AccessToken = accessToken,
                         RefreshToken = refreshToken
                     });
@@ -161,7 +193,10 @@ namespace demo1.Services.Implements
                     return AuthResult.Success(new LoginResponse
                     {
                         Message = "Yêu cầu bật xác thực 2 lớp (lần đầu đăng nhập)",
-                        Username = request.Username,
+                        UserId = dbUser.Id,
+                        Username = dbUser.Username,
+                        FullName = dbUser.FullName,
+                        IsSystemAdmin = dbUser.IsSystemAdmin,
                         Require2FASetup = true,
                         TwoFactorSecret = null, // Do not expose raw secret key in login response
                         QrCodeUrl = qrUrl,
@@ -173,7 +208,10 @@ namespace demo1.Services.Implements
                 return AuthResult.Success(new LoginResponse
                 {
                     Message = "Yêu cầu mã xác thực 2 lớp (2FA)",
-                    Username = request.Username,
+                    UserId = dbUser.Id,
+                    Username = dbUser.Username,
+                    FullName = dbUser.FullName,
+                    IsSystemAdmin = dbUser.IsSystemAdmin,
                     Require2FAVerification = true,
                     AccessToken = tempToken
                 });
@@ -186,6 +224,7 @@ namespace demo1.Services.Implements
                 }
             }
             catch (Exception ex) {
+                _logger.LogError(ex, "Lỗi xảy ra trong LoginAsync cho Username {Username}.", request?.Username);
                 return AuthResult.Fail(500, "Server error");
             }
 
@@ -250,7 +289,10 @@ namespace demo1.Services.Implements
                     Message = "Làm mới token thành công",
                     AccessToken = newAccessToken,
                     RefreshToken = newRefreshToken,
-                    Username = username
+                    UserId = dbUser.Id,
+                    Username = dbUser.Username,
+                    FullName = dbUser.FullName,
+                    IsSystemAdmin = dbUser.IsSystemAdmin
                 });
             }
             catch (Exception)
@@ -310,6 +352,9 @@ namespace demo1.Services.Implements
                     Message = "Kích hoạt xác thực 2 lớp thành công",
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
+                    UserId = dbUser.Id,
+                    FullName = dbUser.FullName,
+                    IsSystemAdmin = dbUser.IsSystemAdmin,
                     Username = dbUser.Username
                 });
             }
@@ -368,6 +413,9 @@ namespace demo1.Services.Implements
                     Message = "Đăng nhập xác thực 2 lớp thành công",
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
+                    UserId = dbUser.Id,
+                    FullName = dbUser.FullName,
+                    IsSystemAdmin = dbUser.IsSystemAdmin,
                     Username = dbUser.Username
                 });
             }
@@ -493,6 +541,43 @@ namespace demo1.Services.Implements
             {
                 Console.WriteLine($"[ValidateTemporaryToken Error]: {ex.Message}");
                 return null;
+            }
+        }
+
+        private static bool VerifyPasswordHash(string password, string? storedHash)
+        {
+            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(storedHash))
+            {
+                return false;
+            }
+
+            var parts = storedHash.Split(':');
+            if (parts.Length != 4 || parts[0] != "pbkdf2-sha256")
+            {
+                return false;
+            }
+
+            if (!int.TryParse(parts[1], out var iterations) || iterations <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                var salt = Convert.FromBase64String(parts[2]);
+                var expectedHash = Convert.FromBase64String(parts[3]);
+                var actualHash = Rfc2898DeriveBytes.Pbkdf2(
+                    password,
+                    salt,
+                    iterations,
+                    HashAlgorithmName.SHA256,
+                    expectedHash.Length);
+
+                return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+            }
+            catch (FormatException)
+            {
+                return false;
             }
         }
 

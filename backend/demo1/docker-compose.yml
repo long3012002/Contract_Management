@@ -14,6 +14,12 @@ services:
       - ConnectionStrings__DefaultConnection=Host=qlda-postgres-container;Port=5432;Database=QLDA;Username=quangmd;Password=31122001;
       - Database__AutoMigrate=false
       - Database__SeedSampleData=true
+      - Auth__EnableDevBypass=true
+      - Auth__EnableLocalPasswordLogin=true
+      - Radius__Enabled=true
+      - Radius__Server=10.224.0.94
+      - Radius__Port=1812
+      - Radius__Timeout=30000
     networks:
       - qlda-network
     restart: always

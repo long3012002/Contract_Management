@@ -119,6 +119,7 @@ namespace demo1.Controllers
                 401 => Unauthorized(new { Message = result.ErrorMessage }),
                 403 => StatusCode(StatusCodes.Status403Forbidden, new { Message = result.ErrorMessage }),
                 404 => NotFound(new { Message = result.ErrorMessage }),
+                503 => StatusCode(StatusCodes.Status503ServiceUnavailable, new { Message = result.ErrorMessage }),
                 _ => StatusCode(StatusCodes.Status500InternalServerError, new { Message = result.ErrorMessage })
             };
         }

@@ -1,65 +1,81 @@
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using demo1.DTOs.Common;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace demo1.Services
 {
     public class RadiusClient
     {
-        private readonly string _server;
-        private readonly int _port;
-        private readonly string _sharedSecret;
-        private readonly int _timeoutMs;
+        private readonly RadiusSettings _settings;
+        private readonly ILogger<RadiusClient> _logger;
 
-        public RadiusClient(string server, int port, string sharedSecret, int timeoutMs = 3000)
+        public RadiusClient(IOptions<RadiusSettings> settings, ILogger<RadiusClient> logger)
         {
-            _server = server;
-            _port = port;
-            _sharedSecret = sharedSecret;
-            _timeoutMs = timeoutMs;
+            _settings = settings.Value;
+            _logger = logger;
         }
+
+        public bool IsEnabled => _settings.Enabled;
+        public bool IsConfigured => _settings.IsConfigured;
+        public string Server => _settings.Server;
+        public int Port => _settings.Port;
+        public int Timeout => _settings.Timeout;
 
         public async Task<bool> AuthenticateAsync(string username, string password)
         {
+            if (!_settings.Enabled)
+            {
+                _logger.LogWarning("[RADIUS] Authentication is disabled by configuration.");
+                return false;
+            }
+
+            if (!_settings.IsConfigured)
+            {
+                _logger.LogError("[RADIUS] Configuration is incomplete. Server/SharedSecret/Port/Timeout must be configured.");
+                return false;
+            }
+
             try
             {
                 using var udpClient = new UdpClient();
-                udpClient.Connect(_server, _port);
+                udpClient.Connect(_settings.Server, _settings.Port);
 
                 byte code = 1; // Access-Request
-                byte identifier = (byte)new Random().Next(1, 255);
+                byte identifier = (byte)RandomNumberGenerator.GetInt32(1, 255);
                 byte[] authenticator = RandomBytes(16);
 
                 List<byte> packet = new();
-                packet.Add(code); // 1 byte
-                packet.Add(identifier); // 1 byte
-                packet.Add(0); packet.Add(0); // placeholder length (2 byte)
+                packet.Add(code);
+                packet.Add(identifier);
+                packet.Add(0);
+                packet.Add(0);
                 packet.AddRange(authenticator);
 
-                // User-Name attribute (type 1)
-                packet.Add(1); // Type
-                var userBytes = Encoding.UTF8.GetBytes(username);
-                packet.Add((byte)(userBytes.Length + 2));
-                packet.AddRange(userBytes);
+                AddStringAttribute(packet, 1, username);
 
-                // User-Password attribute (type 2)
-                packet.Add(2);
-                var encryptedPassword = EncryptPassword(password, authenticator, _sharedSecret);
+                packet.Add(2); // User-Password
+                var encryptedPassword = EncryptPassword(password, authenticator, _settings.SharedSecret);
                 packet.Add((byte)(encryptedPassword.Length + 2));
                 packet.AddRange(encryptedPassword);
 
-                // Tính lại length
                 ushort length = (ushort)packet.Count;
                 packet[2] = (byte)(length >> 8);
                 packet[3] = (byte)(length & 0xFF);
 
-                // Gửi packet
                 var packetBytes = packet.ToArray();
-                Console.WriteLine($"[RADIUS] Gửi Access-Request đến {_server}:{_port} cho user '{username}' (packet size: {packetBytes.Length} bytes)");
+                _logger.LogInformation(
+                    "[RADIUS] Sending Access-Request to {Server}:{Port} for user '{Username}' (packet size: {PacketSize} bytes)",
+                    _settings.Server,
+                    _settings.Port,
+                    username,
+                    packetBytes.Length);
+
                 await udpClient.SendAsync(packetBytes, packetBytes.Length);
 
-                // Nhận phản hồi kèm timeout
-                using var cts = new CancellationTokenSource(_timeoutMs);
+                using var cts = new CancellationTokenSource(_settings.Timeout);
                 UdpReceiveResult result;
                 try
                 {
@@ -67,41 +83,60 @@ namespace demo1.Services
                 }
                 catch (OperationCanceledException)
                 {
-                    Console.WriteLine($"[RADIUS] Timeout sau {_timeoutMs}ms - không nhận được phản hồi từ server");
+                    _logger.LogWarning(
+                        "[RADIUS] Timeout after {Timeout}ms without response from {Server}:{Port}",
+                        _settings.Timeout,
+                        _settings.Server,
+                        _settings.Port);
                     return false;
                 }
 
-                // Kiểm tra độ dài tối thiểu của RADIUS response (20 bytes header)
                 if (result.Buffer.Length < 20)
                 {
-                    Console.WriteLine($"[RADIUS] Phản hồi không hợp lệ: chỉ nhận được {result.Buffer.Length} bytes (cần tối thiểu 20)");
+                    _logger.LogWarning("[RADIUS] Invalid response length: {Length} bytes", result.Buffer.Length);
                     return false;
                 }
 
                 var responseCode = result.Buffer[0];
-                Console.WriteLine($"[RADIUS] Nhận phản hồi: code={responseCode} ({(responseCode == 2 ? "Access-Accept" : responseCode == 3 ? "Access-Reject" : "Unknown")})");
+                _logger.LogInformation(
+                    "[RADIUS] Received response code {ResponseCode} ({ResponseName})",
+                    responseCode,
+                    responseCode == 2 ? "Access-Accept" : responseCode == 3 ? "Access-Reject" : "Unknown");
 
-                return responseCode == 2; // Access-Accept
+                return responseCode == 2;
             }
             catch (SocketException ex)
             {
-                Console.WriteLine($"[RADIUS] Lỗi kết nối: {ex.Message} (SocketErrorCode: {ex.SocketErrorCode})");
+                _logger.LogError(
+                    ex,
+                    "[RADIUS] Socket error while connecting to {Server}:{Port}. SocketErrorCode: {SocketErrorCode}",
+                    _settings.Server,
+                    _settings.Port,
+                    ex.SocketErrorCode);
                 return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[RADIUS] Lỗi không xác định: {ex.Message}");
+                _logger.LogError(ex, "[RADIUS] Unexpected authentication error.");
                 return false;
             }
         }
 
-        private byte[] EncryptPassword(string password, byte[] requestAuthenticator, string secret)
+        private static void AddStringAttribute(List<byte> packet, byte type, string value)
         {
-            var pwdBytes = Encoding.UTF8.GetBytes(password);
-            // RFC 2865: password phải được pad đủ bội số 16 bytes (kể cả khi rỗng)
-            if (pwdBytes.Length % 16 != 0 || pwdBytes.Length == 0)
+            packet.Add(type);
+            var bytes = Encoding.UTF8.GetBytes(value);
+            packet.Add((byte)(bytes.Length + 2));
+            packet.AddRange(bytes);
+        }
+
+        private static byte[] EncryptPassword(string password, byte[] requestAuthenticator, string secret)
+        {
+            var passwordBytes = Encoding.UTF8.GetBytes(password);
+
+            if (passwordBytes.Length % 16 != 0 || passwordBytes.Length == 0)
             {
-                Array.Resize(ref pwdBytes, ((pwdBytes.Length / 16) + 1) * 16); // pad with 0
+                Array.Resize(ref passwordBytes, ((passwordBytes.Length / 16) + 1) * 16);
             }
 
             var secretBytes = Encoding.UTF8.GetBytes(secret);
@@ -109,13 +144,13 @@ namespace demo1.Services
             byte[] lastBlock = requestAuthenticator;
 
             using var md5 = MD5.Create();
-            for (int i = 0; i < pwdBytes.Length; i += 16)
+            for (int i = 0; i < passwordBytes.Length; i += 16)
             {
-                var b = pwdBytes.Skip(i).Take(16).ToArray();
+                var block = passwordBytes.Skip(i).Take(16).ToArray();
                 var hash = md5.ComputeHash(secretBytes.Concat(lastBlock).ToArray());
-                var xor = b.Zip(hash, (x, y) => (byte)(x ^ y)).ToArray();
-                result.AddRange(xor);
-                lastBlock = xor;
+                var encryptedBlock = block.Zip(hash, (x, y) => (byte)(x ^ y)).ToArray();
+                result.AddRange(encryptedBlock);
+                lastBlock = encryptedBlock;
             }
 
             return result.ToArray();

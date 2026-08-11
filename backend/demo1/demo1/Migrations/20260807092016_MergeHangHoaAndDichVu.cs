@@ -11,12 +11,6 @@ namespace demo1.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "DichVus");
-
-            migrationBuilder.DropTable(
-                name: "HangHoas");
-
             migrationBuilder.CreateTable(
                 name: "HangHoaDichVus",
                 columns: table => new
@@ -90,10 +84,49 @@ namespace demo1.Migrations
                         onDelete: ReferentialAction.SetNull);
                 });
 
+            migrationBuilder.Sql("""
+                INSERT INTO "HangHoaDichVus" (
+                    "Id", "IdParent", "Stt", "Loai", "DanhMucHangHoa", "KyMaHieu", "NhanHieu", "NamSanXuat",
+                    "IdXuatXu", "IdHangSanXuat", "CauHinhTinhNangKyThuatCoBan", "IdLicense", "IdDonViTinh",
+                    "KhoiLuong", "MaHS", "TenDichVu", "MoTaDichVu", "DiaDiemThucHienDichVu", "NgayBatDau",
+                    "ThoiHan", "NgayKetThuc", "NgayHoanThanhDichVu", "DonGia", "ThanhTien", "Code", "Name",
+                    "Description", "IsActive", "CreatedAt", "UpdatedAt", "IsDeleted", "DeletedAt", "DeletedByUserId"
+                )
+                SELECT
+                    "Id", "IdParent", "Stt", 1, "DanhMucHangHoa", "KyMaHieu", "NhanHieu", "NamSanXuat",
+                    "IdXuatXu", "IdHangSanXuat", "CauHinhTinhNangKyThuatCoBan", "IdLicense", "IdDonViTinh",
+                    "KhoiLuong", "MaHS", NULL, NULL, NULL, NULL, NULL, NULL, NULL, "DonGia", "ThanhTien", "Code", "Name",
+                    "Description", "IsActive", "CreatedAt", "UpdatedAt", "IsDeleted", "DeletedAt", "DeletedByUserId"
+                FROM "HangHoas";
+                """);
+
+            migrationBuilder.Sql("""
+                INSERT INTO "HangHoaDichVus" (
+                    "Id", "IdParent", "Stt", "Loai", "DanhMucHangHoa", "KyMaHieu", "NhanHieu", "NamSanXuat",
+                    "IdXuatXu", "IdHangSanXuat", "CauHinhTinhNangKyThuatCoBan", "IdLicense", "IdDonViTinh",
+                    "KhoiLuong", "MaHS", "TenDichVu", "MoTaDichVu", "DiaDiemThucHienDichVu", "NgayBatDau",
+                    "ThoiHan", "NgayKetThuc", "NgayHoanThanhDichVu", "DonGia", "ThanhTien", "Code", "Name",
+                    "Description", "IsActive", "CreatedAt", "UpdatedAt", "IsDeleted", "DeletedAt", "DeletedByUserId"
+                )
+                SELECT
+                    "Id", "IdParent", "Stt", 3, NULL, NULL, NULL, NULL,
+                    NULL, NULL, NULL, NULL, "IdDonViTinh",
+                    "KhoiLuong", NULL, "TenDichVu", "MoTaDichVu", "DiaDiemThucHienDichVu", "NgayBatDau",
+                    "ThoiHan", "NgayKetThuc", "NgayHoanThanhDichVu", "DonGia", "ThanhTien", "Code", "Name",
+                    "Description", "IsActive", "CreatedAt", "UpdatedAt", "IsDeleted", "DeletedAt", "DeletedByUserId"
+                FROM "DichVus";
+                """);
+
+            migrationBuilder.DropTable(
+                name: "DichVus");
+
+            migrationBuilder.DropTable(
+                name: "HangHoas");
+
             migrationBuilder.CreateIndex(
-                name: "IX_HangHoaDichVus_Code",
+                name: "IX_HangHoaDichVus_Loai_Code",
                 table: "HangHoaDichVus",
-                column: "Code",
+                columns: new[] { "Loai", "Code" },
                 unique: true,
                 filter: "\"IsDeleted\" = false");
 
@@ -126,9 +159,6 @@ namespace demo1.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "HangHoaDichVus");
-
             migrationBuilder.CreateTable(
                 name: "DichVus",
                 columns: table => new
@@ -273,6 +303,41 @@ namespace demo1.Migrations
                 name: "IX_HangHoas_IdXuatXu",
                 table: "HangHoas",
                 column: "IdXuatXu");
+
+            migrationBuilder.Sql("""
+                INSERT INTO "HangHoas" (
+                    "Id", "IdDonViTinh", "IdHangSanXuat", "IdLicense", "IdXuatXu", "CauHinhTinhNangKyThuatCoBan",
+                    "Code", "CreatedAt", "DanhMucHangHoa", "DeletedAt", "DeletedByUserId", "Description", "DonGia",
+                    "IdParent", "IsActive", "IsDeleted", "KhoiLuong", "KyMaHieu", "MaHS", "NamSanXuat", "Name",
+                    "NhanHieu", "Stt", "ThanhTien", "UpdatedAt"
+                )
+                SELECT
+                    "Id", "IdDonViTinh", "IdHangSanXuat", "IdLicense", "IdXuatXu", "CauHinhTinhNangKyThuatCoBan",
+                    "Code", "CreatedAt", "DanhMucHangHoa", "DeletedAt", "DeletedByUserId", "Description", "DonGia",
+                    "IdParent", "IsActive", "IsDeleted", "KhoiLuong", "KyMaHieu", "MaHS", "NamSanXuat", "Name",
+                    "NhanHieu", "Stt", "ThanhTien", "UpdatedAt"
+                FROM "HangHoaDichVus"
+                WHERE "Loai" = 1;
+                """);
+
+            migrationBuilder.Sql("""
+                INSERT INTO "DichVus" (
+                    "Id", "IdDonViTinh", "Code", "CreatedAt", "DeletedAt", "DeletedByUserId", "Description",
+                    "DiaDiemThucHienDichVu", "DonGia", "IdParent", "IsActive", "IsDeleted", "KhoiLuong",
+                    "MoTaDichVu", "Name", "NgayBatDau", "NgayHoanThanhDichVu", "NgayKetThuc", "Stt",
+                    "TenDichVu", "ThanhTien", "ThoiHan", "UpdatedAt"
+                )
+                SELECT
+                    "Id", "IdDonViTinh", "Code", "CreatedAt", "DeletedAt", "DeletedByUserId", "Description",
+                    "DiaDiemThucHienDichVu", "DonGia", "IdParent", "IsActive", "IsDeleted", "KhoiLuong",
+                    "MoTaDichVu", "Name", "NgayBatDau", "NgayHoanThanhDichVu", "NgayKetThuc", "Stt",
+                    "TenDichVu", "ThanhTien", "ThoiHan", "UpdatedAt"
+                FROM "HangHoaDichVus"
+                WHERE "Loai" = 3;
+                """);
+
+            migrationBuilder.DropTable(
+                name: "HangHoaDichVus");
         }
     }
 }

@@ -527,13 +527,17 @@ namespace demo1.Data
             // Configure HangHoaDichVu entity
             modelBuilder.Entity<HangHoaDichVu>(entity =>
             {
-                ConfigureBaseEntity(entity);
+                ConfigureBaseEntity(entity, uniqueCode: false);
 
                 entity.Property(h => h.DonGia)
                     .HasColumnType("decimal(18,2)");
 
                 entity.Property(h => h.ThanhTien)
                     .HasColumnType("decimal(18,2)");
+
+                entity.HasIndex(h => new { h.Loai, h.Code })
+                    .HasFilter("\"IsDeleted\" = false")
+                    .IsUnique();
 
                 entity.HasOne(h => h.XuatXu)
                     .WithMany()
@@ -590,7 +594,7 @@ namespace demo1.Data
             });
         }
 
-        private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder)
+        private static void ConfigureBaseEntity<TEntity>(EntityTypeBuilder<TEntity> builder, bool uniqueCode = true)
             where TEntity : BaseEntity
         {
             builder.HasKey(e => e.Id);
@@ -605,9 +609,12 @@ namespace demo1.Data
             
             builder.HasQueryFilter(entity => !entity.IsDeleted);
 
-            builder.HasIndex(entity => entity.Code)
-                .HasFilter("\"IsDeleted\" = false")
-                .IsUnique();
+            if (uniqueCode)
+            {
+                builder.HasIndex(entity => entity.Code)
+                    .HasFilter("\"IsDeleted\" = false")
+                    .IsUnique();
+            }
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

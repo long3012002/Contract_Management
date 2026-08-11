@@ -45,6 +45,12 @@ namespace demo1.DTOs
         /// </summary>
         public string Username { get; set; } = string.Empty;
 
+        public Guid? UserId { get; set; }
+
+        public string FullName { get; set; } = string.Empty;
+
+        public bool IsSystemAdmin { get; set; }
+
         /// <summary>
         /// Yêu cầu người dùng cài đặt 2FA lần đầu
         /// </summary>

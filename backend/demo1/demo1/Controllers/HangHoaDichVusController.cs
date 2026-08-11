@@ -25,9 +25,9 @@ public class HangHoaDichVusController : CrudControllerBase<HangHoaDichVuDto, Cre
     }
 
     /// <summary>
-    /// Lấy danh sách sản phẩm/dịch vụ/license theo ID của đối tượng cha, hỗ trợ lọc theo Loại (Hàng hóa, Dịch vụ, License hoặc Tất cả).
+    /// Lấy danh sách sản phẩm/dịch vụ/license theo ID Hợp đồng, hỗ trợ lọc theo Loại (Hàng hóa, Dịch vụ, License hoặc Tất cả).
     /// </summary>
-    /// <param name="idParent">Mã định danh đối tượng cha (GUID)</param>
+    /// <param name="idParent">Mã định danh Hợp đồng (GUID)</param>
     /// <param name="loai">Loại sản phẩm cần lọc: 1 = Hàng hóa, 2 = License, 3 = Dịch vụ. Nếu để trống hoặc null sẽ trả về tất cả.</param>
     /// <returns>Danh sách Hàng hóa/Dịch vụ/License</returns>
     /// <response code="200">Lấy danh sách thành công</response>
