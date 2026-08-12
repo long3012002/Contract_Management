@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,6 @@ using Microsoft.Extensions.Configuration;
 using demo1.Data;
 using demo1.Entity;
 using demo1.Services.Interfaces;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
 
@@ -52,7 +52,7 @@ namespace demo1.Services.Implements
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
-                var nextRun = now.Date.AddDays(1); // Next midnight
+                var nextRun = now.Date.AddDays(1); // Next midnight (0h)
                 var delay = nextRun - now;
                 if (delay.TotalMilliseconds <= 0)
                 {
@@ -96,8 +96,11 @@ namespace demo1.Services.Implements
 
             var today = DateTime.Today;
 
-            // Fetch active contracts
+            // Fetch active contracts with related GoiThau & DuAn
             var expiringContracts = await dbContext.HopDongs
+                .Include(h => h.DuAn)
+                .Include(h => h.GoiThau)
+                    .ThenInclude(g => g!.DuAn)
                 .Where(h => h.IsActive && h.ExpiredDate.HasValue)
                 .ToListAsync();
 
@@ -109,16 +112,6 @@ namespace demo1.Services.Implements
                     return daysRemaining <= 30;
                 })
                 .ToList();
-
-            var activeUsers = await dbContext.Users
-                .Where(u => u.IsActive)
-                .ToListAsync();
-
-            if (!activeUsers.Any())
-            {
-                _logger.LogWarning("No active users found to receive notifications.");
-                return;
-            }
 
             var notificationsToPush = new List<(string Username, Notification Notification)>();
 
@@ -153,7 +146,10 @@ namespace demo1.Services.Implements
 
                     var link = $"/contracts/{contract.Id}";
 
-                    foreach (var user in activeUsers)
+                    // Get target users (Creators, Modifiers, Viewers/Editors, Project Owner, System Admins)
+                    var targetUsers = await GetTargetUsersForContractAsync(dbContext, contract);
+
+                    foreach (var user in targetUsers)
                     {
                         var alreadyNotified = await dbContext.Notifications
                             .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
@@ -181,8 +177,9 @@ namespace demo1.Services.Implements
                 }
             }
 
-            // Scan Licenses expiring soon or already expired based on custom threshold (CanhBaoTruocNgay)
+            // Scan Licenses expiring soon or already expired
             var activeLicenses = await dbContext.Licenses
+                .Include(l => l.DuAn)
                 .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
                 .ToListAsync();
 
@@ -224,7 +221,10 @@ namespace demo1.Services.Implements
 
                     var link = $"/licenses/{license.Id}";
 
-                    foreach (var user in activeUsers)
+                    // Determine target users for License (Project Owner, System Admins, Viewers/Editors)
+                    var targetUsers = await GetTargetUsersForLicenseAsync(dbContext, license);
+
+                    foreach (var user in targetUsers)
                     {
                         var alreadyNotified = await dbContext.Notifications
                             .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
@@ -267,6 +267,153 @@ namespace demo1.Services.Implements
             }
 
             _logger.LogInformation("Finished contract & license expiration scan. Generated {Count} notifications.", notificationsToPush.Count);
+        }
+
+        public static async Task<List<User>> GetTargetUsersForContractAsync(AppDbContext dbContext, HopDong contract)
+        {
+            var targetUserIds = new HashSet<Guid>();
+
+            // 1. System Admins
+            var adminIds = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.IsSystemAdmin)
+                .Select(u => u.Id)
+                .ToListAsync();
+            foreach (var id in adminIds) targetUserIds.Add(id);
+
+            // Get associated DuAnId if available
+            Guid? duAnId = contract.DuAnId;
+            if (!duAnId.HasValue && contract.GoiThau != null)
+            {
+                duAnId = contract.GoiThau.DuAnId;
+            }
+
+            // 2. Project Owner / Creator
+            if (duAnId.HasValue && duAnId.Value != Guid.Empty)
+            {
+                var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == duAnId.Value);
+                if (duAn?.CreatedByUserId != null && duAn.CreatedByUserId.Value != Guid.Empty)
+                {
+                    targetUserIds.Add(duAn.CreatedByUserId.Value);
+                }
+            }
+
+            // 3. Creators / Modifiers from AuditLogs for this contract
+            var contractIdStr = contract.Id.ToString();
+            var auditUserStrIds = await dbContext.AuditLogs
+                .AsNoTracking()
+                .Where(a => (a.TableName == "HopDongs" || a.TableName == "HopDong") && a.EntityId == contractIdStr && a.UserId != null)
+                .Select(a => a.UserId!)
+                .Distinct()
+                .ToListAsync();
+            foreach (var uidStr in auditUserStrIds)
+            {
+                if (Guid.TryParse(uidStr, out var parsedGuid))
+                {
+                    targetUserIds.Add(parsedGuid);
+                }
+            }
+
+            // 4. Users with explicit permissions in UserPermissions for this contract or project
+            var permissionUserIds = await dbContext.UserPermissions
+                .AsNoTracking()
+                .Where(up => (duAnId.HasValue && up.DuAnId == duAnId.Value) || 
+                             (up.EntityName == "HopDong" && up.EntityId == contractIdStr))
+                .Select(up => up.UserId)
+                .Distinct()
+                .ToListAsync();
+            foreach (var id in permissionUserIds) targetUserIds.Add(id);
+
+            // 5. Related users (stakeholders) on tasks of the project
+            if (duAnId.HasValue && duAnId.Value != Guid.Empty)
+            {
+                var stakeholderUserIds = await dbContext.CongViecNguoiLienQuans
+                    .AsNoTracking()
+                    .Where(n => n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value)
+                    .Select(n => n.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in stakeholderUserIds) targetUserIds.Add(id);
+            }
+
+            var targetUsers = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && targetUserIds.Contains(u.Id))
+                .ToListAsync();
+
+            // Fallback: If no specific target users found (e.g. minimal seed data), notify active users
+            if (!targetUsers.Any())
+            {
+                targetUsers = await dbContext.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive)
+                    .ToListAsync();
+            }
+
+            return targetUsers;
+        }
+
+        private static async Task<List<User>> GetTargetUsersForLicenseAsync(AppDbContext dbContext, License license)
+        {
+            var targetUserIds = new HashSet<Guid>();
+
+            // 1. System Admins
+            var adminIds = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.IsSystemAdmin)
+                .Select(u => u.Id)
+                .ToListAsync();
+            foreach (var id in adminIds) targetUserIds.Add(id);
+
+            // 2. Project Owner
+            if (license.DuAnId != Guid.Empty)
+            {
+                var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == license.DuAnId);
+                if (duAn?.CreatedByUserId != null && duAn.CreatedByUserId.Value != Guid.Empty)
+                {
+                    targetUserIds.Add(duAn.CreatedByUserId.Value);
+                }
+            }
+
+            // 3. AuditLog Creators / Modifiers
+            var licenseIdStr = license.Id.ToString();
+            var auditUserStrIds = await dbContext.AuditLogs
+                .AsNoTracking()
+                .Where(a => (a.TableName == "Licenses" || a.TableName == "License") && a.EntityId == licenseIdStr && a.UserId != null)
+                .Select(a => a.UserId!)
+                .Distinct()
+                .ToListAsync();
+            foreach (var uidStr in auditUserStrIds)
+            {
+                if (Guid.TryParse(uidStr, out var parsedGuid))
+                {
+                    targetUserIds.Add(parsedGuid);
+                }
+            }
+
+            // 4. UserPermissions
+            var permissionUserIds = await dbContext.UserPermissions
+                .AsNoTracking()
+                .Where(up => up.DuAnId == license.DuAnId || (up.EntityName == "License" && up.EntityId == licenseIdStr))
+                .Select(up => up.UserId)
+                .Distinct()
+                .ToListAsync();
+            foreach (var id in permissionUserIds) targetUserIds.Add(id);
+
+            var targetUsers = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.IsActive && targetUserIds.Contains(u.Id))
+                .ToListAsync();
+
+            if (!targetUsers.Any())
+            {
+                targetUsers = await dbContext.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive)
+                    .ToListAsync();
+            }
+
+            return targetUsers;
         }
     }
 }

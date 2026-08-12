@@ -98,22 +98,16 @@ namespace demo1.Services.Implements
             // Fetch active payment phases where contract is active and is not paid yet
             var pendingPaymentPhases = await dbContext.DotThanhToans
                 .Include(d => d.HopDong)
+                    .ThenInclude(h => h.DuAn)
+                .Include(d => d.HopDong)
+                    .ThenInclude(h => h.GoiThau)
+                        .ThenInclude(g => g!.DuAn)
                 .Where(d => !d.IsPaid && d.NgayThanhToan.HasValue && d.HopDong != null && d.HopDong.IsActive)
                 .ToListAsync();
 
             if (!pendingPaymentPhases.Any())
             {
                 _logger.LogInformation("No pending payment tranches found.");
-                return;
-            }
-
-            var activeUsers = await dbContext.Users
-                .Where(u => u.IsActive)
-                .ToListAsync();
-
-            if (!activeUsers.Any())
-            {
-                _logger.LogWarning("No active users found to receive notifications.");
                 return;
             }
 
@@ -125,7 +119,7 @@ namespace demo1.Services.Implements
 
                 // Thresholds:
                 // 1. Overdue: daysRemaining < 0
-                // 2. Upcoming due: 0 <= daysRemaining <= 30 (warning threshold extended to 30 days)
+                // 2. Upcoming due: 0 <= daysRemaining <= 30
                 if (daysRemaining > 30)
                 {
                     continue; // Not yet due for warning
@@ -154,9 +148,12 @@ namespace demo1.Services.Implements
                     content = $"Đợt thanh toán '{phase.TenDot}' của Hợp đồng '{phase.HopDong.Name}' (Số tiền: {formattedAmount}) sắp đến hạn thanh toán (còn {daysRemaining} ngày, hạn: {formattedDate}).";
                 }
 
-                foreach (var user in activeUsers)
+                // Determine target users (Creators, Modifiers, Viewers/Editors, Project Owner, System Admins)
+                var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(dbContext, phase.HopDong);
+
+                foreach (var user in targetUsers)
                 {
-                    // Check if already notified with same link and title
+                    // Check if already notified with same link, title and content to prevent duplicates
                     var alreadyNotified = await dbContext.Notifications
                         .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.Content == content);
 
