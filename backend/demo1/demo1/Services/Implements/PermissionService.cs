@@ -35,6 +35,17 @@ namespace demo1.Services.Implements
                 var actCode = NormalizeActionCode(action);
                 if (actCode == "VIEW") return true;
 
+                // Check if user is Project Owner or Related User (Stakeholder)
+                if (Guid.TryParse(entityId, out var parsedEntityId))
+                {
+                    var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == parsedEntityId && da.CreatedByUserId == userId);
+                    if (isProjectOwner) return true;
+
+                    var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
+                        .AnyAsync(n => n.UserId == userId && (n.CongViecGoiThauId == parsedEntityId || (n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && (n.CongViecGoiThau.GoiThauId == parsedEntityId || n.CongViecGoiThau.GoiThau.DuAnId == parsedEntityId))));
+                    if (isRelatedUser) return true;
+                }
+
                 return await _context.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
@@ -441,6 +452,8 @@ namespace demo1.Services.Implements
             var currentUser = await _context.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Username == currentUsername);
 
+            var targetUserId = userId ?? currentUser?.Id;
+
             var query = _context.UserPermissions
                 .Include(up => up.User)
                 .Include(up => up.Permission)
@@ -473,8 +486,71 @@ namespace demo1.Services.Implements
             }
 
             var items = await query.OrderByDescending(up => up.GrantedAt).ToListAsync();
+            var resultList = items.Select(up => MapToUserPermissionDto(up, up.User, up.Permission, up.GrantedByUser?.Username)).ToList();
 
-            return items.Select(up => MapToUserPermissionDto(up, up.User, up.Permission, up.GrantedByUser?.Username));
+            // Total synthesis for Project Owners & Stakeholders (NguoiLienQuan) so frontend menu & route guards grant access
+            if (targetUserId.HasValue)
+            {
+                var targetUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == targetUserId.Value);
+                if (targetUser != null)
+                {
+                    var ownedDuAnIds = await _context.DuAns.AsNoTracking()
+                        .Where(da => da.CreatedByUserId == targetUserId.Value)
+                        .Select(da => da.Id)
+                        .ToListAsync();
+
+                    var relatedDuAnIds = await _context.CongViecNguoiLienQuans.AsNoTracking()
+                        .Where(n => n.UserId == targetUserId.Value && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId.HasValue)
+                        .Select(n => n.CongViecGoiThau!.GoiThau!.DuAnId!.Value)
+                        .Distinct()
+                        .ToListAsync();
+
+                    var allProjectIds = ownedDuAnIds.Concat(relatedDuAnIds).Distinct().ToList();
+
+                    if (allProjectIds.Any())
+                    {
+                        var permissionsCatalog = await _context.Permissions.AsNoTracking().ToListAsync();
+                        var featuresToGrant = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG", "CONG_VIEC" };
+
+                        foreach (var projId in allProjectIds)
+                        {
+                            foreach (var feat in featuresToGrant)
+                            {
+                                if (!string.IsNullOrWhiteSpace(featureCode) && !string.Equals(featureCode, feat, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;
+                                }
+
+                                foreach (var perm in permissionsCatalog)
+                                {
+                                    bool exists = resultList.Any(r => r.UserId == targetUserId.Value && r.FeatureCode == feat && (r.DuAnId == projId || r.EntityId == projId.ToString()) && r.PermissionCode == perm.Code);
+                                    if (!exists)
+                                    {
+                                        resultList.Add(new UserPermissionDto
+                                        {
+                                            Id = Guid.Empty,
+                                            UserId = targetUserId.Value,
+                                            Username = targetUser.Username,
+                                            UserFullName = targetUser.FullName,
+                                            PermissionId = perm.Id,
+                                            PermissionCode = perm.Code,
+                                            PermissionName = perm.Name,
+                                            FeatureCode = feat,
+                                            EntityName = feat == "DU_AN" ? "DuAn" : feat,
+                                            EntityId = projId.ToString(),
+                                            DuAnId = projId,
+                                            GrantedAt = DateTime.UtcNow,
+                                            GrantedByUsername = "System (Auto/Stakeholder)"
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return resultList;
         }
 
         public async Task<DuAnPermissionCheckDto> GetDuAnPermissionAsync(Guid userId, Guid duAnId)
@@ -495,6 +571,28 @@ namespace demo1.Services.Implements
                     DuAnId = duAnId,
                     UserId = userId,
                     IsAdmin = true,
+                    HasPermission = true,
+                    CanEdit = true,
+                    CanDelete = true,
+                    GrantedPermissionCodes = allPerms.Select(p => p.Code).ToList(),
+                    GrantedPermissionIds = allPerms.Select(p => p.Id).ToList(),
+                    RequestStatus = "Approved",
+                    RequestId = null
+                };
+            }
+
+            var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == duAnId && da.CreatedByUserId == userId);
+            var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
+                .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId);
+
+            if (isProjectOwner || isRelatedUser)
+            {
+                var allPerms = await _context.Permissions.AsNoTracking().ToListAsync();
+                return new DuAnPermissionCheckDto
+                {
+                    DuAnId = duAnId,
+                    UserId = userId,
+                    IsAdmin = false,
                     HasPermission = true,
                     CanEdit = true,
                     CanDelete = true,

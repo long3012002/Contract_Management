@@ -83,6 +83,34 @@ namespace demo1.Tests.UnitTests.Services
             result.Items[0].Code.Should().Be("MY-PROJ");
         }
 
+        [Fact]
+        public async Task GetAllAsync_Should_Return_Project_When_User_Is_Stakeholder()
+        {
+            var stakeholderUser = new User { Id = Guid.NewGuid(), Username = "stakeholder_user", IsSystemAdmin = false, IsActive = true };
+            var projectOwner = new User { Id = Guid.NewGuid(), Username = "project_owner", IsSystemAdmin = false, IsActive = true };
+            _dbContext.Users.AddRange(stakeholderUser, projectOwner);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "PROJ-STAKEHOLDER", Name = "Dự án có người liên quan", CreatedByUserId = projectOwner.Id, CreatedAt = DateTime.UtcNow };
+            _dbContext.DuAns.Add(project);
+
+            var goiThau = new GoiThau { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "GT-01", Name = "Gói thầu 1" };
+            _dbContext.GoiThaus.Add(goiThau);
+
+            var congViec = new CongViecGoiThau { Id = Guid.NewGuid(), GoiThauId = goiThau.Id, TenTaiLieu = "Công việc mẫu" };
+            _dbContext.CongViecGoiThaus.Add(congViec);
+
+            var nq = new CongViecNguoiLienQuan { Id = Guid.NewGuid(), CongViecGoiThauId = congViec.Id, UserId = stakeholderUser.Id };
+            _dbContext.CongViecNguoiLienQuans.Add(nq);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("stakeholder_user");
+
+            var result = await _duAnService.GetAllAsync(new DuAnFilterDto { Page = 1, PageSize = 10 });
+
+            result.Items.Should().HaveCount(1);
+            result.Items[0].Code.Should().Be("PROJ-STAKEHOLDER");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

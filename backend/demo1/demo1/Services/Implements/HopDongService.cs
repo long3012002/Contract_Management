@@ -56,7 +56,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
-            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
+                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -188,7 +190,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 .ThenInclude(nt => nt.NhaThau);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
-            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId));
+            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
+                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
         }
         var items = await query.ToListAsync();
         var dtos = Mapper.Map<List<HopDongDto>>(items);

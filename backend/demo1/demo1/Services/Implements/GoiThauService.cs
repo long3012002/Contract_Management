@@ -49,7 +49,9 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
             if (currentUser != null && !currentUser.IsSystemAdmin)
             {
-                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) 
+                    || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId)
+                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && (nlq.CongViecGoiThau.GoiThauId == gt.Id || (gt.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == gt.DuAnId.Value))));
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -148,7 +150,9 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             IQueryable<GoiThau> query = DbSet.AsNoTracking().Include(gt => gt.DuAn);
             if (currentUser != null && !currentUser.IsSystemAdmin)
             {
-                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId));
+                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) 
+                    || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId)
+                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && (nlq.CongViecGoiThau.GoiThauId == gt.Id || (gt.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == gt.DuAnId.Value))));
             }
             var items = await query.ToListAsync();
             var dtos = Mapper.Map<List<GoiThauDto>>(items);

@@ -57,14 +57,28 @@ namespace demo1.Controllers
             {
                 return;
             }
+            // Project Owner or Related User (Stakeholder) anywhere has full operational access to business features
+            var isProjectOwnerOrRelatedAnywhere = await IsProjectOwnerOrRelatedUserAnywhereAsync(dbUser.Id);
+            if (isProjectOwnerOrRelatedAnywhere && (_featureCode == "DU_AN" || _featureCode == "GOI_THAU" || _featureCode == "QUAN_LY_HOP_DONG" || _featureCode == "CONG_VIEC" || _featureCode == "DOI_TAC" || _featureCode == "BAO_CAO"))
+            {
+                return;
+            }
 
             var httpMethod = context.HttpContext.Request.Method.ToUpper();
 
             var routeValues = context.RouteData.Values;
             string? entityId = null;
-            if (routeValues.ContainsKey("id") && routeValues["id"] != null)
+            foreach (var key in routeValues.Keys)
             {
-                entityId = routeValues["id"]?.ToString();
+                if (key.Equals("id", StringComparison.OrdinalIgnoreCase) || key.EndsWith("Id", StringComparison.OrdinalIgnoreCase))
+                {
+                    var val = routeValues[key]?.ToString();
+                    if (!string.IsNullOrEmpty(val) && Guid.TryParse(val, out _))
+                    {
+                        entityId = val;
+                        break;
+                    }
+                }
             }
 
             Guid? duAnId = null;
@@ -92,7 +106,7 @@ namespace demo1.Controllers
                 }
             }
 
-            // 1. GET requests: check if they are project owner, or if they have VIEW permission
+            // 1. GET requests: check if they are project owner/related user, or if they have VIEW permission
             if (httpMethod == "GET")
             {
                 if (string.IsNullOrEmpty(entityId))
@@ -100,7 +114,7 @@ namespace demo1.Controllers
                     return; // Listing endpoint, handled by service-level filtering
                 }
 
-                if (await IsProjectOwnerAsync(dbUser.Id, entityId))
+                if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
                 {
                     return;
                 }
@@ -132,9 +146,18 @@ namespace demo1.Controllers
                 return;
             }
 
-            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature
+            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner / Related User
             if (httpMethod == "POST")
             {
+                if (!string.IsNullOrEmpty(entityId) && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
+                {
+                    return;
+                }
+                if (duAnId.HasValue && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, duAnId.Value.ToString()))
+                {
+                    return;
+                }
+
                 var requiredPermCode = "CREATE";
 
                 // High-performance Lookup on UserPermissions + Permission Catalog Code
@@ -163,7 +186,7 @@ namespace demo1.Controllers
                 }
             }
 
-            // Requirement: Editing/Deleting specific record requires explicit UserPermission
+            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User
             if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
             {
                 if (string.IsNullOrEmpty(entityId))
@@ -171,9 +194,9 @@ namespace demo1.Controllers
                     return;
                 }
 
-                if (await IsProjectOwnerAsync(dbUser.Id, entityId))
+                if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
                 {
-                    return; // Project Owner has unrestricted edit/delete access
+                    return; // Project Owner or Related User has unrestricted edit/delete access
                 }
 
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
@@ -208,67 +231,122 @@ namespace demo1.Controllers
             }
         }
 
-        private async Task<bool> IsProjectOwnerAsync(Guid userId, string entityIdStr)
+        private async Task<bool> IsProjectOwnerOrRelatedUserAnywhereAsync(Guid userId)
+        {
+            var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.CreatedByUserId == userId);
+            if (isOwner) return true;
+
+            var isRelated = await _dbContext.CongViecNguoiLienQuans.AsNoTracking().AnyAsync(n => n.UserId == userId);
+            if (isRelated) return true;
+
+            return false;
+        }
+
+        private async Task<bool> IsProjectOwnerOrRelatedUserAsync(Guid userId, string entityIdStr)
         {
             if (!Guid.TryParse(entityIdStr, out var entityId))
             {
                 return false;
             }
 
-            // Check DuAn
-            var isDuAnCreator = await _dbContext.DuAns.AnyAsync(da => da.Id == entityId && da.CreatedByUserId == userId);
-            if (isDuAnCreator) return true;
+            // 1. Check DuAn
+            var duAn = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == entityId);
+            if (duAn != null)
+            {
+                if (duAn.CreatedByUserId == userId) return true;
 
-            // Check GoiThau
+                var isRelatedToDuAn = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == entityId);
+                if (isRelatedToDuAn) return true;
+            }
+
+            // 2. Check GoiThau
             var goiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == entityId);
-            if (goiThau != null && goiThau.DuAnId.HasValue)
+            if (goiThau != null)
             {
-                var isOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == userId);
-                if (isOwner) return true;
+                if (goiThau.DuAnId.HasValue)
+                {
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                    if (isOwner) return true;
+                }
+
+                var isRelatedToGoiThau = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && (n.CongViecGoiThau.GoiThauId == entityId || (goiThau.DuAnId.HasValue && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == goiThau.DuAnId.Value)));
+                if (isRelatedToGoiThau) return true;
             }
 
-            // Check HopDong
+            // 3. Check HopDong
             var hopDong = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(hd => hd.Id == entityId);
-            if (hopDong != null && hopDong.DuAnId.HasValue)
+            if (hopDong != null)
             {
-                var isOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == hopDong.DuAnId.Value && da.CreatedByUserId == userId);
-                if (isOwner) return true;
+                if (hopDong.DuAnId.HasValue)
+                {
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == hopDong.DuAnId.Value && da.CreatedByUserId == userId);
+                    if (isOwner) return true;
+                }
+
+                var isRelatedToHopDong = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && (
+                        (hopDong.GoiThauId.HasValue && n.CongViecGoiThau.GoiThauId == hopDong.GoiThauId.Value) ||
+                        (hopDong.DuAnId.HasValue && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == hopDong.DuAnId.Value)
+                    ));
+                if (isRelatedToHopDong) return true;
             }
 
-            // Check CongViecGoiThau
+            // 4. Check CongViecGoiThau
             var congViec = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == entityId);
             if (congViec != null)
             {
+                var isDirectRelated = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThauId == entityId);
+                if (isDirectRelated) return true;
+
                 var parentGoiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == congViec.GoiThauId);
                 if (parentGoiThau != null && parentGoiThau.DuAnId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
                     if (isOwner) return true;
+
+                    var isRelatedInProject = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                        .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == parentGoiThau.DuAnId.Value);
+                    if (isRelatedInProject) return true;
                 }
             }
 
-            // Check CommentCongViecGoiThau
+            // 5. Check CommentCongViecGoiThau
             var comment = await _dbContext.CommentCongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(c => c.Id == entityId);
             if (comment != null)
             {
+                var isRelatedToComment = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThauId == comment.CongViecGoiThauId);
+                if (isRelatedToComment) return true;
+
                 var parentCongViec = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == comment.CongViecGoiThauId);
                 if (parentCongViec != null)
                 {
                     var parentGoiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == parentCongViec.GoiThauId);
                     if (parentGoiThau != null && parentGoiThau.DuAnId.HasValue)
                     {
-                        var isOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                        var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
                         if (isOwner) return true;
+
+                        var isRelatedInProject = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                            .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == parentGoiThau.DuAnId.Value);
+                        if (isRelatedInProject) return true;
                     }
                 }
             }
 
-            // Check License
+            // 6. Check License
             var license = await _dbContext.Licenses.AsNoTracking().FirstOrDefaultAsync(l => l.Id == entityId);
             if (license != null)
             {
-                var isOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == license.DuAnId && da.CreatedByUserId == userId);
+                var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == license.DuAnId && da.CreatedByUserId == userId);
                 if (isOwner) return true;
+
+                var isRelatedToLicense = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == license.DuAnId);
+                if (isRelatedToLicense) return true;
             }
 
             return false;

@@ -572,12 +572,20 @@ namespace demo1.Controllers
                 duAnId = hd?.DuAnId;
             }
 
-            // 2. Nếu là Chủ dự án (Project Owner) -> Có toàn quyền edit/delete đối với tất cả tài nguyên con thuộc dự án
+            // 2. Nếu là Chủ dự án (Project Owner) hoặc Người liên quan (Stakeholder) -> Có toàn quyền thao tác tài nguyên con thuộc dự án
             if (duAnId.HasValue)
             {
                 var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
                 if (isProjectOwner) return true;
+
+                var isRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value);
+                if (isRelatedUser) return true;
             }
+
+            var isDirectRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                .AnyAsync(n => n.UserId == userId && (n.CongViecGoiThauId == entityId || (featureCode == "GOI_THAU" && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == entityId)));
+            if (isDirectRelatedUser) return true;
 
             // 3. Nếu không phải chủ dự án, kiểm tra quyền chi tiết trong bảng UserPermissions (yêu cầu quyền DELETE trên thực thể cha)
             var hasPermission = await _dbContext.UserPermissions
