@@ -200,6 +200,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.User != null ? src.User.FullName : null))
                 .ForMember(dest => dest.TenPhongBan, opt => opt.MapFrom(src => src.User != null ? src.User.TenPhongBan : null))
                 .ForMember(dest => dest.TenDonVi, opt => opt.MapFrom(src => src.User != null ? src.User.TenDonVi : null))
+                .ForMember(dest => dest.TenChucVu, opt => opt.MapFrom(src => src.User != null ? src.User.TenChucVu : null))
                 .ForMember(dest => dest.SoGioConLai, opt => opt.MapFrom(src => (src.HanXacNhanAt - DateTime.UtcNow).TotalHours > 0 ? Math.Round((src.HanXacNhanAt - DateTime.UtcNow).TotalHours, 1) : 0))
                 .ForMember(dest => dest.IsOverdue, opt => opt.MapFrom(src => (src.TrangThaiXacNhan == "Pending" && DateTime.UtcNow > src.HanXacNhanAt) || src.TrangThaiXacNhan == "Overdue"));
 

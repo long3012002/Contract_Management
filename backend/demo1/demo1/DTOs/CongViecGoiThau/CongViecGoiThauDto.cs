@@ -20,6 +20,8 @@ public class CongViecNguoiLienQuanDto
     public string? TenPhongBan { get; set; }
     /// <summary>Tên đơn vị của người liên quan, lấy trực tiếp từ User entity.</summary>
     public string? TenDonVi { get; set; }
+    /// <summary>Tên chức vụ của người liên quan, lấy trực tiếp từ User entity.</summary>
+    public string? TenChucVu { get; set; }
 }
 
 public class ForwardStakeholdersRequestDto
