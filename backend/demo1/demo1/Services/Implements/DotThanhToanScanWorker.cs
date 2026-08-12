@@ -38,6 +38,16 @@ namespace demo1.Services.Implements
         {
             _logger.LogInformation("DotThanhToanScanWorker started.");
 
+            // Run initial scan immediately upon startup
+            try
+            {
+                await ScanAndNotifyAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during initial payment tranche scan on startup.");
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
@@ -56,8 +66,8 @@ namespace demo1.Services.Implements
                     if (testIntervalMinutes.HasValue && testIntervalMinutes.Value > 0)
                     {
                         _logger.LogInformation("Testing mode enabled for DotThanhToanScanWorker: running every {Minutes} minutes.", testIntervalMinutes.Value);
-                        await ScanAndNotifyAsync();
                         await Task.Delay(TimeSpan.FromMinutes(testIntervalMinutes.Value), stoppingToken);
+                        await ScanAndNotifyAsync();
                         continue;
                     }
 
@@ -115,8 +125,8 @@ namespace demo1.Services.Implements
 
                 // Thresholds:
                 // 1. Overdue: daysRemaining < 0
-                // 2. Upcoming due: 0 <= daysRemaining <= 7
-                if (daysRemaining > 7)
+                // 2. Upcoming due: 0 <= daysRemaining <= 30 (warning threshold extended to 30 days)
+                if (daysRemaining > 30)
                 {
                     continue; // Not yet due for warning
                 }
@@ -146,7 +156,7 @@ namespace demo1.Services.Implements
 
                 foreach (var user in activeUsers)
                 {
-                    // Check if already notified with same link, title and content
+                    // Check if already notified with same link and title
                     var alreadyNotified = await dbContext.Notifications
                         .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.Content == content);
 

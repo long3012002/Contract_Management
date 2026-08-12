@@ -39,30 +39,40 @@ namespace demo1.Services.Implements
         {
             _logger.LogInformation("ContractScanWorker started.");
 
+            // Run initial scan immediately upon startup
+            try
+            {
+                await ScanAndNotifyAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during initial contract expiration scan on startup.");
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Calculate time to next 0h (midnight)
                 var now = DateTime.Now;
                 var nextRun = now.Date.AddDays(1); // Next midnight
                 var delay = nextRun - now;
+                if (delay.TotalMilliseconds <= 0)
+                {
+                    delay = TimeSpan.FromHours(24);
+                }
 
                 _logger.LogInformation("Next contract scan scheduled at {NextRun} (in {DelayHours:F2} hours).", nextRun, delay.TotalHours);
 
                 try
                 {
-                    // For testing, check if there is a dev setting to run immediately or run frequently
                     var testIntervalMinutes = _configuration.GetValue<int?>("ContractScan:TestIntervalMinutes");
                     if (testIntervalMinutes.HasValue && testIntervalMinutes.Value > 0)
                     {
                         _logger.LogInformation("Testing mode enabled: running contract scan every {Minutes} minutes.", testIntervalMinutes.Value);
-                        await ScanAndNotifyAsync();
                         await Task.Delay(TimeSpan.FromMinutes(testIntervalMinutes.Value), stoppingToken);
+                        await ScanAndNotifyAsync();
                         continue;
                     }
                     
                     await Task.Delay(delay, stoppingToken);
-
-                    // Run the scan
                     await ScanAndNotifyAsync();
                 }
                 catch (TaskCanceledException)
@@ -72,7 +82,6 @@ namespace demo1.Services.Implements
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred during contract expiration scan.");
-                    // In case of error, wait 1 hour before retrying to prevent rapid loops
                     await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
                 }
             }
@@ -84,7 +93,6 @@ namespace demo1.Services.Implements
 
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
 
             var today = DateTime.Today;
 
@@ -93,24 +101,15 @@ namespace demo1.Services.Implements
                 .Where(h => h.IsActive && h.ExpiredDate.HasValue)
                 .ToListAsync();
 
-            // Filter contracts with 3 days or less remaining, but not already expired
+            // Filter contracts expiring in <= 30 days OR already expired (< 0)
             var contractsToWarn = expiringContracts
                 .Where(h =>
                 {
                     var daysRemaining = (h.ExpiredDate!.Value.Date - today).Days;
-                    return daysRemaining <= 3 && daysRemaining >= 0;
+                    return daysRemaining <= 30;
                 })
                 .ToList();
 
-            if (!contractsToWarn.Any())
-            {
-                _logger.LogInformation("No contracts found expiring in 3 days or less.");
-                return;
-            }
-
-            _logger.LogInformation("Found {Count} contracts expiring in 3 days or less.", contractsToWarn.Count);
-
-            // Fetch all active users to notify
             var activeUsers = await dbContext.Users
                 .Where(u => u.IsActive)
                 .ToListAsync();
@@ -123,104 +122,57 @@ namespace demo1.Services.Implements
 
             var notificationsToPush = new List<(string Username, Notification Notification)>();
 
-            foreach (var contract in contractsToWarn)
+            if (contractsToWarn.Any())
             {
-                var daysRemaining = (contract.ExpiredDate!.Value.Date - today).Days;
-                _logger.LogInformation("[ContractScan] Phát hiện hợp đồng sắp hết hạn: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", contract.Code, contract.Name, contract.ExpiredDate.Value, daysRemaining);
-                
-                var title = "Hợp đồng: Sắp hết hạn";
-                var content = $"Hợp đồng '{contract.Name}' sắp hết hạn (còn {daysRemaining} ngày).";
-                var link = $"/contracts/{contract.Id}";
+                _logger.LogInformation("Found {Count} contracts expiring soon or already expired.", contractsToWarn.Count);
 
-                foreach (var user in activeUsers)
+                foreach (var contract in contractsToWarn)
                 {
-                    // Check if this user has already been notified about this contract
-                    var alreadyNotified = await dbContext.Notifications
-                        .AnyAsync(n => n.UserId == user.Id && n.Link == link);
+                    var daysRemaining = (contract.ExpiredDate!.Value.Date - today).Days;
+                    _logger.LogInformation("[ContractScan] Phát hiện hợp đồng: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", contract.Code, contract.Name, contract.ExpiredDate.Value, daysRemaining);
+                    
+                    string title;
+                    string content;
 
-                    if (alreadyNotified)
+                    if (daysRemaining < 0)
                     {
-                        _logger.LogInformation("[ContractScan] User {Username} đã nhận được cảnh báo cho hợp đồng {Code} trước đó. Bỏ qua.", user.Username, contract.Code);
-                        continue;
+                        var daysOverdue = Math.Abs(daysRemaining);
+                        title = "Hợp đồng: Đã hết hạn";
+                        content = $"Hợp đồng '{contract.Name}' (Mã: {contract.Code}) đã hết hạn {daysOverdue} ngày (ngày hết hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}).";
+                    }
+                    else if (daysRemaining == 0)
+                    {
+                        title = "Hợp đồng: Hết hạn hôm nay";
+                        content = $"Hợp đồng '{contract.Name}' (Mã: {contract.Code}) hết hạn hôm nay ({contract.ExpiredDate.Value:dd/MM/yyyy}).";
+                    }
+                    else
+                    {
+                        title = "Hợp đồng: Sắp hết hạn";
+                        content = $"Hợp đồng '{contract.Name}' (Mã: {contract.Code}) sắp hết hạn (còn {daysRemaining} ngày, hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}).";
                     }
 
-                    _logger.LogInformation("[ContractScan] Đang tạo thông báo hệ thống và gửi email cho user {Username} ({Email}) về hợp đồng {Code}", user.Username, user.Email ?? "Không có email", contract.Code);
-
-                    // 1. Create System Notification
-                    var notification = new Notification
-                    {
-                        Title = title,
-                        Content = content,
-                        Link = link,
-                        UserId = user.Id,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    dbContext.Notifications.Add(notification);
-                    notificationsToPush.Add((user.Username, notification));
-
-                    // 2. Send Email (Commented out as requested)
-                    /*
-                    if (!string.IsNullOrWhiteSpace(user.Email))
-                    {
-                        var emailBody = $@"
-                            <h3>Thông báo hết hạn hợp đồng</h3>
-                            <p>Xin chào <strong>{user.FullName}</strong>,</p>
-                            <p>Hệ thống quản lý hợp đồng Coopbank xin thông báo:</p>
-                            <ul>
-                                <li><strong>Tên hợp đồng:</strong> {contract.Name}</li>
-                                <li><strong>Mã hợp đồng:</strong> {contract.Code}</li>
-                                <li><strong>Ngày hết hạn:</strong> {contract.ExpiredDate!.Value:dd/MM/yyyy}</li>
-                                <li><strong>Thời gian còn lại:</strong> {daysRemaining} ngày</li>
-                            </ul>
-                            <p>Vui lòng truy cập hệ thống để kiểm tra và thực hiện gia hạn nếu cần thiết.</p>
-                            <hr/>
-                            <p>Đây là email tự động từ hệ thống, vui lòng không trả lời email này.</p>";
-
-                        // Await sending email in background task to avoid blocking the loop
-                        _ = emailService.SendEmailAsync(user.Email, $"[Cảnh báo Hợp đồng] {contract.Name} sắp hết hạn", emailBody);
-                    }
-                    */
-                }
-            }
-
-            // Scan Licenses expiring soon based on their custom warning threshold (CanhBaoTruocNgay)
-            var activeLicenses = await dbContext.Licenses
-                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
-                .ToListAsync();
-
-            var licensesToWarn = activeLicenses
-                .Where(l =>
-                {
-                    var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
-                    return daysRemaining <= l.CanhBaoTruocNgay && daysRemaining >= 0;
-                })
-                .ToList();
-
-            if (licensesToWarn.Any())
-            {
-                _logger.LogInformation("Found {Count} licenses expiring within warning threshold.", licensesToWarn.Count);
-                foreach (var license in licensesToWarn)
-                {
-                    var daysRemaining = (license.NgayKetThuc!.Value.Date - today).Days;
-                    _logger.LogInformation("[LicenseScan] Phát hiện License sắp hết hạn: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", license.Code, license.Name, license.NgayKetThuc.Value, daysRemaining);
-
-                    var title = "License: Sắp hết hạn";
-                    var content = $"License '{license.Name}' sắp hết hạn (còn {daysRemaining} ngày).";
-                    var link = $"/licenses/{license.Id}";
+                    var link = $"/contracts/{contract.Id}";
 
                     foreach (var user in activeUsers)
                     {
                         var alreadyNotified = await dbContext.Notifications
-                            .AnyAsync(n => n.UserId == user.Id && n.Link == link);
+                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
 
-                        if (alreadyNotified) continue;
+                        if (alreadyNotified)
+                        {
+                            continue;
+                        }
+
+                        _logger.LogInformation("[ContractScan] Đang tạo thông báo hệ thống cho user {Username} về hợp đồng {Code}", user.Username, contract.Code);
 
                         var notification = new Notification
                         {
+                            Id = Guid.NewGuid(),
                             Title = title,
                             Content = content,
                             Link = link,
                             UserId = user.Id,
+                            IsRead = false,
                             CreatedAt = DateTime.UtcNow
                         };
                         dbContext.Notifications.Add(notification);
@@ -229,24 +181,92 @@ namespace demo1.Services.Implements
                 }
             }
 
-            await dbContext.SaveChangesAsync();
+            // Scan Licenses expiring soon or already expired based on custom threshold (CanhBaoTruocNgay)
+            var activeLicenses = await dbContext.Licenses
+                .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
+                .ToListAsync();
 
-            // Push real-time notifications via SignalR
-            foreach (var item in notificationsToPush)
-            {
-                _logger.LogInformation("[ContractScan] Đang push realtime thông báo cho user {Username} qua SignalR", item.Username);
-                await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", new
+            var licensesToWarn = activeLicenses
+                .Where(l =>
                 {
-                    item.Notification.Id,
-                    item.Notification.Title,
-                    item.Notification.Content,
-                    item.Notification.Link,
-                    item.Notification.IsRead,
-                    item.Notification.CreatedAt
-                });
+                    var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
+                    return daysRemaining <= l.CanhBaoTruocNgay;
+                })
+                .ToList();
+
+            if (licensesToWarn.Any())
+            {
+                _logger.LogInformation("Found {Count} licenses expiring or already expired.", licensesToWarn.Count);
+                foreach (var license in licensesToWarn)
+                {
+                    var daysRemaining = (license.NgayKetThuc!.Value.Date - today).Days;
+                    _logger.LogInformation("[LicenseScan] Phát hiện License: Mã={Code}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", license.Code, license.Name, license.NgayKetThuc.Value, daysRemaining);
+
+                    string title;
+                    string content;
+
+                    if (daysRemaining < 0)
+                    {
+                        var daysOverdue = Math.Abs(daysRemaining);
+                        title = "License: Đã hết hạn";
+                        content = $"License '{license.Name}' (Mã: {license.Code}) đã hết hạn {daysOverdue} ngày (ngày hết hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}).";
+                    }
+                    else if (daysRemaining == 0)
+                    {
+                        title = "License: Hết hạn hôm nay";
+                        content = $"License '{license.Name}' (Mã: {license.Code}) hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy}).";
+                    }
+                    else
+                    {
+                        title = "License: Sắp hết hạn";
+                        content = $"License '{license.Name}' (Mã: {license.Code}) sắp hết hạn (còn {daysRemaining} ngày).";
+                    }
+
+                    var link = $"/licenses/{license.Id}";
+
+                    foreach (var user in activeUsers)
+                    {
+                        var alreadyNotified = await dbContext.Notifications
+                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+
+                        if (alreadyNotified) continue;
+
+                        var notification = new Notification
+                        {
+                            Id = Guid.NewGuid(),
+                            Title = title,
+                            Content = content,
+                            Link = link,
+                            UserId = user.Id,
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        dbContext.Notifications.Add(notification);
+                        notificationsToPush.Add((user.Username, notification));
+                    }
+                }
             }
 
-            _logger.LogInformation("Finished contract & license expiration scan. Notifications generated.");
+            if (notificationsToPush.Any())
+            {
+                await dbContext.SaveChangesAsync();
+
+                foreach (var item in notificationsToPush)
+                {
+                    _logger.LogInformation("[ContractScan] Đang push realtime thông báo cho user {Username} qua SignalR", item.Username);
+                    await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", new
+                    {
+                        id = item.Notification.Id,
+                        title = item.Notification.Title,
+                        content = item.Notification.Content,
+                        link = item.Notification.Link,
+                        isRead = item.Notification.IsRead,
+                        createdAt = item.Notification.CreatedAt
+                    });
+                }
+            }
+
+            _logger.LogInformation("Finished contract & license expiration scan. Generated {Count} notifications.", notificationsToPush.Count);
         }
     }
 }

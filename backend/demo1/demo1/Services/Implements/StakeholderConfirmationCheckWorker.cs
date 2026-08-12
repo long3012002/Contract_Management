@@ -38,6 +38,16 @@ namespace demo1.Services.Implements
         {
             _logger.LogInformation("StakeholderConfirmationCheckWorker started.");
 
+            // Run initial check immediately on startup
+            try
+            {
+                await CheckAndNotifyStakeholdersAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during initial stakeholder check on startup.");
+            }
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 var now = DateTime.Now;
