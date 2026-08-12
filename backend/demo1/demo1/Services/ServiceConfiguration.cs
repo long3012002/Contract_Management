@@ -240,6 +240,7 @@ public static class ServiceConfiguration
         services.AddHostedService<AuditLogRetentionWorker>();
         services.AddHostedService<ContractScanWorker>();
         services.AddHostedService<StakeholderConfirmationCheckWorker>();
+        services.AddHostedService<DotThanhToanScanWorker>();
         services.AddSignalR();
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CustomUserIdProvider>();
 
