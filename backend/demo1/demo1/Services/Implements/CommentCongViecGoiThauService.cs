@@ -134,6 +134,9 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     Title = "Bình luận: Được nhắc tên",
                     Content = $"{user.FullName} đã nhắc đến bạn trong '{congViec.TenTaiLieu}'",
                     Link = $"/goi-thau/cong-viec/{congViec.Id}",
+                    FeatureCode = "CONG_VIEC",
+                    EntityName = "CongViecGoiThau",
+                    EntityId = congViec.Id.ToString(),
                     UserId = mUser.Id,
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow
@@ -159,6 +162,9 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     Title = "Bình luận: Phản hồi mới",
                     Content = $"{user.FullName} đã trả lời bình luận của bạn trong '{congViec.TenTaiLieu}'",
                     Link = $"/goi-thau/cong-viec/{congViec.Id}",
+                    FeatureCode = "CONG_VIEC",
+                    EntityName = "CongViecGoiThau",
+                    EntityId = congViec.Id.ToString(),
                     UserId = parentComment.UserId,
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow

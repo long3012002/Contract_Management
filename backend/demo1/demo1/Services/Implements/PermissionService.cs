@@ -46,12 +46,13 @@ namespace demo1.Services.Implements
                     if (isRelatedUser) return true;
                 }
 
+                var normFeatureCode = NormalizeFeatureCode(featureCode);
                 return await _context.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == userId &&
-                        (string.IsNullOrEmpty(featureCode) || up.FeatureCode == featureCode) &&
+                        (string.IsNullOrEmpty(normFeatureCode) || up.FeatureCode == normFeatureCode || (normFeatureCode == "DU_AN" && up.FeatureCode == "PROJECT")) &&
                         (string.IsNullOrEmpty(entityName) || up.EntityName.ToLower() == entityName.ToLower()) &&
                         up.EntityId == entityId &&
                         up.Permission != null && up.Permission.Code == actCode);
@@ -277,6 +278,9 @@ namespace demo1.Services.Implements
                 UserId = request.UserId,
                 Title = $"Quyền truy cập: { (dto.IsApproved ? "Được duyệt" : "Bị từ chối") }",
                 Content = $"Yêu cầu quyền truy cập '{request.EntityTitle}' đã {notiStatusText}.{(!string.IsNullOrEmpty(dto.ReviewNote) ? $" Ghi chú: {dto.ReviewNote}" : "")}",
+                FeatureCode = "PERMISSION_REQUEST",
+                EntityName = "PermissionRequest",
+                EntityId = request.Id.ToString(),
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
             };
@@ -446,7 +450,7 @@ namespace demo1.Services.Implements
             return true;
         }
 
-        public async Task<IEnumerable<UserPermissionDto>> GetUserPermissionsAsync(Guid? userId, string? featureCode)
+        public async Task<IEnumerable<UserPermissionDto>> GetUserPermissionsAsync(Guid? userId, string? featureCode, bool includeChildren = true)
         {
             var currentUsername = _currentUserService.GetUsername();
             var currentUser = await _context.Users.AsNoTracking()
@@ -480,9 +484,29 @@ namespace demo1.Services.Implements
                 query = query.Where(up => up.UserId == userId.Value);
             }
 
-            if (!string.IsNullOrWhiteSpace(featureCode))
+            var rawFeatureCode = featureCode?.Trim();
+            var normalizedFeatureCode = NormalizeFeatureCode(featureCode);
+            if (!string.IsNullOrWhiteSpace(rawFeatureCode))
             {
-                query = query.Where(up => up.FeatureCode == featureCode);
+                if (includeChildren && normalizedFeatureCode == "DU_AN")
+                {
+                    var parentAndChildren = new[] { "DU_AN", "PROJECT", "DUAN", "GOI_THAU", "PACKAGE", "GOITHAU", "QUAN_LY_HOP_DONG", "CONTRACT", "HOPDONG", "CONG_VIEC", "TASK", "CONGVIEC" };
+                    query = query.Where(up => parentAndChildren.Contains(up.FeatureCode.ToUpper()));
+                }
+                else
+                {
+                    query = query.Where(up => 
+                        up.FeatureCode == normalizedFeatureCode || 
+                        up.FeatureCode.ToLower() == rawFeatureCode.ToLower() || 
+                        (normalizedFeatureCode == "DU_AN" && (up.FeatureCode == "PROJECT" || up.FeatureCode == "DU_AN")) ||
+                        (normalizedFeatureCode == "GOI_THAU" && (up.FeatureCode == "PACKAGE" || up.FeatureCode == "GOITHAU" || up.FeatureCode == "GOI_THAU")) ||
+                        (normalizedFeatureCode == "QUAN_LY_HOP_DONG" && (up.FeatureCode == "CONTRACT" || up.FeatureCode == "HOPDONG" || up.FeatureCode == "HOP_DONG" || up.FeatureCode == "QUAN_LY_HOP_DONG")) ||
+                        (normalizedFeatureCode == "CONG_VIEC" && (up.FeatureCode == "TASK" || up.FeatureCode == "CONGVIEC" || up.FeatureCode == "CONG_VIEC")) ||
+                        (normalizedFeatureCode == "LICENSE" && (up.FeatureCode == "BAN_QUYEN" || up.FeatureCode == "LICENSE")) ||
+                        (normalizedFeatureCode == "DOI_TAC" && (up.FeatureCode == "PARTNER" || up.FeatureCode == "DOI_TAC")) ||
+                        (normalizedFeatureCode == "BAO_CAO" && (up.FeatureCode == "REPORT" || up.FeatureCode == "BAO_CAO"))
+                    );
+                }
             }
 
             var items = await query.OrderByDescending(up => up.GrantedAt).ToListAsync();
@@ -516,9 +540,27 @@ namespace demo1.Services.Implements
                         {
                             foreach (var feat in featuresToGrant)
                             {
-                                if (!string.IsNullOrWhiteSpace(featureCode) && !string.Equals(featureCode, feat, StringComparison.OrdinalIgnoreCase))
+                                if (!string.IsNullOrWhiteSpace(rawFeatureCode))
                                 {
-                                    continue;
+                                    bool isMatch;
+                                    if (includeChildren && normalizedFeatureCode == "DU_AN")
+                                    {
+                                        isMatch = true;
+                                    }
+                                    else
+                                    {
+                                        isMatch = string.Equals(normalizedFeatureCode, feat, StringComparison.OrdinalIgnoreCase) ||
+                                                   string.Equals(rawFeatureCode, feat, StringComparison.OrdinalIgnoreCase) ||
+                                                   (feat == "DU_AN" && (string.Equals(rawFeatureCode, "PROJECT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "DUAN", StringComparison.OrdinalIgnoreCase))) ||
+                                                   (feat == "GOI_THAU" && (string.Equals(rawFeatureCode, "PACKAGE", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "GOITHAU", StringComparison.OrdinalIgnoreCase))) ||
+                                                   (feat == "QUAN_LY_HOP_DONG" && (string.Equals(rawFeatureCode, "CONTRACT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "HOPDONG", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "HOP_DONG", StringComparison.OrdinalIgnoreCase))) ||
+                                                   (feat == "CONG_VIEC" && (string.Equals(rawFeatureCode, "TASK", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "CONGVIEC", StringComparison.OrdinalIgnoreCase)));
+                                    }
+
+                                    if (!isMatch)
+                                    {
+                                        continue;
+                                    }
                                 }
 
                                 foreach (var perm in permissionsCatalog)
@@ -551,6 +593,44 @@ namespace demo1.Services.Implements
             }
 
             return resultList;
+        }
+
+        public async Task<IEnumerable<GroupedUserPermissionDto>> GetGroupedUserPermissionsAsync(Guid? userId, string? featureCode, bool includeChildren = true)
+        {
+            var flatPermissions = await GetUserPermissionsAsync(userId, featureCode, includeChildren);
+            var featureCatalog = (await GetFeatureCatalogAsync()).ToList();
+            var featureMap = featureCatalog.ToDictionary(f => f.Code, StringComparer.OrdinalIgnoreCase);
+
+            var groupedDict = new Dictionary<string, GroupedUserPermissionDto>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var perm in flatPermissions)
+            {
+                var normCode = NormalizeFeatureCode(perm.FeatureCode);
+                if (string.IsNullOrEmpty(normCode)) normCode = perm.FeatureCode;
+
+                if (!groupedDict.TryGetValue(normCode, out var group))
+                {
+                    var featInfo = featureMap.TryGetValue(normCode, out var info) ? info : null;
+                    group = new GroupedUserPermissionDto
+                    {
+                        FeatureCode = normCode,
+                        FeatureName = featInfo?.Name ?? normCode,
+                        IsParent = (normCode == "DU_AN"),
+                        ParentFeatureCode = (normCode == "GOI_THAU" || normCode == "QUAN_LY_HOP_DONG" || normCode == "CONG_VIEC") ? "DU_AN" : null,
+                        Permissions = new List<UserPermissionDto>()
+                    };
+                    groupedDict[normCode] = group;
+                }
+
+                group.Permissions.Add(perm);
+            }
+
+            var sortedGroups = groupedDict.Values
+                .OrderByDescending(g => g.IsParent)
+                .ThenBy(g => g.FeatureCode)
+                .ToList();
+
+            return sortedGroups;
         }
 
         public async Task<DuAnPermissionCheckDto> GetDuAnPermissionAsync(Guid userId, Guid duAnId)
@@ -646,6 +726,81 @@ namespace demo1.Services.Implements
                 Name = p.Name,
                 Description = p.Description
             });
+        }
+
+        public async Task<IEnumerable<FeatureCatalogDto>> GetFeatureCatalogAsync()
+        {
+            var features = new List<FeatureCatalogDto>
+            {
+                new FeatureCatalogDto
+                {
+                    Code = "DU_AN",
+                    Name = "Quản lý Dự án",
+                    Description = "Tính năng quản lý thông tin các dự án công nghệ thông tin và đầu tư",
+                    Aliases = new List<string> { "PROJECT", "PROJECTS", "DUAN" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "GOI_THAU",
+                    Name = "Quản lý Gói thầu",
+                    Description = "Tính năng quản lý các gói thầu và công việc liên quan trong dự án",
+                    Aliases = new List<string> { "PACKAGE", "PACKAGES", "GOITHAU" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "QUAN_LY_HOP_DONG",
+                    Name = "Quản lý Hợp đồng",
+                    Description = "Tính năng quản lý hợp đồng, giá trị hợp đồng, phụ lục và đợt thanh toán",
+                    Aliases = new List<string> { "CONTRACT", "CONTRACTS", "HOPDONG", "HOP_DONG", "QUANLYHOPDONG" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "CONG_VIEC",
+                    Name = "Quản lý Công việc",
+                    Description = "Tính năng quản lý chi tiết các hạng mục công việc gói thầu",
+                    Aliases = new List<string> { "TASK", "TASKS", "CONGVIEC" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "DOI_TAC",
+                    Name = "Quản lý Đối tác / Nhà thầu",
+                    Description = "Tính năng quản lý thông tin nhà thầu, đối tác cung cấp dịch vụ",
+                    Aliases = new List<string> { "PARTNER", "PARTNERS", "DOITAC" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "BAO_CAO",
+                    Name = "Báo cáo & Thống kê",
+                    Description = "Tính năng tổng hợp báo cáo tình hình dự án, hợp đồng và tiến độ",
+                    Aliases = new List<string> { "REPORT", "REPORTS", "BAOCAO" }
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "LICENSE",
+                    Name = "Quản lý Bản quyền / License",
+                    Description = "Tính năng quản lý thông tin bản quyền phần mềm, hạn sử dụng license",
+                    Aliases = new List<string> { "LICENSES", "BANQUYEN", "BAN_QUYEN" }
+                }
+            };
+
+            return await Task.FromResult(features);
+        }
+
+        public static string NormalizeFeatureCode(string? featureCode)
+        {
+            if (string.IsNullOrWhiteSpace(featureCode)) return string.Empty;
+            var code = featureCode.Trim().ToUpper();
+            return code switch
+            {
+                "PROJECT" or "PROJECTS" or "DUAN" => "DU_AN",
+                "GOITHAU" or "PACKAGE" or "PACKAGES" => "GOI_THAU",
+                "CONTRACT" or "CONTRACTS" or "HOPDONG" or "HOP_DONG" or "QUANLYHOPDONG" => "QUAN_LY_HOP_DONG",
+                "TASK" or "TASKS" or "CONGVIEC" => "CONG_VIEC",
+                "PARTNER" or "PARTNERS" or "DOITAC" => "DOI_TAC",
+                "REPORT" or "REPORTS" or "BAOCAO" => "BAO_CAO",
+                "LICENSE" or "LICENSES" or "BANQUYEN" => "LICENSE",
+                _ => code
+            };
         }
 
         private static string NormalizeActionCode(string action)

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using demo1.Data;
 
-namespace demo1.Services.Implements
+namespace demo1.Services.Workers
 {
     public class AuditLogRetentionWorker : BackgroundService
     {

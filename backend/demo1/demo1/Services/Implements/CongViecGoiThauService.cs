@@ -565,6 +565,9 @@ public class CongViecGoiThauService
                     Title = "Xác nhận: Công việc",
                     Content = $"Thành viên {record.User?.FullName ?? record.User?.Username ?? "Ẩn danh"} đã xác nhận công việc '{task.TenTaiLieu}'.",
                     Link = $"/bid-packages/{task.GoiThauId}",
+                    FeatureCode = "CONG_VIEC",
+                    EntityName = "CongViecGoiThau",
+                    EntityId = task.Id.ToString(),
                     UserId = targetUser.Id,
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow
@@ -683,6 +686,9 @@ public class CongViecGoiThauService
                         Title = "Công việc: Giao việc mới",
                         Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
                         Link = $"/bid-packages/{task.GoiThauId}",
+                        FeatureCode = "CONG_VIEC",
+                        EntityName = "CongViecGoiThau",
+                        EntityId = task.Id.ToString(),
                         UserId = targetUser.Id,
                         IsRead = false,
                         CreatedAt = DateTime.UtcNow
@@ -717,6 +723,9 @@ public class CongViecGoiThauService
                 Title = "Công việc: Giao việc mới",
                 Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
                 Link = $"/bid-packages/{task.GoiThauId}",
+                FeatureCode = "CONG_VIEC",
+                EntityName = "CongViecGoiThau",
+                EntityId = task.Id.ToString(),
                 UserId = targetUser.Id,
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow

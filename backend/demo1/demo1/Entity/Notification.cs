@@ -8,6 +8,9 @@ namespace demo1.Entity
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string? Link { get; set; }
+        public string FeatureCode { get; set; } = string.Empty;
+        public string? EntityName { get; set; }
+        public string? EntityId { get; set; }
         public bool IsRead { get; set; } = false;
         public Guid? UserId { get; set; }
         public virtual User? User { get; set; }

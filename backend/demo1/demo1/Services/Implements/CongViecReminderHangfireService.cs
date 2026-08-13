@@ -144,6 +144,9 @@ namespace demo1.Services.Implements
                     Title = "Nhắc nhở: Công việc",
                     Content = $"{customMessage} trong '{taskTitle}'.",
                     Link = link,
+                    FeatureCode = "CONG_VIEC",
+                    EntityName = "CongViecGoiThau",
+                    EntityId = record.CongViecGoiThauId.ToString(),
                     UserId = record.UserId,
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow
@@ -158,6 +161,9 @@ namespace demo1.Services.Implements
                     title = notification.Title,
                     content = notification.Content,
                     link = notification.Link,
+                    featureCode = notification.FeatureCode,
+                    entityName = notification.EntityName,
+                    entityId = notification.EntityId,
                     isRead = notification.IsRead,
                     createdAt = notification.CreatedAt
                 });
@@ -196,6 +202,9 @@ namespace demo1.Services.Implements
                     Title = "Cảnh báo: Quá hạn công việc",
                     Content = $"Công việc '{taskTitle}' đã quá hạn ({formattedDeadline}).",
                     Link = link,
+                    FeatureCode = "CONG_VIEC",
+                    EntityName = "CongViecGoiThau",
+                    EntityId = record.CongViecGoiThauId.ToString(),
                     UserId = record.UserId,
                     IsRead = false,
                     CreatedAt = DateTime.UtcNow
@@ -208,6 +217,9 @@ namespace demo1.Services.Implements
                     title = notification.Title,
                     content = notification.Content,
                     link = notification.Link,
+                    featureCode = notification.FeatureCode,
+                    entityName = notification.EntityName,
+                    entityId = notification.EntityId,
                     isRead = notification.IsRead,
                     createdAt = notification.CreatedAt
                 });
@@ -238,6 +250,9 @@ namespace demo1.Services.Implements
                             Title = "Quá hạn: Người liên quan",
                             Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
                             Link = link,
+                            FeatureCode = "CONG_VIEC",
+                            EntityName = "CongViecGoiThau",
+                            EntityId = record.CongViecGoiThauId.ToString(),
                             UserId = targetUser.Id,
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow

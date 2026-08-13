@@ -10,10 +10,12 @@ using demo1.Data;
 using demo1.Entity;
 using demo1.DTOs;
 
+using demo1.Services.Implements;
+
 namespace demo1.Controllers
 {
     /// <summary>
-    /// API Thông báo Cá nhân (Xem danh sách thông báo, Đánh dấu đã đọc một hoặc tất cả thông báo).
+    /// API Thông báo Cá nhân (Xem danh sách thông báo, Đánh dấu đã đọc một hoặc tất cả thông báo, Thống kê theo chức năng).
     /// </summary>
     [Authorize]
     [ApiController]
@@ -37,7 +39,7 @@ namespace demo1.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách thông báo của người dùng đăng nhập hiện tại (Có bộ lọc phân trang, tìm kiếm, lọc chưa đọc/đã đọc).
+        /// Lấy danh sách thông báo của người dùng đăng nhập hiện tại (Có bộ lọc phân trang, tìm kiếm, lọc theo mã tính năng, lọc chưa đọc/đã đọc).
         /// </summary>
         /// <param name="filter">Bộ lọc danh sách thông báo</param>
         /// <returns>Danh sách thông báo phân trang</returns>
@@ -68,6 +70,18 @@ namespace demo1.Controllers
                     EF.Functions.Like(n.Content, $"%{keyword}%"));
             }
 
+            if (!string.IsNullOrWhiteSpace(filter.FeatureCode))
+            {
+                var raw = filter.FeatureCode.Trim();
+                var norm = PermissionService.NormalizeFeatureCode(filter.FeatureCode);
+                query = query.Where(n => 
+                    n.FeatureCode == norm || 
+                    n.FeatureCode.ToLower() == raw.ToLower() ||
+                    (norm == "DU_AN" && (n.FeatureCode == "PROJECT" || n.FeatureCode == "DU_AN")) ||
+                    (norm == "QUAN_LY_HOP_DONG" && (n.FeatureCode == "CONTRACT" || n.FeatureCode == "HOP_DONG" || n.FeatureCode == "QUAN_LY_HOP_DONG")) ||
+                    (norm == "CONG_VIEC" && (n.FeatureCode == "TASK" || n.FeatureCode == "CONG_VIEC")));
+            }
+
             if (filter.IsRead.HasValue)
             {
                 query = query.Where(n => n.IsRead == filter.IsRead.Value);
@@ -95,6 +109,9 @@ namespace demo1.Controllers
                     Title = n.Title,
                     Content = n.Content,
                     Link = n.Link,
+                    FeatureCode = n.FeatureCode,
+                    EntityName = n.EntityName,
+                    EntityId = n.EntityId,
                     IsRead = n.IsRead,
                     CreatedAt = n.CreatedAt
                 })
@@ -109,6 +126,35 @@ namespace demo1.Controllers
             };
 
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Thống kê tổng số thông báo chưa đọc của người dùng hiện tại phân loại theo từng Chức năng (FeatureCode).
+        /// </summary>
+        /// <returns>Danh sách thống kê thông báo chưa đọc theo chức năng</returns>
+        /// <response code="200">Lấy thống kê thông báo thành công</response>
+        [HttpGet("summary-by-feature")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetNotificationSummaryByFeature()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            var summary = await _dbContext.Notifications.AsNoTracking()
+                .Where(n => n.UserId == user.Id)
+                .GroupBy(n => string.IsNullOrEmpty(n.FeatureCode) ? "SYSTEM" : n.FeatureCode)
+                .Select(g => new
+                {
+                    FeatureCode = g.Key,
+                    TotalCount = g.Count(),
+                    UnreadCount = g.Count(n => !n.IsRead)
+                })
+                .ToListAsync();
+
+            return Ok(summary);
         }
 
         /// <summary>

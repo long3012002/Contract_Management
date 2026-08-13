@@ -475,6 +475,9 @@ namespace demo1.Data
                 entity.Property(e => e.Title).HasMaxLength(255).IsRequired();
                 entity.Property(e => e.Content).HasMaxLength(1000).IsRequired();
                 entity.Property(e => e.Link).HasMaxLength(500);
+                entity.Property(e => e.FeatureCode).HasMaxLength(100).HasDefaultValue(string.Empty);
+                entity.Property(e => e.EntityName).HasMaxLength(100);
+                entity.Property(e => e.EntityId).HasMaxLength(255);
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)

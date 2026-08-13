@@ -13,7 +13,7 @@ using demo1.Entity;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
 
-namespace demo1.Services.Implements
+namespace demo1.Services.Workers
 {
     public class StakeholderConfirmationCheckWorker : BackgroundService
     {
@@ -148,6 +148,9 @@ namespace demo1.Services.Implements
                             Title = "Cảnh báo: Quá hạn công việc",
                             Content = $"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.",
                             Link = link,
+                            FeatureCode = "CONG_VIEC",
+                            EntityName = "CongViecGoiThau",
+                            EntityId = record.CongViecGoiThauId.ToString(),
                             UserId = record.UserId,
                             IsRead = false,
                             CreatedAt = now
@@ -178,6 +181,9 @@ namespace demo1.Services.Implements
                                 Title = "Quá hạn: Người liên quan",
                                 Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
                                 Link = link,
+                                FeatureCode = "CONG_VIEC",
+                                EntityName = "CongViecGoiThau",
+                                EntityId = record.CongViecGoiThauId.ToString(),
                                 UserId = targetUser.Id,
                                 IsRead = false,
                                 CreatedAt = now
@@ -227,6 +233,9 @@ namespace demo1.Services.Implements
                             Title = "Nhắc nhở: Sắp hết hạn",
                             Content = $"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).",
                             Link = link,
+                            FeatureCode = "CONG_VIEC",
+                            EntityName = "CongViecGoiThau",
+                            EntityId = record.CongViecGoiThauId.ToString(),
                             UserId = record.UserId,
                             IsRead = false,
                             CreatedAt = now

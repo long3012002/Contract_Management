@@ -44,18 +44,48 @@ namespace demo1.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách Quyền của Người dùng (Lọc theo ID Người dùng và Mã tính năng).
+        /// Lấy danh sách Quyền của Người dùng (Lọc theo ID Người dùng và Mã tính năng, hỗ trợ lấy cả quyền chức năng con và gom nhóm theo chức năng).
         /// </summary>
         /// <param name="userId">Mã định danh Người dùng (GUID, tùy chọn)</param>
-        /// <param name="featureCode">Mã tính năng hệ thống (tùy chọn)</param>
-        /// <returns>Danh sách quyền chi tiết của người dùng</returns>
+        /// <param name="featureCode">Mã tính năng hệ thống (tùy chọn, ví dụ: DU_AN, PROJECT, QUAN_LY_HOP_DONG...)</param>
+        /// <param name="includeChildren">Nếu featureCode là tính năng cha (DU_AN), tự động lấy cả các quyền chức năng con (Gói thầu, Hợp đồng, Công việc). Mặc định: true</param>
+        /// <param name="grouped">Nếu true, gom nhóm danh sách quyền theo khối tính năng. Mặc định: false</param>
+        /// <returns>Danh sách quyền chi tiết của người dùng (dạng phẳng hoặc dạng nhóm)</returns>
         /// <response code="200">Lấy danh sách quyền thành công</response>
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<UserPermissionDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUserPermissions([FromQuery] Guid? userId, [FromQuery] string? featureCode)
+        public async Task<IActionResult> GetUserPermissions(
+            [FromQuery] Guid? userId, 
+            [FromQuery] string? featureCode,
+            [FromQuery] bool includeChildren = true,
+            [FromQuery] bool grouped = false)
         {
-            var permissions = await _permissionService.GetUserPermissionsAsync(userId, featureCode);
+            if (grouped)
+            {
+                var groupedPermissions = await _permissionService.GetGroupedUserPermissionsAsync(userId, featureCode, includeChildren);
+                return Ok(groupedPermissions);
+            }
+            var permissions = await _permissionService.GetUserPermissionsAsync(userId, featureCode, includeChildren);
             return Ok(permissions);
+        }
+
+        /// <summary>
+        /// Lấy danh sách Quyền của Người dùng được gom nhóm theo từng khối Chức năng (FeatureCode).
+        /// </summary>
+        /// <param name="userId">Mã định danh Người dùng (GUID, tùy chọn)</param>
+        /// <param name="featureCode">Mã tính năng hệ thống (tùy chọn)</param>
+        /// <param name="includeChildren">Tự động bao gồm các chức năng con khi lọc theo chức năng cha (Mặc định: true)</param>
+        /// <returns>Danh sách các nhóm quyền theo tính năng</returns>
+        /// <response code="200">Lấy danh sách nhóm quyền thành công</response>
+        [HttpGet("grouped")]
+        [ProducesResponseType(typeof(IEnumerable<GroupedUserPermissionDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetGroupedUserPermissions(
+            [FromQuery] Guid? userId,
+            [FromQuery] string? featureCode,
+            [FromQuery] bool includeChildren = true)
+        {
+            var groupedPermissions = await _permissionService.GetGroupedUserPermissionsAsync(userId, featureCode, includeChildren);
+            return Ok(groupedPermissions);
         }
 
         /// <summary>
@@ -69,6 +99,19 @@ namespace demo1.Controllers
         {
             var catalog = await _permissionService.GetPermissionCatalogAsync();
             return Ok(catalog);
+        }
+
+        /// <summary>
+        /// Lấy Danh mục tất cả các Mã tính năng hệ thống (FeatureCode) hỗ trợ kèm theo thông tin hiển thị và Alias.
+        /// </summary>
+        /// <returns>Danh mục tất cả các FeatureCode trong hệ thống</returns>
+        /// <response code="200">Lấy danh sách mã tính năng thành công</response>
+        [HttpGet("features")]
+        [ProducesResponseType(typeof(IEnumerable<FeatureCatalogDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetFeatureCatalog()
+        {
+            var features = await _permissionService.GetFeatureCatalogAsync();
+            return Ok(features);
         }
 
         /// <summary>

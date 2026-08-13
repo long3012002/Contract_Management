@@ -13,6 +13,7 @@ using demo1.Middleware;
 using demo1.Providers;
 using demo1.Services.Implements;
 using demo1.Services.Interfaces;
+using demo1.Services.Workers;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

@@ -13,7 +13,7 @@ using demo1.Entity;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
 
-namespace demo1.Services.Implements
+namespace demo1.Services.Workers
 {
     public class DotThanhToanScanWorker : BackgroundService
     {
@@ -95,6 +95,9 @@ namespace demo1.Services.Implements
 
             var today = DateTime.Today;
 
+            var warnDaysBefore = _configuration.GetValue<int>("DotThanhToanScan:WarnDaysBefore", 30);
+            var intervalDays = _configuration.GetValue<int>("DotThanhToanScan:NotificationIntervalDays", 1);
+
             // Fetch active payment phases where contract is active and is not paid yet
             var pendingPaymentPhases = await dbContext.DotThanhToans
                 .Include(d => d.HopDong)
@@ -119,8 +122,8 @@ namespace demo1.Services.Implements
 
                 // Thresholds:
                 // 1. Overdue: daysRemaining < 0
-                // 2. Upcoming due: 0 <= daysRemaining <= 30
-                if (daysRemaining > 30)
+                // 2. Upcoming due: 0 <= daysRemaining <= warnDaysBefore
+                if (daysRemaining > warnDaysBefore)
                 {
                     continue; // Not yet due for warning
                 }
@@ -153,9 +156,18 @@ namespace demo1.Services.Implements
 
                 foreach (var user in targetUsers)
                 {
-                    // Check if already notified with same link, title and content to prevent duplicates
-                    var alreadyNotified = await dbContext.Notifications
-                        .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.Content == content);
+                    bool alreadyNotified;
+                    if (intervalDays <= 0)
+                    {
+                        alreadyNotified = await dbContext.Notifications
+                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                    }
+                    else
+                    {
+                        var cutoffDate = DateTime.UtcNow.Date.AddDays(-(intervalDays - 1));
+                        alreadyNotified = await dbContext.Notifications
+                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.CreatedAt >= cutoffDate);
+                    }
 
                     if (alreadyNotified)
                     {
@@ -170,6 +182,9 @@ namespace demo1.Services.Implements
                         Title = title,
                         Content = content,
                         Link = link,
+                        FeatureCode = "QUAN_LY_HOP_DONG",
+                        EntityName = "DotThanhToan",
+                        EntityId = phase.Id.ToString(),
                         UserId = user.Id,
                         IsRead = false,
                         CreatedAt = DateTime.UtcNow

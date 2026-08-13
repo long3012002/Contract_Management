@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using demo1.Data;
 using Microsoft.AspNetCore.Http;
 
+using demo1.Services.Implements;
+
 namespace demo1.Controllers
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -25,7 +27,7 @@ namespace demo1.Controllers
 
         public FeatureAuthorizeFilter(string featureCode, AppDbContext dbContext)
         {
-            _featureCode = featureCode;
+            _featureCode = PermissionService.NormalizeFeatureCode(featureCode);
             _dbContext = dbContext;
         }
 

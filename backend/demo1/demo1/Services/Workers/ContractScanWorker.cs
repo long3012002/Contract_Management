@@ -14,7 +14,7 @@ using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
 
-namespace demo1.Services.Implements
+namespace demo1.Services.Workers
 {
     public class ContractScanWorker : BackgroundService
     {
@@ -96,6 +96,9 @@ namespace demo1.Services.Implements
 
             var today = DateTime.Today;
 
+            var warnDaysBefore = _configuration.GetValue<int>("ContractScan:WarnDaysBefore", 30);
+            var intervalDays = _configuration.GetValue<int>("ContractScan:NotificationIntervalDays", 1);
+
             // Fetch active contracts with related GoiThau & DuAn
             var expiringContracts = await dbContext.HopDongs
                 .Include(h => h.DuAn)
@@ -104,12 +107,12 @@ namespace demo1.Services.Implements
                 .Where(h => h.IsActive && h.ExpiredDate.HasValue)
                 .ToListAsync();
 
-            // Filter contracts expiring in <= 30 days OR already expired (< 0)
+            // Filter contracts expiring in <= warnDaysBefore days OR already expired (< 0)
             var contractsToWarn = expiringContracts
                 .Where(h =>
                 {
                     var daysRemaining = (h.ExpiredDate!.Value.Date - today).Days;
-                    return daysRemaining <= 30;
+                    return daysRemaining <= warnDaysBefore;
                 })
                 .ToList();
 
@@ -117,7 +120,7 @@ namespace demo1.Services.Implements
 
             if (contractsToWarn.Any())
             {
-                _logger.LogInformation("Found {Count} contracts expiring soon or already expired.", contractsToWarn.Count);
+                _logger.LogInformation("Found {Count} contracts expiring soon (threshold: {WarnDays} days) or already expired.", contractsToWarn.Count, warnDaysBefore);
 
                 foreach (var contract in contractsToWarn)
                 {
@@ -151,8 +154,18 @@ namespace demo1.Services.Implements
 
                     foreach (var user in targetUsers)
                     {
-                        var alreadyNotified = await dbContext.Notifications
-                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                        bool alreadyNotified;
+                        if (intervalDays <= 0)
+                        {
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                        }
+                        else
+                        {
+                            var cutoffDate = DateTime.UtcNow.Date.AddDays(-(intervalDays - 1));
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.CreatedAt >= cutoffDate);
+                        }
 
                         if (alreadyNotified)
                         {
@@ -167,6 +180,9 @@ namespace demo1.Services.Implements
                             Title = title,
                             Content = content,
                             Link = link,
+                            FeatureCode = "QUAN_LY_HOP_DONG",
+                            EntityName = "HopDong",
+                            EntityId = contract.Id.ToString(),
                             UserId = user.Id,
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow
@@ -237,6 +253,9 @@ namespace demo1.Services.Implements
                             Title = title,
                             Content = content,
                             Link = link,
+                            FeatureCode = "LICENSE",
+                            EntityName = "License",
+                            EntityId = license.Id.ToString(),
                             UserId = user.Id,
                             IsRead = false,
                             CreatedAt = DateTime.UtcNow

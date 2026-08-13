@@ -11,6 +11,23 @@ namespace demo1.DTOs.Permission
         public string? Description { get; set; }
     }
 
+    public class FeatureCatalogDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public List<string> Aliases { get; set; } = new List<string>();
+    }
+
+    public class GroupedUserPermissionDto
+    {
+        public string FeatureCode { get; set; } = string.Empty;
+        public string FeatureName { get; set; } = string.Empty;
+        public string? ParentFeatureCode { get; set; }
+        public bool IsParent { get; set; }
+        public List<UserPermissionDto> Permissions { get; set; } = new List<UserPermissionDto>();
+    }
+
     public class PermissionRequestDto
     {
         public Guid Id { get; set; }

@@ -118,6 +118,48 @@ public static class CreateFakeDataExtensions
                     }
                 }
 
+                var existingNotifications = await context.Notifications.Where(n => string.IsNullOrEmpty(n.FeatureCode)).ToListAsync();
+                if (existingNotifications.Any())
+                {
+                    foreach (var n in existingNotifications)
+                    {
+                        var titleUpper = (n.Title ?? string.Empty).ToUpper();
+                        var contentUpper = (n.Content ?? string.Empty).ToUpper();
+                        var linkUpper = (n.Link ?? string.Empty).ToUpper();
+
+                        if (titleUpper.Contains("HỢP ĐỒNG") || contentUpper.Contains("HỢP ĐỒNG") || linkUpper.Contains("HOP-DONG"))
+                        {
+                            n.FeatureCode = "QUAN_LY_HOP_DONG";
+                        }
+                        else if (titleUpper.Contains("THANH TOÁN") || contentUpper.Contains("THANH TOÁN") || linkUpper.Contains("THANH-TOAN"))
+                        {
+                            n.FeatureCode = "QUAN_LY_HOP_DONG";
+                        }
+                        else if (titleUpper.Contains("GÓI THẦU") || contentUpper.Contains("GÓI THẦU") || linkUpper.Contains("GOI-THAU"))
+                        {
+                            n.FeatureCode = "GOI_THAU";
+                        }
+                        else if (titleUpper.Contains("DỰ ÁN") || contentUpper.Contains("DỰ ÁN") || linkUpper.Contains("DU-AN"))
+                        {
+                            n.FeatureCode = "DU_AN";
+                        }
+                        else if (titleUpper.Contains("CÔNG VIỆC") || contentUpper.Contains("CÔNG VIỆC") || linkUpper.Contains("CONG-VIEC"))
+                        {
+                            n.FeatureCode = "CONG_VIEC";
+                        }
+                        else if (titleUpper.Contains("QUYỀN") || contentUpper.Contains("QUYỀN") || linkUpper.Contains("PERMISSION"))
+                        {
+                            n.FeatureCode = "PERMISSION_REQUEST";
+                        }
+                        else
+                        {
+                            n.FeatureCode = "SYSTEM";
+                        }
+                    }
+                    await context.SaveChangesAsync();
+                    logger?.LogInformation("Đã bổ sung mã tính năng (FeatureCode) cho các thông báo cũ trong CSDL.");
+                }
+
                 var existingAttachments = await context.FileAttachments.ToListAsync();
                 if (existingAttachments.Any())
                 {
