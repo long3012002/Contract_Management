@@ -42,7 +42,11 @@ namespace demo1.Services.Implements
                     if (isProjectOwner) return true;
 
                     var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
-                        .AnyAsync(n => n.UserId == userId && (n.CongViecGoiThauId == parsedEntityId || (n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && (n.CongViecGoiThau.GoiThauId == parsedEntityId || n.CongViecGoiThau.GoiThau.DuAnId == parsedEntityId))));
+                        .AnyAsync(n => n.UserId == userId && (
+                            n.CongViecGoiThauId == parsedEntityId ||
+                            (n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == parsedEntityId) ||
+                            (n.CongViecGoiThau != null && _context.HopDongs.Any(hd => hd.Id == parsedEntityId && hd.GoiThauId.HasValue && hd.GoiThauId.Value == n.CongViecGoiThau.GoiThauId))
+                        ));
                     if (isRelatedUser) return true;
                 }
 

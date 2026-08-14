@@ -84,7 +84,7 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task GetAllAsync_Should_Return_Project_When_User_Is_Stakeholder()
+        public async Task GetAllAsync_Should_Not_Return_Project_When_User_Is_Only_Task_Stakeholder()
         {
             var stakeholderUser = new User { Id = Guid.NewGuid(), Username = "stakeholder_user", IsSystemAdmin = false, IsActive = true };
             var projectOwner = new User { Id = Guid.NewGuid(), Username = "project_owner", IsSystemAdmin = false, IsActive = true };
@@ -107,8 +107,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var result = await _duAnService.GetAllAsync(new DuAnFilterDto { Page = 1, PageSize = 10 });
 
-            result.Items.Should().HaveCount(1);
-            result.Items[0].Code.Should().Be("PROJ-STAKEHOLDER");
+            result.Items.Should().BeEmpty();
         }
 
         public void Dispose()

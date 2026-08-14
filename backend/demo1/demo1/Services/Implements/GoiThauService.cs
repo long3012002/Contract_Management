@@ -51,7 +51,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             {
                 query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) 
                     || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId)
-                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && (nlq.CongViecGoiThau.GoiThauId == gt.Id || (gt.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == gt.DuAnId.Value))));
+                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThauId == gt.Id));
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))

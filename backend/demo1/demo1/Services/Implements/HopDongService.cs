@@ -58,7 +58,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         {
             query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
                 || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
-                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))

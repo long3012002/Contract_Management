@@ -47,8 +47,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
             query = query.Where(da => da.CreatedByUserId == currentUser.Id 
-                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
-                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == da.Id));
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))

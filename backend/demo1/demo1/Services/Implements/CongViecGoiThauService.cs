@@ -21,17 +21,20 @@ public class CongViecGoiThauService
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly CongViecReminderHangfireService _reminderService;
     private readonly IConfiguration _configuration;
+    private readonly ICurrentUserService _currentUserService;
 
     public CongViecGoiThauService(
         AppDbContext dbContext,
         IMapper mapper,
         IHubContext<NotificationHub> hubContext,
         CongViecReminderHangfireService reminderService,
-        IConfiguration configuration) : base(dbContext, mapper)
+        IConfiguration configuration,
+        ICurrentUserService currentUserService) : base(dbContext, mapper)
     {
         _hubContext = hubContext;
         _reminderService = reminderService;
         _configuration = configuration;
+        _currentUserService = currentUserService;
     }
 
     private DateTime GetHanXacNhanAt(DateTime baseTime)
@@ -55,6 +58,26 @@ public class CongViecGoiThauService
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entity == null) return null;
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            var goiThau = await DbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(g => g.Id == entity.GoiThauId);
+            var isProjectOwner = goiThau != null && goiThau.DuAnId.HasValue && await DbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == currentUser.Id);
+            var hasExplicitPermission = await DbContext.UserPermissions.AsNoTracking().AnyAsync(up => up.UserId == currentUser.Id && (up.FeatureCode == "CONG_VIEC" || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) && (goiThau == null || !goiThau.DuAnId.HasValue || up.DuAnId == goiThau.DuAnId.Value));
+
+            if (!isProjectOwner && !hasExplicitPermission)
+            {
+                var isCreator = entity.CreateUserId == currentUser.Id;
+                var isTagged = entity.NguoiLienQuans.Any(n => n.UserId == currentUser.Id);
+                if (!isCreator && !isTagged)
+                {
+                    return null;
+                }
+            }
+        }
+
         var dto = Mapper.Map<CongViecGoiThauDto>(entity);
         await PopulateAttachmentsAsync(new List<CongViecGoiThauDto> { dto });
         await PopulateCommentCountsAsync(new List<CongViecGoiThauDto> { dto });
@@ -88,12 +111,28 @@ public class CongViecGoiThauService
 
     public override async Task<IEnumerable<CongViecGoiThauDto>> GetByParentIdAsync(Guid parentId)
     {
-        var entities = await DbSet.AsNoTracking()
+        IQueryable<CongViecGoiThau> query = DbSet.AsNoTracking()
             .Include(e => e.NguoiLienQuans)
                 .ThenInclude(n => n.User)
             .Include(e => e.CreateUser)
             .Include(e => e.ModifiedUser)
-            .Where(e => e.GoiThauId == parentId)
+            .Where(e => e.GoiThauId == parentId);
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            var goiThau = await DbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(g => g.Id == parentId);
+            var isProjectOwner = goiThau != null && goiThau.DuAnId.HasValue && await DbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == currentUser.Id);
+            var hasExplicitPermission = await DbContext.UserPermissions.AsNoTracking().AnyAsync(up => up.UserId == currentUser.Id && (up.FeatureCode == "CONG_VIEC" || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) && (goiThau == null || !goiThau.DuAnId.HasValue || up.DuAnId == goiThau.DuAnId.Value));
+
+            if (!isProjectOwner && !hasExplicitPermission)
+            {
+                query = query.Where(e => e.CreateUserId == currentUser.Id || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id));
+            }
+        }
+
+        var entities = await query
             .OrderBy(e => e.Stt)
             .ThenBy(e => e.CreatedAt)
             .ToListAsync();
@@ -116,6 +155,20 @@ public class CongViecGoiThauService
             .Include(e => e.CreateUser)
             .Include(e => e.ModifiedUser)
             .Where(e => e.GoiThauId == parentId);
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            var goiThau = await DbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(g => g.Id == parentId);
+            var isProjectOwner = goiThau != null && goiThau.DuAnId.HasValue && await DbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == currentUser.Id);
+            var hasExplicitPermission = await DbContext.UserPermissions.AsNoTracking().AnyAsync(up => up.UserId == currentUser.Id && (up.FeatureCode == "CONG_VIEC" || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) && (goiThau == null || !goiThau.DuAnId.HasValue || up.DuAnId == goiThau.DuAnId.Value));
+
+            if (!isProjectOwner && !hasExplicitPermission)
+            {
+                query = query.Where(e => e.CreateUserId == currentUser.Id || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id));
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(search))
         {
