@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using demo1.Data;
 using demo1.DTOs;
+using demo1.Entity;
 using demo1.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -28,28 +29,22 @@ public class WarningService : IWarningService
         {
             var today = DateTime.Today;
             var thresholdDate = today.AddDays(ExpiringSoonDays);
-
-            var dbContracts = await _dbContext.HopDongs
+            var result = await _dbContext.HopDongs
                 .AsNoTracking()
-                .Where(c => c.IsActive 
-                    && c.IsRenewalRequired 
-                    && c.ExpiredDate.HasValue 
-                    && c.ExpiredDate.Value.Date >= today.Date 
-                    && c.ExpiredDate.Value.Date <= thresholdDate.Date)
-                .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })
+                .Where(h => h.IsActive && h.ExpiredDate.HasValue && h.ExpiredDate.Value.Date >= today.Date && h.ExpiredDate.Value.Date <= thresholdDate.Date)
+                .Select(h => new ContractWarningDto
+                {
+                    ContractId = h.Id,
+                    ContractNumber = h.Code,
+                    Title = h.Name,
+                    ExpiredDate = h.ExpiredDate,
+                    DaysRemaining = (h.ExpiredDate!.Value.Date - today).Days,
+                    WarningMessage = $"Hợp đồng sắp hết hạn trong {(h.ExpiredDate!.Value.Date - today).Days} ngày."
+                })
+                .OrderBy(h => h.DaysRemaining)
                 .ToListAsync();
 
-            return dbContracts
-                .Select(c => new ContractWarningDto
-                {
-                    ContractId = c.Id,
-                    ContractNumber = c.Code,
-                    Title = c.Name,
-                    ExpiredDate = c.ExpiredDate,
-                    DaysRemaining = (c.ExpiredDate!.Value.Date - today).Days,
-                    WarningMessage = "Hợp đồng sắp hết hạn."
-                })
-                .ToList();
+            return result;
         }
         catch (Exception ex)
         {
@@ -95,36 +90,34 @@ public class WarningService : IWarningService
     {
         try
         {
-            var dbData = await _dbContext.HopDongs
+            var contractsWithTotals = await _dbContext.HopDongs
                 .AsNoTracking()
-                .Where(h => h.IsActive && h.GoiThauId.HasValue)
-                .Join(_dbContext.GoiThaus.AsNoTracking(),
-                    h => h.GoiThauId,
-                    gt => gt.Id,
-                    (h, gt) => new { Contract = h, GoiThau = gt })
-                .Where(x => x.GoiThau.GiaTriGoiThau > 0 
-                    && x.Contract.GiaTriHopDong > (x.GoiThau.GiaTriGoiThau * x.GoiThau.NguongCanhBaoPercent / 100))
-                .Select(x => new 
+                .Include(h => h.GoiThau)
+                .Where(h => h.IsActive && h.GoiThauId.HasValue && h.GoiThau != null && h.GoiThau.GiaTriGoiThau > 0 && h.GiaTriHopDong > h.GoiThau.GiaTriGoiThau)
+                .Select(h => new
                 {
-                    ContractId = x.Contract.Id,
-                    ContractNumber = x.Contract.Code,
-                    EstimatedValue = x.GoiThau.GiaTriGoiThau,
-                    ContractValue = x.Contract.GiaTriHopDong
+                    ContractId = h.Id,
+                    Code = h.Code,
+                    Name = h.Name,
+                    GiaTriHopDong = h.GiaTriHopDong,
+                    GiaGoiThau = h.GoiThau!.GiaTriGoiThau
                 })
                 .ToListAsync();
 
-            return dbData
-                .Select(x => new BudgetWarningDto
+            var result = contractsWithTotals
+                .Select(c => new BudgetWarningDto
                 {
-                    ContractId = x.ContractId,
-                    ContractNumber = x.ContractNumber,
-                    EstimatedValue = x.EstimatedValue,
-                    ContractValue = x.ContractValue,
-                    OverValue = x.ContractValue - x.EstimatedValue,
-                    UsedPercent = Math.Round(x.ContractValue / x.EstimatedValue * 100, 2),
-                    WarningMessage = "Giá trị hợp đồng vượt ngưỡng gói thầu."
+                    ContractId = c.ContractId,
+                    ContractNumber = c.Code,
+                    EstimatedValue = c.GiaGoiThau,
+                    ContractValue = c.GiaTriHopDong,
+                    OverValue = c.GiaTriHopDong - c.GiaGoiThau,
+                    UsedPercent = Math.Round(c.GiaTriHopDong / c.GiaGoiThau * 100, 2),
+                    WarningMessage = $"Hợp đồng '{c.Name}' (Mã: {c.Code}) vượt dự toán gói thầu {(c.GiaTriHopDong - c.GiaGoiThau):N0} VNĐ (Giá trị hợp đồng: {c.GiaTriHopDong:N0} VNĐ / Dự toán gói thầu: {c.GiaGoiThau:N0} VNĐ)."
                 })
                 .ToList();
+
+            return result;
         }
         catch (Exception ex)
         {
@@ -139,6 +132,7 @@ public class WarningService : IWarningService
         {
             var today = DateTime.Today;
 
+            // Source 1: Licenses table
             var licenses = await _dbContext.Licenses
                 .AsNoTracking()
                 .Include(l => l.DuAn)
@@ -146,7 +140,7 @@ public class WarningService : IWarningService
                 .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue)
                 .ToListAsync();
 
-            return licenses
+            var resultList = licenses
                 .Where(l =>
                 {
                     var daysRemaining = (l.NgayKetThuc!.Value.Date - today).Days;
@@ -164,8 +158,58 @@ public class WarningService : IWarningService
                     CanhBaoTruocNgay = l.CanhBaoTruocNgay,
                     WarningMessage = $"License sắp hết hạn trong {(l.NgayKetThuc!.Value.Date - today).Days} ngày."
                 })
-                .OrderBy(l => l.DaysRemaining)
                 .ToList();
+
+            // Track linked license IDs to deduplicate
+            var processedLicenseIds = new HashSet<Guid>(licenses.Select(l => l.Id));
+
+            // Source 2: HangHoaDichVu table (Loai = License) unlinked
+            var hangHoaLicenses = await _dbContext.HangHoaDichVus
+                .AsNoTracking()
+                .Where(h => h.IsActive && h.Loai == LoaiHangHoaDichVu.License && h.NgayKetThuc.HasValue && (h.IdLicense == null || !processedLicenseIds.Contains(h.IdLicense.Value)))
+                .ToListAsync();
+
+            if (hangHoaLicenses.Any())
+            {
+                var parentHopDongIds = hangHoaLicenses.Select(h => h.IdParent).Distinct().ToList();
+                var parentHopDongs = await _dbContext.HopDongs
+                    .AsNoTracking()
+                    .Include(h => h.DuAn)
+                    .Where(h => parentHopDongIds.Contains(h.Id))
+                    .ToDictionaryAsync(h => h.Id);
+
+                var hangHoaWarnings = hangHoaLicenses
+                    .Where(h =>
+                    {
+                        var daysRemaining = (h.NgayKetThuc!.Value.Date - today).Days;
+                        return daysRemaining <= ExpiringSoonDays && daysRemaining >= 0;
+                    })
+                    .Select(h =>
+                    {
+                        parentHopDongs.TryGetValue(h.IdParent, out var parentHd);
+                        var licenseName = !string.IsNullOrWhiteSpace(h.TenDichVu)
+                            ? h.TenDichVu
+                            : (!string.IsNullOrWhiteSpace(h.DanhMucHangHoa) ? h.DanhMucHangHoa : h.KyMaHieu ?? "License Hợp đồng");
+                        var daysRemaining = (h.NgayKetThuc!.Value.Date - today).Days;
+
+                        return new LicenseWarningDto
+                        {
+                            LicenseId = h.Id,
+                            Code = h.KyMaHieu ?? h.Stt ?? "HD-LIC",
+                            Name = licenseName,
+                            DuAnName = parentHd?.DuAn != null ? parentHd.DuAn.Name : null,
+                            HopDongName = parentHd != null ? parentHd.Name : null,
+                            NgayKetThuc = h.NgayKetThuc,
+                            DaysRemaining = daysRemaining,
+                            CanhBaoTruocNgay = ExpiringSoonDays,
+                            WarningMessage = $"License Hợp đồng sắp hết hạn trong {daysRemaining} ngày."
+                        };
+                    });
+
+                resultList.AddRange(hangHoaWarnings);
+            }
+
+            return resultList.OrderBy(l => l.DaysRemaining).ToList();
         }
         catch (Exception ex)
         {
@@ -180,6 +224,7 @@ public class WarningService : IWarningService
         {
             var today = DateTime.Today;
 
+            // Source 1: Licenses table
             var licenses = await _dbContext.Licenses
                 .AsNoTracking()
                 .Include(l => l.DuAn)
@@ -187,7 +232,7 @@ public class WarningService : IWarningService
                 .Where(l => l.IsActive && l.LoaiLicense != 2 && l.NgayKetThuc.HasValue && l.NgayKetThuc.Value.Date < today.Date)
                 .ToListAsync();
 
-            return licenses
+            var resultList = licenses
                 .Select(l => new LicenseWarningDto
                 {
                     LicenseId = l.Id,
@@ -200,8 +245,53 @@ public class WarningService : IWarningService
                     CanhBaoTruocNgay = l.CanhBaoTruocNgay,
                     WarningMessage = "License đã quá hạn sử dụng."
                 })
-                .OrderBy(l => l.DaysRemaining)
                 .ToList();
+
+            // Track linked license IDs to deduplicate
+            var processedLicenseIds = new HashSet<Guid>(licenses.Select(l => l.Id));
+
+            // Source 2: HangHoaDichVu table (Loai = License) unlinked expired
+            var hangHoaLicenses = await _dbContext.HangHoaDichVus
+                .AsNoTracking()
+                .Where(h => h.IsActive && h.Loai == LoaiHangHoaDichVu.License && h.NgayKetThuc.HasValue && h.NgayKetThuc.Value.Date < today.Date && (h.IdLicense == null || !processedLicenseIds.Contains(h.IdLicense.Value)))
+                .ToListAsync();
+
+            if (hangHoaLicenses.Any())
+            {
+                var parentHopDongIds = hangHoaLicenses.Select(h => h.IdParent).Distinct().ToList();
+                var parentHopDongs = await _dbContext.HopDongs
+                    .AsNoTracking()
+                    .Include(h => h.DuAn)
+                    .Where(h => parentHopDongIds.Contains(h.Id))
+                    .ToDictionaryAsync(h => h.Id);
+
+                var hangHoaWarnings = hangHoaLicenses
+                    .Select(h =>
+                    {
+                        parentHopDongs.TryGetValue(h.IdParent, out var parentHd);
+                        var licenseName = !string.IsNullOrWhiteSpace(h.TenDichVu)
+                            ? h.TenDichVu
+                            : (!string.IsNullOrWhiteSpace(h.DanhMucHangHoa) ? h.DanhMucHangHoa : h.KyMaHieu ?? "License Hợp đồng");
+                        var daysRemaining = (h.NgayKetThuc!.Value.Date - today).Days;
+
+                        return new LicenseWarningDto
+                        {
+                            LicenseId = h.Id,
+                            Code = h.KyMaHieu ?? h.Stt ?? "HD-LIC",
+                            Name = licenseName,
+                            DuAnName = parentHd?.DuAn != null ? parentHd.DuAn.Name : null,
+                            HopDongName = parentHd != null ? parentHd.Name : null,
+                            NgayKetThuc = h.NgayKetThuc,
+                            DaysRemaining = daysRemaining,
+                            CanhBaoTruocNgay = ExpiringSoonDays,
+                            WarningMessage = "License Hợp đồng đã quá hạn sử dụng."
+                        };
+                    });
+
+                resultList.AddRange(hangHoaWarnings);
+            }
+
+            return resultList.OrderBy(l => l.DaysRemaining).ToList();
         }
         catch (Exception ex)
         {

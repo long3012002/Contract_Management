@@ -36,7 +36,7 @@ public class ExceptionHandlingMiddleware
             if (ex.InnerException is Npgsql.NpgsqlException)
             {
                 _logger.LogError(ex, $"Lỗi kết nối cơ sở dữ liệu (Inner): {ex.InnerException.Message}");
-                await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.");
+                await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.", ex.InnerException.Message);
                 return;
             }
 
@@ -46,25 +46,24 @@ public class ExceptionHandlingMiddleware
         catch (DbUpdateException ex)
         {
             _logger.LogError(ex, $"Cập nhật cơ sở dữ liệu thất bại: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", "Vui lòng kiểm tra lại dữ liệu trùng lặp hoặc các ràng buộc liên quan.");
+            await WriteErrorAsync(context, HttpStatusCode.Conflict, "Cập nhật dữ liệu thất bại.", ex.InnerException?.Message ?? ex.Message);
         }
         catch (Npgsql.NpgsqlException ex)
         {
             _logger.LogError(ex, $"Lỗi kết nối cơ sở dữ liệu: {ex.Message}");
-            await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.");
+            await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.", ex.Message);
         }
         catch (Exception ex)
         {
             if (ex.InnerException is Npgsql.NpgsqlException)
             {
                 _logger.LogError(ex, $"Lỗi kết nối cơ sở dữ liệu (Inner): {ex.Message}");
-                await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.");
+                await WriteErrorAsync(context, HttpStatusCode.ServiceUnavailable, "Hệ thống máy chủ dữ liệu hiện không hoạt động hoặc đang bảo trì. Vui lòng quay lại sau.", ex.InnerException.Message);
                 return;
             }
 
             _logger.LogError(ex, $"Lỗi hệ thống không xác định: {ex.Message}");
-            // await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Lỗi hệ thống nội bộ.");
-            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Đã có lỗi xảy ra. Vui lòng thử lại");
+            await WriteErrorAsync(context, HttpStatusCode.InternalServerError, "Đã có lỗi xảy ra. Vui lòng thử lại", ex.Message);
         }
     }
 

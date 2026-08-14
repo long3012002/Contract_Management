@@ -266,6 +266,111 @@ namespace demo1.Services.Workers
                 }
             }
 
+            // Track IDs of linked Licenses to prevent duplicate notifications
+            var processedLicenseIds = new HashSet<Guid>(activeLicenses.Select(l => l.Id));
+
+            // Scan HangHoaDichVu lines of type License that are NOT linked to a dedicated License entity (IdLicense == null or not in processedLicenseIds)
+            var activeHangHoaLicenses = await dbContext.HangHoaDichVus
+                .Where(h => h.IsActive && h.Loai == LoaiHangHoaDichVu.License && h.NgayKetThuc.HasValue && (h.IdLicense == null || !processedLicenseIds.Contains(h.IdLicense.Value)))
+                .ToListAsync();
+
+            var hangHoaLicensesToWarn = activeHangHoaLicenses
+                .Where(h =>
+                {
+                    var daysRemaining = (h.NgayKetThuc!.Value.Date - today).Days;
+                    return daysRemaining <= warnDaysBefore;
+                })
+                .ToList();
+
+            if (hangHoaLicensesToWarn.Any())
+            {
+                _logger.LogInformation("Found {Count} unlinked HangHoaDichVu licenses expiring or already expired.", hangHoaLicensesToWarn.Count);
+
+                var parentHopDongIds = hangHoaLicensesToWarn.Select(h => h.IdParent).Distinct().ToList();
+                var parentHopDongs = await dbContext.HopDongs
+                    .Include(h => h.DuAn)
+                    .Include(h => h.GoiThau)
+                        .ThenInclude(g => g!.DuAn)
+                    .Where(h => parentHopDongIds.Contains(h.Id))
+                    .ToDictionaryAsync(h => h.Id);
+
+                foreach (var hhh in hangHoaLicensesToWarn)
+                {
+                    var daysRemaining = (hhh.NgayKetThuc!.Value.Date - today).Days;
+                    var licenseName = !string.IsNullOrWhiteSpace(hhh.TenDichVu)
+                        ? hhh.TenDichVu
+                        : (!string.IsNullOrWhiteSpace(hhh.DanhMucHangHoa) ? hhh.DanhMucHangHoa : hhh.KyMaHieu ?? "License Hợp đồng");
+
+                    _logger.LogInformation("[HangHoaLicenseScan] Phát hiện License Hợp đồng: ID={Id}, Tên={Name}, Hạn dùng={ExpiredDate:dd/MM/yyyy}, Số ngày còn lại={DaysRemaining}", hhh.Id, licenseName, hhh.NgayKetThuc.Value, daysRemaining);
+
+                    string title;
+                    string content;
+
+                    if (daysRemaining < 0)
+                    {
+                        var daysOverdue = Math.Abs(daysRemaining);
+                        title = "License Hợp đồng: Đã hết hạn";
+                        content = $"License '{licenseName}' thuộc Hợp đồng đã hết hạn {daysOverdue} ngày (ngày hết hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}).";
+                    }
+                    else if (daysRemaining == 0)
+                    {
+                        title = "License Hợp đồng: Hết hạn hôm nay";
+                        content = $"License '{licenseName}' thuộc Hợp đồng hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy}).";
+                    }
+                    else
+                    {
+                        title = "License Hợp đồng: Sắp hết hạn";
+                        content = $"License '{licenseName}' thuộc Hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}).";
+                    }
+
+                    var link = $"/contracts/{hhh.IdParent}";
+
+                    List<User> targetUsers;
+                    if (parentHopDongs.TryGetValue(hhh.IdParent, out var contract))
+                    {
+                        targetUsers = await GetTargetUsersForContractAsync(dbContext, contract);
+                    }
+                    else
+                    {
+                        targetUsers = await dbContext.Users.AsNoTracking().Where(u => u.IsActive && u.IsSystemAdmin).ToListAsync();
+                    }
+
+                    foreach (var user in targetUsers)
+                    {
+                        bool alreadyNotified;
+                        if (intervalDays <= 0)
+                        {
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                        }
+                        else
+                        {
+                            var cutoffDate = DateTime.UtcNow.Date.AddDays(-(intervalDays - 1));
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title && n.CreatedAt >= cutoffDate);
+                        }
+
+                        if (alreadyNotified) continue;
+
+                        var notification = new Notification
+                        {
+                            Id = Guid.NewGuid(),
+                            Title = title,
+                            Content = content,
+                            Link = link,
+                            FeatureCode = "QUAN_LY_HOP_DONG",
+                            EntityName = "HangHoaDichVu",
+                            EntityId = hhh.Id.ToString(),
+                            UserId = user.Id,
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        dbContext.Notifications.Add(notification);
+                        notificationsToPush.Add((user.Username, notification));
+                    }
+                }
+            }
+
             if (notificationsToPush.Any())
             {
                 await dbContext.SaveChangesAsync();

@@ -59,34 +59,55 @@ namespace demo1.Controllers
             var page = Math.Max(1, filter.Page);
             var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
+            // Bước 1: Lấy danh sách thông báo theo UserId
             var query = _dbContext.Notifications.AsNoTracking()
                 .Where(n => n.UserId == user.Id);
 
+            // Bước 2: Lọc theo từ khóa tìm kiếm (Title hoặc Content)
             if (!string.IsNullOrWhiteSpace(filter.Search))
             {
                 var keyword = filter.Search.Trim();
                 query = query.Where(n => 
-                    EF.Functions.Like(n.Title, $"%{keyword}%") || 
-                    EF.Functions.Like(n.Content, $"%{keyword}%"));
+                    EF.Functions.ILike(n.Title, $"%{keyword}%") || 
+                    EF.Functions.ILike(n.Content, $"%{keyword}%"));
             }
 
+            // Bước 3: Lọc theo Mã chức năng (FeatureCode) dùng mảng đơn giản để EF Core chuyển thành mệnh đề SQL IN(...)
             if (!string.IsNullOrWhiteSpace(filter.FeatureCode))
             {
                 var raw = filter.FeatureCode.Trim();
                 var norm = PermissionService.NormalizeFeatureCode(filter.FeatureCode);
-                query = query.Where(n => 
-                    n.FeatureCode == norm || 
-                    n.FeatureCode.ToLower() == raw.ToLower() ||
-                    (norm == "DU_AN" && (n.FeatureCode == "PROJECT" || n.FeatureCode == "DU_AN")) ||
-                    (norm == "QUAN_LY_HOP_DONG" && (n.FeatureCode == "CONTRACT" || n.FeatureCode == "HOP_DONG" || n.FeatureCode == "QUAN_LY_HOP_DONG")) ||
-                    (norm == "CONG_VIEC" && (n.FeatureCode == "TASK" || n.FeatureCode == "CONG_VIEC")));
+                
+                var featureCodes = new List<string> { raw, norm };
+                if (norm == "DU_AN")
+                {
+                    featureCodes.Add("PROJECT");
+                }
+                else if (norm == "QUAN_LY_HOP_DONG")
+                {
+                    featureCodes.Add("CONTRACT");
+                    featureCodes.Add("HOP_DONG");
+                }
+                else if (norm == "CONG_VIEC")
+                {
+                    featureCodes.Add("TASK");
+                }
+
+                var distinctCodes = featureCodes
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                query = query.Where(n => distinctCodes.Contains(n.FeatureCode));
             }
 
+            // Bước 4: Lọc theo trạng thái đã đọc / chưa đọc
             if (filter.IsRead.HasValue)
             {
                 query = query.Where(n => n.IsRead == filter.IsRead.Value);
             }
 
+            // Bước 5: Lọc theo khoảng thời gian tạo
             if (filter.FromDate.HasValue)
             {
                 query = query.Where(n => n.CreatedAt >= filter.FromDate.Value);
@@ -97,8 +118,10 @@ namespace demo1.Controllers
                 query = query.Where(n => n.CreatedAt <= filter.ToDate.Value);
             }
 
+            // Bước 6: Đếm tổng số bản ghi phù hợp
             var totalItems = await query.CountAsync();
 
+            // Bước 7: Phân trang và lấy danh sách kết quả DTO
             var items = await query
                 .OrderByDescending(n => n.CreatedAt)
                 .Skip((page - 1) * pageSize)
@@ -143,16 +166,22 @@ namespace demo1.Controllers
                 return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
             }
 
-            var summary = await _dbContext.Notifications.AsNoTracking()
+            // Bước 1: Truy vấn các trường dữ liệu cần thiết từ CSDL đơn giản nhất có thể
+            var rawNotifications = await _dbContext.Notifications.AsNoTracking()
                 .Where(n => n.UserId == user.Id)
-                .GroupBy(n => string.IsNullOrEmpty(n.FeatureCode) ? "SYSTEM" : n.FeatureCode)
+                .Select(n => new { FeatureCode = n.FeatureCode, IsRead = n.IsRead })
+                .ToListAsync();
+
+            // Bước 2: Gom nhóm và tính toán số lượng trên bộ nhớ (C# Memory) để tránh lỗi SQL GroupBy
+            var summary = rawNotifications
+                .GroupBy(n => string.IsNullOrWhiteSpace(n.FeatureCode) ? "SYSTEM" : n.FeatureCode)
                 .Select(g => new
                 {
                     FeatureCode = g.Key,
                     TotalCount = g.Count(),
                     UnreadCount = g.Count(n => !n.IsRead)
                 })
-                .ToListAsync();
+                .ToList();
 
             return Ok(summary);
         }
@@ -206,12 +235,14 @@ namespace demo1.Controllers
                 .Where(n => n.UserId == user.Id && !n.IsRead)
                 .ToListAsync();
 
-            foreach (var n in unreadNotifications)
+            if (unreadNotifications.Count > 0)
             {
-                n.IsRead = true;
+                foreach (var n in unreadNotifications)
+                {
+                    n.IsRead = true;
+                }
+                await _dbContext.SaveChangesAsync();
             }
-
-            await _dbContext.SaveChangesAsync();
 
             return Ok(new { Message = "Đã đánh dấu tất cả thông báo là đã đọc.", Count = unreadNotifications.Count });
         }
