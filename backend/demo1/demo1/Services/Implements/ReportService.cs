@@ -18,11 +18,13 @@ public class ReportService : IReportService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<ReportService> _logger;
+    private readonly ICurrentUserService? _currentUserService;
 
-    public ReportService(AppDbContext context, ILogger<ReportService> logger)
+    public ReportService(AppDbContext context, ILogger<ReportService> logger, ICurrentUserService? currentUserService = null)
     {
         _context = context;
         _logger = logger;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period)
@@ -1021,7 +1023,22 @@ public class ReportService : IReportService
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
             .Include(h => h.NhaThau)
-            .Where(h => h.IsActive);
+            .Where(h => h.IsActive && !h.IsDeleted);
+
+        if (_currentUserService != null)
+        {
+            var currentUsername = _currentUserService.GetUsername();
+            if (!string.IsNullOrEmpty(currentUsername))
+            {
+                var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+                if (currentUser != null && !currentUser.IsSystemAdmin)
+                {
+                    query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                        || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                }
+            }
+        }
 
         if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
         {
@@ -1502,6 +1519,267 @@ public class ReportService : IReportService
         htmlBuilder.AppendLine("</html>");
 
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
+    }
+
+    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search)
+    {
+        int selectedYear = year ?? DateTime.Now.Year;
+        DateTime targetCutoffDate = cutoffDate ?? new DateTime(selectedYear, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+
+        var query = _context.HopDongs
+            .Include(h => h.DotThanhToans)
+            .Include(h => h.DuAn)
+            .Include(h => h.GoiThau)
+            .Include(h => h.NhaThau)
+            .Where(h => h.IsActive && !h.IsDeleted);
+
+        if (_currentUserService != null)
+        {
+            var currentUsername = _currentUserService.GetUsername();
+            if (!string.IsNullOrEmpty(currentUsername))
+            {
+                var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+                if (currentUser != null && !currentUser.IsSystemAdmin)
+                {
+                    query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                        || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                }
+            }
+        }
+
+        if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
+        {
+            query = query.Where(h => h.LoaiHopDong == loaiHopDong.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string searchLower = search.Trim().ToLower();
+            query = query.Where(h =>
+                (h.Code != null && h.Code.ToLower().Contains(searchLower)) ||
+                (h.Name != null && h.Name.ToLower().Contains(searchLower)) ||
+                (h.DuAn != null && h.DuAn.Name.ToLower().Contains(searchLower)) ||
+                (h.GoiThau != null && h.GoiThau.Name.ToLower().Contains(searchLower)) ||
+                (h.NhaThau != null && h.NhaThau.Name.ToLower().Contains(searchLower))
+            );
+        }
+
+        var contracts = await query
+            .OrderBy(h => h.Code)
+            .ThenByDescending(h => h.CreatedAt)
+            .ToListAsync();
+
+        var rows = new List<TheoDoiHopDongReportRowDto>();
+        int stt = 1;
+
+        foreach (var contract in contracts)
+        {
+            var milestones = contract.DotThanhToans != null ? contract.DotThanhToans.ToList() : new List<DotThanhToan>();
+
+            decimal giaTriDaThanhToan = milestones.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
+            decimal giaTriConLai = contract.GiaTriHopDong - giaTriDaThanhToan;
+            if (giaTriConLai < 0) giaTriConLai = 0;
+
+            decimal duKienThanhToanDenMoc = milestones
+                .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value <= targetCutoffDate) ||
+                            (!m.NgayThanhToan.HasValue && m.CreatedAt <= targetCutoffDate))
+                .Sum(m => m.GiaTriThanhToan);
+
+            var milestoneDtos = milestones.Select(m => new TheoDoiHopDongDotThanhToanDto
+            {
+                Id = m.Id,
+                TenDot = m.TenDot,
+                TyLeThanhToan = m.TyLeThanhToan,
+                GiaTriThanhToan = m.GiaTriThanhToan,
+                NgayThanhToan = m.NgayThanhToan,
+                DieuKienThanhToan = m.DieuKienThanhToan,
+                IsPaid = m.IsPaid
+            }).ToList();
+
+            rows.Add(new TheoDoiHopDongReportRowDto
+            {
+                Stt = stt++,
+                HopDongId = contract.Id,
+                SoHopDong = contract.Code,
+                TenHopDong = contract.Name,
+                NgayKyHopDong = contract.NgayHieuLuc,
+                NgayKetThucDuKien = contract.ExpiredDate,
+                GiaTriHopDong = contract.GiaTriHopDong,
+                GiaTriDaThanhToan = giaTriDaThanhToan,
+                GiaTriConLai = giaTriConLai,
+                DuKienThanhToanDenMoc = duKienThanhToanDenMoc,
+                GhiChu = contract.Description,
+                LoaiHopDong = contract.LoaiHopDong,
+                LoaiHopDongTen = GetLoaiHopDongName(contract.LoaiHopDong),
+                TenDuAn = contract.DuAn?.Name,
+                TenGoiThau = contract.GoiThau?.Name,
+                TenNhaThau = contract.NhaThau?.Name,
+                DanhSachDotThanhToan = milestoneDtos
+            });
+        }
+
+        var summary = new TheoDoiHopDongReportSummaryDto
+        {
+            TongSoHopDong = rows.Count,
+            TongGiaTriHopDong = rows.Sum(r => r.GiaTriHopDong),
+            TongGiaTriDaThanhToan = rows.Sum(r => r.GiaTriDaThanhToan),
+            TongGiaTriConLai = rows.Sum(r => r.GiaTriConLai),
+            TongDuKienThanhToanDenMoc = rows.Sum(r => r.DuKienThanhToanDenMoc)
+        };
+
+        return new TheoDoiHopDongReportResponseDto
+        {
+            Title = "THEO DÕI CÁC HỢP ĐỒNG BẢO TRÌ CÁC HỆ THỐNG TỪ NĂM 2025 ĐẾN NAY",
+            Year = selectedYear,
+            CutoffDate = targetCutoffDate,
+            LoaiHopDong = loaiHopDong,
+            LoaiHopDongFilterTen = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value) : "Tất cả loại hợp đồng",
+            Summary = summary,
+            Rows = rows
+        };
+    }
+
+    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search)
+    {
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search);
+
+        using (var workbook = new XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Theo doi HD");
+
+            worksheet.Style.Font.FontName = "Times New Roman";
+            worksheet.Style.Font.FontSize = 11;
+
+            // Row 1: Title
+            worksheet.Cell("B1").Value = report.Title;
+            worksheet.Cell("B1").Style.Font.Bold = true;
+            worksheet.Cell("B1").Style.Font.FontSize = 13;
+            worksheet.Cell("B1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Range("B1:H1").Merge();
+
+            // Row 2: Headers
+            worksheet.Cell("A2").Value = "STT";
+            worksheet.Cell("B2").Value = "Số hợp đồng";
+            worksheet.Cell("C2").Value = "Tên hợp đồng";
+            worksheet.Cell("D2").Value = "Ngày ký hợp đồng";
+            worksheet.Cell("E2").Value = "Ngày kết thúc\n (dự kiến)";
+            worksheet.Cell("F2").Value = "Giá trị hợp đồng";
+            worksheet.Cell("G2").Value = "Giá trị đã\n thanh toán";
+            worksheet.Cell("H2").Value = "Giá trị còn lại của \nhợp đồng";
+            worksheet.Cell("I2").Value = $"Dự Kiến Thanh Toán Đến {report.CutoffDate:dd/MM/yyyy}";
+            worksheet.Cell("J2").Value = "Ghi Chú";
+
+            var headerRange = worksheet.Range("A2:J2");
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            headerRange.Style.Alignment.WrapText = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+            headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+            int startRow = 3;
+            int currentRow = startRow;
+
+            foreach (var row in report.Rows)
+            {
+                worksheet.Cell(currentRow, 1).Value = row.Stt;
+                worksheet.Cell(currentRow, 2).Value = row.SoHopDong;
+                worksheet.Cell(currentRow, 3).Value = row.TenHopDong;
+
+                if (row.NgayKyHopDong.HasValue)
+                {
+                    worksheet.Cell(currentRow, 4).Value = row.NgayKyHopDong.Value;
+                    worksheet.Cell(currentRow, 4).Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, 4).Value = string.Empty;
+                }
+
+                if (row.NgayKetThucDuKien.HasValue)
+                {
+                    worksheet.Cell(currentRow, 5).Value = row.NgayKetThucDuKien.Value;
+                    worksheet.Cell(currentRow, 5).Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, 5).Value = string.Empty;
+                }
+
+                worksheet.Cell(currentRow, 6).Value = row.GiaTriHopDong;
+                if (row.GiaTriDaThanhToan > 0)
+                {
+                    worksheet.Cell(currentRow, 7).Value = row.GiaTriDaThanhToan;
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, 7).Value = string.Empty;
+                }
+
+                worksheet.Cell(currentRow, 8).FormulaA1 = $"=F{currentRow}-G{currentRow}";
+
+                if (row.DuKienThanhToanDenMoc > 0)
+                {
+                    worksheet.Cell(currentRow, 9).Value = row.DuKienThanhToanDenMoc;
+                }
+                else
+                {
+                    worksheet.Cell(currentRow, 9).Value = string.Empty;
+                }
+
+                worksheet.Cell(currentRow, 10).Value = row.GhiChu ?? string.Empty;
+
+                var rowRange = worksheet.Range(currentRow, 1, currentRow, 10);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+                worksheet.Cell(currentRow, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                worksheet.Cell(currentRow, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                worksheet.Cell(currentRow, 6).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, 9).Style.NumberFormat.Format = "#,##0";
+
+                worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+                currentRow++;
+            }
+
+            if (report.Rows.Count > 0)
+            {
+                int endDataRow = currentRow - 1;
+                worksheet.Cell(currentRow, 9).FormulaA1 = $"=SUM(I{startRow}:I{endDataRow})";
+                worksheet.Cell(currentRow, 9).Style.Font.Bold = true;
+                worksheet.Cell(currentRow, 9).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            }
+
+            worksheet.Column(1).Width = 6;   // STT
+            worksheet.Column(2).Width = 28;  // Số hợp đồng
+            worksheet.Column(3).Width = 50;  // Tên hợp đồng
+            worksheet.Column(4).Width = 20;  // Ngày ký
+            worksheet.Column(5).Width = 20;  // Ngày kết thúc
+            worksheet.Column(6).Width = 18;  // Giá trị HĐ
+            worksheet.Column(7).Width = 18;  // Giá trị đã TT
+            worksheet.Column(8).Width = 22;  // Giá trị còn lại
+            worksheet.Column(9).Width = 24;  // Dự kiến TT
+            worksheet.Column(10).Width = 20; // Ghi chú
+
+            using (var memoryStream = new MemoryStream())
+            {
+                workbook.SaveAs(memoryStream);
+                return memoryStream.ToArray();
+            }
+        }
     }
 }
 

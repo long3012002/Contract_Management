@@ -165,6 +165,9 @@ Authorization: Bearer <your_jwt_access_token>
 - **`GET /api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau}/export`**: Xuất báo cáo tiến độ gói thầu ra Excel.
 - **`GET /api/NghiepVu/report/contract-payments`**: Báo cáo theo dõi giải ngân thanh toán hợp đồng.
 - **`GET /api/NghiepVu/report/contract-payments/export`**: Xuất báo cáo thanh toán hợp đồng ra Excel/CSV.
+- **`GET /api/NghiepVu/report/theo-doi-hop-dong`** (Alias: `/api/NghiepVu/reportTheoDoiHopDong`): Báo cáo theo dõi hợp đồng và đợt thanh toán (mẫu `Theo_dõi_HĐ.xlsx`).
+- **`GET /api/NghiepVu/report/theo-doi-hop-dong/export`** (Alias: `/api/NghiepVu/reportTheoDoiHopDong/export`): Xuất báo cáo theo dõi hợp đồng chuẩn Excel `Theo_dõi_HĐ.xlsx`.
+
 
 ### 2.9 Danh mục Hệ thống (`/api/DanhMuc/...`)
 - **`GET /api/DanhMuc/chuc-vu`**: Danh mục Chức vụ.

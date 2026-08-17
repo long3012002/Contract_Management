@@ -17,6 +17,9 @@ public interface IReportService
     Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search);
     Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search);
     Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search);
+
+    Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search);
+    Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search);
 }
 
 
