@@ -18,6 +18,7 @@ namespace demo1.Controllers
     {
         /// <summary>
         /// Đăng nhập hệ thống bằng Tên đăng nhập và Mật khẩu.
+        /// (Môi trường Dev: Tự động cho phép đăng nhập thành công không qua Radius đối với tài khoản quangmd và anhld2).
         /// </summary>
         /// <param name="request">Thông tin tài khoản (Username, Password)</param>
         /// <returns>Access Token, Refresh Token, Thông tin User và cờ 2FA</returns>

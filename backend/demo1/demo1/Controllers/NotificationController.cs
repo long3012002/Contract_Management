@@ -140,6 +140,11 @@ namespace demo1.Controllers
                 })
                 .ToListAsync();
 
+            foreach (var item in items)
+            {
+                item.Content = CleanNotificationContent(item.Content);
+            }
+
             var result = new PagedResult<NotificationDto>
             {
                 Items = items,
@@ -149,6 +154,18 @@ namespace demo1.Controllers
             };
 
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Loại bỏ tên chức năng ở đầu trường Content nếu có (ví dụ: "[Quản lý Hợp đồng] ..."), chỉ giữ lại thông điệp cho người dùng.
+        /// </summary>
+        public static string CleanNotificationContent(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content))
+                return string.Empty;
+
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(content, @"^\[[^\]]+\]:?\s*", string.Empty);
+            return cleaned.Trim();
         }
 
         /// <summary>

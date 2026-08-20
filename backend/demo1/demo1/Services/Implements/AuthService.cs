@@ -7,6 +7,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -26,6 +28,7 @@ namespace demo1.Services.Implements
         private readonly TotpService _totpService;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ILogger<AuthService> _logger;
+        private readonly IWebHostEnvironment? _env;
 
         public AuthService(
             RadiusClient radiusClient,
@@ -33,7 +36,8 @@ namespace demo1.Services.Implements
             AppDbContext dbContext,
             TotpService totpService,
             IHttpContextAccessor httpContextAccessor,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            IWebHostEnvironment? env = null)
         {
             _radiusClient = radiusClient;
             _configuration = configuration;
@@ -41,6 +45,7 @@ namespace demo1.Services.Implements
             _totpService = totpService;
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
+            _env = env;
         }
 
         public async Task<AuthResult> LoginAsync(LoginRequest request)
@@ -53,9 +58,20 @@ namespace demo1.Services.Implements
                 }
 
                 var enableDevBypass = _configuration.GetValue<bool>("Auth:EnableDevBypass");
-                bool isBypass = enableDevBypass &&
-                    request.Username == "admin" &&
-                    request.Password == "admin_bypass_dev";
+                bool isDevEnv = (_env?.IsDevelopment() ?? false) ||
+                    string.Equals(_configuration["ASPNETCORE_ENVIRONMENT"], "Development", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
+#if DEBUG
+                isDevEnv = true;
+#endif
+
+                bool isDevUserBypass = isDevEnv && (
+                    string.Equals(request.Username, "quangmd", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase)
+                );
+
+                bool isBypass = (enableDevBypass && request.Username == "admin" && request.Password == "admin_bypass_dev") || isDevUserBypass;
 
                 var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
                 var enableLocalPasswordLogin = _configuration.GetValue<bool>("Auth:EnableLocalPasswordLogin");
@@ -81,7 +97,7 @@ namespace demo1.Services.Implements
                 {
                     try
                     {
-                        isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password);
+                        isAuthenticated = await _radiusClient.AuthenticateAsync(request.Username, request.Password ?? "");
                     }
                     catch (SocketException ex)
                     {
@@ -109,10 +125,17 @@ namespace demo1.Services.Implements
                     {
                         if (isBypass)
                         {
+                            string fullName = request.Username.ToLower() switch
+                            {
+                                "quangmd" => "Mai Duy Quang",
+                                "anhld2" => "Lê Đức Anh",
+                                _ => "System Administrator (Auto Seeded)"
+                            };
+
                             dbUser = new demo1.Entity.User
                             {
-                                Username = "admin",
-                                FullName = "System Administrator (Auto Seeded)",
+                                Username = request.Username,
+                                FullName = fullName,
                                 IsActive = true,
                                 IsSystemAdmin = true
                             };

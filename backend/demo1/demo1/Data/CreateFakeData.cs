@@ -160,6 +160,24 @@ public static class CreateFakeDataExtensions
                     logger?.LogInformation("Đã bổ sung mã tính năng (FeatureCode) cho các thông báo cũ trong CSDL.");
                 }
 
+                // Loại bỏ tiền tố tên chức năng ở đầu trường Content (ví dụ: "[Quản lý Hợp đồng] ...") cho toàn bộ thông báo trong CSDL
+                var allNotifications = await context.Notifications.ToListAsync();
+                bool hasCleanedContent = false;
+                foreach (var n in allNotifications)
+                {
+                    var cleaned = demo1.Controllers.NotificationController.CleanNotificationContent(n.Content);
+                    if (cleaned != n.Content)
+                    {
+                        n.Content = cleaned;
+                        hasCleanedContent = true;
+                    }
+                }
+                if (hasCleanedContent)
+                {
+                    await context.SaveChangesAsync();
+                    logger?.LogInformation("Đã làm sạch trường Content của các thông báo (loại bỏ tên chức năng ở đầu).");
+                }
+
                 var existingAttachments = await context.FileAttachments.ToListAsync();
                 if (existingAttachments.Any())
                 {
