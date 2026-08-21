@@ -68,6 +68,20 @@ public class ReportService : IReportService
             periodName = "1N";
         }
 
+        // 2. Tải bản đồ ngân sách tất cả dự án nguồn (LoaiDuAn = 1) để tính tổng ngân sách cho dự án triển khai theo danh sách dự án nguồn được chọn
+        var sourceProjectsMap = await _context.DuAns
+            .AsNoTracking()
+            .Where(da => da.IsActive && !da.IsDeleted && da.LoaiDuAn == 1)
+            .Select(da => new
+            {
+                da.Id,
+                da.DuToanPheDuyet,
+                AdjustmentsSum = da.DieuChinhs
+                    .Where(dc => dc.IsActive && !dc.IsDeleted && dc.NgayDieuChinh <= endOfPeriod)
+                    .Sum(dc => (decimal?)dc.GiaTriDieuChinh) ?? 0
+            })
+            .ToDictionaryAsync(p => p.Id, p => p);
+
         // 3. Tải danh sách dự án hợp lệ (lọc phân quyền, bỏ qua dự án đã xóa, loại bỏ dự án nguồn đã triển khai để tránh trùng lặp)
         var query = _context.DuAns
             .AsNoTracking()
@@ -111,7 +125,7 @@ public class ReportService : IReportService
                 PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
                 PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
                 AdjustmentsSum = da.DieuChinhs
-                    .Where(dc => dc.NgayDieuChinh <= endOfPeriod)
+                    .Where(dc => dc.IsActive && !dc.IsDeleted && dc.NgayDieuChinh <= endOfPeriod)
                     .Sum(dc => (decimal?)dc.GiaTriDieuChinh) ?? 0
             })
             .ToListAsync();
@@ -153,8 +167,35 @@ public class ReportService : IReportService
 
         foreach (var project in projectsData)
         {
-            // Tính toán tổng ngân sách đã phê duyệt của dự án (Dự toán phê duyệt + Điều chỉnh đến thời điểm báo cáo)
-            decimal totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
+            // Tính toán tổng ngân sách theo các dự án nguồn được chọn (nếu là dự án triển khai)
+            decimal totalBudgetVnd = 0;
+            if (project.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(project.NguonDuAnIds))
+            {
+                var sourceIds = project.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                    .Where(g => g != Guid.Empty)
+                    .ToList();
+
+                if (sourceIds.Any())
+                {
+                    foreach (var sourceId in sourceIds)
+                    {
+                        if (sourceProjectsMap.TryGetValue(sourceId, out var sp))
+                        {
+                            totalBudgetVnd += (sp.DuToanPheDuyet + sp.AdjustmentsSum);
+                        }
+                    }
+                }
+
+                if (totalBudgetVnd == 0)
+                {
+                    totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
+                }
+            }
+            else
+            {
+                totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
+            }
 
             // Phân giải các giá trị lũy kế thanh toán từ map tổng hợp ở DB
             performedValues.TryGetValue(project.Id, out var perf);
