@@ -10,4 +10,5 @@ public class DuAnFilterDto
     public string? Cursor { get; set; }
 
     public int? LoaiDuAn { get; set; }
+    public int? TrangThai { get; set; }
 }

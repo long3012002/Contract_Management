@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using demo1.DTOs;
+using demo1.Entity;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -19,6 +21,31 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     public DuAnsController(IDuAnService service) : base(service)
     {
         _duAnService = service;
+    }
+
+    /// <summary>
+    /// Lấy danh sách các Enum/Option trạng thái và loại dự án.
+    /// </summary>
+    /// <returns>Danh sách các Option Enum của Dự án</returns>
+    /// <response code="200">Lấy danh sách Enum thành công</response>
+    [HttpGet("enums")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetDuAnEnums()
+    {
+        var trangThaiOptions = Enum.GetValues<TrangThaiDuAn>()
+            .Select(e => new { Value = (int)e, Code = e.ToString(), Label = e.GetDisplayName() });
+
+        var loaiDuAnOptions = new[]
+        {
+            new { Value = 1, Code = "Nguon", Label = "Dự án nguồn" },
+            new { Value = 2, Code = "TrienKhai", Label = "Dự án triển khai" }
+        };
+
+        return Ok(new
+        {
+            TrangThaiOptions = trangThaiOptions,
+            LoaiDuAnOptions = loaiDuAnOptions
+        });
     }
 
     /// <summary>

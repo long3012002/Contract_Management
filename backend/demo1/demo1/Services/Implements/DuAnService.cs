@@ -61,6 +61,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             query = query.Where(item => item.LoaiDuAn == filter.LoaiDuAn.Value);
         }
 
+        if (filter.TrangThai.HasValue && filter.TrangThai.Value > 0)
+        {
+            query = query.Where(item => item.TrangThai == filter.TrangThai.Value);
+        }
+
         var totalItems = await query.CountAsync();
 
         List<DuAn> items;
