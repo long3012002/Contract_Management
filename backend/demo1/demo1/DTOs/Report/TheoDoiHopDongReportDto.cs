@@ -49,6 +49,7 @@ public class TheoDoiHopDongReportSummaryDto
 public class TheoDoiHopDongReportResponseDto
 {
     public string Title { get; set; } = string.Empty;
+    public string Unit { get; set; } = "Đồng";
     public int Year { get; set; }
     public DateTime CutoffDate { get; set; }
     public int? LoaiHopDong { get; set; }

@@ -23,6 +23,7 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
     /// <param name="cutoffDate">Mốc thời gian dự kiến thanh toán đến (Mặc định 31/12/{year})</param>
     /// <param name="loaiHopDong">Phân loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Báo cáo chi tiết các hợp đồng và các đợt thanh toán</returns>
     [HttpGet]
     [HttpGet("/api/NghiepVu/reportTheoDoiHopDong")]
@@ -31,11 +32,12 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
         [FromQuery] int? year,
         [FromQuery] DateTime? cutoffDate,
         [FromQuery] int? loaiHopDong,
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] string? donViTinh = null)
     {
         try
         {
-            var report = await reportService.GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search);
+            var report = await reportService.GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
             return Ok(report);
         }
         catch (Exception ex)
@@ -52,6 +54,7 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
     /// <param name="loaiHopDong">Phân loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="base64">Trả về dạng mã hóa Base64 thay vì file nhị phân</param>
+    /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
     /// <returns>Tệp tin Excel (.xlsx) hoặc JSON Base64</returns>
     [HttpGet("export")]
     [HttpGet("/api/NghiepVu/reportTheoDoiHopDong/export")]
@@ -61,11 +64,12 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
         [FromQuery] DateTime? cutoffDate,
         [FromQuery] int? loaiHopDong,
         [FromQuery] string? search,
-        [FromQuery] bool base64 = false)
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
     {
         try
         {
-            byte[] fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDong, search);
+            byte[] fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
             string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             int selectedYear = year ?? DateTime.Now.Year;
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");

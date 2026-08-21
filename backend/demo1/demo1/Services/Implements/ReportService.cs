@@ -27,8 +27,28 @@ public class ReportService : IReportService
         _currentUserService = currentUserService;
     }
 
-    public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period)
+    private static (decimal Factor, string UnitName) ParseUnit(string? donViTinh)
     {
+        if (string.IsNullOrWhiteSpace(donViTinh))
+            return (1m, "Đồng");
+
+        var s = donViTinh.Trim().ToLowerInvariant();
+        if (s == "4" || s.Contains("tỷ") || s.Contains("ty"))
+            return (1_000_000_000m, "Tỷ đồng");
+        if (s == "3" || s.Contains("triệu") || s.Contains("trieu"))
+            return (1_000_000m, "Triệu đồng");
+        if (s == "2" || s.Contains("nghìn") || s.Contains("ngan") || s == "k")
+            return (1_000m, "Nghìn đồng");
+        if (s == "1" || s.Contains("đồng") || s.Contains("dong") || s == "vnd")
+            return (1m, "Đồng");
+
+        return (1m, "Đồng");
+    }
+
+    public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period, string? donViTinh = null)
+    {
+        var (conversionFactor, unitName) = ParseUnit(donViTinh);
+
         // 1. Tính toán thời gian báo cáo
         DateTime startOfPeriod = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         DateTime endOfPeriod;
@@ -48,10 +68,30 @@ public class ReportService : IReportService
             periodName = "1N";
         }
 
-        // 2. Chỉ tải các thuộc tính cần thiết của dự án và tính tổng tiền điều chỉnh trực tiếp ở DB
-        var projectsData = await _context.DuAns
+        // 3. Tải danh sách dự án hợp lệ (lọc phân quyền, bỏ qua dự án đã xóa, loại bỏ dự án nguồn đã triển khai để tránh trùng lặp)
+        var query = _context.DuAns
             .AsNoTracking()
-            .Where(da => da.IsActive)
+            .Where(da => da.IsActive && !da.IsDeleted);
+
+        // Tránh trùng lặp dự án nguồn đã triển khai thành dự án thực hiện
+        query = query.Where(da => !(da.LoaiDuAn == 1 && da.DaTrienKhai == true));
+
+        if (_currentUserService != null)
+        {
+            var currentUsername = _currentUserService.GetUsername();
+            if (!string.IsNullOrEmpty(currentUsername))
+            {
+                var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+                if (currentUser != null && !currentUser.IsSystemAdmin)
+                {
+                    query = query.Where(da => da.CreatedByUserId == currentUser.Id 
+                        || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == da.Id));
+                }
+            }
+        }
+
+        var projectsData = await query
             .Select(da => new
             {
                 da.Id,
@@ -76,18 +116,26 @@ public class ReportService : IReportService
             })
             .ToListAsync();
 
-        var projectMap = projectsData.ToDictionary(p => p.Id, p => p);
-
-        // 3. Tính toán các giá trị lũy kế thanh toán trực tiếp ở DB bằng GroupBy, loại bỏ việc nạp tất cả hợp đồng lên bộ nhớ RAM
+        // 4. Tính toán giá trị lũy kế đã thanh toán (chỉ tính đợt đã thanh toán IsPaid = true, hợp đồng active & chưa xóa, dùng ngày thanh toán thực tế)
         var performedValues = await _context.DotThanhToans
             .AsNoTracking()
-            .Where(dt => dt.HopDong.IsActive && dt.HopDong.DuAnId.HasValue)
-            .GroupBy(dt => dt.HopDong.DuAnId!.Value)
+            .Where(dt => dt.IsPaid 
+                && dt.HopDong != null 
+                && dt.HopDong.IsActive 
+                && !dt.HopDong.IsDeleted 
+                && dt.HopDong.DuAnId.HasValue)
+            .Select(dt => new
+            {
+                DuAnId = dt.HopDong.DuAnId!.Value,
+                PaymentDate = dt.NgayThanhToan ?? dt.CreatedAt,
+                dt.GiaTriThanhToan
+            })
+            .GroupBy(x => x.DuAnId)
             .Select(g => new
             {
                 DuAnId = g.Key,
-                KyTruoc = g.Where(dt => dt.CreatedAt < startOfPeriod).Sum(dt => dt.GiaTriThanhToan),
-                TrongKy = g.Where(dt => dt.CreatedAt >= startOfPeriod && dt.CreatedAt <= endOfPeriod).Sum(dt => dt.GiaTriThanhToan)
+                KyTruoc = g.Where(x => x.PaymentDate < startOfPeriod).Sum(x => x.GiaTriThanhToan),
+                TrongKy = g.Where(x => x.PaymentDate >= startOfPeriod && x.PaymentDate <= endOfPeriod).Sum(x => x.GiaTriThanhToan)
             })
             .ToDictionaryAsync(x => x.DuAnId, x => x);
 
@@ -105,34 +153,8 @@ public class ReportService : IReportService
 
         foreach (var project in projectsData)
         {
-            // Tính toán tổng ngân sách đã phê duyệt
-            decimal totalBudgetVnd = 0;
-            if (project.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(project.NguonDuAnIds))
-            {
-                var sourceIds = project.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                    .Where(g => g != Guid.Empty)
-                    .ToList();
-
-                if (sourceIds.Any())
-                {
-                    foreach (var sourceId in sourceIds)
-                    {
-                        if (projectMap.TryGetValue(sourceId, out var sp))
-                        {
-                            totalBudgetVnd += (sp.DuToanPheDuyet + sp.AdjustmentsSum);
-                        }
-                    }
-                }
-                else
-                {
-                    totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
-                }
-            }
-            else
-            {
-                totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
-            }
+            // Tính toán tổng ngân sách đã phê duyệt của dự án (Dự toán phê duyệt + Điều chỉnh đến thời điểm báo cáo)
+            decimal totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
 
             // Phân giải các giá trị lũy kế thanh toán từ map tổng hợp ở DB
             performedValues.TryGetValue(project.Id, out var perf);
@@ -164,8 +186,7 @@ public class ReportService : IReportService
                 }
             }
 
-            // Quy đổi sang Triệu đồng
-            decimal conversionFactor = 1_000_000m;
+            // Quy đổi theo đơn vị tính
             decimal budgetTotal = totalBudgetVnd / conversionFactor;
             decimal budgetVcsh = budgetTotal;
             decimal budgetVay = 0;
@@ -401,7 +422,7 @@ public class ReportService : IReportService
         return new ReportResponseDto
         {
             Title = $"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB ({periodDisplayName})",
-            Unit = "Triệu đồng",
+            Unit = unitName,
             Year = year,
             Period = period,
             PeriodName = periodName,
@@ -449,9 +470,9 @@ public class ReportService : IReportService
         summaryRow.TaiSanBanGiao = subgroupRows.Sum(r => r.TaiSanBanGiao);
     }
 
-    public async Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period)
+    public async Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period, string? donViTinh = null)
     {
-        var report = await GetInvestmentReportAsync(year, period);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh);
         
         using (var workbook = new XLWorkbook())
         {
@@ -504,7 +525,7 @@ public class ReportService : IReportService
             worksheet.Range("A7:L7").Merge();
 
             // Unit
-            worksheet.Cell("L8").Value = "Đơn vị tính: Triệu đồng";
+            worksheet.Cell("L8").Value = $"Đơn vị tính: {report.Unit}";
             worksheet.Cell("L8").Style.Font.Italic = true;
             worksheet.Cell("L8").Style.Font.FontSize = 11;
             worksheet.Cell("L8").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
@@ -659,9 +680,9 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period)
+    public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null)
     {
-        var report = await GetInvestmentReportAsync(year, period);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh);
         string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
 
         using (var memoryStream = new MemoryStream())
@@ -679,7 +700,7 @@ public class ReportService : IReportService
                 string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
                 await writer.WriteLineAsync($"\"( {periodText} )\"");
                 await writer.WriteLineAsync();
-                await writer.WriteLineAsync($"\"Đơn vị tính: Triệu đồng\"");
+                await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
                 await writer.WriteLineAsync();
 
                 // Table Columns
@@ -714,9 +735,9 @@ public class ReportService : IReportService
         return field.Replace("\"", "\"\"");
     }
 
-    public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period)
+    public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null)
     {
-        var report = await GetInvestmentReportAsync(year, period);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh);
         string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
         string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
 
@@ -770,7 +791,7 @@ public class ReportService : IReportService
         htmlBuilder.AppendLine("</div>");
 
         // Unit
-        htmlBuilder.AppendLine("<div class=\"unit-line\">Đơn vị tính: Triệu đồng</div>");
+        htmlBuilder.AppendLine($"<div class=\"unit-line\">Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</div>");
 
         // Data Table Headers
         htmlBuilder.AppendLine("<table class=\"data-table\">");
@@ -874,8 +895,10 @@ public class ReportService : IReportService
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
 
-    public async Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau)
+    public async Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau, string? donViTinh = null)
     {
+        var (factor, unitName) = ParseUnit(donViTinh);
+
         var goiThau = await _context.GoiThaus
             .Include(g => g.DuAn)
             .Include(g => g.CongViecGoiThaus)
@@ -917,7 +940,8 @@ public class ReportService : IReportService
             TenGoiThau = goiThau.Name,
             MaGoiThau = goiThau.Code,
             TenDuAn = goiThau.DuAn?.Name,
-            GiaTriGoiThau = goiThau.GiaTriGoiThau,
+            Unit = unitName,
+            GiaTriGoiThau = goiThau.GiaTriGoiThau / factor,
             CongViecs = congViecs,
             TongSoCongViec = congViecs.Count,
             SoCongViecDaHoanThanh = completed,
@@ -925,9 +949,9 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau)
+    public async Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau, string? donViTinh = null)
     {
-        var report = await GetCongViecGoiThauReportAsync(idGoiThau);
+        var report = await GetCongViecGoiThauReportAsync(idGoiThau, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {
@@ -1016,8 +1040,10 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, string? search)
+    public async Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
     {
+        var (factor, unitName) = ParseUnit(donViTinh);
+
         var query = _context.HopDongs
             .Include(h => h.DotThanhToans)
             .Include(h => h.DuAn)
@@ -1071,12 +1097,12 @@ public class ReportService : IReportService
             int soKyDaThanhToan = milestones.Count(m => m.IsPaid);
             int soKyConPhaiThanhToan = tongSoKy - soKyDaThanhToan;
 
-            decimal soTienDaThanhToan = milestones.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
-            decimal soTienConPhaiThanhToan = contract.GiaTriHopDong - soTienDaThanhToan;
-            if (soTienConPhaiThanhToan < 0) soTienConPhaiThanhToan = 0;
+            decimal rawSoTienDaThanhToan = milestones.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
+            decimal rawSoTienConPhaiThanhToan = contract.GiaTriHopDong - rawSoTienDaThanhToan;
+            if (rawSoTienConPhaiThanhToan < 0) rawSoTienConPhaiThanhToan = 0;
 
             double tyLeDaThanhToanPercent = contract.GiaTriHopDong > 0 
-                ? (double)Math.Round(soTienDaThanhToan / contract.GiaTriHopDong * 100, 2) 
+                ? (double)Math.Round(rawSoTienDaThanhToan / contract.GiaTriHopDong * 100, 2) 
                 : 0;
 
             // Milestones scheduled or recorded in the target year
@@ -1085,10 +1111,19 @@ public class ReportService : IReportService
                 (!m.NgayThanhToan.HasValue && m.CreatedAt.Year == year)
             ).ToList();
 
-            decimal phaiThanhToanTrongNam = milestonesInYear.Sum(m => m.GiaTriThanhToan);
-            decimal daThanhToanTrongNam = milestonesInYear.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
-            decimal conPhaiThanhToanTrongNam = phaiThanhToanTrongNam - daThanhToanTrongNam;
-            if (conPhaiThanhToanTrongNam < 0) conPhaiThanhToanTrongNam = 0;
+            decimal rawPhaiThanhToanTrongNam = milestonesInYear.Sum(m => m.GiaTriThanhToan);
+            decimal rawDaThanhToanTrongNam = milestonesInYear.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
+            decimal rawConPhaiThanhToanTrongNam = rawPhaiThanhToanTrongNam - rawDaThanhToanTrongNam;
+            if (rawConPhaiThanhToanTrongNam < 0) rawConPhaiThanhToanTrongNam = 0;
+
+            // Apply unit conversion factor
+            decimal giaTriHopDong = contract.GiaTriHopDong / factor;
+            decimal soTienDaThanhToan = rawSoTienDaThanhToan / factor;
+            decimal soTienConPhaiThanhToan = rawSoTienConPhaiThanhToan / factor;
+
+            decimal phaiThanhToanTrongNam = rawPhaiThanhToanTrongNam / factor;
+            decimal daThanhToanTrongNam = rawDaThanhToanTrongNam / factor;
+            decimal conPhaiThanhToanTrongNam = rawConPhaiThanhToanTrongNam / factor;
 
             // Payment Status Label
             string trangThaiThanhToan;
@@ -1116,7 +1151,7 @@ public class ReportService : IReportService
                 Id = m.Id,
                 TenDot = m.TenDot,
                 TyLeThanhToan = m.TyLeThanhToan,
-                GiaTriThanhToan = m.GiaTriThanhToan,
+                GiaTriThanhToan = m.GiaTriThanhToan / factor,
                 NgayThanhToan = m.NgayThanhToan,
                 DieuKienThanhToan = m.DieuKienThanhToan,
                 IsPaid = m.IsPaid
@@ -1132,7 +1167,7 @@ public class ReportService : IReportService
                 TenDuAn = contract.DuAn?.Name,
                 TenGoiThau = contract.GoiThau?.Name,
                 TenNhaThau = contract.NhaThau?.Name,
-                GiaTriHopDong = contract.GiaTriHopDong,
+                GiaTriHopDong = giaTriHopDong,
                 NgayHieuLuc = contract.NgayHieuLuc,
                 ExpiredDate = contract.ExpiredDate,
                 TongSoKy = tongSoKy,
@@ -1169,6 +1204,7 @@ public class ReportService : IReportService
         return new ContractPaymentReportResponseDto
         {
             Title = $"BÁO CÁO THEO DÕI THANH TOÁN HỢP ĐỒNG NĂM {year}",
+            Unit = unitName,
             Year = year,
             LoaiHopDong = loaiHopDong,
             LoaiHopDongFilterTen = loaiFilterName,
@@ -1188,9 +1224,9 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search)
+    public async Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {
@@ -1229,7 +1265,7 @@ public class ReportService : IReportService
             worksheet.Range("A5:Q5").Merge();
 
             // Unit line
-            worksheet.Cell("Q7").Value = "Đơn vị tính: Đồng (VND)";
+            worksheet.Cell("Q7").Value = $"Đơn vị tính: {report.Unit}";
             worksheet.Cell("Q7").Style.Font.Italic = true;
             worksheet.Cell("Q7").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
@@ -1240,11 +1276,11 @@ public class ReportService : IReportService
 
             worksheet.Cell("A10").Value = $"Tổng số hợp đồng: {report.Summary.TongSoHopDong} (Bảo trì: {report.Summary.SoHopDongBaoTri})";
             worksheet.Cell("D10").Value = $"Tổng kỳ thanh toán: {report.Summary.TongSoKyThanhToan} (Đã TT: {report.Summary.TongSoKyDaThanhToan}, Còn lại: {report.Summary.TongSoKyConPhaiThanhToan})";
-            worksheet.Cell("H10").Value = $"Tổng giá trị hợp đồng: {report.Summary.TongGiaTriHopDong:#,##0} VND";
+            worksheet.Cell("H10").Value = $"Tổng giá trị hợp đồng: {report.Summary.TongGiaTriHopDong:#,##0} {report.Unit}";
 
-            worksheet.Cell("A11").Value = $"Lũy kế đã thanh toán: {report.Summary.TongSoTienDaThanhToan:#,##0} VND";
-            worksheet.Cell("D11").Value = $"Lũy kế còn phải TT: {report.Summary.TongSoTienConPhaiThanhToan:#,##0} VND";
-            worksheet.Cell("H11").Value = $"Kế hoạch TT trong năm {year}: {report.Summary.TongPhaiThanhToanTrongNam:#,##0} VND (Đã TT: {report.Summary.TongDaThanhToanTrongNam:#,##0}, Còn lại: {report.Summary.TongConPhaiThanhToanTrongNam:#,##0})";
+            worksheet.Cell("A11").Value = $"Lũy kế đã thanh toán: {report.Summary.TongSoTienDaThanhToan:#,##0} {report.Unit}";
+            worksheet.Cell("D11").Value = $"Lũy kế còn phải TT: {report.Summary.TongSoTienConPhaiThanhToan:#,##0} {report.Unit}";
+            worksheet.Cell("H11").Value = $"Kế hoạch TT trong năm {year}: {report.Summary.TongPhaiThanhToanTrongNam:#,##0} {report.Unit} (Đã TT: {report.Summary.TongDaThanhToanTrongNam:#,##0}, Còn lại: {report.Summary.TongConPhaiThanhToanTrongNam:#,##0})";
 
             var summaryBox = worksheet.Range("A9:Q11");
             summaryBox.Style.Fill.BackgroundColor = XLColor.FromHtml("#F9FAFB");
@@ -1259,16 +1295,16 @@ public class ReportService : IReportService
             worksheet.Cell(headerRow, 4).Value = "Loại hợp đồng";
             worksheet.Cell(headerRow, 5).Value = "Dự án / Gói thầu";
             worksheet.Cell(headerRow, 6).Value = "Nhà thầu / Đối tác";
-            worksheet.Cell(headerRow, 7).Value = "Giá trị HĐ (VND)";
+            worksheet.Cell(headerRow, 7).Value = $"Giá trị HĐ ({report.Unit})";
             worksheet.Cell(headerRow, 8).Value = "Tổng số kỳ";
             worksheet.Cell(headerRow, 9).Value = "Số kỳ đã TT";
             worksheet.Cell(headerRow, 10).Value = "Số kỳ còn lại";
-            worksheet.Cell(headerRow, 11).Value = "Đã thanh toán (VND)";
-            worksheet.Cell(headerRow, 12).Value = "Còn phải thanh toán (VND)";
+            worksheet.Cell(headerRow, 11).Value = $"Đã thanh toán ({report.Unit})";
+            worksheet.Cell(headerRow, 12).Value = $"Còn phải thanh toán ({report.Unit})";
             worksheet.Cell(headerRow, 13).Value = "% Đã TT";
-            worksheet.Cell(headerRow, 14).Value = $"Phải TT năm {year} (VND)";
-            worksheet.Cell(headerRow, 15).Value = $"Đã TT năm {year} (VND)";
-            worksheet.Cell(headerRow, 16).Value = $"Còn lại năm {year} (VND)";
+            worksheet.Cell(headerRow, 14).Value = $"Phải TT năm {year} ({report.Unit})";
+            worksheet.Cell(headerRow, 15).Value = $"Đã TT năm {year} ({report.Unit})";
+            worksheet.Cell(headerRow, 16).Value = $"Còn lại năm {year} ({report.Unit})";
             worksheet.Cell(headerRow, 17).Value = "Trạng thái";
 
             var headerRange = worksheet.Range(headerRow, 1, headerRow, 17);
@@ -1411,9 +1447,9 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search)
+    public async Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
 
         using (var memoryStream = new MemoryStream())
         {
@@ -1427,10 +1463,10 @@ public class ReportService : IReportService
                 await writer.WriteLineAsync($"\"BÁO CÁO THEO DÕI THANH TOÁN HỢP ĐỒNG NĂM {year}\"");
                 await writer.WriteLineAsync($"\"Phân loại: {EscapeCsvField(report.LoaiHopDongFilterTen)}\"");
                 await writer.WriteLineAsync();
-                await writer.WriteLineAsync($"\"Đơn vị tính: Đồng (VND)\"");
+                await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
                 await writer.WriteLineAsync();
 
-                await writer.WriteLineAsync($"\"STT\",\"Mã hợp đồng\",\"Tên hợp đồng\",\"Loại hợp đồng\",\"Dự án / Gói thầu\",\"Nhà thầu\",\"Giá trị HĐ (VND)\",\"Tổng số kỳ\",\"Số kỳ đã TT\",\"Số kỳ còn lại\",\"Đã thanh toán (VND)\",\"Còn phải thanh toán (VND)\",\"% Đã TT\",\"Phải TT trong năm {year} (VND)\",\"Đã TT trong năm {year} (VND)\",\"Còn lại trong năm {year} (VND)\",\"Trạng thái\"");
+                await writer.WriteLineAsync($"\"STT\",\"Mã hợp đồng\",\"Tên hợp đồng\",\"Loại hợp đồng\",\"Dự án / Gói thầu\",\"Nhà thầu\",\"Giá trị HĐ ({report.Unit})\",\"Tổng số kỳ\",\"Số kỳ đã TT\",\"Số kỳ còn lại\",\"Đã thanh toán ({report.Unit})\",\"Còn phải thanh toán ({report.Unit})\",\"% Đã TT\",\"Phải TT trong năm {year} ({report.Unit})\",\"Đã TT trong năm {year} ({report.Unit})\",\"Còn lại trong năm {year} ({report.Unit})\",\"Trạng thái\"");
 
                 int stt = 1;
                 foreach (var r in report.Rows)
@@ -1445,9 +1481,9 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search)
+    public async Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
 
         var htmlBuilder = new System.Text.StringBuilder();
         htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -1470,7 +1506,7 @@ public class ReportService : IReportService
         htmlBuilder.AppendLine("<body>");
 
         htmlBuilder.AppendLine($"<div class=\"title\">{System.Web.HttpUtility.HtmlEncode(report.Title)}</div>");
-        htmlBuilder.AppendLine($"<div class=\"subtitle\">Phân loại: {System.Web.HttpUtility.HtmlEncode(report.LoaiHopDongFilterTen)} | Đơn vị tính: Đồng (VND)</div>");
+        htmlBuilder.AppendLine($"<div class=\"subtitle\">Phân loại: {System.Web.HttpUtility.HtmlEncode(report.LoaiHopDongFilterTen)} | Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</div>");
 
         htmlBuilder.AppendLine("<table>");
         htmlBuilder.AppendLine("  <thead>");
@@ -1521,8 +1557,9 @@ public class ReportService : IReportService
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
 
-    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search)
+    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null)
     {
+        var (factor, unitName) = ParseUnit(donViTinh);
         int selectedYear = year ?? DateTime.Now.Year;
         DateTime targetCutoffDate = cutoffDate ?? new DateTime(selectedYear, 12, 31, 23, 59, 59, DateTimeKind.Utc);
 
@@ -1577,21 +1614,26 @@ public class ReportService : IReportService
         {
             var milestones = contract.DotThanhToans != null ? contract.DotThanhToans.ToList() : new List<DotThanhToan>();
 
-            decimal giaTriDaThanhToan = milestones.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
-            decimal giaTriConLai = contract.GiaTriHopDong - giaTriDaThanhToan;
-            if (giaTriConLai < 0) giaTriConLai = 0;
+            decimal rawGiaTriDaThanhToan = milestones.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
+            decimal rawGiaTriConLai = contract.GiaTriHopDong - rawGiaTriDaThanhToan;
+            if (rawGiaTriConLai < 0) rawGiaTriConLai = 0;
 
-            decimal duKienThanhToanDenMoc = milestones
+            decimal rawDuKienThanhToanDenMoc = milestones
                 .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value <= targetCutoffDate) ||
                             (!m.NgayThanhToan.HasValue && m.CreatedAt <= targetCutoffDate))
                 .Sum(m => m.GiaTriThanhToan);
+
+            decimal giaTriHopDong = contract.GiaTriHopDong / factor;
+            decimal giaTriDaThanhToan = rawGiaTriDaThanhToan / factor;
+            decimal giaTriConLai = rawGiaTriConLai / factor;
+            decimal duKienThanhToanDenMoc = rawDuKienThanhToanDenMoc / factor;
 
             var milestoneDtos = milestones.Select(m => new TheoDoiHopDongDotThanhToanDto
             {
                 Id = m.Id,
                 TenDot = m.TenDot,
                 TyLeThanhToan = m.TyLeThanhToan,
-                GiaTriThanhToan = m.GiaTriThanhToan,
+                GiaTriThanhToan = m.GiaTriThanhToan / factor,
                 NgayThanhToan = m.NgayThanhToan,
                 DieuKienThanhToan = m.DieuKienThanhToan,
                 IsPaid = m.IsPaid
@@ -1605,7 +1647,7 @@ public class ReportService : IReportService
                 TenHopDong = contract.Name,
                 NgayKyHopDong = contract.NgayHieuLuc,
                 NgayKetThucDuKien = contract.ExpiredDate,
-                GiaTriHopDong = contract.GiaTriHopDong,
+                GiaTriHopDong = giaTriHopDong,
                 GiaTriDaThanhToan = giaTriDaThanhToan,
                 GiaTriConLai = giaTriConLai,
                 DuKienThanhToanDenMoc = duKienThanhToanDenMoc,
@@ -1631,6 +1673,7 @@ public class ReportService : IReportService
         return new TheoDoiHopDongReportResponseDto
         {
             Title = "THEO DÕI CÁC HỢP ĐỒNG BẢO TRÌ CÁC HỆ THỐNG TỪ NĂM 2025 ĐẾN NAY",
+            Unit = unitName,
             Year = selectedYear,
             CutoffDate = targetCutoffDate,
             LoaiHopDong = loaiHopDong,
@@ -1640,9 +1683,9 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search)
+    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null)
     {
-        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search);
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {

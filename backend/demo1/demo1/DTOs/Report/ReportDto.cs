@@ -33,7 +33,7 @@ public class ReportRowDto
 public class ReportResponseDto
 {
     public string Title { get; set; } = string.Empty;
-    public string Unit { get; set; } = "Triệu đồng";
+    public string Unit { get; set; } = "Đồng";
     public int Year { get; set; }
     public int Period { get; set; } // 1: 6T, 2: 1N
     public string PeriodName { get; set; } = string.Empty; // "6T" or "1N"

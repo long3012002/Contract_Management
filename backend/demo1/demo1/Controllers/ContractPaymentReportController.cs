@@ -21,6 +21,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     /// <param name="year">Năm thanh toán</param>
     /// <param name="loaiHopDong">Loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Danh sách các đợt thanh toán hợp đồng và tổng hợp giá trị đã thanh toán</returns>
     /// <response code="200">Lấy dữ liệu thành công</response>
     [HttpGet]
@@ -28,13 +29,14 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
         [FromQuery] int? year, 
         [FromQuery] int? loaiHopDong, 
-        [FromQuery] string? search)
+        [FromQuery] string? search,
+        [FromQuery] string? donViTinh = null)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
         try
         {
-            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search);
+            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search, donViTinh);
             return Ok(report);
         }
         catch (Exception ex)
@@ -51,6 +53,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
     /// <param name="base64">Trả về dạng mã hóa Base64</param>
+    /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
     /// <response code="200">Xuất file thành công</response>
     [HttpGet("export")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -59,13 +62,14 @@ public class ContractPaymentReportController(IReportService reportService) : Con
         [FromQuery] int? loaiHopDong, 
         [FromQuery] string? search, 
         [FromQuery] string format = "xlsx", 
-        [FromQuery] bool base64 = false)
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
         try
         {
-            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search);
+            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search, donViTinh);
             
             byte[] fileBytes;
             string contentType;
@@ -74,19 +78,19 @@ public class ContractPaymentReportController(IReportService reportService) : Con
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportContractPaymentReportCsvAsync(selectedYear, loaiHopDong, search);
+                fileBytes = await reportService.ExportContractPaymentReportCsvAsync(selectedYear, loaiHopDong, search, donViTinh);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportContractPaymentReportHtmlAsync(selectedYear, loaiHopDong, search);
+                fileBytes = await reportService.ExportContractPaymentReportHtmlAsync(selectedYear, loaiHopDong, search, donViTinh);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, search);
+                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, search, donViTinh);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }

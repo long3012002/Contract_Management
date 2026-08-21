@@ -20,17 +20,18 @@ public class CongViecGoiThauReportController(IReportService reportService) : Con
     /// Lấy báo cáo trình tự thực hiện các công việc thuộc Gói thầu.
     /// </summary>
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Danh sách các bước công việc, tiến độ thực hiện và văn bản liên quan</returns>
     /// <response code="200">Lấy dữ liệu thành công</response>
     /// <response code="404">Không tìm thấy gói thầu</response>
     [HttpGet("{idGoiThau:guid}")]
     [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<CongViecGoiThauReportDto>> GetCongViecGoiThauReport(Guid idGoiThau)
+    public async Task<ActionResult<CongViecGoiThauReportDto>> GetCongViecGoiThauReport(Guid idGoiThau, [FromQuery] string? donViTinh = null)
     {
         try
         {
-            var report = await reportService.GetCongViecGoiThauReportAsync(idGoiThau);
+            var report = await reportService.GetCongViecGoiThauReportAsync(idGoiThau, donViTinh);
             return Ok(report);
         }
         catch (KeyNotFoundException ex)
@@ -48,17 +49,18 @@ public class CongViecGoiThauReportController(IReportService reportService) : Con
     /// </summary>
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <param name="base64">Trả về dữ liệu Base64 thay vì file trực tiếp</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <response code="200">Xuất file Excel thành công</response>
     /// <response code="404">Không tìm thấy gói thầu</response>
     [HttpGet("{idGoiThau:guid}/export")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> ExportCongViecGoiThauReport(Guid idGoiThau, [FromQuery] bool base64 = false)
+    public async Task<IActionResult> ExportCongViecGoiThauReport(Guid idGoiThau, [FromQuery] bool base64 = false, [FromQuery] string? donViTinh = null)
     {
         try
         {
-            var report = await reportService.GetCongViecGoiThauReportAsync(idGoiThau);
-            var fileBytes = await reportService.ExportCongViecGoiThauReportExcelAsync(idGoiThau);
+            var report = await reportService.GetCongViecGoiThauReportAsync(idGoiThau, donViTinh);
+            var fileBytes = await reportService.ExportCongViecGoiThauReportExcelAsync(idGoiThau, donViTinh);
 
             string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");

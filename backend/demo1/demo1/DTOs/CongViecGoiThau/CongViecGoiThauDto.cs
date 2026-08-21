@@ -127,6 +127,7 @@ public class CongViecGoiThauReportDto
     public string TenGoiThau { get; set; } = string.Empty;
     public string MaGoiThau { get; set; } = string.Empty;
     public string? TenDuAn { get; set; }
+    public string Unit { get; set; } = "Đồng";
     public decimal GiaTriGoiThau { get; set; }
     public List<CongViecGoiThauDto> CongViecs { get; set; } = new List<CongViecGoiThauDto>();
     public int TongSoCongViec { get; set; }

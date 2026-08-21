@@ -20,13 +20,14 @@ public class InvestmentReportController(IReportService reportService) : Controll
     /// </summary>
     /// <param name="year">Năm báo cáo (mặc định: năm hiện tại)</param>
     /// <param name="period">Kỳ báo cáo: 1 (6 tháng đầu năm), 2 (Cả năm)</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Bảng tổng hợp kinh phí đầu tư và danh sách chi tiết các dự án</returns>
     /// <response code="200">Lấy dữ liệu báo cáo thành công</response>
     /// <response code="400">Kỳ báo cáo không hợp lệ</response>
     [HttpGet]
     [ProducesResponseType(typeof(ReportResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ReportResponseDto>> GetInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1)
+    public async Task<ActionResult<ReportResponseDto>> GetInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string? donViTinh = null)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
@@ -37,7 +38,7 @@ public class InvestmentReportController(IReportService reportService) : Controll
 
         try
         {
-            var report = await reportService.GetInvestmentReportAsync(selectedYear, period);
+            var report = await reportService.GetInvestmentReportAsync(selectedYear, period, donViTinh);
             return Ok(report);
         }
         catch (Exception ex)
@@ -53,10 +54,11 @@ public class InvestmentReportController(IReportService reportService) : Controll
     /// <param name="period">Kỳ báo cáo: 1 (6 tháng), 2 (1 năm)</param>
     /// <param name="format">Định dạng xuất: xlsx, csv, html (mặc định: xlsx)</param>
     /// <param name="base64">Trả về chuỗi Base64 thay vì download file trực tiếp</param>
+    /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
     /// <response code="200">Xuất file thành công</response>
     [HttpGet("export")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> ExportInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string format = "xlsx", [FromQuery] bool base64 = false)
+    public async Task<IActionResult> ExportInvestmentReport([FromQuery] int? year, [FromQuery] int period = 1, [FromQuery] string format = "xlsx", [FromQuery] bool base64 = false, [FromQuery] string? donViTinh = null)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
@@ -67,7 +69,7 @@ public class InvestmentReportController(IReportService reportService) : Controll
 
         try
         {
-            var report = await reportService.GetInvestmentReportAsync(selectedYear, period);
+            var report = await reportService.GetInvestmentReportAsync(selectedYear, period, donViTinh);
             
             byte[] fileBytes;
             string contentType;
@@ -76,19 +78,19 @@ public class InvestmentReportController(IReportService reportService) : Controll
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportInvestmentReportCsvAsync(selectedYear, period);
+                fileBytes = await reportService.ExportInvestmentReportCsvAsync(selectedYear, period, donViTinh);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportInvestmentReportHtmlAsync(selectedYear, period);
+                fileBytes = await reportService.ExportInvestmentReportHtmlAsync(selectedYear, period, donViTinh);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period);
+                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period, donViTinh);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
