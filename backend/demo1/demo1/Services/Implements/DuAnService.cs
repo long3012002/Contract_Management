@@ -573,10 +573,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         if (entity.TrangThai >= (int)TrangThaiDuAn.HoanThanh)
         {
-            throw new InvalidOperationException("Dự án đã ở trạng thái hoàn thành hoặc cao hơn, không thể chuyển tiếp.");
+            throw new InvalidOperationException("Dự án đã ở trạng thái hoàn thành, không thể chuyển tiếp.");
         }
 
-        entity.TrangThai += 1;
+        entity.TrangThai = (int)TrangThaiDuAn.HoanThanh;
+        entity.DaKetThuc = true;
         entity.UpdatedAt = DateTime.UtcNow;
 
         await DbContext.SaveChangesAsync();

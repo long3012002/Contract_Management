@@ -136,7 +136,7 @@ public static class DatabaseSeeder
                     Name = $"Dự án phát triển hệ thống {i}",
                     Description = $"Dự án xây dựng phần mềm quản lý và tối ưu hóa quy trình {i}.",
                     DuToanPheDuyet = random.Next(10, 500) * 10_000_000m,
-                    TrangThai = random.Next(1, 5),
+                    TrangThai = random.Next(1, 3),
                     LoaiDuAn = isSourceProject ? 1 : 2,
                     ChuDauTu = "Ngân hàng Hợp tác xã Việt Nam (Co-op Bank)",
                     DiaDiemThucHien = "Tòa nhà N04 Hoàng Đạo Thúy, Cầu Giấy, Hà Nội",
