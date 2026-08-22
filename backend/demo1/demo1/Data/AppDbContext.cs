@@ -216,9 +216,6 @@ namespace demo1.Data
                 .Property(gt => gt.GiaTriGoiThau)
                 .HasPrecision(18, 2);
             modelBuilder.Entity<GoiThau>()
-                .Property(gt => gt.NguongCanhBaoPercent)
-                .HasPrecision(5, 2);
-            modelBuilder.Entity<GoiThau>()
                 .HasOne(gt => gt.DuAn)
                 .WithMany(da => da.GoiThaus)
                 .HasForeignKey(gt => gt.DuAnId)

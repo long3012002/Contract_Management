@@ -213,7 +213,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         HashSet<Guid>? allowedProjectIds = null,
         HashSet<string>? existingCodesInDb = null)
     {
-        GoiThauValidator.EnsureValid(dto.GiaTriGoiThau, dto.NguongCanhBaoPercent);
+        GoiThauValidator.EnsureValid(dto.GiaTriGoiThau);
 
         if (dto.DuAnId.HasValue)
         {
@@ -463,7 +463,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 return false;
             }
 
-            GoiThauValidator.EnsureValid(dto.GiaTriGoiThau, dto.NguongCanhBaoPercent);
+            GoiThauValidator.EnsureValid(dto.GiaTriGoiThau);
 
             if (dto.DuAnId.HasValue)
             {

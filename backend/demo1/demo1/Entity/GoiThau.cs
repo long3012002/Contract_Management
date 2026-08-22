@@ -9,8 +9,6 @@ public class GoiThau : BaseEntity
     public virtual DuAn? DuAn { get; set; }
     
     public decimal GiaTriGoiThau { get; set; }
-    public decimal NguongCanhBaoPercent { get; set; } = 100;
-
 
     public virtual ICollection<CongViecGoiThau> CongViecGoiThaus { get; set; } = new List<CongViecGoiThau>();
 }

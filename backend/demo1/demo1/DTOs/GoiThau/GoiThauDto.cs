@@ -14,7 +14,6 @@ public class GoiThauDto : IHasId
     
     public decimal GiaTriGoiThau { get; set; }
     public decimal TongGiaTriHopDong { get; set; }
-    public decimal NguongCanhBaoPercent { get; set; }
     
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }

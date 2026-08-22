@@ -200,7 +200,6 @@ public static class DatabaseSeeder
                     Name = $"Gói thầu số {i} cung cấp thiết bị và bản quyền phần mềm",
                     Description = $"Gói thầu triển khai các giải pháp phần mềm chuyên dụng và hạ tầng server {i}.",
                     GiaTriGoiThau = random.Next(5, 100) * 5_000_000m,
-                    NguongCanhBaoPercent = random.Next(80, 100),
                     IsActive = true,
                     CreatedAt = randomProject.CreatedAt.AddDays(5)
                 });

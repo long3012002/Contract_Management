@@ -38,10 +38,4 @@ public class CreateGoiThauDto
     /// </summary>
     [Range(0, double.MaxValue)]
     public decimal GiaTriGoiThau { get; set; }
-
-    /// <summary>
-    /// Ngưỡng cảnh báo kinh phí (phần trăm %, mặc định 100%)
-    /// </summary>
-    [Range(0, 100)]
-    public decimal NguongCanhBaoPercent { get; set; } = 100;
 }
