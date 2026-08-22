@@ -717,6 +717,13 @@ namespace demo1.Data
                 }
             }
 
+            foreach (var auditEntry in auditEntries)
+            {
+                var actionText = FormatActionName(auditEntry.Action);
+                var recordName = GetRecordName(auditEntry.Entry);
+                auditEntry.Description = $"{auditEntry.Username} {actionText} {recordName}".Trim();
+            }
+
             foreach (var auditEntry in auditEntries.Where(ae => !ae.Entry.Properties.Any(p => p.Metadata.IsPrimaryKey() && p.IsTemporary)))
             {
                 AuditLogs.Add(auditEntry.ToAuditLog());
@@ -739,9 +746,70 @@ namespace demo1.Data
                         auditEntry.KeyValues[prop.Metadata.Name] = prop.CurrentValue ?? "";
                     }
                 }
+
+                var actionText = FormatActionName(auditEntry.Action);
+                var recordName = GetRecordName(auditEntry.Entry);
+                auditEntry.Description = $"{auditEntry.Username} {actionText} {recordName}".Trim();
+
                 AuditLogs.Add(auditEntry.ToAuditLog());
             }
             await base.SaveChangesAsync();
+        }
+
+        private static string GetRecordName(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
+        {
+            var properties = entry.Properties.ToList();
+
+            // 1. Check for "Name" property
+            var nameProp = properties.FirstOrDefault(p => p.Metadata.Name.Equals("Name", StringComparison.OrdinalIgnoreCase));
+            if (nameProp != null)
+            {
+                var val = (nameProp.CurrentValue ?? nameProp.OriginalValue)?.ToString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
+
+            // 2. Check for "Ten..." property (e.g. TenDuAn, TenHopDong, TenGoiThau, TenPhongBan, TenDotThanhToan)
+            var tenProp = properties.FirstOrDefault(p => p.Metadata.Name.StartsWith("Ten", StringComparison.OrdinalIgnoreCase));
+            if (tenProp != null)
+            {
+                var val = (tenProp.CurrentValue ?? tenProp.OriginalValue)?.ToString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
+
+            // 3. Check for Title, Code, Username, FileName, FullName
+            var candidateProp = properties.FirstOrDefault(p =>
+                p.Metadata.Name.Equals("Title", StringComparison.OrdinalIgnoreCase) ||
+                p.Metadata.Name.Equals("Code", StringComparison.OrdinalIgnoreCase) ||
+                p.Metadata.Name.Equals("Username", StringComparison.OrdinalIgnoreCase) ||
+                p.Metadata.Name.Equals("FileName", StringComparison.OrdinalIgnoreCase) ||
+                p.Metadata.Name.Equals("FullName", StringComparison.OrdinalIgnoreCase));
+
+            if (candidateProp != null)
+            {
+                var val = (candidateProp.CurrentValue ?? candidateProp.OriginalValue)?.ToString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
+
+            // 4. Fallback to Primary Key or entity type name
+            var keyProp = properties.FirstOrDefault(p => p.Metadata.IsPrimaryKey());
+            var keyVal = (keyProp?.CurrentValue ?? keyProp?.OriginalValue)?.ToString();
+            if (!string.IsNullOrWhiteSpace(keyVal))
+            {
+                return keyVal;
+            }
+
+            return entry.Metadata.ClrType.Name;
+        }
+
+        private static string FormatActionName(string action)
+        {
+            return action.ToUpperInvariant() switch
+            {
+                "CREATE" => "tạo mới",
+                "UPDATE" => "cập nhật",
+                "DELETE" => "xóa",
+                _ => action.ToLowerInvariant()
+            };
         }
     }
 }

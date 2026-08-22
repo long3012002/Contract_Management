@@ -23,6 +23,7 @@ namespace demo1.Data
         public Dictionary<string, object> NewValues { get; } = new();
         public List<string> ChangedColumns { get; } = new();
         public string? IpAddress { get; set; }
+        public string? Description { get; set; }
 
         public Entity.AuditLog ToAuditLog()
         {
@@ -38,7 +39,8 @@ namespace demo1.Data
                 NewValues = NewValues.Count == 0 ? null : JsonSerializer.Serialize(NewValues),
                 ChangedColumns = ChangedColumns.Count == 0 ? null : JsonSerializer.Serialize(ChangedColumns),
                 Timestamp = DateTime.UtcNow,
-                IpAddress = IpAddress
+                IpAddress = IpAddress,
+                Description = Description
             };
         }
     }

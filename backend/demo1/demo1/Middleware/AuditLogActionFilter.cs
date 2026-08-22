@@ -57,6 +57,7 @@ namespace demo1.Middleware
                                            executedContext.Result is UnauthorizedResult || 
                                            (executedContext.Result is ObjectResult obj && obj.StatusCode == 403)));
 
+                        var actionDesc = isSuccess ? "truy cập thành công" : "bị từ chối truy cập";
                         var auditLog = new demo1.Entity.AuditLog
                         {
                             UserId = dbUser?.Id.ToString(),
@@ -66,7 +67,8 @@ namespace demo1.Middleware
                             EntityId = actionName ?? "Execute",
                             Timestamp = DateTime.UtcNow,
                             IpAddress = ipAddress,
-                            NewValues = $"{httpMethod} {path}"
+                            NewValues = $"{httpMethod} {path}",
+                            Description = $"{username} {actionDesc} {controllerName}/{actionName}"
                         };
 
                         if (executedContext.Exception != null)

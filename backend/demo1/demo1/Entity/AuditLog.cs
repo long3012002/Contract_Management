@@ -15,5 +15,6 @@ namespace demo1.Entity
         public string? ChangedColumns { get; set; } // JSON string
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public string? IpAddress { get; set; }
+        public string? Description { get; set; } // Tên + hành động + name của bản ghi
     }
 }
