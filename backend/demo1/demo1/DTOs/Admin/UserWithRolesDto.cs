@@ -18,6 +18,7 @@ namespace demo1.DTOs
         public string? TenDonVi { get; set; }
         public bool IsActive { get; set; }
         public bool IsSystemAdmin { get; set; }
+        public bool CanViewHopDong { get; set; }
         public List<string> Roles { get; set; } = new();
     }
 }

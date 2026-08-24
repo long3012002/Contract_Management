@@ -194,6 +194,7 @@ namespace demo1.Services.Implements
 
                     user.IsActive = dto.IsActive;
                     user.IsSystemAdmin = dto.IsSystemAdmin;
+                    user.CanViewHopDong = dto.CanViewHopDong;
 
                     // Xử lý cập nhật vai trò (Role)
                     if (targetRole != null)
@@ -425,6 +426,7 @@ namespace demo1.Services.Implements
 
                 user.IsActive = dto.IsActive;
                 user.IsSystemAdmin = dto.IsSystemAdmin;
+                user.CanViewHopDong = dto.CanViewHopDong;
                 user.UpdatedAt = DateTime.UtcNow;
 
                 // Xử lý vai trò (Role)

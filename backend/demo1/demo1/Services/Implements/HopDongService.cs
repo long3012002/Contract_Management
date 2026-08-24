@@ -55,9 +55,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         var currentUsername = _currentUserService.GetUsername();
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
-        if (currentUser != null && !currentUser.IsSystemAdmin)
+        if (currentUser != null && !currentUser.IsSystemAdmin && !currentUser.CanViewHopDong)
         {
-            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+            query = query.Where(h => (h.DuAn != null && (h.DuAn.CreatedByUserId == currentUser.Id || h.DuAn.ChuDuAnId == currentUser.Id)) 
                 || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
                 || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value));
         }

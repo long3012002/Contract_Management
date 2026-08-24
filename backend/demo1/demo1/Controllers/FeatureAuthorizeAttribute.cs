@@ -121,6 +121,11 @@ namespace demo1.Controllers
                     return;
                 }
 
+                if (_featureCode == "QUAN_LY_HOP_DONG" && dbUser.CanViewHopDong)
+                {
+                    return;
+                }
+
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
@@ -235,7 +240,7 @@ namespace demo1.Controllers
 
         private async Task<bool> IsProjectOwnerAnywhereAsync(Guid userId)
         {
-            return await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.CreatedByUserId == userId);
+            return await _dbContext.DuAns.AsNoTracking().AnyAsync(da => (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
         }
 
         private async Task<bool> IsProjectOwnerOrRelatedUserAsync(Guid userId, string entityIdStr)
@@ -258,7 +263,7 @@ namespace demo1.Controllers
             {
                 if (goiThau.DuAnId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == goiThau.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isOwner) return true;
                 }
 
@@ -273,7 +278,7 @@ namespace demo1.Controllers
             {
                 if (hopDong.DuAnId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == hopDong.DuAnId.Value && da.CreatedByUserId == userId);
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == hopDong.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isOwner) return true;
                 }
 
@@ -296,7 +301,7 @@ namespace demo1.Controllers
                 var parentGoiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == congViec.GoiThauId);
                 if (parentGoiThau != null && parentGoiThau.DuAnId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isOwner) return true;
                 }
             }
@@ -315,7 +320,7 @@ namespace demo1.Controllers
                     var parentGoiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == parentCongViec.GoiThauId);
                     if (parentGoiThau != null && parentGoiThau.DuAnId.HasValue)
                     {
-                        var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && da.CreatedByUserId == userId);
+                        var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == parentGoiThau.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                         if (isOwner) return true;
                     }
                 }
@@ -325,7 +330,7 @@ namespace demo1.Controllers
             var license = await _dbContext.Licenses.AsNoTracking().FirstOrDefaultAsync(l => l.Id == entityId);
             if (license != null)
             {
-                var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == license.DuAnId && da.CreatedByUserId == userId);
+                var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == license.DuAnId && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                 if (isOwner) return true;
             }
 

@@ -171,7 +171,17 @@ public class DuAnDto : IHasId
     public DateTime? UpdatedAt { get; set; }
 
     /// <summary>
-    /// ID của người tạo/chủ dự án
+    /// ID của người tạo bản ghi
     /// </summary>
     public Guid? CreatedByUserId { get; set; }
+
+    /// <summary>
+    /// ID của Chủ dự án
+    /// </summary>
+    public Guid? ChuDuAnId { get; set; }
+
+    /// <summary>
+    /// Tên Chủ dự án
+    /// </summary>
+    public string? ChuDuAnName { get; set; }
 }

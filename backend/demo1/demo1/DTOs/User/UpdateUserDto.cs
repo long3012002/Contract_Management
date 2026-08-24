@@ -16,5 +16,6 @@ namespace demo1.DTOs
         public string? Role { get; set; }
         public bool IsActive { get; set; } = true;
         public bool IsSystemAdmin { get; set; } = false;
+        public bool CanViewHopDong { get; set; } = false;
     }
 }

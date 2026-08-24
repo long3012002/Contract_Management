@@ -14,7 +14,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)))
                 .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
-                .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null));
+                .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
+                .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null));
             CreateMap<DuAn, DuAnNguonSummaryDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));

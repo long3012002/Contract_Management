@@ -47,6 +47,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
             query = query.Where(da => da.CreatedByUserId == currentUser.Id 
+                || da.ChuDuAnId == currentUser.Id
                 || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id));
         }
 
@@ -150,6 +151,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (currentUser != null)
         {
             entity.CreatedByUserId = currentUser.Id;
+            if (currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
+            {
+                entity.ChuDuAnId = dto.ChuDuAnId;
+            }
+            else
+            {
+                entity.ChuDuAnId = currentUser.Id;
+            }
         }
 
         if (dto.LoaiDuAn == 2) // Du an trien khai
@@ -299,6 +308,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             if (currentUser != null)
             {
                 entity.CreatedByUserId = currentUser.Id;
+                if (currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
+                {
+                    entity.ChuDuAnId = dto.ChuDuAnId;
+                }
+                else
+                {
+                    entity.ChuDuAnId = currentUser.Id;
+                }
             }
 
             if (dto.LoaiDuAn == 2)
@@ -442,6 +459,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             {
                 throw new InvalidOperationException("Dự án triển khai không thể sửa đổi dự toán trực tiếp vì nó được tổng hợp tự động từ các dự án nguồn.");
             }
+        }
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
+        {
+            entity.ChuDuAnId = dto.ChuDuAnId;
         }
 
         Mapper.Map(dto, entity);

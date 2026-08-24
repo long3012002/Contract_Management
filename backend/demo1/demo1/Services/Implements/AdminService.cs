@@ -393,6 +393,7 @@ namespace demo1.Services.Implements
                     TenDonVi = u.TenDonVi,
                     IsActive = u.IsActive,
                     IsSystemAdmin = u.IsSystemAdmin,
+                    CanViewHopDong = u.CanViewHopDong,
                     Roles = userRoles.Where(ur => ur.UserId == u.Id && ur.Role != null).Select(ur => ur.Role!.Name).ToList()
                 }).ToList();
 
