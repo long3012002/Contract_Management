@@ -14,6 +14,7 @@ public class HopDongFilterDto
     public Guid? ChuDauTuId { get; set; }
     public Guid? NhaThauId { get; set; }
     public int? LoaiHopDong { get; set; }
+    public Guid? LoaiHopDongId { get; set; }
     public int? HinhThucThanhToan { get; set; }
     public DateTime? FromNgayHieuLuc { get; set; }
     public DateTime? ToNgayHieuLuc { get; set; }

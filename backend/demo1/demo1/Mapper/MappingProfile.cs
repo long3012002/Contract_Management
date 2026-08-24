@@ -111,10 +111,21 @@ namespace demo1.Mapper
             CreateMap<DotThanhToan, DotThanhToanDto>();
             CreateMap<CreateDotThanhToanDto, DotThanhToan>();
 
+            // LoaiHopDong mappings
+            CreateMap<LoaiHopDong, LoaiHopDongDto>();
+            CreateMap<CreateLoaiHopDongDto, LoaiHopDong>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdateLoaiHopDongDto, LoaiHopDong>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
             // HopDong mappings
             CreateMap<HopDong, HopDongDto>()
                 .ForMember(dest => dest.GoiThauName, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Name : null))
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
+                .ForMember(dest => dest.LoaiHopDongName, opt => opt.MapFrom(src => src.LoaiHopDongNavigation != null ? src.LoaiHopDongNavigation.Name : null))
                 .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()))
                 .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus))
                 .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus));

@@ -18,6 +18,10 @@ public class HopDong : BaseEntity
     public virtual DoiTac? NhaThau { get; set; }
 
     public int LoaiHopDong { get; set; }
+    
+    public Guid? LoaiHopDongId { get; set; }
+    public virtual demo1.Entity.DanhMuc.LoaiHopDong? LoaiHopDongNavigation { get; set; }
+
     public string? ThoiHanThucHien { get; set; }
     public string? DiaDiemThucHien { get; set; }
     public decimal GiaTriHopDong { get; set; }

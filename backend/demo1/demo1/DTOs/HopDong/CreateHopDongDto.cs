@@ -56,6 +56,11 @@ public class CreateHopDongDto
     public int LoaiHopDong { get; set; }
 
     /// <summary>
+    /// Mã danh mục loại hợp đồng (Guid)
+    /// </summary>
+    public Guid? LoaiHopDongId { get; set; }
+
+    /// <summary>
     /// Thời hạn thực hiện hợp đồng
     /// </summary>
     [StringLength(255)]

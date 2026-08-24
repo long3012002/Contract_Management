@@ -24,6 +24,7 @@ namespace demo1.Data
         public DbSet<DuAn> DuAns { get; set; } = null!;
         public DbSet<NhomDuAn> NhomDuAns { get; set; } = null!;
         public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
+        public DbSet<LoaiHopDong> LoaiHopDongs { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
         public DbSet<HopDong> HopDongs { get; set; } = null!;
@@ -86,6 +87,7 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<NhomDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<PhanLoaiDuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<LoaiHopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
@@ -315,6 +317,12 @@ namespace demo1.Data
                 .HasOne(hd => hd.DuAn)
                 .WithMany()
                 .HasForeignKey(hd => hd.DuAnId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<HopDong>()
+                .HasOne(hd => hd.LoaiHopDongNavigation)
+                .WithMany()
+                .HasForeignKey(hd => hd.LoaiHopDongId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<DoiTac>()

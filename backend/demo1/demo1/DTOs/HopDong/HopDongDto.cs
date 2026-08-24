@@ -24,6 +24,10 @@ public class HopDongDto : IHasId
     public DoiTacDto? NhaThau { get; set; }
 
     public int LoaiHopDong { get; set; }
+    
+    public Guid? LoaiHopDongId { get; set; }
+    public string? LoaiHopDongName { get; set; }
+
     public string? ThoiHanThucHien { get; set; }
     public string? DiaDiemThucHien { get; set; }
     public decimal GiaTriHopDong { get; set; }

@@ -25,6 +25,8 @@ public class UpdateHopDongDto
     [Range(1, int.MaxValue)]
     public int LoaiHopDong { get; set; }
 
+    public Guid? LoaiHopDongId { get; set; }
+
     [StringLength(255)]
     public string? ThoiHanThucHien { get; set; }
 

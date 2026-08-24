@@ -212,6 +212,7 @@ public static class ServiceConfiguration
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<INhomDuAnService, NhomDuAnService>();
         services.AddScoped<IPhanLoaiDuAnService, PhanLoaiDuAnService>();
+        services.AddScoped<ILoaiHopDongService, LoaiHopDongService>();
         services.AddScoped<IWarningService, WarningService>();
         services.AddScoped<IUserService, UserService>();
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));

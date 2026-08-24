@@ -46,6 +46,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         IQueryable<HopDong> query = DbSet.AsNoTracking()
             .Include(h => h.GoiThau)
             .Include(h => h.DuAn)
+            .Include(h => h.LoaiHopDongNavigation)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
@@ -93,6 +94,11 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         if (filter.LoaiHopDong.HasValue)
         {
             query = query.Where(item => item.LoaiHopDong == filter.LoaiHopDong.Value);
+        }
+
+        if (filter.LoaiHopDongId.HasValue)
+        {
+            query = query.Where(item => item.LoaiHopDongId == filter.LoaiHopDongId.Value);
         }
 
         if (filter.HinhThucThanhToan.HasValue)
@@ -183,6 +189,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         IQueryable<HopDong> query = DbSet.AsNoTracking()
             .Include(h => h.GoiThau)
             .Include(h => h.DuAn)
+            .Include(h => h.LoaiHopDongNavigation)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
@@ -205,6 +212,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var entity = await DbSet
             .Include(h => h.GoiThau)
             .Include(h => h.DuAn)
+            .Include(h => h.LoaiHopDongNavigation)
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
