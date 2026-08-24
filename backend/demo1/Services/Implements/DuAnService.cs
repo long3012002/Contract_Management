@@ -509,7 +509,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var currentUsername = _currentUserService.GetUsername();
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
 
-        if (dto.OwnerId.HasValue && currentUser != null && (currentUser.IsSystemAdmin || entity.CreatedByUserId == currentUser.Id))
+        if (dto.OwnerId.HasValue && currentUser != null && (currentUser.IsSystemAdmin || !entity.CreatedByUserId.HasValue || entity.CreatedByUserId == currentUser.Id))
         {
             entity.CreatedByUserId = dto.OwnerId.Value;
         }
