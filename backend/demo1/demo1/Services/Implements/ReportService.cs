@@ -1081,7 +1081,7 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
         var (factor, unitName) = ParseUnit(donViTinh);
 
@@ -1110,6 +1110,11 @@ public class ReportService : IReportService
         if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
         {
             query = query.Where(h => h.LoaiHopDong == loaiHopDong.Value);
+        }
+
+        if (loaiHopDongIds != null && loaiHopDongIds.Count > 0)
+        {
+            query = query.Where(h => h.LoaiHopDongId.HasValue && loaiHopDongIds.Contains(h.LoaiHopDongId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -1265,9 +1270,9 @@ public class ReportService : IReportService
         };
     }
 
-    public async Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, loaiHopDongIds, search, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {
@@ -1488,9 +1493,9 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, loaiHopDongIds, search, donViTinh);
 
         using (var memoryStream = new MemoryStream())
         {
@@ -1522,9 +1527,9 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
-        var report = await GetContractPaymentReportAsync(year, loaiHopDong, search, donViTinh);
+        var report = await GetContractPaymentReportAsync(year, loaiHopDong, loaiHopDongIds, search, donViTinh);
 
         var htmlBuilder = new System.Text.StringBuilder();
         htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -1598,7 +1603,7 @@ public class ReportService : IReportService
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
 
-    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
         var (factor, unitName) = ParseUnit(donViTinh);
         int selectedYear = year ?? DateTime.Now.Year;
@@ -1629,6 +1634,11 @@ public class ReportService : IReportService
         if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
         {
             query = query.Where(h => h.LoaiHopDong == loaiHopDong.Value);
+        }
+
+        if (loaiHopDongIds != null && loaiHopDongIds.Count > 0)
+        {
+            query = query.Where(h => h.LoaiHopDongId.HasValue && loaiHopDongIds.Contains(h.LoaiHopDongId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -1711,22 +1721,25 @@ public class ReportService : IReportService
             TongDuKienThanhToanDenMoc = rows.Sum(r => r.DuKienThanhToanDenMoc)
         };
 
+        string loaiFilterName = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value) : "Tất cả loại hợp đồng";
+        string titleLoai = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value).Replace("HĐ ", "HỢP ĐỒNG ").ToUpper() : "CÁC HỢP ĐỒNG";
+
         return new TheoDoiHopDongReportResponseDto
         {
-            Title = "THEO DÕI CÁC HỢP ĐỒNG BẢO TRÌ CÁC HỆ THỐNG TỪ NĂM 2025 ĐẾN NAY",
+            Title = $"THEO DÕI {titleLoai} CÁC HỆ THỐNG TỪ NĂM {selectedYear} ĐẾN NAY",
             Unit = unitName,
             Year = selectedYear,
             CutoffDate = targetCutoffDate,
             LoaiHopDong = loaiHopDong,
-            LoaiHopDongFilterTen = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value) : "Tất cả loại hợp đồng",
+            LoaiHopDongFilterTen = loaiFilterName,
             Summary = summary,
             Rows = rows
         };
     }
 
-    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null)
+    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
-        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, loaiHopDongIds, search, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {

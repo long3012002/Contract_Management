@@ -32,12 +32,13 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
         [FromQuery] int? year,
         [FromQuery] DateTime? cutoffDate,
         [FromQuery] int? loaiHopDong,
+        [FromQuery] List<Guid>? loaiHopDongIds,
         [FromQuery] string? search,
         [FromQuery] string? donViTinh = null)
     {
         try
         {
-            var report = await reportService.GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
+            var report = await reportService.GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, loaiHopDongIds, search, donViTinh);
             return Ok(report);
         }
         catch (Exception ex)
@@ -63,13 +64,14 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
         [FromQuery] int? year,
         [FromQuery] DateTime? cutoffDate,
         [FromQuery] int? loaiHopDong,
+        [FromQuery] List<Guid>? loaiHopDongIds,
         [FromQuery] string? search,
         [FromQuery] bool base64 = false,
         [FromQuery] string? donViTinh = null)
     {
         try
         {
-            byte[] fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDong, search, donViTinh);
+            byte[] fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDong, loaiHopDongIds, search, donViTinh);
             string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
             int selectedYear = year ?? DateTime.Now.Year;
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");

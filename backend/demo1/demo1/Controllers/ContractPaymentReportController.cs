@@ -29,6 +29,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
         [FromQuery] int? year, 
         [FromQuery] int? loaiHopDong, 
+        [FromQuery] List<Guid>? loaiHopDongIds,
         [FromQuery] string? search,
         [FromQuery] string? donViTinh = null)
     {
@@ -36,7 +37,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
 
         try
         {
-            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search, donViTinh);
+            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
             return Ok(report);
         }
         catch (Exception ex)
@@ -60,6 +61,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     public async Task<IActionResult> ExportContractPaymentReport(
         [FromQuery] int? year, 
         [FromQuery] int? loaiHopDong, 
+        [FromQuery] List<Guid>? loaiHopDongIds,
         [FromQuery] string? search, 
         [FromQuery] string format = "xlsx", 
         [FromQuery] bool base64 = false,
@@ -69,7 +71,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
 
         try
         {
-            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, search, donViTinh);
+            var report = await reportService.GetContractPaymentReportAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
             
             byte[] fileBytes;
             string contentType;
@@ -78,19 +80,19 @@ public class ContractPaymentReportController(IReportService reportService) : Con
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportContractPaymentReportCsvAsync(selectedYear, loaiHopDong, search, donViTinh);
+                fileBytes = await reportService.ExportContractPaymentReportCsvAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportContractPaymentReportHtmlAsync(selectedYear, loaiHopDong, search, donViTinh);
+                fileBytes = await reportService.ExportContractPaymentReportHtmlAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, search, donViTinh);
+                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }

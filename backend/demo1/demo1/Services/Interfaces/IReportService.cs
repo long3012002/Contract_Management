@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using demo1.DTOs;
 
@@ -13,13 +14,13 @@ public interface IReportService
     Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau, string? donViTinh = null);
     Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau, string? donViTinh = null);
 
-    Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null);
-    Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null);
-    Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null);
-    Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, string? search, string? donViTinh = null);
+    Task<ContractPaymentReportResponseDto> GetContractPaymentReportAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
+    Task<byte[]> ExportContractPaymentReportExcelAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
+    Task<byte[]> ExportContractPaymentReportCsvAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
+    Task<byte[]> ExportContractPaymentReportHtmlAsync(int year, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
 
-    Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null);
-    Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, string? search, string? donViTinh = null);
+    Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
+    Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
 }
 
 
