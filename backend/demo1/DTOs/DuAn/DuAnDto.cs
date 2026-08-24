@@ -40,7 +40,7 @@ public class DuAnDto : IHasId
     public decimal TongDuToanHienTai { get; set; }
     
     /// <summary>
-    /// Trạng thái thực hiện dự án (1: Đang triển khai, 2: Đã hoàn thành)
+    /// Trạng thái thực hiện dự án (0: Khởi tạo, 1: Đang thực hiện, 2: Hoàn thành, 3: Đã đóng)
     /// </summary>
     public int TrangThai { get; set; }
 
