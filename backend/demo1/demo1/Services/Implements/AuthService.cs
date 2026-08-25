@@ -68,7 +68,8 @@ namespace demo1.Services.Implements
 
                 bool isDevUserBypass = isDevEnv && (
                     string.Equals(request.Username, "quangmd", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase)
+                    string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "anhlt", StringComparison.OrdinalIgnoreCase)
                 );
 
                 bool isBypass = (enableDevBypass && request.Username == "admin" && request.Password == "admin_bypass_dev") || isDevUserBypass;
@@ -127,8 +128,9 @@ namespace demo1.Services.Implements
                         {
                             string fullName = request.Username.ToLower() switch
                             {
-                                "quangmd" => "Mai Duy Quang",
+                                "quangmd" => "Mai Đức Quang",
                                 "anhld2" => "Lê Đức Anh",
+                                "anhlt" => "Lê Tuấn Anh",
                                 _ => "System Administrator (Auto Seeded)"
                             };
 

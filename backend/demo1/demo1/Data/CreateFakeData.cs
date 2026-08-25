@@ -258,6 +258,22 @@ public static class CreateFakeDataExtensions
                         context.Users.Add(anhldUser);
                         await context.SaveChangesAsync();
                     }
+
+                    if (!context.Users.Any(u => u.Username == "anhlt"))
+                    {
+                        var anhltUser = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Username = "anhlt",
+                            FullName = "Lê Tuấn Anh",
+                            IsActive = true,
+                            IsSystemAdmin = true,
+                            IsTwoFactorEnabled = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        context.Users.Add(anhltUser);
+                        await context.SaveChangesAsync();
+                    }
                 }
 
                 // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)

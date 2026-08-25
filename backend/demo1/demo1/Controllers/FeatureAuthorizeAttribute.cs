@@ -103,8 +103,12 @@ namespace demo1.Controllers
                 }
                 else if (_featureCode == "QUAN_LY_HOP_DONG")
                 {
-                    var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                    var hd = await _dbContext.HopDongs.AsNoTracking().Include(x => x.LoaiHopDongNavigation).FirstOrDefaultAsync(x => x.Id == parsedEntityId);
                     duAnId = hd?.DuAnId;
+                    if (hd?.LoaiHopDongNavigation?.Code == "01" && dbUser.CanViewHopDong && httpMethod == "GET")
+                    {
+                        return; // Bypass immediately if they have the specific role and it's contract 01
+                    }
                 }
             }
 
@@ -117,11 +121,6 @@ namespace demo1.Controllers
                 }
 
                 if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
-                {
-                    return;
-                }
-
-                if (_featureCode == "QUAN_LY_HOP_DONG" && dbUser.CanViewHopDong)
                 {
                     return;
                 }

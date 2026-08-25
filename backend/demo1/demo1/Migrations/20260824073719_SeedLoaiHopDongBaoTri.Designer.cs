@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using demo1.Data;
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260824073719_SeedLoaiHopDongBaoTri")]
+    partial class SeedLoaiHopDongBaoTri
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -584,56 +587,6 @@ namespace demo1.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             Name = "Bảo trì"
-                        },
-                        new
-                        {
-                            Id = new Guid("77777777-7777-7777-7777-777777777777"),
-                            Code = "02",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Hợp đồng mua sắm thiết bị, phần cứng",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Mua sắm phần cứng"
-                        },
-                        new
-                        {
-                            Id = new Guid("88888888-8888-8888-8888-888888888888"),
-                            Code = "03",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Hợp đồng mua sắm bản quyền, phần mềm",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Bản quyền phần mềm"
-                        },
-                        new
-                        {
-                            Id = new Guid("99999999-9999-9999-9999-999999999999"),
-                            Code = "04",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Hợp đồng tư vấn (lập dự án, thẩm định, giám sát)",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Tư vấn"
-                        },
-                        new
-                        {
-                            Id = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-                            Code = "05",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Hợp đồng thuê dịch vụ (đường truyền, cloud, server)",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Thuê dịch vụ"
-                        },
-                        new
-                        {
-                            Id = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-                            Code = "99",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Các loại hợp đồng khác",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Name = "Khác"
                         });
                 });
 

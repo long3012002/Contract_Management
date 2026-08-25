@@ -98,9 +98,10 @@ public class ReportService : IReportService
                 var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
                 if (currentUser != null && !currentUser.IsSystemAdmin)
                 {
-                    query = query.Where(da => da.CreatedByUserId == currentUser.Id 
+                    query = query.Where(da => da.CreatedByUserId == currentUser.Id || da.ChuDuAnId == currentUser.Id
                         || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
-                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == da.Id));
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == da.Id)
+                        || (currentUser.CanViewHopDong && _context.HopDongs.Any(h => h.DuAnId == da.Id && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01")));
                 }
             }
         }
@@ -1100,9 +1101,10 @@ public class ReportService : IReportService
                 var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
                 if (currentUser != null && !currentUser.IsSystemAdmin)
                 {
-                    query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                    query = query.Where(h => (h.DuAn != null && (h.DuAn.CreatedByUserId == currentUser.Id || h.DuAn.ChuDuAnId == currentUser.Id)) 
                         || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
-                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value)))
+                        || (currentUser.CanViewHopDong && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01"));
                 }
             }
         }
@@ -1603,7 +1605,7 @@ public class ReportService : IReportService
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
 
-    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
+    public async Task<TheoDoiHopDongReportResponseDto> GetTheoDoiHopDongReportAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
         var (factor, unitName) = ParseUnit(donViTinh);
         int selectedYear = year ?? DateTime.Now.Year;
@@ -1624,16 +1626,12 @@ public class ReportService : IReportService
                 var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
                 if (currentUser != null && !currentUser.IsSystemAdmin)
                 {
-                    query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+                    query = query.Where(h => (h.DuAn != null && (h.DuAn.CreatedByUserId == currentUser.Id || h.DuAn.ChuDuAnId == currentUser.Id)) 
                         || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
-                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value)))
+                        || (currentUser.CanViewHopDong && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01"));
                 }
             }
-        }
-
-        if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
-        {
-            query = query.Where(h => h.LoaiHopDong == loaiHopDong.Value);
         }
 
         if (loaiHopDongIds != null && loaiHopDongIds.Count > 0)
@@ -1721,25 +1719,25 @@ public class ReportService : IReportService
             TongDuKienThanhToanDenMoc = rows.Sum(r => r.DuKienThanhToanDenMoc)
         };
 
-        string loaiFilterName = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value) : "Tất cả loại hợp đồng";
-        string titleLoai = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value).Replace("HĐ ", "HỢP ĐỒNG ").ToUpper() : "CÁC HỢP ĐỒNG";
+        string loaiFilterName = loaiHopDongIds != null && loaiHopDongIds.Count == 1 ? "Loại hợp đồng cụ thể" : "Tất cả loại hợp đồng";
+        string titleLoai = "CÁC HỢP ĐỒNG";
 
         return new TheoDoiHopDongReportResponseDto
         {
-            Title = $"THEO DÕI {titleLoai} CÁC HỆ THỐNG TỪ NĂM {selectedYear} ĐẾN NAY",
+            Title = $"Báo cáo chi tiết từ ngày 01/01/{selectedYear} - đến ngày {targetCutoffDate:dd/MM/yyyy}",
             Unit = unitName,
             Year = selectedYear,
             CutoffDate = targetCutoffDate,
-            LoaiHopDong = loaiHopDong,
+            LoaiHopDong = null,
             LoaiHopDongFilterTen = loaiFilterName,
             Summary = summary,
             Rows = rows
         };
     }
 
-    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, int? loaiHopDong, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
+    public async Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
     {
-        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDong, loaiHopDongIds, search, donViTinh);
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDongIds, search, donViTinh);
 
         using (var workbook = new XLWorkbook())
         {
@@ -1788,7 +1786,7 @@ public class ReportService : IReportService
                 if (row.NgayKyHopDong.HasValue)
                 {
                     worksheet.Cell(currentRow, 4).Value = row.NgayKyHopDong.Value;
-                    worksheet.Cell(currentRow, 4).Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                    worksheet.Cell(currentRow, 4).Style.DateFormat.Format = "dd/MM/yyyy";
                 }
                 else
                 {
@@ -1798,7 +1796,7 @@ public class ReportService : IReportService
                 if (row.NgayKetThucDuKien.HasValue)
                 {
                     worksheet.Cell(currentRow, 5).Value = row.NgayKetThucDuKien.Value;
-                    worksheet.Cell(currentRow, 5).Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                    worksheet.Cell(currentRow, 5).Style.DateFormat.Format = "dd/MM/yyyy";
                 }
                 else
                 {
@@ -1812,10 +1810,10 @@ public class ReportService : IReportService
                 }
                 else
                 {
-                    worksheet.Cell(currentRow, 7).Value = string.Empty;
+                    worksheet.Cell(currentRow, 7).Value = 0;
                 }
 
-                worksheet.Cell(currentRow, 8).FormulaA1 = $"=F{currentRow}-G{currentRow}";
+                worksheet.Cell(currentRow, 8).Value = row.GiaTriConLai;
 
                 if (row.DuKienThanhToanDenMoc > 0)
                 {
