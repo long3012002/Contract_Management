@@ -87,7 +87,60 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<DuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<NhomDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<PhanLoaiDuAn>());
-            ConfigureBaseEntity(modelBuilder.Entity<LoaiHopDong>());
+            modelBuilder.Entity<LoaiHopDong>(entity =>
+            {
+                ConfigureBaseEntity(entity);
+                entity.HasData(
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("66666666-6666-6666-6666-666666666666"),
+                        Code = "01",
+                        Name = "Bảo trì",
+                        Description = "Hợp đồng bảo trì (Mặc định)",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("77777777-7777-7777-7777-777777777777"),
+                        Code = "02",
+                        Name = "Mua sắm phần cứng",
+                        Description = "Hợp đồng mua sắm thiết bị, phần cứng",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("88888888-8888-8888-8888-888888888888"),
+                        Code = "03",
+                        Name = "Bản quyền phần mềm",
+                        Description = "Hợp đồng mua sắm bản quyền, phần mềm",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                        Code = "04",
+                        Name = "Tư vấn",
+                        Description = "Hợp đồng tư vấn (lập dự án, thẩm định, giám sát)",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"),
+                        Code = "05",
+                        Name = "Thuê dịch vụ",
+                        Description = "Hợp đồng thuê dịch vụ (đường truyền, cloud, server)",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new LoaiHopDong
+                    {
+                        Id = Guid.Parse("BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"),
+                        Code = "99",
+                        Name = "Khác",
+                        Description = "Các loại hợp đồng khác",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    }
+                );
+            });
             ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
@@ -658,8 +711,31 @@ namespace demo1.Data
                     }
                 }
             }
+            // Detect UserPermission changes and load all descriptions!
+            var userPermissionLogs = await PrepareUserPermissionAuditLogsAsync(cancellationToken);
+            if (userPermissionLogs.Any())
+            {
+                AuditLogs.AddRange(userPermissionLogs);
+            }
+
+            // Detect CongViecNguoiLienQuan changes and load all descriptions!
+            var stakeholderLogs = await PrepareCongViecNguoiLienQuanAuditLogsAsync(cancellationToken);
+            if (stakeholderLogs.Any())
+            {
+                AuditLogs.AddRange(stakeholderLogs);
+            }
 
             var auditEntries = OnBeforeSaveChanges();
+
+            // Translate all added AuditLog actions to Vietnamese
+            foreach (var entry in ChangeTracker.Entries<AuditLog>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.Action = TranslateActionName(entry.Entity.Action);
+                }
+            }
+
             var result = await base.SaveChangesAsync(cancellationToken);
             await OnAfterSaveChangesAsync(auditEntries);
             return result;
@@ -674,7 +750,7 @@ namespace demo1.Data
 
             foreach (var entry in ChangeTracker.Entries())
             {
-                if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                if (entry.Entity is AuditLog || entry.Entity is UserPermission || entry.Entity is CongViecNguoiLienQuan || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
                     continue;
 
                 var auditEntry = new AuditEntry(entry)
@@ -698,12 +774,12 @@ namespace demo1.Data
                     {
                         case EntityState.Added:
                             auditEntry.Action = "CREATE";
-                            auditEntry.NewValues[propertyName] = property.CurrentValue ?? "";
+                            auditEntry.NewValues[TranslateColumnName(propertyName)] = property.CurrentValue ?? "";
                             break;
 
                         case EntityState.Deleted:
                             auditEntry.Action = "DELETE";
-                            auditEntry.OldValues[propertyName] = property.OriginalValue ?? "";
+                            auditEntry.OldValues[TranslateColumnName(propertyName)] = property.OriginalValue ?? "";
                             break;
 
                         case EntityState.Modified:
@@ -712,9 +788,10 @@ namespace demo1.Data
                                 if (!Equals(property.OriginalValue, property.CurrentValue))
                                 {
                                     auditEntry.Action = "UPDATE";
-                                    auditEntry.ChangedColumns.Add(propertyName);
-                                    auditEntry.OldValues[propertyName] = property.OriginalValue ?? "";
-                                    auditEntry.NewValues[propertyName] = property.CurrentValue ?? "";
+                                    var displayName = TranslateColumnName(propertyName);
+                                    auditEntry.ChangedColumns.Add(displayName);
+                                    auditEntry.OldValues[displayName] = property.OriginalValue ?? "";
+                                    auditEntry.NewValues[displayName] = property.CurrentValue ?? "";
                                 }
                             }
                             break;
@@ -758,7 +835,339 @@ namespace demo1.Data
 
                 AuditLogs.Add(auditEntry.ToAuditLog());
             }
+
+            // Translate all added AuditLog actions to Vietnamese
+            foreach (var entry in ChangeTracker.Entries<AuditLog>())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.Entity.Action = TranslateActionName(entry.Entity.Action);
+                }
+            }
+
             await base.SaveChangesAsync();
+        }
+
+        private async Task<List<AuditLog>> PrepareUserPermissionAuditLogsAsync(CancellationToken cancellationToken)
+        {
+            var auditLogs = new List<AuditLog>();
+            var entries = ChangeTracker.Entries<UserPermission>()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Deleted)
+                .ToList();
+
+            if (!entries.Any())
+                return auditLogs;
+
+            var username = _currentUserService?.GetUsername() ?? "System/BackgroundJob";
+            var ipAddress = _currentUserService?.GetIpAddress();
+            var userId = _currentUserService?.GetUserId();
+            Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
+
+            if (!resolvedUserId.HasValue && !string.IsNullOrEmpty(username))
+            {
+                var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+                if (user != null)
+                {
+                    resolvedUserId = user.Id;
+                }
+            }
+
+            foreach (var entry in entries)
+            {
+                var userPerm = entry.Entity;
+                var state = entry.State;
+
+                // 1. Get recipient user info
+                var recipient = await Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userPerm.UserId, cancellationToken);
+                var recipientName = recipient != null ? $"{recipient.Username} ({recipient.FullName})" : userPerm.UserId.ToString();
+
+                // 2. Get permission info
+                var perm = await Permissions.AsNoTracking().FirstOrDefaultAsync(p => p.Id == userPerm.PermissionId, cancellationToken);
+                var permName = perm != null ? perm.Name : userPerm.PermissionId.ToString();
+
+                // 3. Get target description
+                string targetDesc = "";
+                string targetTableName = "UserPermissions";
+                string targetEntityId = userPerm.Id.ToString();
+                Guid? targetGuid = Guid.TryParse(userPerm.EntityId, out var parsedId) ? parsedId : null;
+
+                if (!string.IsNullOrEmpty(userPerm.EntityName))
+                {
+                    var normEntity = userPerm.EntityName.ToLowerInvariant();
+
+                    if (targetGuid.HasValue)
+                    {
+                        if (normEntity == "duan" || normEntity == "project")
+                        {
+                            targetTableName = "DuAns";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var p = await DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (p != null) targetDesc = $"dự án '{p.Name}'";
+                        }
+                        else if (normEntity == "hopdong" || normEntity == "contract")
+                        {
+                            targetTableName = "HopDongs";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var h = await HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (h != null) targetDesc = $"hợp đồng '{h.Name ?? h.Code}'";
+                        }
+                        else if (normEntity == "goithau" || normEntity == "package")
+                        {
+                            targetTableName = "GoiThaus";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var gt = await GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (gt != null) targetDesc = $"gói thầu '{gt.Name}'";
+                        }
+                        else if (normEntity == "license")
+                        {
+                            targetTableName = "Licenses";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var l = await Licenses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (l != null) targetDesc = $"license '{l.Name}'";
+                        }
+                        else if (normEntity == "doitac" || normEntity == "partner")
+                        {
+                            targetTableName = "DoiTacs";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var dt = await DoiTacs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (dt != null) targetDesc = $"đối tác '{dt.Name}'";
+                        }
+                        else if (normEntity == "congviecgoithau" || normEntity == "cong_viec" || normEntity == "task")
+                        {
+                            targetTableName = "CongViecGoiThaus";
+                            targetEntityId = targetGuid.Value.ToString();
+                            var cv = await CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                            if (cv != null) targetDesc = $"công việc '{cv.TenTaiLieu}'";
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(targetDesc) && userPerm.DuAnId.HasValue)
+                    {
+                        var p = await DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userPerm.DuAnId.Value, cancellationToken);
+                        if (p != null)
+                        {
+                            string featName = normEntity switch
+                            {
+                                "goithau" or "package" => "các gói thầu",
+                                "hopdong" or "contract" => "các hợp đồng",
+                                "congviec" or "task" or "cong_viec" => "các công việc",
+                                _ => userPerm.EntityName
+                            };
+                            targetDesc = $"{featName} thuộc dự án '{p.Name}'";
+                            targetTableName = "DuAns";
+                            targetEntityId = userPerm.DuAnId.Value.ToString();
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(targetDesc))
+                {
+                    if (userPerm.DuAnId.HasValue)
+                    {
+                        targetTableName = "DuAns";
+                        targetEntityId = userPerm.DuAnId.Value.ToString();
+                        var p = await DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userPerm.DuAnId.Value, cancellationToken);
+                        if (p != null) targetDesc = $"dự án '{p.Name}'";
+                    }
+                    else
+                    {
+                        targetDesc = $"{userPerm.EntityName} {userPerm.EntityId}";
+                    }
+                }
+
+                string action = state == EntityState.Added ? "GRANT_PERMISSION" : "REVOKE_PERMISSION";
+                string actionDesc = state == EntityState.Added ? "cấp quyền" : "thu hồi quyền";
+                string relationWord = state == EntityState.Added ? "cho" : "của";
+                string description = $"{username} {actionDesc} {permName} {relationWord} người dùng {recipientName} trên {targetDesc}";
+
+                var log = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = resolvedUserId?.ToString(),
+                    Username = username,
+                    Action = action,
+                    TableName = targetTableName,
+                    EntityId = targetEntityId,
+                    Timestamp = DateTime.UtcNow,
+                    IpAddress = ipAddress,
+                    Description = description
+                };
+
+                string targetName = userPerm.EntityId;
+                string projectName = "";
+                
+                if (targetGuid.HasValue && !string.IsNullOrEmpty(userPerm.EntityName))
+                {
+                    var normEntity = userPerm.EntityName.ToLowerInvariant();
+                    if (normEntity == "duan" || normEntity == "project")
+                    {
+                        var p = await DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (p != null) targetName = p.Name;
+                    }
+                    else if (normEntity == "hopdong" || normEntity == "contract")
+                    {
+                        var h = await HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (h != null) targetName = h.Name ?? h.Code;
+                    }
+                    else if (normEntity == "goithau" || normEntity == "package")
+                    {
+                        var gt = await GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (gt != null) targetName = gt.Name;
+                    }
+                    else if (normEntity == "license")
+                    {
+                        var l = await Licenses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (l != null) targetName = l.Name;
+                    }
+                    else if (normEntity == "doitac" || normEntity == "partner")
+                    {
+                        var dt = await DoiTacs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (dt != null) targetName = dt.Name;
+                    }
+                    else if (normEntity == "congviecgoithau" || normEntity == "cong_viec" || normEntity == "task")
+                    {
+                        var cv = await CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetGuid.Value, cancellationToken);
+                        if (cv != null) targetName = cv.TenTaiLieu;
+                    }
+                }
+
+                if (userPerm.DuAnId.HasValue)
+                {
+                    var p = await DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userPerm.DuAnId.Value, cancellationToken);
+                    if (p != null) projectName = p.Name;
+                }
+
+                string vFeatureCode = userPerm.FeatureCode;
+                if (vFeatureCode == "DU_AN") vFeatureCode = "Dự án";
+                else if (vFeatureCode == "HOP_DONG") vFeatureCode = "Hợp đồng";
+                else if (vFeatureCode == "GOI_THAU") vFeatureCode = "Gói thầu";
+                else if (vFeatureCode == "DOI_TAC") vFeatureCode = "Đối tác";
+                else if (vFeatureCode == "LICENSE") vFeatureCode = "License";
+
+                var payload = new Dictionary<string, object?>
+                {
+                    { "Tên người dùng", recipient != null ? recipient.FullName : userPerm.UserId.ToString() },
+                    { "Mã người dùng", userPerm.UserId },
+                    { "Quyền", permName },
+                    { "Mã quyền", userPerm.PermissionId },
+                    { "Chức năng", vFeatureCode },
+                    { "Tên loại đối tượng", userPerm.EntityName == "DuAn" ? "Dự án" : userPerm.EntityName },
+                    { "Đối tượng", targetName },
+                    { "Mã đối tượng", userPerm.EntityId },
+                    { "Dự án", projectName },
+                    { "Mã dự án", userPerm.DuAnId }
+                };
+
+                var serializedVals = System.Text.Json.JsonSerializer.Serialize(payload);
+
+                if (state == EntityState.Added)
+                {
+                    log.NewValues = serializedVals;
+                }
+                else
+                {
+                    log.OldValues = serializedVals;
+                }
+
+                auditLogs.Add(log);
+            }
+
+            return auditLogs;
+        }
+
+        private async Task<List<AuditLog>> PrepareCongViecNguoiLienQuanAuditLogsAsync(CancellationToken cancellationToken)
+        {
+            var auditLogs = new List<AuditLog>();
+            var entries = ChangeTracker.Entries<CongViecNguoiLienQuan>()
+                .Where(e => e.State == EntityState.Added || e.State == EntityState.Deleted)
+                .ToList();
+
+            if (!entries.Any())
+                return auditLogs;
+
+            var username = _currentUserService?.GetUsername() ?? "System/BackgroundJob";
+            var ipAddress = _currentUserService?.GetIpAddress();
+            var userId = _currentUserService?.GetUserId();
+            Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
+
+            if (!resolvedUserId.HasValue && !string.IsNullOrEmpty(username))
+            {
+                var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+                if (user != null)
+                {
+                    resolvedUserId = user.Id;
+                }
+            }
+
+            foreach (var entry in entries)
+            {
+                var record = entry.Entity;
+                var state = entry.State;
+
+                // 1. Get task details
+                var task = await CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(t => t.Id == record.CongViecGoiThauId, cancellationToken);
+                
+                string projectName = "Dự án";
+                string targetTableName = "CongViecGoiThaus";
+                string targetEntityId = record.CongViecGoiThauId.ToString();
+
+                if (task != null && task.GoiThauId != Guid.Empty)
+                {
+                    var goiThau = await GoiThaus.AsNoTracking().FirstOrDefaultAsync(g => g.Id == task.GoiThauId, cancellationToken);
+                    if (goiThau != null && goiThau.DuAnId.HasValue)
+                    {
+                        var duAn = await DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == goiThau.DuAnId.Value, cancellationToken);
+                        if (duAn != null)
+                        {
+                            projectName = duAn.Name;
+                            targetTableName = "DuAns";
+                            targetEntityId = duAn.Id.ToString();
+                        }
+                    }
+                }
+
+                string action = state == EntityState.Added ? "ADD_STAKEHOLDER" : "REMOVE_STAKEHOLDER";
+                string actionDesc = state == EntityState.Added ? "thêm người liên quan vào" : "xóa người liên quan khỏi";
+                string description = $"{username} {actionDesc} {projectName}";
+
+                var log = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = resolvedUserId?.ToString(),
+                    Username = username,
+                    Action = action,
+                    TableName = targetTableName,
+                    EntityId = targetEntityId,
+                    Timestamp = DateTime.UtcNow,
+                    IpAddress = ipAddress,
+                    Description = description
+                };
+
+                var stakeholder = await Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == record.UserId, cancellationToken);
+                var payload = new Dictionary<string, object?>
+                {
+                    { "Tên người dùng", stakeholder != null ? stakeholder.FullName : record.UserId.ToString() },
+                    { "Mã người dùng", record.UserId },
+                    { "Công việc", task != null ? task.TenTaiLieu : record.CongViecGoiThauId.ToString() },
+                    { "Mã công việc", record.CongViecGoiThauId },
+                    { "Trạng thái xác nhận", record.TrangThaiXacNhan }
+                };
+
+                var serializedVals = System.Text.Json.JsonSerializer.Serialize(payload);
+
+                if (state == EntityState.Added)
+                {
+                    log.NewValues = serializedVals;
+                }
+                else
+                {
+                    log.OldValues = serializedVals;
+                }
+
+                auditLogs.Add(log);
+            }
+
+            return auditLogs;
         }
 
         private static string GetRecordName(Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry entry)
@@ -804,6 +1213,125 @@ namespace demo1.Data
             }
 
             return entry.Metadata.ClrType.Name;
+        }
+
+        private static readonly Dictionary<string, string> ColumnNameTranslations = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // Common / Base Entity
+            { "Id", "ID" },
+            { "Code", "Mã/Số" },
+            { "Name", "Tên" },
+            { "Description", "Mô tả" },
+            { "CreatedAt", "Ngày tạo" },
+            { "CreatedBy", "Người tạo" },
+            { "UpdatedAt", "Ngày cập nhật" },
+            { "UpdatedBy", "Người cập nhật" },
+            { "IsDeleted", "Trạng thái xóa" },
+            { "DeletedAt", "Thời gian xóa" },
+            { "DeletedByUserId", "Người xóa" },
+
+            // User / Account
+            { "Username", "Tên đăng nhập" },
+            { "FullName", "Họ và tên" },
+            { "PasswordHash", "Mật khẩu mã hóa" },
+            { "Email", "Email" },
+            { "Phone", "Số điện thoại" },
+            { "IsActive", "Trạng thái hoạt động" },
+            { "IsSystemAdmin", "Quản trị hệ thống" },
+            { "IdChucVu", "Chức vụ" },
+            { "IdPhongBan", "Phòng ban" },
+            { "IdDonVi", "Đơn vị" },
+            { "CanViewHopDong", "Quyền xem hợp đồng" },
+
+            // DuAn (Project)
+            { "DuToanPheDuyet", "Dự toán phê duyệt" },
+            { "NhomDuAnId", "Nhóm dự án" },
+            { "PhanLoaiDuAnId", "Phân loại dự án" },
+            { "ChuDauTu", "Chủ đầu tư" },
+            { "DiaDiemThucHien", "Địa điểm thực hiện" },
+            { "ThoiGianThucHien", "Thời gian thực hiện" },
+            { "NguonDuAnIds", "Nguồn vốn dự án" },
+            { "NoiDung", "Nội dung dự án" },
+            { "ToChucThucHien", "Tổ chức thực hiện" },
+            { "CreatedByUserId", "Người tạo dự án" },
+            { "ChuDuAnId", "Chủ dự án" },
+
+            // HopDong (Contract)
+            { "GiaTriHopDong", "Giá trị hợp đồng" },
+            { "ThoiHanThucHien", "Thời hạn thực hiện" },
+            { "GoiThauId", "Gói thầu" },
+            { "ChuDauTuId", "Chủ đầu tư" },
+            { "NhaThauId", "Nhà thầu" },
+            { "DuAnId", "Dự án" },
+            { "LoaiHopDongId", "Loại hợp đồng" },
+            { "NgayKy", "Ngày ký" },
+            { "NgayHieuLuc", "Ngày hiệu lực" },
+            { "NgayKetThuc", "Ngày kết thúc" },
+            { "ExpiredDate", "Ngày hết hạn" },
+            { "HinhThucThanhToan", "Hình thức thanh toán" },
+            { "IsRenewalRequired", "Yêu cầu gia hạn" },
+            { "LoaiHopDong", "Phân loại hợp đồng" },
+            { "RenewalReminderDate", "Ngày nhắc gia hạn" },
+
+            // GoiThau (Package)
+            { "GiaTriGoiThau", "Giá trị gói thầu" },
+            { "HinhThucLuaChon", "Hình thức lựa chọn nhà thầu" },
+            { "PhuongThucLuaChon", "Phương thức lựa chọn nhà thầu" },
+            { "ThoiGianBatDau", "Thời gian bắt đầu" },
+            { "ThoiGianKetThuc", "Thời gian kết thúc" },
+
+            // DotThanhToan (Payment)
+            { "TenDot", "Tên đợt thanh toán" },
+            { "TyLeThanhToan", "Tỷ lệ thanh toán (%)" },
+            { "GiaTriThanhToan", "Giá trị thanh toán" },
+            { "HopDongId", "Hợp đồng" },
+            { "NgayThanhToan", "Ngày thanh toán" },
+            { "TrangThai", "Trạng thái thanh toán" },
+            { "GhiChu", "Ghi chú" },
+
+            // CongViecGoiThau (Task)
+            { "TenTaiLieu", "Tên công việc/tài liệu" },
+            { "LoaiVanBan", "Loại văn bản" },
+            { "TinhTrang", "Tình trạng" },
+            { "CreateUserId", "Người tạo công việc" },
+            { "ModifiedUserId", "Người cập nhật công việc" },
+
+            // DoiTac (Partner / Contractor)
+            { "TaxCode", "Mã số thuế" },
+            { "Address", "Địa chỉ" },
+            { "Account", "Tài khoản ngân hàng" },
+            { "Representative", "Người đại diện" },
+            { "Position", "Chức vụ" },
+
+            // License
+            { "ThongTinThietBi", "Thông tin thiết bị" },
+            { "NhaCungCapId", "Nhà cung cấp" },
+            { "NgayKichHoat", "Ngày kích hoạt" },
+            { "NgayHetHan", "Ngày hết hạn" }
+        };
+
+        public static string TranslateColumnName(string columnName)
+        {
+            if (string.IsNullOrEmpty(columnName)) return columnName;
+            return ColumnNameTranslations.TryGetValue(columnName, out var translation) ? translation : columnName;
+        }
+
+        public static string TranslateActionName(string action)
+        {
+            if (string.IsNullOrEmpty(action)) return action;
+            return action.ToUpperInvariant() switch
+            {
+                "CREATE" => "Tạo mới",
+                "UPDATE" => "Cập nhật",
+                "DELETE" => "Xóa",
+                "ACCESS_GRANTED" => "Truy cập thành công",
+                "ACCESS_DENIED" => "Bị từ chối truy cập",
+                "GRANT_PERMISSION" => "Cấp quyền",
+                "REVOKE_PERMISSION" => "Thu hồi quyền",
+                "ADD_STAKEHOLDER" => "Thêm người liên quan",
+                "REMOVE_STAKEHOLDER" => "Xóa người liên quan",
+                _ => action
+            };
         }
 
         private static string FormatActionName(string action)
