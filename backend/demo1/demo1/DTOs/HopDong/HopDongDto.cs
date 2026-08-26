@@ -22,6 +22,7 @@ public class HopDongDto : IHasId
 
     public Guid? NhaThauId { get; set; }
     public DoiTacDto? NhaThau { get; set; }
+    public string? NhaThauName { get; set; }
 
     public int LoaiHopDong { get; set; }
     

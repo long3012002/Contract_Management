@@ -15,7 +15,8 @@ namespace demo1.Mapper
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)))
                 .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
                 .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
-                .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null));
+                .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null))
+                .ForMember(dest => dest.ProjectManager, opt => opt.MapFrom(src => src.ChuDuAn));
             CreateMap<DuAn, DuAnNguonSummaryDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));
@@ -127,6 +128,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.GoiThauName, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Name : null))
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
                 .ForMember(dest => dest.LoaiHopDongName, opt => opt.MapFrom(src => src.LoaiHopDongNavigation != null ? src.LoaiHopDongNavigation.Name : null))
+                .ForMember(dest => dest.NhaThauName, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Name : null))
                 .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()))
                 .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus))
                 .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus));
@@ -276,6 +278,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.TenChucVu, opt => opt.MapFrom(src => src.MentionedUser != null ? src.MentionedUser.TenChucVu : null));
 
             CreateMap<User, UserMentionDto>();
+            CreateMap<User, UserSummaryDto>();
 
             CreateMap<CommentCongViecGoiThau, CommentCongViecGoiThauDto>()
                 .ForMember(dest => dest.ParentId, opt => opt.MapFrom(src => src.CongViecGoiThauId))

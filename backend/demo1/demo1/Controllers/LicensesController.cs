@@ -25,6 +25,30 @@ public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDt
     }
 
     /// <summary>
+    /// Lấy danh sách License phần mềm có phân trang và bộ lọc nâng cao (Dự án, Hợp đồng, Tìm kiếm).
+    /// </summary>
+    /// <param name="filter">Bộ lọc danh sách License</param>
+    /// <returns>Danh sách License phân trang</returns>
+    /// <response code="200">Lấy danh sách thành công</response>
+    [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<LicenseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<LicenseDto>>> GetAll([FromQuery] LicenseFilterDto filter)
+    {
+        var result = await _licenseService.GetAllAsync(filter);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Phương thức cơ sở từ CrudControllerBase được vô hiệu hóa khỏi Routing và Swagger API Explorer để tránh xung đột route.
+    /// </summary>
+    [NonAction]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public override Task<ActionResult<PagedResult<LicenseDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null)
+    {
+        return base.GetAll(search, page, pageSize, cursor);
+    }
+
+    /// <summary>
     /// Lấy danh sách các giá trị Enum quy định Loại License và Trạng thái License.
     /// </summary>
     /// <returns>Danh sách các Option Enum</returns>

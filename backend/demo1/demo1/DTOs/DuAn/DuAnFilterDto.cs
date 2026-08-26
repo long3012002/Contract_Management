@@ -11,4 +11,7 @@ public class DuAnFilterDto
 
     public int? LoaiDuAn { get; set; }
     public int? TrangThai { get; set; }
+
+    public string? Status { get; set; }
+    public Guid? AllocatedProjectId { get; set; }
 }

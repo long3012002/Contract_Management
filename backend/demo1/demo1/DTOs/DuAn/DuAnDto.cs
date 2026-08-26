@@ -184,4 +184,14 @@ public class DuAnDto : IHasId
     /// Tên Chủ dự án
     /// </summary>
     public string? ChuDuAnName { get; set; }
+
+    /// <summary>
+    /// Danh sách chi tiết các Dự án nguồn liên kết
+    /// </summary>
+    public List<DuAnNguonSummaryDto>? SourceProjects { get; set; }
+
+    /// <summary>
+    /// Thông tin tóm tắt của Chủ dự án (Project Manager)
+    /// </summary>
+    public UserSummaryDto? ProjectManager { get; set; }
 }

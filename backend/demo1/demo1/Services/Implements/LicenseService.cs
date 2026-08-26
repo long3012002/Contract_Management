@@ -61,12 +61,23 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             (l.DuAn != null && EF.Functions.Like(l.DuAn.Name, $"%{keyword}%")));
     }
 
-    public override async Task<PagedResult<LicenseDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<LicenseDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        return GetAllAsync(new LicenseFilterDto
+        {
+            Search = search,
+            Page = page,
+            PageSize = pageSize,
+            Cursor = cursor
+        });
+    }
+
+    public async Task<PagedResult<LicenseDto>> GetAllAsync(LicenseFilterDto filter)
     {
         try
         {
-            page = Math.Max(1, page);
-            pageSize = Math.Clamp(pageSize, 1, 100);
+            var page = Math.Max(1, filter.Page);
+            var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
             IQueryable<License> query = DbSet
                 .Include(l => l.DuAn)
@@ -74,9 +85,19 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
                 .Include(l => l.NhaCungCap)
                 .AsNoTracking();
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (filter.HopDongId.HasValue)
             {
-                var keyword = search.Trim();
+                query = query.Where(l => l.HopDongId == filter.HopDongId.Value);
+            }
+
+            if (filter.DuAnId.HasValue)
+            {
+                query = query.Where(l => l.DuAnId == filter.DuAnId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filter.Search))
+            {
+                var keyword = filter.Search.Trim();
                 query = ApplySearchFilter(query, keyword);
             }
 
@@ -101,7 +122,7 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Lỗi xảy ra trong GetAllAsync.");
+            _logger.LogError(ex, "Lỗi xảy ra trong GetAllAsync với filter.");
             throw;
         }
     }

@@ -40,7 +40,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
-            .Include(da => da.PhanLoaiDuAn);
+            .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn);
 
         var currentUsername = _currentUserService.GetUsername();
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
@@ -60,6 +61,33 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (filter.LoaiDuAn.HasValue)
         {
             query = query.Where(item => item.LoaiDuAn == filter.LoaiDuAn.Value);
+
+            if (filter.LoaiDuAn.Value == 1 && !string.IsNullOrWhiteSpace(filter.Status))
+            {
+                var allowedSourceIds = new List<Guid>();
+                if (filter.AllocatedProjectId.HasValue)
+                {
+                    var implProject = await DbContext.DuAns.AsNoTracking()
+                        .FirstOrDefaultAsync(da => da.Id == filter.AllocatedProjectId.Value && da.LoaiDuAn == 2);
+                    if (implProject != null && !string.IsNullOrWhiteSpace(implProject.NguonDuAnIds))
+                    {
+                        allowedSourceIds = implProject.NguonDuAnIds
+                            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                            .Where(g => g != Guid.Empty)
+                            .ToList();
+                    }
+                }
+
+                if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id));
+                }
+                else if (filter.Status.Equals("Allocated", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => da.DaTrienKhai == true);
+                }
+            }
         }
 
         if (filter.TrangThai.HasValue && filter.TrangThai.Value > 0)
@@ -105,6 +133,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         }
 
         var dtos = Mapper.Map<List<DuAnDto>>(items);
+        await PopulateSourceProjectsAsync(dtos);
 
         return new PagedResult<DuAnDto>
         {
@@ -122,8 +151,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn)
             .ToListAsync();
-        return Mapper.Map<List<DuAnDto>>(items);
+        var dtos = Mapper.Map<List<DuAnDto>>(items);
+        await PopulateSourceProjectsAsync(dtos);
+        return dtos;
     }
 
     public override async Task<DuAnDto?> GetByIdAsync(Guid id)
@@ -132,10 +164,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn)
             .FirstOrDefaultAsync(da => da.Id == id);
         if (entity is null) return null;
 
-        return Mapper.Map<DuAnDto>(entity);
+        var dto = Mapper.Map<DuAnDto>(entity);
+        await PopulateSourceProjectsAsync(new List<DuAnDto> { dto });
+        return dto;
     }
 
     public override async Task<DuAnDto> CreateAsync(CreateDuAnDto dto)
@@ -229,7 +264,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await DbSet.AddAsync(entity);
         await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<DuAnDto>(entity);
+        return (await GetByIdAsync(entity.Id))!;
     }
 
     public override async Task<IEnumerable<DuAnDto>> CreateRangeAsync(IEnumerable<CreateDuAnDto> dtos)
@@ -351,7 +386,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await DbSet.AddRangeAsync(entities);
         await DbContext.SaveChangesAsync(); // Chỉ gọi SaveChanges 1 lần duy nhất
 
-        return Mapper.Map<List<DuAnDto>>(entities);
+        var createdIds = entities.Select(e => e.Id).ToList();
+        var reloadedEntities = await DbSet.AsNoTracking()
+            .Include(da => da.DieuChinhs)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn)
+            .Where(da => createdIds.Contains(da.Id))
+            .ToListAsync();
+        var resultDtos = Mapper.Map<List<DuAnDto>>(reloadedEntities);
+        await PopulateSourceProjectsAsync(resultDtos);
+        return resultDtos;
     }
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateDuAnDto dto)
@@ -606,7 +651,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<DuAnDto>(entity);
+        return (await GetByIdAsync(entity.Id))!;
     }
 
     public async Task<DuAnDto> CloseProjectAsync(Guid id)
@@ -623,7 +668,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         await DbContext.SaveChangesAsync();
 
-        return Mapper.Map<DuAnDto>(entity);
+        return (await GetByIdAsync(entity.Id))!;
     }
 
     public async Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id)
@@ -653,6 +698,41 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .ToListAsync();
 
         return Mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities);
+    }
+
+    private async Task PopulateSourceProjectsAsync(List<DuAnDto> dtos)
+    {
+        var allSourceIds = dtos
+            .SelectMany(d => d.ListNguonDuAnIds)
+            .Distinct()
+            .ToList();
+
+        if (!allSourceIds.Any())
+            return;
+
+        var sourceEntities = await DbSet.AsNoTracking()
+            .Include(da => da.DieuChinhs)
+            .Where(da => allSourceIds.Contains(da.Id))
+            .ToListAsync();
+
+        var sourceSummaries = Mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities)
+            .ToDictionary(s => s.Id);
+
+        foreach (var dto in dtos)
+        {
+            var sourceIds = dto.ListNguonDuAnIds;
+            if (sourceIds.Any())
+            {
+                dto.SourceProjects = sourceIds
+                    .Where(id => sourceSummaries.ContainsKey(id))
+                    .Select(id => sourceSummaries[id])
+                    .ToList();
+            }
+            else
+            {
+                dto.SourceProjects = new List<DuAnNguonSummaryDto>();
+            }
+        }
     }
 
     public async Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id)
