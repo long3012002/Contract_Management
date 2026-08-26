@@ -154,7 +154,20 @@ public static class ServiceConfiguration
                         path.StartsWithSegments("/hub/notifications"))
                     {
                         context.Token = accessToken;
+                        return Task.CompletedTask;
                     }
+
+                    var authorization = context.Request.Headers["Authorization"].FirstOrDefault();
+                    var token = authorization?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true
+                        ? authorization.Substring(7).Trim()
+                        : null;
+
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        token = context.Request.Cookies["access_token"];
+                    }
+
+                    context.Token = token;
                     return Task.CompletedTask;
                 }
             };

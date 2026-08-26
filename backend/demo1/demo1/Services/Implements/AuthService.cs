@@ -184,6 +184,8 @@ namespace demo1.Services.Implements
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                     await _dbContext.SaveChangesAsync();
 
+                    SetAuthCookies(accessToken, refreshToken, 180, 10080);
+
                     await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập thành công (Dev Mode - Bỏ qua Google Auth)", dbUser.Id.ToString());
 
                     return AuthResult.Success(new LoginResponse
@@ -207,6 +209,8 @@ namespace demo1.Services.Implements
                     dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                     await _dbContext.SaveChangesAsync();
 
+                    SetAuthCookies(accessToken, refreshToken, 180, 10080);
+
                     await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Bypass Login Success", dbUser.Id.ToString());
 
                     return AuthResult.Success(new LoginResponse
@@ -223,6 +227,8 @@ namespace demo1.Services.Implements
 
                 // Generate short-lived Temporary Token (3 minutes) for 2FA validation
                 var tempToken = GenerateJwtToken(request.Username, 3, isTemp: true, userId: dbUser.Id);
+                ClearAuthCookies();
+                SetAuthCookies(tempToken, null, 3, 0);
 
                 // If user is not system admin (or system admin too - we require 2FA for all users as requested)
                 // Check if Google Authenticator 2FA is enabled
@@ -279,7 +285,13 @@ namespace demo1.Services.Implements
 
         public async Task<AuthResult> RefreshAsync(RefreshRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.RefreshToken))
+            var refreshToken = request?.RefreshToken;
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                refreshToken = _httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
+            }
+
+            if (string.IsNullOrWhiteSpace(refreshToken))
             {
                 return AuthResult.Fail(400, "Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
             }
@@ -303,7 +315,7 @@ namespace demo1.Services.Implements
                     ClockSkew = TimeSpan.Zero
                 };
 
-                var principal = tokenHandler.ValidateToken(request.RefreshToken, validationParameters, out var validatedToken);
+                var principal = tokenHandler.ValidateToken(refreshToken, validationParameters, out var validatedToken);
                 var username = principal.Identity?.Name ?? principal.FindFirst(ClaimTypes.Name)?.Value ?? principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
 
                 if (string.IsNullOrWhiteSpace(username))
@@ -317,7 +329,7 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(401, "Tài khoản không hoạt động hoặc không tồn tại. Vui lòng đăng nhập lại.");
                 }
 
-                var incomingHash = ComputeHash(request.RefreshToken);
+                var incomingHash = ComputeHash(refreshToken);
                 if (dbUser.RefreshTokenHash != incomingHash || dbUser.RefreshTokenExpiryTime == null || dbUser.RefreshTokenExpiryTime < DateTime.UtcNow)
                 {
                     return AuthResult.Fail(401, "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
@@ -330,6 +342,8 @@ namespace demo1.Services.Implements
                 dbUser.RefreshTokenHash = ComputeHash(newRefreshToken);
                 dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                 await _dbContext.SaveChangesAsync();
+
+                SetAuthCookies(newAccessToken, newRefreshToken, 180, 10080);
 
                 return AuthResult.Success(new LoginResponse
                 {
@@ -392,6 +406,8 @@ namespace demo1.Services.Implements
                 dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                 await _dbContext.SaveChangesAsync();
 
+                SetAuthCookies(accessToken, refreshToken, 180, 10080);
+
                 await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Kích hoạt xác thực 2 lớp thành công", dbUser.Id.ToString());
 
                 return AuthResult.Success(new LoginResponse
@@ -453,6 +469,8 @@ namespace demo1.Services.Implements
                 dbUser.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                 await _dbContext.SaveChangesAsync();
 
+                SetAuthCookies(accessToken, refreshToken, 180, 10080);
+
                 await LogAuthEventAsync(dbUser.Username, "LOGIN_SUCCESS", "Đăng nhập xác thực 2 lớp thành công", dbUser.Id.ToString());
 
                 return AuthResult.Success(new LoginResponse
@@ -494,6 +512,8 @@ namespace demo1.Services.Implements
                 {
                     await LogAuthEventAsync(username, "LOGOUT", "Đăng xuất thành công");
                 }
+
+                ClearAuthCookies();
 
                 return AuthResult.Success(new LoginResponse { Message = "Đăng xuất thành công" });
             }
@@ -544,18 +564,24 @@ namespace demo1.Services.Implements
         private string? ValidateTemporaryToken(string authorizationHeader)
         {
             Console.WriteLine($"[ValidateTemporaryToken] Received Header: '{authorizationHeader}'");
-            if (string.IsNullOrWhiteSpace(authorizationHeader))
+            string? token = null;
+
+            if (!string.IsNullOrWhiteSpace(authorizationHeader) && authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("[ValidateTemporaryToken Error]: Authorization header is empty or null.");
-                return null;
+                token = authorizationHeader.Substring(7).Trim();
             }
-            if (!authorizationHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                Console.WriteLine("[ValidateTemporaryToken Error]: Authorization header does not start with 'Bearer '.");
+                token = _httpContextAccessor.HttpContext?.Request.Cookies["access_token"];
+                Console.WriteLine($"[ValidateTemporaryToken] Fallback to Cookie: '{token}'");
+            }
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                Console.WriteLine("[ValidateTemporaryToken Error]: Token is empty or null.");
                 return null;
             }
 
-            var token = authorizationHeader.Substring(7);
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
@@ -681,6 +707,60 @@ namespace demo1.Services.Implements
             {
                 _logger.LogError(ex, $"[AuthEvent] Error logging auth event for user '{username}'");
             }
+        }
+
+        private void SetAuthCookies(string accessToken, string? refreshToken, double accessExpiryInMinutes, double refreshExpiryInMinutes)
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null) return;
+
+            bool isDevEnv = (_env?.IsDevelopment() ?? false) ||
+                string.Equals(_configuration["ASPNETCORE_ENVIRONMENT"], "Development", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
+#if DEBUG
+            isDevEnv = true;
+#endif
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = !isDevEnv,
+                SameSite = SameSiteMode.Lax,
+                Path = "/"
+            };
+
+            cookieOptions.Expires = DateTime.UtcNow.AddMinutes(accessExpiryInMinutes);
+            httpContext.Response.Cookies.Append("access_token", accessToken, cookieOptions);
+
+            if (!string.IsNullOrEmpty(refreshToken))
+            {
+                cookieOptions.Expires = DateTime.UtcNow.AddMinutes(refreshExpiryInMinutes);
+                httpContext.Response.Cookies.Append("refresh_token", refreshToken, cookieOptions);
+            }
+        }
+
+        private void ClearAuthCookies()
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null) return;
+
+            bool isDevEnv = (_env?.IsDevelopment() ?? false) ||
+                string.Equals(_configuration["ASPNETCORE_ENVIRONMENT"], "Development", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", StringComparison.OrdinalIgnoreCase);
+
+#if DEBUG
+            isDevEnv = true;
+#endif
+
+            var cookieOptions = new CookieOptions
+            {
+                Path = "/",
+                Secure = !isDevEnv
+            };
+
+            httpContext.Response.Cookies.Delete("access_token", cookieOptions);
+            httpContext.Response.Cookies.Delete("refresh_token", cookieOptions);
         }
     }
 }
