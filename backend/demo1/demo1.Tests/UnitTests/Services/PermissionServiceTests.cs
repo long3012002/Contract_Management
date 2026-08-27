@@ -274,6 +274,67 @@ namespace demo1.Tests.UnitTests.Services
             synthList.Should().OnlyContain(p => p.PermissionCode == "VIEW");
         }
 
+        [Fact]
+        public async Task GrantProjectPermission_ShouldNotCascadeInDb_ButSynthesizeInQuery()
+        {
+            // Arrange
+            var admin = new User { Id = Guid.NewGuid(), Username = "admin_user", IsActive = true };
+            var targetUser = new User { Id = Guid.NewGuid(), Username = "target_user", IsActive = true };
+            _dbContext.Users.AddRange(admin, targetUser);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA010", Name = "Dự án DA010" };
+            _dbContext.DuAns.Add(project);
+
+            var viewPerm = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Code == "VIEW")
+                           ?? new Permission { Id = Guid.NewGuid(), Code = "VIEW", Name = "View" };
+            if (viewPerm.Id != Guid.Empty && !_dbContext.Permissions.Any(p => p.Id == viewPerm.Id))
+            {
+                _dbContext.Permissions.Add(viewPerm);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var grantDto = new CreateUserPermissionDto
+            {
+                UserId = targetUser.Id,
+                PermissionId = viewPerm.Id,
+                FeatureCode = "DU_AN",
+                EntityName = "DuAn",
+                EntityId = project.Id.ToString(),
+                DuAnId = project.Id
+            };
+
+            // Act 1: Grant permission
+            var grantResult = await _permissionService.GrantUserPermissionAsync(admin.Id, grantDto);
+
+            // Assert 1: Only ONE record exists in database for this targetUser
+            var dbPerms = await _dbContext.UserPermissions
+                .Where(up => up.UserId == targetUser.Id)
+                .ToListAsync();
+
+            dbPerms.Should().ContainSingle();
+            dbPerms.First().FeatureCode.Should().Be("DU_AN");
+
+            // Act 2: Query user permissions with includeChildren = true
+            _mockCurrentUserService.Setup(c => c.GetUsername()).Returns("target_user");
+            var result = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "DU_AN", true);
+            var list = result.ToList();
+
+            // Assert 2: Synthesized child features exist in the query result
+            list.Count(p => p.FeatureCode == "DU_AN").Should().Be(1);
+            list.Count(p => p.FeatureCode == "GOI_THAU").Should().Be(1);
+            list.Count(p => p.FeatureCode == "QUAN_LY_HOP_DONG").Should().Be(1);
+            list.Count(p => p.FeatureCode == "CONG_VIEC").Should().Be(1);
+
+            // Act 3: Query specifically for child feature "GOI_THAU"
+            var goiThauResult = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "GOI_THAU", false);
+            var goiThauList = goiThauResult.ToList();
+
+            // Assert 3: GoiThau query returns the synthesized GoiThau permission
+            goiThauList.Should().ContainSingle();
+            goiThauList.First().FeatureCode.Should().Be("GOI_THAU");
+            goiThauList.First().DuAnId.Should().Be(project.Id);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

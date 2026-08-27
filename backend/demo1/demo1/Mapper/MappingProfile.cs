@@ -154,6 +154,12 @@ namespace demo1.Mapper
             CreateMap<CreatePhongBanDto, PhongBan>();
             CreateMap<UpdatePhongBanDto, PhongBan>();
 
+            // ToNhom mappings
+            CreateMap<ToNhom, ToNhomDto>()
+                .ForMember(dest => dest.TenPhongBan, opt => opt.MapFrom(src => src.PhongBan != null ? src.PhongBan.TenPhongBan : null));
+            CreateMap<CreateToNhomDto, ToNhom>();
+            CreateMap<UpdateToNhomDto, ToNhom>();
+
             // ChucVu mappings
             CreateMap<ChucVu, ChucVuDto>();
             CreateMap<CreateChucVuDto, ChucVu>();

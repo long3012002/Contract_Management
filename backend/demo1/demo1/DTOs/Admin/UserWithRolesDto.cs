@@ -13,9 +13,11 @@ namespace demo1.DTOs
         public Guid? IdPhongBan { get; set; }
         public Guid? IdChucVu { get; set; }
         public Guid? IdDonVi { get; set; }
+        public Guid? IdToNhom { get; set; }
         public string? TenPhongBan { get; set; }
         public string? TenChucVu { get; set; }
         public string? TenDonVi { get; set; }
+        public string? TenToNhom { get; set; }
         public bool IsActive { get; set; }
         public bool IsSystemAdmin { get; set; }
         public bool CanViewHopDong { get; set; }

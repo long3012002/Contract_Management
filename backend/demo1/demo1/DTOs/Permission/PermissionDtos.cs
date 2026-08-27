@@ -91,7 +91,8 @@ namespace demo1.DTOs.Permission
     public class CreateUserPermissionDto
     {
         public Guid UserId { get; set; }
-        public Guid PermissionId { get; set; }
+        public Guid? PermissionId { get; set; }
+        public string? PermissionCode { get; set; }
         public string FeatureCode { get; set; } = string.Empty;
         public string EntityName { get; set; } = string.Empty;
         public string EntityId { get; set; } = string.Empty;
@@ -101,7 +102,8 @@ namespace demo1.DTOs.Permission
     public class CreateBatchUserPermissionsDto
     {
         public List<Guid> UserIds { get; set; } = new List<Guid>();
-        public Guid PermissionId { get; set; }
+        public Guid? PermissionId { get; set; }
+        public string? PermissionCode { get; set; }
         public string FeatureCode { get; set; } = string.Empty;
         public string EntityName { get; set; } = string.Empty;
         public string EntityId { get; set; } = string.Empty;

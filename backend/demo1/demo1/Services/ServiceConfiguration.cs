@@ -233,6 +233,7 @@ public static class ServiceConfiguration
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IPhongBanService, PhongBanService>();
+        services.AddScoped<IToNhomService, ToNhomService>();
         services.AddScoped<IChucVuService, ChucVuService>();
         services.AddScoped<IDonViService, DonViService>();
         services.AddScoped<IXuatXuService, XuatXuService>();

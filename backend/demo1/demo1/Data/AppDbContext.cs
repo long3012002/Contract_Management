@@ -47,6 +47,7 @@ namespace demo1.Data
         public DbSet<UserRole> UserRoles { get; set; } = null!;
         public DbSet<Feature> Features { get; set; } = null!;
         public DbSet<PhongBan> PhongBans { get; set; } = null!;
+        public DbSet<ToNhom> ToNhoms { get; set; } = null!;
         public DbSet<ChucVu> ChucVus { get; set; } = null!;
         public DbSet<DonVi> DonVis { get; set; } = null!;
         public DbSet<UserPermission> UserPermissions { get; set; } = null!;
@@ -436,6 +437,13 @@ namespace demo1.Data
             // Configure composite key for UserRole
             modelBuilder.Entity<UserRole>()
                 .HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            // Configure ToNhom relationship
+            modelBuilder.Entity<ToNhom>()
+                .HasOne(t => t.PhongBan)
+                .WithMany()
+                .HasForeignKey(t => t.IdPhongBan)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Configure Permission catalog entity
             modelBuilder.Entity<Permission>(entity =>
@@ -1254,6 +1262,7 @@ namespace demo1.Data
             { "IdChucVu", "Chức vụ" },
             { "IdPhongBan", "Phòng ban" },
             { "IdDonVi", "Đơn vị" },
+            { "IdToNhom", "Tổ nhóm" },
             { "CanViewHopDong", "Quyền xem hợp đồng" },
 
             // DuAn (Project)

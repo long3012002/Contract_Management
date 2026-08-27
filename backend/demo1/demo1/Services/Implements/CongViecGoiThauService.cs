@@ -198,6 +198,26 @@ public class CongViecGoiThauService
         };
     }
 
+    public override async Task<bool> DeleteByParentIdAsync(Guid parentId)
+    {
+        try
+        {
+            var entities = await DbSet.Where(e => e.GoiThauId == parentId).ToListAsync();
+            if (!entities.Any())
+            {
+                return false;
+            }
+
+            DbSet.RemoveRange(entities);
+            await DbContext.SaveChangesAsync();
+            return true;
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
     public override async Task<CongViecGoiThauDto> CreateAsync(CreateCongViecGoiThauDto dto)
     {
         var goiThauExists = await DbContext.GoiThaus.AnyAsync(g => g.Id == dto.GoiThauId);
@@ -1006,18 +1026,8 @@ public class CongViecGoiThauService
             entity.UpdatedAt = now;
         }
 
-        // Tìm tất cả các công việc con (Sub-tasks) nếu có
-        var subTasks = await DbSet.Where(cv => idList.Contains(cv.ParentId)).ToListAsync();
-        var subTaskIds = subTasks.Select(st => st.Id).ToList();
-
-        foreach (var st in subTasks)
-        {
-            st.IsDeleted = true;
-            st.DeletedAt = now;
-            st.DeletedByUserId = userId;
-        }
-
-        var allIds = idList.Concat(subTaskIds).Distinct().ToList();
+        // CongViecGoiThau does not have nested sub-tasks, so we only delete the tasks in idList
+        var allIds = idList;
 
         // Soft Delete comments
         var comments = await DbContext.CommentCongViecGoiThaus
@@ -1079,17 +1089,8 @@ public class CongViecGoiThauService
             entity.UpdatedAt = now;
         }
 
-        var subTasks = await DbSet.IgnoreQueryFilters().Where(cv => idList.Contains(cv.ParentId) && cv.IsDeleted).ToListAsync();
-        var subTaskIds = subTasks.Select(st => st.Id).ToList();
-
-        foreach (var st in subTasks)
-        {
-            st.IsDeleted = false;
-            st.DeletedAt = null;
-            st.DeletedByUserId = null;
-        }
-
-        var allIds = idList.Concat(subTaskIds).Distinct().ToList();
+        // CongViecGoiThau does not have nested sub-tasks, so we only restore the tasks in idList
+        var allIds = idList;
 
         var comments = await DbContext.CommentCongViecGoiThaus.IgnoreQueryFilters()
             .Where(c => allIds.Contains(c.CongViecGoiThauId) && c.IsDeleted)

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
+using demo1.Entity.DanhMuc;
 using demo1.Services.Interfaces;
 
 namespace demo1.Services.Implements
@@ -64,6 +65,7 @@ namespace demo1.Services.Implements
             var inputChucVus = GetUniqueTrimmedNames(dtos, d => d.TenChucVu);
             var inputDonVis = GetUniqueTrimmedNames(dtos, d => d.TenDonVi);
             var inputRoles = GetUniqueTrimmedNames(dtos, d => d.Role);
+            var inputToNhoms = GetUniqueTrimmedNames(dtos, d => d.TenToNhom);
 
             var phongBanMap = await EnsureLookupsExistAsync(
                 inputPhongBans,
@@ -98,6 +100,13 @@ namespace demo1.Services.Implements
                     IsActive = true, 
                     CreatedAt = DateTime.UtcNow 
                 }
+            );
+
+            var toNhomMap = await EnsureLookupsExistAsync(
+                inputToNhoms,
+                _dbContext.ToNhoms,
+                t => t.TenToNhom,
+                name => new ToNhom { Id = Guid.NewGuid(), TenToNhom = name, CreatedAt = DateTime.UtcNow }
             );
 
             if (_dbContext.ChangeTracker.HasChanges())
@@ -135,6 +144,7 @@ namespace demo1.Services.Implements
                     var (idPhongBan, tenPhongBan) = ResolveReference(dto.TenPhongBan, dto.IdPhongBan, phongBanMap, pb => pb.Id, pb => pb.TenPhongBan);
                     var (idChucVu, tenChucVu) = ResolveReference(dto.TenChucVu, dto.IdChucVu, chucVuMap, cv => cv.Id, cv => cv.TenChucVu);
                     var (idDonVi, tenDonVi) = ResolveReference(dto.TenDonVi, dto.IdDonVi, donViMap, dv => dv.Id, dv => dv.TenDonVi);
+                    var (idToNhom, tenToNhom) = ResolveReference(dto.TenToNhom, dto.IdToNhom, toNhomMap, t => t.Id, t => t.TenToNhom);
 
                     Role? targetRole = null;
                     if (!string.IsNullOrWhiteSpace(dto.Role))
@@ -178,6 +188,12 @@ namespace demo1.Services.Implements
                     if (!string.IsNullOrWhiteSpace(tenPhongBan))
                     {
                         user.TenPhongBan = tenPhongBan;
+                    }
+
+                    user.IdToNhom = idToNhom ?? user.IdToNhom;
+                    if (!string.IsNullOrWhiteSpace(tenToNhom))
+                    {
+                        user.TenToNhom = tenToNhom;
                     }
 
                     user.IdChucVu = idChucVu ?? user.IdChucVu;
@@ -354,6 +370,34 @@ namespace demo1.Services.Implements
                         if (phongBan != null)
                         {
                             user.TenPhongBan = phongBan.TenPhongBan;
+                        }
+                    }
+                }
+
+                // Xử lý tự động tổ nhóm
+                if (!string.IsNullOrWhiteSpace(dto.TenToNhom))
+                {
+                    var tenToNhomTrimmed = dto.TenToNhom.Trim();
+                    var toNhom = await _dbContext.ToNhoms
+                        .FirstOrDefaultAsync(t => t.TenToNhom.ToLower() == tenToNhomTrimmed.ToLower());
+                    if (toNhom == null)
+                    {
+                        toNhom = new ToNhom { Id = Guid.NewGuid(), TenToNhom = tenToNhomTrimmed, CreatedAt = DateTime.UtcNow };
+                        _dbContext.ToNhoms.Add(toNhom);
+                        await _dbContext.SaveChangesAsync();
+                    }
+                    user.IdToNhom = toNhom.Id;
+                    user.TenToNhom = toNhom.TenToNhom;
+                }
+                else
+                {
+                    user.IdToNhom = dto.IdToNhom ?? user.IdToNhom;
+                    if (dto.IdToNhom.HasValue)
+                    {
+                        var toNhom = await _dbContext.ToNhoms.FindAsync(dto.IdToNhom.Value);
+                        if (toNhom != null)
+                        {
+                            user.TenToNhom = toNhom.TenToNhom;
                         }
                     }
                 }

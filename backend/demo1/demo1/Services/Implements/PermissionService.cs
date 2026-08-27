@@ -266,11 +266,6 @@ namespace demo1.Services.Implements
                     }
 
                     request.PermissionId = existingPerm.Id;
-
-                    if (request.FeatureCode == "DU_AN" && request.DuAnId.HasValue)
-                    {
-                        await CascadeProjectPermissionsAsync(request.UserId, permCatalog.Id, request.DuAnId.Value, reviewerId);
-                    }
                 }
             }
 
@@ -322,12 +317,8 @@ namespace demo1.Services.Implements
             if (existingPerm != null)
             {
                 existingPerm.DuAnId = duAnId;
-                existingPerm.GrantedAt = DateTime.UtcNow;
                 existingPerm.GrantedByUserId = adminId;
-                if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
-                {
-                    await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
-                }
+                existingPerm.GrantedAt = DateTime.UtcNow;
                 permIdToNotify = existingPerm.Id;
             }
             else
@@ -336,7 +327,7 @@ namespace demo1.Services.Implements
                 {
                     Id = Guid.NewGuid(),
                     UserId = dto.UserId,
-                    PermissionId = dto.PermissionId,
+                    PermissionId = permCatalog.Id,
                     FeatureCode = dto.FeatureCode,
                     EntityName = dto.EntityName,
                     EntityId = dto.EntityId,
@@ -346,10 +337,6 @@ namespace demo1.Services.Implements
                 };
 
                 _context.UserPermissions.Add(perm);
-                if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
-                {
-                    await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
-                }
                 existingPerm = perm;
                 permIdToNotify = perm.Id;
             }
@@ -433,10 +420,6 @@ namespace demo1.Services.Implements
                     existingPerm.DuAnId = duAnId;
                     existingPerm.GrantedAt = now;
                     existingPerm.GrantedByUserId = adminId;
-                    if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
-                    {
-                        await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
-                    }
                     result.Add(MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username));
                     permIdToNotify = existingPerm.Id;
                 }
@@ -446,7 +429,7 @@ namespace demo1.Services.Implements
                     {
                         Id = Guid.NewGuid(),
                         UserId = user.Id,
-                        PermissionId = dto.PermissionId,
+                        PermissionId = permCatalog.Id,
                         FeatureCode = dto.FeatureCode,
                         EntityName = dto.EntityName,
                         EntityId = dto.EntityId,
@@ -455,10 +438,6 @@ namespace demo1.Services.Implements
                         GrantedByUserId = adminId
                     };
                     _context.UserPermissions.Add(newPerm);
-                    if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
-                    {
-                        await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
-                    }
                     result.Add(MapToUserPermissionDto(newPerm, user, permCatalog, admin?.Username));
                     permIdToNotify = newPerm.Id;
                 }
@@ -609,9 +588,9 @@ namespace demo1.Services.Implements
                         up.FeatureCode == normalizedFeatureCode || 
                         up.FeatureCode.ToLower() == rawFeatureCode.ToLower() || 
                         (normalizedFeatureCode == "DU_AN" && (up.FeatureCode == "PROJECT" || up.FeatureCode == "DU_AN")) ||
-                        (normalizedFeatureCode == "GOI_THAU" && (up.FeatureCode == "PACKAGE" || up.FeatureCode == "GOITHAU" || up.FeatureCode == "GOI_THAU")) ||
-                        (normalizedFeatureCode == "QUAN_LY_HOP_DONG" && (up.FeatureCode == "CONTRACT" || up.FeatureCode == "HOPDONG" || up.FeatureCode == "HOP_DONG" || up.FeatureCode == "QUAN_LY_HOP_DONG")) ||
-                        (normalizedFeatureCode == "CONG_VIEC" && (up.FeatureCode == "TASK" || up.FeatureCode == "CONGVIEC" || up.FeatureCode == "CONG_VIEC")) ||
+                        (normalizedFeatureCode == "GOI_THAU" && (up.FeatureCode == "PACKAGE" || up.FeatureCode == "GOITHAU" || up.FeatureCode == "GOI_THAU" || up.FeatureCode == "DU_AN" || up.FeatureCode == "PROJECT" || up.FeatureCode == "DUAN")) ||
+                        (normalizedFeatureCode == "QUAN_LY_HOP_DONG" && (up.FeatureCode == "CONTRACT" || up.FeatureCode == "HOPDONG" || up.FeatureCode == "HOP_DONG" || up.FeatureCode == "QUAN_LY_HOP_DONG" || up.FeatureCode == "DU_AN" || up.FeatureCode == "PROJECT" || up.FeatureCode == "DUAN")) ||
+                        (normalizedFeatureCode == "CONG_VIEC" && (up.FeatureCode == "TASK" || up.FeatureCode == "CONGVIEC" || up.FeatureCode == "CONG_VIEC" || up.FeatureCode == "DU_AN" || up.FeatureCode == "PROJECT" || up.FeatureCode == "DUAN")) ||
                         (normalizedFeatureCode == "LICENSE" && (up.FeatureCode == "BAN_QUYEN" || up.FeatureCode == "LICENSE")) ||
                         (normalizedFeatureCode == "DOI_TAC" && (up.FeatureCode == "PARTNER" || up.FeatureCode == "DOI_TAC")) ||
                         (normalizedFeatureCode == "BAO_CAO" && (up.FeatureCode == "REPORT" || up.FeatureCode == "BAO_CAO"))
@@ -621,6 +600,76 @@ namespace demo1.Services.Implements
 
             var items = await query.OrderByDescending(up => up.GrantedAt).ToListAsync();
             var resultList = items.Select(up => MapToUserPermissionDto(up, up.User, up.Permission, up.GrantedByUser?.Username)).ToList();
+
+            // Synthesize child permissions (GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC) for any explicit DU_AN project permission
+            var explicitProjectPerms = resultList.Where(p => NormalizeFeatureCode(p.FeatureCode) == "DU_AN").ToList();
+            if (explicitProjectPerms.Any())
+            {
+                var childFeaturesToSynth = new List<(string FeatureCode, string EntityName)>();
+                if (!string.IsNullOrWhiteSpace(rawFeatureCode))
+                {
+                    if (includeChildren && normalizedFeatureCode == "DU_AN")
+                    {
+                        childFeaturesToSynth.Add(("GOI_THAU", "GoiThau"));
+                        childFeaturesToSynth.Add(("QUAN_LY_HOP_DONG", "HopDong"));
+                        childFeaturesToSynth.Add(("CONG_VIEC", "CongViec"));
+                    }
+                    else if (normalizedFeatureCode == "GOI_THAU")
+                    {
+                        childFeaturesToSynth.Add(("GOI_THAU", "GoiThau"));
+                    }
+                    else if (normalizedFeatureCode == "QUAN_LY_HOP_DONG")
+                    {
+                        childFeaturesToSynth.Add(("QUAN_LY_HOP_DONG", "HopDong"));
+                    }
+                    else if (normalizedFeatureCode == "CONG_VIEC")
+                    {
+                        childFeaturesToSynth.Add(("CONG_VIEC", "CongViec"));
+                    }
+                }
+                else
+                {
+                    childFeaturesToSynth.Add(("GOI_THAU", "GoiThau"));
+                    childFeaturesToSynth.Add(("QUAN_LY_HOP_DONG", "HopDong"));
+                    childFeaturesToSynth.Add(("CONG_VIEC", "CongViec"));
+                }
+
+                foreach (var parentPerm in explicitProjectPerms)
+                {
+                    var projId = parentPerm.DuAnId;
+                    if (!projId.HasValue && Guid.TryParse(parentPerm.EntityId, out var parsedId))
+                    {
+                        projId = parsedId;
+                    }
+
+                    if (projId.HasValue)
+                    {
+                        foreach (var child in childFeaturesToSynth)
+                        {
+                            bool exists = resultList.Any(r => r.UserId == parentPerm.UserId && r.FeatureCode == child.FeatureCode && (r.DuAnId == projId || r.EntityId == projId.Value.ToString()) && r.PermissionCode == parentPerm.PermissionCode);
+                            if (!exists)
+                            {
+                                resultList.Add(new UserPermissionDto
+                                {
+                                    Id = Guid.Empty,
+                                    UserId = parentPerm.UserId,
+                                    Username = parentPerm.Username ?? string.Empty,
+                                    UserFullName = parentPerm.UserFullName ?? string.Empty,
+                                    PermissionId = parentPerm.PermissionId,
+                                    PermissionCode = parentPerm.PermissionCode ?? string.Empty,
+                                    PermissionName = parentPerm.PermissionName ?? string.Empty,
+                                    FeatureCode = child.FeatureCode,
+                                    EntityName = child.EntityName,
+                                    EntityId = projId.Value.ToString(),
+                                    DuAnId = projId,
+                                    GrantedAt = parentPerm.GrantedAt,
+                                    GrantedByUsername = parentPerm.GrantedByUsername
+                                });
+                            }
+                        }
+                    }
+                }
+            }
 
             // Total synthesis for Project Owners & Stakeholders (NguoiLienQuan) so frontend menu & route guards grant access
             if (targetUserId.HasValue)
@@ -750,6 +799,28 @@ namespace demo1.Services.Implements
                 })
                 .Select(g => g.OrderByDescending(up => up.Id != Guid.Empty).First())
                 .ToList();
+
+            if (!string.IsNullOrWhiteSpace(rawFeatureCode))
+            {
+                if (includeChildren && normalizedFeatureCode == "DU_AN")
+                {
+                    // Do nothing, we want to return DU_AN and all its child features
+                }
+                else
+                {
+                    distinctResultList = distinctResultList.Where(up => 
+                        up.FeatureCode == normalizedFeatureCode || 
+                        up.FeatureCode.ToLower() == rawFeatureCode.ToLower() || 
+                        (normalizedFeatureCode == "DU_AN" && (up.FeatureCode == "PROJECT" || up.FeatureCode == "DU_AN")) ||
+                        (normalizedFeatureCode == "GOI_THAU" && (up.FeatureCode == "PACKAGE" || up.FeatureCode == "GOITHAU" || up.FeatureCode == "GOI_THAU")) ||
+                        (normalizedFeatureCode == "QUAN_LY_HOP_DONG" && (up.FeatureCode == "CONTRACT" || up.FeatureCode == "HOPDONG" || up.FeatureCode == "HOP_DONG" || up.FeatureCode == "QUAN_LY_HOP_DONG")) ||
+                        (normalizedFeatureCode == "CONG_VIEC" && (up.FeatureCode == "TASK" || up.FeatureCode == "CONGVIEC" || up.FeatureCode == "CONG_VIEC")) ||
+                        (normalizedFeatureCode == "LICENSE" && (up.FeatureCode == "BAN_QUYEN" || up.FeatureCode == "LICENSE")) ||
+                        (normalizedFeatureCode == "DOI_TAC" && (up.FeatureCode == "PARTNER" || up.FeatureCode == "DOI_TAC")) ||
+                        (normalizedFeatureCode == "BAO_CAO" && (up.FeatureCode == "REPORT" || up.FeatureCode == "BAO_CAO"))
+                    ).ToList();
+                }
+            }
 
             return distinctResultList;
         }
@@ -1037,37 +1108,7 @@ namespace demo1.Services.Implements
 
         private async Task CascadeProjectPermissionsAsync(Guid userId, Guid permissionId, Guid duAnId, Guid grantedByUserId)
         {
-            var childFeatures = new List<(string FeatureCode, string EntityName)>
-            {
-                ("GOI_THAU", "GoiThau"),
-                ("QUAN_LY_HOP_DONG", "HopDong")
-            };
-
-            foreach (var child in childFeatures)
-            {
-                var exists = await _context.UserPermissions.AnyAsync(up =>
-                    up.UserId == userId &&
-                    up.PermissionId == permissionId &&
-                    up.FeatureCode == child.FeatureCode &&
-                    up.DuAnId == duAnId);
-
-                if (!exists)
-                {
-                    var childPerm = new UserPermission
-                    {
-                        Id = Guid.NewGuid(),
-                        UserId = userId,
-                        PermissionId = permissionId,
-                        FeatureCode = child.FeatureCode,
-                        EntityName = child.EntityName,
-                        EntityId = string.Empty,
-                        DuAnId = duAnId,
-                        GrantedAt = DateTime.UtcNow,
-                        GrantedByUserId = grantedByUserId
-                    };
-                    _context.UserPermissions.Add(childPerm);
-                }
-            }
+            await Task.CompletedTask;
         }
     }
 }
