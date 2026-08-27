@@ -509,7 +509,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var currentUsername = _currentUserService.GetUsername();
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
 
-        if (dto.OwnerId.HasValue && currentUser != null && (currentUser.IsSystemAdmin || !entity.CreatedByUserId.HasValue || entity.CreatedByUserId == currentUser.Id))
+        if (dto.OwnerId.HasValue && currentUser != null && currentUser.IsSystemAdmin)
         {
             entity.CreatedByUserId = dto.OwnerId.Value;
         }
@@ -744,6 +744,32 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return Mapper.Map<List<HopDongDto>>(items);
     }
 
+    private static readonly System.Text.RegularExpressions.Regex GuidRegex = 
+        new System.Text.RegularExpressions.Regex(@"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private void GatherGuidsFromJson(string? json, HashSet<string> guidStrings)
+    {
+        if (string.IsNullOrEmpty(json)) return;
+        var matches = GuidRegex.Matches(json);
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            guidStrings.Add(match.Value);
+        }
+    }
+
+    private string? ReplaceGuidsInJson(string? json, Dictionary<string, string> userMap)
+    {
+        if (string.IsNullOrEmpty(json)) return json;
+        return GuidRegex.Replace(json, match => 
+        {
+            if (userMap.TryGetValue(match.Value, out var name))
+            {
+                return name;
+            }
+            return match.Value;
+        });
+    }
+
     public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
     {
         var projectIdStr = id.ToString();
@@ -773,6 +799,57 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                                   )
                                   .OrderByDescending(log => log.Timestamp)
                                   .ToListAsync();
+
+        if (logs.Any())
+        {
+            var guidStrings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var log in logs)
+            {
+                GatherGuidsFromJson(log.OldValues, guidStrings);
+                GatherGuidsFromJson(log.NewValues, guidStrings);
+            }
+
+            var guidList = guidStrings
+                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty)
+                .ToList();
+
+            var userMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (guidList.Any())
+            {
+                var dbUsers = await DbContext.Users
+                    .Where(u => guidList.Contains(u.Id))
+                    .Select(u => new { u.Id, Name = !string.IsNullOrEmpty(u.FullName) ? u.FullName : u.Username })
+                    .ToListAsync();
+
+                foreach (var u in dbUsers)
+                {
+                    userMap[u.Id.ToString()] = u.Name;
+                }
+            }
+
+            foreach (var log in logs)
+            {
+                var actionUpper = log.Action?.ToUpper() ?? string.Empty;
+
+                if (actionUpper == "CREATE" || actionUpper == "TẠO MỚI")
+                {
+                    log.OldValues = null;
+                    log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
+                }
+                else if (actionUpper == "DELETE" || actionUpper == "XÓA")
+                {
+                    log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
+                    log.NewValues = null;
+                }
+                else
+                {
+                    log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
+                    log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
+                }
+            }
+        }
 
         return logs;
     }
