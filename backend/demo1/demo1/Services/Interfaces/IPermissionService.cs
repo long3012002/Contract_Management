@@ -15,7 +15,7 @@ namespace demo1.Services.Interfaces
         Task<PermissionRequestDto> ReviewRequestAsync(Guid requestId, Guid reviewerId, ReviewPermissionRequestDto dto);
         Task<UserPermissionDto> GrantUserPermissionAsync(Guid adminId, CreateUserPermissionDto dto);
         Task<IEnumerable<UserPermissionDto>> GrantUserPermissionsBatchAsync(Guid adminId, CreateBatchUserPermissionsDto dto);
-        Task<bool> RevokeUserPermissionAsync(Guid permissionId);
+        Task<bool> RevokeUserPermissionAsync(Guid adminId, Guid permissionId);
         Task<IEnumerable<UserPermissionDto>> GetUserPermissionsAsync(Guid? userId, string? featureCode, bool includeChildren = true);
         Task<IEnumerable<GroupedUserPermissionDto>> GetGroupedUserPermissionsAsync(Guid? userId, string? featureCode, bool includeChildren = true);
         Task<DuAnPermissionCheckDto> GetDuAnPermissionAsync(Guid userId, Guid duAnId);

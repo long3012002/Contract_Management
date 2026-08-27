@@ -179,6 +179,64 @@ namespace demo1.Tests.UnitTests.Services
             mentions[0].MentionedUserId.Should().Be(mentionedUser.Id);
         }
 
+        [Fact]
+        public async Task TC46_Update_RemoveStakeholder_Should_Send_RemovalNotification()
+        {
+            // Arrange
+            var goiThau = new GoiThau { Id = Guid.NewGuid(), Code = "GT-02", Name = "Gói thầu test update" };
+            _dbContext.GoiThaus.Add(goiThau);
+
+            var userA = new User { Id = Guid.NewGuid(), Username = "userA", FullName = "Nguyen Van A" };
+            var userB = new User { Id = Guid.NewGuid(), Username = "userB", FullName = "Tran Van B" };
+            _dbContext.Users.AddRange(userA, userB);
+
+            var task = new CongViecGoiThau
+            {
+                Id = Guid.NewGuid(),
+                GoiThauId = goiThau.Id,
+                Code = "CV-02",
+                TenTaiLieu = "Soạn thảo HSMT lần 2",
+                TinhTrang = "Đang thực hiện"
+            };
+            _dbContext.CongViecGoiThaus.Add(task);
+
+            var stakeholder = new CongViecNguoiLienQuan
+            {
+                Id = Guid.NewGuid(),
+                CongViecGoiThauId = task.Id,
+                UserId = userB.Id,
+                Code = "NLQ-01",
+                Name = "Stakeholder-01",
+                TrangThaiXacNhan = "Pending",
+                IsActive = true
+            };
+            _dbContext.CongViecNguoiLienQuans.Add(stakeholder);
+            await _dbContext.SaveChangesAsync();
+
+            var updateDto = new UpdateCongViecGoiThauDto
+            {
+                GoiThauId = goiThau.Id,
+                TenTaiLieu = "Soạn thảo HSMT lần 2 - Updated",
+                NguoiLienQuanIds = new List<Guid> { } // Empty list means removing userB
+            };
+
+            // Act
+            var result = await _congViecService.UpdateAsync(task.Id, updateDto);
+
+            // Assert
+            result.Should().BeTrue();
+
+            // Verify stakeholder was removed
+            var relatedUsers = _dbContext.CongViecNguoiLienQuans.Where(r => r.CongViecGoiThauId == task.Id).ToList();
+            relatedUsers.Should().BeEmpty();
+
+            // Verify removal notification was created in DB
+            var removalNotification = _dbContext.Notifications
+                .FirstOrDefault(n => n.UserId == userB.Id && n.Title == "Công việc: Loại bỏ người liên quan");
+            removalNotification.Should().NotBeNull();
+            removalNotification!.Content.Should().Contain(updateDto.TenTaiLieu);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

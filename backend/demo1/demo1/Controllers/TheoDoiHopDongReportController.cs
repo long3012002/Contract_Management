@@ -21,7 +21,7 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
     /// </summary>
     /// <param name="year">Năm báo cáo</param>
     /// <param name="cutoffDate">Mốc thời gian dự kiến thanh toán đến (Mặc định 31/12/{year})</param>
-    /// <param name="loaiHopDong">Phân loại hợp đồng</param>
+    /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Báo cáo chi tiết các hợp đồng và các đợt thanh toán</returns>
@@ -51,7 +51,7 @@ public class TheoDoiHopDongReportController(IReportService reportService) : Cont
     /// </summary>
     /// <param name="year">Năm báo cáo</param>
     /// <param name="cutoffDate">Mốc thời gian dự kiến thanh toán đến (Mặc định 31/12/{year})</param>
-    /// <param name="loaiHopDong">Phân loại hợp đồng</param>
+    /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="base64">Trả về dạng mã hóa Base64 thay vì file nhị phân</param>
     /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>

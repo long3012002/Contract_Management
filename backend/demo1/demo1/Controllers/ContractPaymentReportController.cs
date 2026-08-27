@@ -20,6 +20,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     /// </summary>
     /// <param name="year">Năm thanh toán</param>
     /// <param name="loaiHopDong">Loại hợp đồng</param>
+    /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Danh sách các đợt thanh toán hợp đồng và tổng hợp giá trị đã thanh toán</returns>
@@ -51,6 +52,7 @@ public class ContractPaymentReportController(IReportService reportService) : Con
     /// </summary>
     /// <param name="year">Năm thanh toán</param>
     /// <param name="loaiHopDong">Loại hợp đồng</param>
+    /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
     /// <param name="base64">Trả về dạng mã hóa Base64</param>

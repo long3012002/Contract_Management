@@ -38,7 +38,7 @@ namespace demo1.Services.Implements
                 // Check if user is Project Owner or Related User (Stakeholder)
                 if (Guid.TryParse(entityId, out var parsedEntityId))
                 {
-                    var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == parsedEntityId && da.CreatedByUserId == userId);
+                    var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == parsedEntityId && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isProjectOwner) return true;
 
                     var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
@@ -316,6 +316,9 @@ namespace demo1.Services.Implements
                 up.PermissionId == dto.PermissionId &&
                 (duAnId.HasValue && up.DuAnId == duAnId.Value || (up.EntityName == dto.EntityName && up.EntityId == dto.EntityId)));
 
+            var project = duAnId.HasValue ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value) : null;
+            var permIdToNotify = Guid.Empty;
+
             if (existingPerm != null)
             {
                 existingPerm.DuAnId = duAnId;
@@ -325,31 +328,64 @@ namespace demo1.Services.Implements
                 {
                     await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
                 }
-                await _context.SaveChangesAsync();
-                return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
+                permIdToNotify = existingPerm.Id;
+            }
+            else
+            {
+                var perm = new UserPermission
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = dto.UserId,
+                    PermissionId = dto.PermissionId,
+                    FeatureCode = dto.FeatureCode,
+                    EntityName = dto.EntityName,
+                    EntityId = dto.EntityId,
+                    DuAnId = duAnId,
+                    GrantedAt = DateTime.UtcNow,
+                    GrantedByUserId = adminId
+                };
+
+                _context.UserPermissions.Add(perm);
+                if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+                {
+                    await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
+                }
+                existingPerm = perm;
+                permIdToNotify = perm.Id;
             }
 
-            var perm = new UserPermission
+            // Create notification for target user
+            var userNoti = new Notification
             {
                 Id = Guid.NewGuid(),
                 UserId = dto.UserId,
-                PermissionId = dto.PermissionId,
-                FeatureCode = dto.FeatureCode,
-                EntityName = dto.EntityName,
-                EntityId = dto.EntityId,
-                DuAnId = duAnId,
-                GrantedAt = DateTime.UtcNow,
-                GrantedByUserId = adminId
+                Title = "Phân quyền: Cấp quyền truy cập",
+                Content = $"Bạn đã được cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' bởi '{admin?.Username ?? "Hệ thống"}'.",
+                FeatureCode = "USER_PERMISSION",
+                EntityName = "UserPermission",
+                EntityId = permIdToNotify.ToString(),
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
             };
+            _context.Notifications.Add(userNoti);
 
-            _context.UserPermissions.Add(perm);
-            if (dto.FeatureCode == "DU_AN" && duAnId.HasValue)
+            // Create notification for granter (admin)
+            var adminNoti = new Notification
             {
-                await CascadeProjectPermissionsAsync(dto.UserId, dto.PermissionId, duAnId.Value, adminId);
-            }
-            await _context.SaveChangesAsync();
+                Id = Guid.NewGuid(),
+                UserId = adminId,
+                Title = "Phân quyền: Cấp quyền thành công",
+                Content = $"Bạn đã cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' cho người dùng '{user.Username}'.",
+                FeatureCode = "USER_PERMISSION",
+                EntityName = "UserPermission",
+                EntityId = permIdToNotify.ToString(),
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Notifications.Add(adminNoti);
 
-            return MapToUserPermissionDto(perm, user, permCatalog, admin?.Username);
+            await _context.SaveChangesAsync();
+            return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
         }
 
         public async Task<IEnumerable<UserPermissionDto>> GrantUserPermissionsBatchAsync(Guid adminId, CreateBatchUserPermissionsDto dto)
@@ -387,9 +423,11 @@ namespace demo1.Services.Implements
                 .ToListAsync();
 
             var existingPermsMap = existingPerms.ToDictionary(up => up.UserId);
+            var project = duAnId.HasValue ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value) : null;
 
             foreach (var user in users)
             {
+                Guid permIdToNotify;
                 if (existingPermsMap.TryGetValue(user.Id, out var existingPerm))
                 {
                     existingPerm.DuAnId = duAnId;
@@ -400,6 +438,7 @@ namespace demo1.Services.Implements
                         await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
                     }
                     result.Add(MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username));
+                    permIdToNotify = existingPerm.Id;
                 }
                 else
                 {
@@ -421,16 +460,50 @@ namespace demo1.Services.Implements
                         await CascadeProjectPermissionsAsync(user.Id, dto.PermissionId, duAnId.Value, adminId);
                     }
                     result.Add(MapToUserPermissionDto(newPerm, user, permCatalog, admin?.Username));
+                    permIdToNotify = newPerm.Id;
                 }
+
+                // Create notification for target user
+                var userNoti = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Title = "Phân quyền: Cấp quyền truy cập",
+                    Content = $"Bạn đã được cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' bởi '{admin?.Username ?? "Hệ thống"}'.",
+                    FeatureCode = "USER_PERMISSION",
+                    EntityName = "UserPermission",
+                    EntityId = permIdToNotify.ToString(),
+                    IsRead = false,
+                    CreatedAt = now
+                };
+                _context.Notifications.Add(userNoti);
+
+                // Create notification for granter (admin)
+                var adminNoti = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = adminId,
+                    Title = "Phân quyền: Cấp quyền thành công",
+                    Content = $"Bạn đã cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' cho người dùng '{user.Username}'.",
+                    FeatureCode = "USER_PERMISSION",
+                    EntityName = "UserPermission",
+                    EntityId = permIdToNotify.ToString(),
+                    IsRead = false,
+                    CreatedAt = now
+                };
+                _context.Notifications.Add(adminNoti);
             }
 
             await _context.SaveChangesAsync();
             return result;
         }
 
-        public async Task<bool> RevokeUserPermissionAsync(Guid permissionId)
+        public async Task<bool> RevokeUserPermissionAsync(Guid adminId, Guid permissionId)
         {
-            var perm = await _context.UserPermissions.FirstOrDefaultAsync(up => up.Id == permissionId);
+            var perm = await _context.UserPermissions
+                .Include(up => up.User)
+                .Include(up => up.Permission)
+                .FirstOrDefaultAsync(up => up.Id == permissionId);
             if (perm == null) return false;
 
             _context.UserPermissions.Remove(perm);
@@ -449,6 +522,39 @@ namespace demo1.Services.Implements
                     _context.UserPermissions.RemoveRange(cascadedPerms);
                 }
             }
+
+            var admin = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == adminId);
+            var project = perm.DuAnId.HasValue ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == perm.DuAnId.Value) : null;
+
+            // Create notification for target user
+            var userNoti = new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = perm.UserId,
+                Title = "Phân quyền: Thu hồi quyền truy cập",
+                Content = $"Quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' trên dự án '{project?.Name ?? perm.DuAnId?.ToString() ?? perm.EntityId}' của bạn đã bị thu hồi bởi '{admin?.Username ?? "Hệ thống"}'.",
+                FeatureCode = "USER_PERMISSION",
+                EntityName = "UserPermission",
+                EntityId = perm.Id.ToString(),
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Notifications.Add(userNoti);
+
+            // Create notification for admin
+            var adminNoti = new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = adminId,
+                Title = "Phân quyền: Thu hồi quyền thành công",
+                Content = $"Bạn đã thu hồi quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' trên dự án '{project?.Name ?? perm.DuAnId?.ToString() ?? perm.EntityId}' của người dùng '{perm.User?.Username ?? perm.UserId.ToString()}'.",
+                FeatureCode = "USER_PERMISSION",
+                EntityName = "UserPermission",
+                EntityId = perm.Id.ToString(),
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Notifications.Add(adminNoti);
 
             await _context.SaveChangesAsync();
             return true;
@@ -523,7 +629,7 @@ namespace demo1.Services.Implements
                 if (targetUser != null)
                 {
                     var ownedDuAnIds = await _context.DuAns.AsNoTracking()
-                        .Where(da => da.CreatedByUserId == targetUserId.Value)
+                        .Where(da => da.CreatedByUserId == targetUserId.Value || da.ChuDuAnId == targetUserId.Value)
                         .Select(da => da.Id)
                         .ToListAsync();
 
@@ -533,38 +639,33 @@ namespace demo1.Services.Implements
                         .Distinct()
                         .ToListAsync();
 
-                    var allProjectIds = ownedDuAnIds.Concat(relatedDuAnIds).Distinct().ToList();
+                    bool IsFeatureMatch(string feat, string? normFeature, string? rawFeature, bool inclChildren)
+                    {
+                        if (inclChildren && normFeature == "DU_AN")
+                        {
+                            return true;
+                        }
+                        return string.Equals(normFeature, feat, StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(rawFeature, feat, StringComparison.OrdinalIgnoreCase) ||
+                               (feat == "DU_AN" && (string.Equals(rawFeature, "PROJECT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeature, "DUAN", StringComparison.OrdinalIgnoreCase))) ||
+                               (feat == "GOI_THAU" && (string.Equals(rawFeature, "PACKAGE", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeature, "GOITHAU", StringComparison.OrdinalIgnoreCase))) ||
+                               (feat == "QUAN_LY_HOP_DONG" && (string.Equals(rawFeature, "CONTRACT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeature, "HOPDONG", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeature, "HOP_DONG", StringComparison.OrdinalIgnoreCase))) ||
+                               (feat == "CONG_VIEC" && (string.Equals(rawFeature, "TASK", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeature, "CONGVIEC", StringComparison.OrdinalIgnoreCase)));
+                    }
 
-                    if (allProjectIds.Any())
+                    var featuresToGrant = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG", "CONG_VIEC" };
+
+                    // 1. Synthesize all permissions for owned projects (Project Owner)
+                    if (ownedDuAnIds.Any())
                     {
                         var permissionsCatalog = await _context.Permissions.AsNoTracking().ToListAsync();
-                        var featuresToGrant = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG", "CONG_VIEC" };
-
-                        foreach (var projId in allProjectIds)
+                        foreach (var projId in ownedDuAnIds)
                         {
                             foreach (var feat in featuresToGrant)
                             {
-                                if (!string.IsNullOrWhiteSpace(rawFeatureCode))
+                                if (!string.IsNullOrWhiteSpace(rawFeatureCode) && !IsFeatureMatch(feat, normalizedFeatureCode, rawFeatureCode, includeChildren))
                                 {
-                                    bool isMatch;
-                                    if (includeChildren && normalizedFeatureCode == "DU_AN")
-                                    {
-                                        isMatch = true;
-                                    }
-                                    else
-                                    {
-                                        isMatch = string.Equals(normalizedFeatureCode, feat, StringComparison.OrdinalIgnoreCase) ||
-                                                   string.Equals(rawFeatureCode, feat, StringComparison.OrdinalIgnoreCase) ||
-                                                   (feat == "DU_AN" && (string.Equals(rawFeatureCode, "PROJECT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "DUAN", StringComparison.OrdinalIgnoreCase))) ||
-                                                   (feat == "GOI_THAU" && (string.Equals(rawFeatureCode, "PACKAGE", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "GOITHAU", StringComparison.OrdinalIgnoreCase))) ||
-                                                   (feat == "QUAN_LY_HOP_DONG" && (string.Equals(rawFeatureCode, "CONTRACT", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "HOPDONG", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "HOP_DONG", StringComparison.OrdinalIgnoreCase))) ||
-                                                   (feat == "CONG_VIEC" && (string.Equals(rawFeatureCode, "TASK", StringComparison.OrdinalIgnoreCase) || string.Equals(rawFeatureCode, "CONGVIEC", StringComparison.OrdinalIgnoreCase)));
-                                    }
-
-                                    if (!isMatch)
-                                    {
-                                        continue;
-                                    }
+                                    continue;
                                 }
 
                                 foreach (var perm in permissionsCatalog)
@@ -593,10 +694,64 @@ namespace demo1.Services.Implements
                             }
                         }
                     }
+
+                    // 2. Synthesize only VIEW permission for related projects (Stakeholder)
+                    var uniqueRelatedDuAnIds = relatedDuAnIds.Except(ownedDuAnIds).ToList();
+                    if (uniqueRelatedDuAnIds.Any())
+                    {
+                        var viewPerm = await _context.Permissions.AsNoTracking().FirstOrDefaultAsync(p => p.Code == "VIEW");
+                        if (viewPerm != null)
+                        {
+                            foreach (var projId in uniqueRelatedDuAnIds)
+                            {
+                                foreach (var feat in featuresToGrant)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(rawFeatureCode) && !IsFeatureMatch(feat, normalizedFeatureCode, rawFeatureCode, includeChildren))
+                                    {
+                                        continue;
+                                    }
+
+                                    bool exists = resultList.Any(r => r.UserId == targetUserId.Value && r.FeatureCode == feat && (r.DuAnId == projId || r.EntityId == projId.ToString()) && r.PermissionCode == "VIEW");
+                                    if (!exists)
+                                    {
+                                        resultList.Add(new UserPermissionDto
+                                        {
+                                            Id = Guid.Empty,
+                                            UserId = targetUserId.Value,
+                                            Username = targetUser.Username,
+                                            UserFullName = targetUser.FullName,
+                                            PermissionId = viewPerm.Id,
+                                            PermissionCode = "VIEW",
+                                            PermissionName = viewPerm.Name,
+                                            FeatureCode = feat,
+                                            EntityName = feat == "DU_AN" ? "DuAn" : feat,
+                                            EntityId = projId.ToString(),
+                                            DuAnId = projId,
+                                            GrantedAt = DateTime.UtcNow,
+                                            GrantedByUsername = "System (Auto/Stakeholder)"
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            return resultList;
+            var distinctResultList = resultList
+                .GroupBy(up => new
+                {
+                    UserId = up.UserId,
+                    PermissionCode = up.PermissionCode?.Trim().ToUpper() ?? string.Empty,
+                    FeatureCode = NormalizeFeatureCode(up.FeatureCode),
+                    EntityId = up.DuAnId.HasValue 
+                        ? up.DuAnId.Value.ToString().ToLower() 
+                        : (Guid.TryParse(up.EntityId, out var g) ? g.ToString().ToLower() : (up.EntityId?.Trim().ToLower() ?? string.Empty))
+                })
+                .Select(g => g.OrderByDescending(up => up.Id != Guid.Empty).First())
+                .ToList();
+
+            return distinctResultList;
         }
 
         public async Task<IEnumerable<GroupedUserPermissionDto>> GetGroupedUserPermissionsAsync(Guid? userId, string? featureCode, bool includeChildren = true)
@@ -665,11 +820,9 @@ namespace demo1.Services.Implements
                 };
             }
 
-            var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == duAnId && da.CreatedByUserId == userId);
-            var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
-                .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId);
+            var isProjectOwner = await _context.DuAns.AsNoTracking().AnyAsync(da => da.Id == duAnId && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
 
-            if (isProjectOwner || isRelatedUser)
+            if (isProjectOwner)
             {
                 var allPerms = await _context.Permissions.AsNoTracking().ToListAsync();
                 return new DuAnPermissionCheckDto
@@ -687,6 +840,9 @@ namespace demo1.Services.Implements
                 };
             }
 
+            var isRelatedUser = await _context.CongViecNguoiLienQuans.AsNoTracking()
+                .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId);
+
             var grantedUserPerms = await _context.UserPermissions
                 .AsNoTracking()
                 .Include(up => up.Permission)
@@ -695,6 +851,19 @@ namespace demo1.Services.Implements
 
             var grantedCodes = grantedUserPerms.Where(p => p.Permission != null).Select(p => p.Permission!.Code).Distinct().ToList();
             var grantedIds = grantedUserPerms.Select(p => p.PermissionId).Distinct().ToList();
+
+            if (isRelatedUser)
+            {
+                if (!grantedCodes.Contains("VIEW"))
+                {
+                    grantedCodes.Add("VIEW");
+                    var viewPerm = await _context.Permissions.AsNoTracking().FirstOrDefaultAsync(p => p.Code == "VIEW");
+                    if (viewPerm != null && !grantedIds.Contains(viewPerm.Id))
+                    {
+                        grantedIds.Add(viewPerm.Id);
+                    }
+                }
+            }
 
             var canEdit = grantedCodes.Contains("EDIT");
             var canDelete = grantedCodes.Contains("DELETE");
@@ -715,7 +884,7 @@ namespace demo1.Services.Implements
                 CanDelete = canDelete,
                 GrantedPermissionCodes = grantedCodes,
                 GrantedPermissionIds = grantedIds,
-                RequestStatus = latestRequest?.Status ?? (grantedUserPerms.Any() ? "Approved" : "None"),
+                RequestStatus = latestRequest?.Status ?? (grantedUserPerms.Any() || isRelatedUser ? "Approved" : "None"),
                 RequestId = latestRequest?.Id
             };
         }

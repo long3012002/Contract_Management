@@ -134,10 +134,16 @@ namespace demo1.Controllers
 
             if (!isSystemAdmin)
             {
-                if (dto.DuAnId.HasValue)
+                Guid? duAnId = dto.DuAnId;
+                if (!duAnId.HasValue && dto.EntityName != null && dto.EntityName.Equals("DuAn", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(dto.EntityId, out var parsedId))
                 {
-                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
-                    if (project == null || project.CreatedByUserId != adminId.Value)
+                    duAnId = parsedId;
+                }
+
+                if (duAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value);
+                    if (project == null || (project.CreatedByUserId != adminId.Value && project.ChuDuAnId != adminId.Value))
                     {
                         return Forbid();
                     }
@@ -179,10 +185,16 @@ namespace demo1.Controllers
 
             if (!isSystemAdmin)
             {
-                if (dto.DuAnId.HasValue)
+                Guid? duAnId = dto.DuAnId;
+                if (!duAnId.HasValue && dto.EntityName != null && dto.EntityName.Equals("DuAn", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(dto.EntityId, out var parsedId))
                 {
-                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
-                    if (project == null || project.CreatedByUserId != adminId.Value)
+                    duAnId = parsedId;
+                }
+
+                if (duAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value);
+                    if (project == null || (project.CreatedByUserId != adminId.Value && project.ChuDuAnId != adminId.Value))
                     {
                         return Forbid();
                     }
@@ -252,10 +264,16 @@ namespace demo1.Controllers
                 var userPerm = await _context.UserPermissions.AsNoTracking().FirstOrDefaultAsync(up => up.Id == id);
                 if (userPerm == null) return NotFound(new { Message = "Không tìm thấy quyền người dùng." });
 
-                if (userPerm.DuAnId.HasValue)
+                Guid? duAnId = userPerm.DuAnId;
+                if (!duAnId.HasValue && userPerm.EntityName != null && userPerm.EntityName.Equals("DuAn", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(userPerm.EntityId, out var parsedId))
                 {
-                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == userPerm.DuAnId.Value);
-                    if (project == null || project.CreatedByUserId != currentUserId.Value)
+                    duAnId = parsedId;
+                }
+
+                if (duAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value);
+                    if (project == null || (project.CreatedByUserId != currentUserId.Value && project.ChuDuAnId != currentUserId.Value))
                     {
                         return Forbid();
                     }
@@ -266,7 +284,7 @@ namespace demo1.Controllers
                 }
             }
 
-            var success = await _permissionService.RevokeUserPermissionAsync(id);
+            var success = await _permissionService.RevokeUserPermissionAsync(currentUserId.Value, id);
             if (!success) return NotFound(new { Message = "Không tìm thấy quyền người dùng." });
 
             return Ok(new { Message = "Thu hồi quyền thành công." });

@@ -574,7 +574,7 @@ namespace demo1.Controllers
 
             if (duAnId.HasValue)
             {
-                var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
+                var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                 if (isProjectOwner) return true;
             }
 

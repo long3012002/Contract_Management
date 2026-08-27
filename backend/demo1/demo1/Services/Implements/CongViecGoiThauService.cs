@@ -475,6 +475,7 @@ public class CongViecGoiThauService
 
         // Directly manage stakeholders via DbContext to prevent entity graph tracking conflicts
         List<User> newStakeholderUsers = new();
+        List<User> removedStakeholderUsers = new();
         if (dto.NguoiLienQuanIds != null)
         {
             var targetUserIds = dto.NguoiLienQuanIds.Distinct().ToList();
@@ -504,6 +505,10 @@ public class CongViecGoiThauService
                 {
                     DbContext.Notifications.RemoveRange(notificationsToRemove);
                 }
+
+                removedStakeholderUsers = await DbContext.Users
+                    .Where(u => removedUserIds.Contains(u.Id))
+                    .ToListAsync();
             }
 
             // Add newly selected stakeholders
@@ -568,6 +573,11 @@ public class CongViecGoiThauService
             var entry = DbContext.Entry(entity);
             entry.State = EntityState.Modified;
             await DbContext.SaveChangesAsync();
+        }
+
+        if (removedStakeholderUsers.Any())
+        {
+            await SendRemovalNotificationsToUsersAsync(entity, removedStakeholderUsers);
         }
 
         if (newStakeholderUsers.Any())
@@ -775,6 +785,32 @@ public class CongViecGoiThauService
                 Id = Guid.NewGuid(),
                 Title = "Công việc: Giao việc mới",
                 Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
+                Link = $"/bid-packages/{task.GoiThauId}",
+                FeatureCode = "CONG_VIEC",
+                EntityName = "CongViecGoiThau",
+                EntityId = task.Id.ToString(),
+                UserId = targetUser.Id,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            DbContext.Notifications.Add(notification);
+            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+        }
+        await DbContext.SaveChangesAsync();
+    }
+
+    private async Task SendRemovalNotificationsToUsersAsync(CongViecGoiThau task, List<User> targetUsers)
+    {
+        if (targetUsers == null || !targetUsers.Any()) return;
+
+        foreach (var targetUser in targetUsers)
+        {
+            var notification = new Notification
+            {
+                Id = Guid.NewGuid(),
+                Title = "Công việc: Loại bỏ người liên quan",
+                Content = $"Bạn đã bị gỡ bỏ khỏi danh sách người liên quan của công việc '{task.TenTaiLieu}'.",
                 Link = $"/bid-packages/{task.GoiThauId}",
                 FeatureCode = "CONG_VIEC",
                 EntityName = "CongViecGoiThau",

@@ -253,7 +253,7 @@ namespace demo1.Controllers
             var duAn = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == entityId);
             if (duAn != null)
             {
-                if (duAn.CreatedByUserId == userId) return true;
+                if (duAn.CreatedByUserId == userId || duAn.ChuDuAnId == userId) return true;
             }
 
             // 2. Check GoiThau: Access granted if Project Owner OR tagged in a task belonging to THIS GoiThau

@@ -137,6 +137,143 @@ namespace demo1.Tests.UnitTests.Services
             dbReq!.Status.Should().Be("Approved");
         }
 
+        [Fact]
+        public async Task HasPermissionAsync_Should_Allow_Project_Owner_Via_ChuDuAnId()
+        {
+            // Arrange
+            var owner = new User { Id = Guid.NewGuid(), Username = "owner_chu", IsSystemAdmin = false, IsActive = true };
+            _dbContext.Users.Add(owner);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA002", Name = "Dự án DA002", ChuDuAnId = owner.Id };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var hasPerm = await _permissionService.HasPermissionAsync(owner.Id, "PROJECT", "DuAn", project.Id.ToString(), "EDIT");
+
+            // Assert
+            hasPerm.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task GetUserPermissionsAsync_Should_Return_Distinct_Permissions()
+        {
+            // Arrange
+            var user = new User { Id = Guid.NewGuid(), Username = "distinct_user", IsActive = true };
+            _dbContext.Users.Add(user);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA003", Name = "Dự án DA003", CreatedByUserId = user.Id };
+            _dbContext.DuAns.Add(project);
+
+            var perm = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Code == "VIEW")
+                       ?? new Permission { Id = Guid.NewGuid(), Code = "VIEW", Name = "View" };
+            if (perm.Id != Guid.Empty && !_dbContext.Permissions.Any(p => p.Id == perm.Id))
+            {
+                _dbContext.Permissions.Add(perm);
+            }
+
+            // Add duplicate database permissions
+            var perm1 = new UserPermission
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PermissionId = perm.Id,
+                FeatureCode = "PROJECT", // alias for DU_AN
+                EntityName = "DuAn",
+                EntityId = project.Id.ToString(),
+                DuAnId = project.Id,
+                GrantedAt = DateTime.UtcNow
+            };
+            var perm2 = new UserPermission
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PermissionId = perm.Id,
+                FeatureCode = "DU_AN",
+                EntityName = "DuAn",
+                EntityId = project.Id.ToString(),
+                DuAnId = project.Id,
+                GrantedAt = DateTime.UtcNow
+            };
+            _dbContext.UserPermissions.AddRange(perm1, perm2);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            _mockCurrentUserService.Setup(c => c.GetUsername()).Returns("distinct_user");
+            var result = await _permissionService.GetUserPermissionsAsync(user.Id, "DU_AN", true);
+
+            // Assert
+            var list = result.ToList();
+            list.Count(p => p.PermissionCode == "VIEW" && p.FeatureCode == "DU_AN").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task GrantAndRevokePermission_Should_GenerateNotifications_And_Stakeholder_Only_Get_View()
+        {
+            // Arrange
+            var admin = new User { Id = Guid.NewGuid(), Username = "admin_user", IsActive = true };
+            var targetUser = new User { Id = Guid.NewGuid(), Username = "target_user", IsActive = true };
+            _dbContext.Users.AddRange(admin, targetUser);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA009", Name = "Dự án DA009" };
+            _dbContext.DuAns.Add(project);
+
+            var viewPerm = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Code == "VIEW")
+                           ?? new Permission { Id = Guid.NewGuid(), Code = "VIEW", Name = "View" };
+            if (viewPerm.Id != Guid.Empty && !_dbContext.Permissions.Any(p => p.Id == viewPerm.Id))
+            {
+                _dbContext.Permissions.Add(viewPerm);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Grant permission
+            var grantDto = new CreateUserPermissionDto
+            {
+                UserId = targetUser.Id,
+                PermissionId = viewPerm.Id,
+                FeatureCode = "DU_AN",
+                EntityName = "DuAn",
+                EntityId = project.Id.ToString(),
+                DuAnId = project.Id
+            };
+            var grantResult = await _permissionService.GrantUserPermissionAsync(admin.Id, grantDto);
+
+            // Assert 1: Notifications generated for both
+            var adminNotis = await _dbContext.Notifications.Where(n => n.UserId == admin.Id).ToListAsync();
+            var targetNotis = await _dbContext.Notifications.Where(n => n.UserId == targetUser.Id).ToListAsync();
+
+            adminNotis.Should().ContainSingle(n => n.Title.Contains("Cấp quyền thành công"));
+            targetNotis.Should().ContainSingle(n => n.Title.Contains("Cấp quyền truy cập"));
+
+            // Act 2: Revoke permission
+            var revokeResult = await _permissionService.RevokeUserPermissionAsync(admin.Id, grantResult.Id);
+
+            // Assert 2: Revoke notifications generated
+            var adminRevokeNotis = await _dbContext.Notifications.Where(n => n.UserId == admin.Id && n.Title.Contains("Thu hồi quyền thành công")).ToListAsync();
+            var targetRevokeNotis = await _dbContext.Notifications.Where(n => n.UserId == targetUser.Id && n.Title.Contains("Thu hồi quyền truy cập")).ToListAsync();
+
+            adminRevokeNotis.Should().NotBeEmpty();
+            targetRevokeNotis.Should().NotBeEmpty();
+
+            // Act 3: Stakeholder dynamic permission synthesis (only VIEW)
+            var package = new GoiThau { Id = Guid.NewGuid(), DuAnId = project.Id, Name = "Gói thầu test" };
+            _dbContext.GoiThaus.Add(package);
+
+            var task = new CongViecGoiThau { Id = Guid.NewGuid(), GoiThauId = package.Id, Name = "Công việc test" };
+            _dbContext.CongViecGoiThaus.Add(task);
+
+            var stakeholder = new CongViecNguoiLienQuan { Id = Guid.NewGuid(), CongViecGoiThauId = task.Id, UserId = targetUser.Id };
+            _dbContext.CongViecNguoiLienQuans.Add(stakeholder);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(c => c.GetUsername()).Returns("target_user");
+            var synthResult = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "DU_AN", true);
+            var synthList = synthResult.ToList();
+
+            // Assert 3: Stakeholder only gets VIEW permission
+            synthList.Should().OnlyContain(p => p.PermissionCode == "VIEW");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

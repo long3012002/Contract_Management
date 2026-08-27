@@ -1720,7 +1720,6 @@ public class ReportService : IReportService
         };
 
         string loaiFilterName = loaiHopDongIds != null && loaiHopDongIds.Count == 1 ? "Loại hợp đồng cụ thể" : "Tất cả loại hợp đồng";
-        string titleLoai = "CÁC HỢP ĐỒNG";
 
         return new TheoDoiHopDongReportResponseDto
         {
