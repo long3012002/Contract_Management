@@ -8,6 +8,8 @@ using demo1.Services.Implements;
 using demo1.Services.Interfaces;
 using demo1.Tests.Helpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.SignalR;
+using demo1.Hubs;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -19,6 +21,7 @@ namespace demo1.Tests.UnitTests.Services
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
         private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+        private readonly Mock<IHubContext<NotificationHub>> _mockHubContext;
         private readonly DuAnService _duAnService;
 
         public DuAnServiceTests()
@@ -34,7 +37,13 @@ namespace demo1.Tests.UnitTests.Services
             _mockCurrentUserService = new Mock<ICurrentUserService>();
             _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("test_admin");
 
-            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object);
+            _mockHubContext = new Mock<IHubContext<NotificationHub>>();
+            var mockClients = new Mock<IHubClients>();
+            var mockClientProxy = new Mock<IClientProxy>();
+            _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+            mockClients.Setup(x => x.User(It.IsAny<string>())).Returns(mockClientProxy.Object);
+
+            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, _mockHubContext.Object);
         }
 
         [Fact]

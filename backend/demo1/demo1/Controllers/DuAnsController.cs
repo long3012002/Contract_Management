@@ -227,4 +227,40 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         var result = await _duAnService.GetAuditLogsByProjectIdAsync(id);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Thay đổi chủ dự án (Yêu cầu là Admin hoặc Chủ dự án hiện tại).
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <param name="newOwnerId">Mã định danh Chủ dự án mới (GUID)</param>
+    /// <response code="200">Thay đổi chủ dự án thành công</response>
+    /// <response code="400">Yêu cầu không hợp lệ hoặc chủ dự án mới không hoạt động</response>
+    /// <response code="403">Không có quyền thực hiện</response>
+    /// <response code="404">Không tìm thấy dự án hoặc người dùng mới</response>
+    [HttpPost("{id:guid}/ThayDoiChuDuAn/{newOwnerId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ThayDoiChuDuAn(Guid id, Guid newOwnerId)
+    {
+        try
+        {
+            var success = await _duAnService.ChangeOwnerAsync(id, newOwnerId);
+            return success ? Ok(new { message = "Thay đổi chủ dự án thành công." }) : BadRequest(new { message = "Không thể thay đổi chủ dự án." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+    }
 }
+

@@ -13,6 +13,17 @@ namespace demo1.Data
         private readonly ICurrentUserService? _currentUserService;
         public ICurrentUserService? CurrentUserService => _currentUserService;
 
+        private static readonly System.Collections.Generic.HashSet<string> IgnoredAuditProperties = new(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "Id",
+            "CreatedAt",
+            "CreatedBy",
+            "CreatedByUserId",
+            "UpdatedAt",
+            "UpdatedBy",
+            "UpdatedByUserId"
+        };
+
         public AppDbContext(
             DbContextOptions<AppDbContext> options,
             ICurrentUserService? currentUserService = null) : base(options)
@@ -783,6 +794,8 @@ namespace demo1.Data
                             break;
 
                         case EntityState.Modified:
+                            if (IgnoredAuditProperties.Contains(propertyName))
+                                break;
                             if (property.IsModified)
                             {
                                 if (!Equals(property.OriginalValue, property.CurrentValue))

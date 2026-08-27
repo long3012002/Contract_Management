@@ -17,5 +17,6 @@ public interface IDuAnService : ICrudService<DuAnDto, CreateDuAnDto, UpdateDuAnD
     Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id);
     Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id);
     Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id);
+    Task<bool> ChangeOwnerAsync(Guid projectId, Guid newOwnerId);
 }
 
