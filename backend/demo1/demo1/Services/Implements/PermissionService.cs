@@ -295,7 +295,16 @@ namespace demo1.Services.Implements
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == dto.UserId);
             if (user == null) throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
-            var permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId);
+            demo1.Entity.Permission? permCatalog = null;
+            if (dto.PermissionId.HasValue && dto.PermissionId.Value != Guid.Empty)
+            {
+                permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId.Value);
+            }
+            else if (!string.IsNullOrEmpty(dto.PermissionCode))
+            {
+                permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Code == dto.PermissionCode);
+            }
+
             if (permCatalog == null) throw new KeyNotFoundException("Không tìm thấy quyền trong danh mục.");
 
             var admin = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
@@ -308,7 +317,7 @@ namespace demo1.Services.Implements
 
             var existingPerm = await _context.UserPermissions.FirstOrDefaultAsync(up =>
                 up.UserId == dto.UserId &&
-                up.PermissionId == dto.PermissionId &&
+                up.PermissionId == permCatalog.Id &&
                 (duAnId.HasValue && up.DuAnId == duAnId.Value || (up.EntityName == dto.EntityName && up.EntityId == dto.EntityId)));
 
             var project = duAnId.HasValue ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value) : null;
@@ -382,7 +391,16 @@ namespace demo1.Services.Implements
                 return Enumerable.Empty<UserPermissionDto>();
             }
 
-            var permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId);
+            demo1.Entity.Permission? permCatalog = null;
+            if (dto.PermissionId.HasValue && dto.PermissionId.Value != Guid.Empty)
+            {
+                permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId.Value);
+            }
+            else if (!string.IsNullOrEmpty(dto.PermissionCode))
+            {
+                permCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Code == dto.PermissionCode);
+            }
+
             if (permCatalog == null) throw new KeyNotFoundException("Không tìm thấy quyền trong danh mục.");
 
             var admin = await _context.Users.FirstOrDefaultAsync(u => u.Id == adminId);
@@ -405,7 +423,7 @@ namespace demo1.Services.Implements
             var now = DateTime.UtcNow;
 
             var existingPerms = await _context.UserPermissions
-                .Where(up => dto.UserIds.Contains(up.UserId) && up.PermissionId == dto.PermissionId &&
+                .Where(up => dto.UserIds.Contains(up.UserId) && up.PermissionId == permCatalog.Id &&
                              (duAnId.HasValue && up.DuAnId == duAnId.Value || (up.EntityName == dto.EntityName && up.EntityId == dto.EntityId)))
                 .ToListAsync();
 
