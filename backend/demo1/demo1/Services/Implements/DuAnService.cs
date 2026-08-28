@@ -824,6 +824,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             {
                 GatherGuidsFromJson(log.OldValues, guidStrings);
                 GatherGuidsFromJson(log.NewValues, guidStrings);
+                if (!string.IsNullOrEmpty(log.EntityId))
+                {
+                    guidStrings.Add(log.EntityId);
+                }
             }
 
             var guidList = guidStrings
@@ -831,17 +835,67 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 .Where(g => g != Guid.Empty)
                 .ToList();
 
-            var userMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var entityNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (guidList.Any())
             {
+                // 1. Map Users
                 var dbUsers = await DbContext.Users
                     .Where(u => guidList.Contains(u.Id))
                     .Select(u => new { u.Id, Name = !string.IsNullOrEmpty(u.FullName) ? u.FullName : u.Username })
                     .ToListAsync();
-
                 foreach (var u in dbUsers)
                 {
-                    userMap[u.Id.ToString()] = u.Name;
+                    entityNameMap[u.Id.ToString()] = u.Name;
+                }
+
+                // 2. Map DuAns
+                var dbDuAns = await DbContext.DuAns
+                    .Where(d => guidList.Contains(d.Id))
+                    .Select(d => new { d.Id, Name = d.Name })
+                    .ToListAsync();
+                foreach (var d in dbDuAns)
+                {
+                    entityNameMap[d.Id.ToString()] = d.Name;
+                }
+
+                // 3. Map GoiThaus
+                var dbGoiThaus = await DbContext.GoiThaus
+                    .Where(gt => guidList.Contains(gt.Id))
+                    .Select(gt => new { gt.Id, Name = gt.Name })
+                    .ToListAsync();
+                foreach (var gt in dbGoiThaus)
+                {
+                    entityNameMap[gt.Id.ToString()] = gt.Name;
+                }
+
+                // 4. Map HopDongs
+                var dbHopDongs = await DbContext.HopDongs
+                    .Where(hd => guidList.Contains(hd.Id))
+                    .Select(hd => new { hd.Id, Name = hd.Name })
+                    .ToListAsync();
+                foreach (var hd in dbHopDongs)
+                {
+                    entityNameMap[hd.Id.ToString()] = hd.Name;
+                }
+
+                // 5. Map DieuChinhDuAns
+                var dbDieuChinhs = await DbContext.DieuChinhDuAns
+                    .Where(dc => guidList.Contains(dc.Id))
+                    .Select(dc => new { dc.Id, Name = dc.Name })
+                    .ToListAsync();
+                foreach (var dc in dbDieuChinhs)
+                {
+                    entityNameMap[dc.Id.ToString()] = !string.IsNullOrEmpty(dc.Name) ? dc.Name : dc.LyDoDieuChinh;
+                }
+
+                // 6. Map DoiTacs (Chủ đầu tư, Nhà thầu, Nhà cung cấp)
+                var dbDoiTacs = await DbContext.DoiTacs
+                    .Where(dt => guidList.Contains(dt.Id))
+                    .Select(dt => new { dt.Id, Name = dt.Name })
+                    .ToListAsync();
+                foreach (var dt in dbDoiTacs)
+                {
+                    entityNameMap[dt.Id.ToString()] = dt.Name;
                 }
             }
 
@@ -859,19 +913,19 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 {
                     log.Action = "CREATE";
                     log.OldValues = null;
-                    log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
+                    log.NewValues = ReplaceGuidsInJson(log.NewValues, entityNameMap);
                 }
                 else if (actionUpper == "DELETE" || actionUpper == "XÓA")
                 {
                     log.Action = "DELETE";
-                    log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
+                    log.OldValues = ReplaceGuidsInJson(log.OldValues, entityNameMap);
                     log.NewValues = null;
                 }
                 else
                 {
                     log.Action = "UPDATE";
-                    log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
-                    log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
+                    log.OldValues = ReplaceGuidsInJson(log.OldValues, entityNameMap);
+                    log.NewValues = ReplaceGuidsInJson(log.NewValues, entityNameMap);
                 }
             }
         }
