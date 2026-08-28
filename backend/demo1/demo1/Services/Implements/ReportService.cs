@@ -1667,10 +1667,13 @@ public class ReportService : IReportService
             decimal rawGiaTriConLai = contract.GiaTriHopDong - rawGiaTriDaThanhToan;
             if (rawGiaTriConLai < 0) rawGiaTriConLai = 0;
 
-            decimal rawDuKienThanhToanDenMoc = milestones
-                .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value <= targetCutoffDate) ||
-                            (!m.NgayThanhToan.HasValue && m.CreatedAt <= targetCutoffDate))
+            decimal rawTongSauMoc = milestones
+                .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value > targetCutoffDate) ||
+                            (!m.NgayThanhToan.HasValue && m.CreatedAt > targetCutoffDate))
                 .Sum(m => m.GiaTriThanhToan);
+
+            decimal rawDuKienThanhToanDenMoc = rawGiaTriConLai - rawTongSauMoc;
+            if (rawDuKienThanhToanDenMoc < 0) rawDuKienThanhToanDenMoc = 0;
 
             decimal giaTriHopDong = contract.GiaTriHopDong / factor;
             decimal giaTriDaThanhToan = rawGiaTriDaThanhToan / factor;

@@ -205,7 +205,7 @@ public class CongViecGoiThauService
             var entities = await DbSet.Where(e => e.GoiThauId == parentId).ToListAsync();
             if (!entities.Any())
             {
-                return false;
+                return true;
             }
 
             DbSet.RemoveRange(entities);

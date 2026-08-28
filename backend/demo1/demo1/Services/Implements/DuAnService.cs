@@ -881,7 +881,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 // 5. Map DieuChinhDuAns
                 var dbDieuChinhs = await DbContext.DieuChinhDuAns
                     .Where(dc => guidList.Contains(dc.Id))
-                    .Select(dc => new { dc.Id, Name = dc.Name })
+                    .Select(dc => new { dc.Id, Name = dc.Name, LyDoDieuChinh = dc.LyDoDieuChinh })
                     .ToListAsync();
                 foreach (var dc in dbDieuChinhs)
                 {
