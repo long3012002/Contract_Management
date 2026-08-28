@@ -847,20 +847,29 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
             foreach (var log in logs)
             {
+                // Format tên bảng sang Tiếng Việt thân thiện
+                if (log.TableName == "DuAns") log.TableName = "Dự án";
+                else if (log.TableName == "DieuChinhDuAns") log.TableName = "Điều chỉnh dự án";
+                else if (log.TableName == "GoiThaus") log.TableName = "Gói thầu";
+                else if (log.TableName == "HopDongs") log.TableName = "Hợp đồng";
+
                 var actionUpper = log.Action?.ToUpper() ?? string.Empty;
 
                 if (actionUpper == "CREATE" || actionUpper == "TẠO MỚI")
                 {
+                    log.Action = "CREATE";
                     log.OldValues = null;
                     log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
                 }
                 else if (actionUpper == "DELETE" || actionUpper == "XÓA")
                 {
+                    log.Action = "DELETE";
                     log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
                     log.NewValues = null;
                 }
                 else
                 {
+                    log.Action = "UPDATE";
                     log.OldValues = ReplaceGuidsInJson(log.OldValues, userMap);
                     log.NewValues = ReplaceGuidsInJson(log.NewValues, userMap);
                 }
