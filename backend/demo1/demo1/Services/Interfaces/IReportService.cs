@@ -25,6 +25,16 @@ public interface IReportService
     Task<byte[]> ExportTheoDoiHopDongReportExcelAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
     Task<byte[]> ExportTheoDoiHopDongReportCsvAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
     Task<byte[]> ExportTheoDoiHopDongReportHtmlAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null);
+
+    Task<KeHoachVonReportResponseDto> GetKeHoachVonReportAsync(int? year, int? phuLuc, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonReportExcelAsync(int? year, int? phuLuc, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonReportCsvAsync(int? year, int? phuLuc, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonReportHtmlAsync(int? year, int? phuLuc, string? donViTinh = null);
+
+    Task<KeHoachVonCnttReportResponseDto> GetKeHoachVonCnttReportAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonCnttReportExcelAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonCnttReportCsvAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
+    Task<byte[]> ExportKeHoachVonCnttReportHtmlAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
 }
 
 

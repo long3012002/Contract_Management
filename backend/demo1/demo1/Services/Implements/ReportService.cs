@@ -2067,5 +2067,431 @@ public class ReportService : IReportService
 
         return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
     }
+
+    #region 5. Báo cáo Kế hoạch vốn Đầu tư & Mua sắm (Biên bản họp đại diện vốn)
+
+    public async Task<KeHoachVonReportResponseDto> GetKeHoachVonReportAsync(int? year, int? phuLuc, string? donViTinh = null)
+    {
+        int selectedYear = year ?? DateTime.Now.Year;
+        var (factor, unitName) = ParseUnit(donViTinh ?? "triệu");
+
+        var response = new KeHoachVonReportResponseDto
+        {
+            Title = $"KẾ HOẠCH ĐẦU TƯ & MUA SẮM NĂM {selectedYear}",
+            Year = selectedYear,
+            Unit = unitName,
+            PhuLucs = new List<KeHoachVonReportPhuLucDto>()
+        };
+
+        var projects = await _context.DuAns
+            .AsNoTracking()
+            .Include(d => d.NhomDuAn)
+            .Include(d => d.PhanLoaiDuAn)
+            .Where(d => d.IsActive && !d.IsDeleted && (d.NamBatDau == null || d.NamBatDau <= selectedYear))
+            .ToListAsync();
+
+        var phuLucTypes = new List<(int Type, string Name)>
+        {
+            (1, "Phụ lục 01: Kế hoạch đầu tư xây dựng cơ bản"),
+            (2, "Phụ lục 02: Kế hoạch mua sắm ô tô"),
+            (3, "Phụ lục 03: Kế hoạch mua sắm tài sản cố định, công cụ lao động"),
+            (4, "Phụ lục 04: Kế hoạch đầu tư nâng cấp, mua sắm TSCĐ lĩnh vực CNTT"),
+            (5, "Phụ lục 05: Kế hoạch đầu tư nâng cấp, mua sắm TSCĐ lĩnh vực Thẻ & Ngân hàng số"),
+            (6, "Phụ biểu 01: Danh sách các dự án đã duyệt kế hoạch vốn đang triển khai")
+        };
+
+        if (phuLuc.HasValue && phuLuc.Value >= 1 && phuLuc.Value <= 6)
+        {
+            phuLucTypes = phuLucTypes.Where(p => p.Type == phuLuc.Value).ToList();
+        }
+
+        foreach (var pType in phuLucTypes)
+        {
+            var plDto = new KeHoachVonReportPhuLucDto
+            {
+                PhuLucType = pType.Type,
+                TenPhuLuc = pType.Name,
+                Rows = new List<KeHoachVonReportRowDto>()
+            };
+
+            IEnumerable<Entity.DuAn> filteredProj = pType.Type switch
+            {
+                1 => projects.Where(x => x.PhanLoaiDuAn?.Code?.Contains("XDCB") == true || x.NoiDung?.Contains("xây dựng") == true || x.NhomDuAn?.Code == "XDCB"),
+                2 => projects.Where(x => x.NoiDung?.Contains("ô tô") == true || x.NoiDung?.Contains("xe") == true),
+                3 => projects.Where(x => x.NhomDuAn?.Code == "TSCD" || x.NoiDung?.Contains("máy photo") == true || x.NoiDung?.Contains("điều hòa") == true),
+                4 => projects.Where(x => x.NhomDuAn?.Code == "CNTT" || x.PhanLoaiDuAn?.Code?.Contains("CNTT") == true || (x.NoiDung?.Contains("CNTT") == true && x.NoiDung.Contains("Thẻ") == false)),
+                5 => projects.Where(x => x.NoiDung?.Contains("Thẻ") == true || x.NoiDung?.Contains("Ngân hàng số") == true),
+                6 => projects.Where(x => x.DaTrienKhai == true || x.TrangThai == 2),
+                _ => projects
+            };
+
+            int stt = 1;
+            foreach (var proj in filteredProj)
+            {
+                decimal duToan = proj.DuToanPheDuyet / factor;
+                var row = new KeHoachVonReportRowDto
+                {
+                    Stt = stt++,
+                    DuAnId = proj.Id,
+                    DonViChiNhanh = proj.ChuDauTu ?? "Trụ sở chính",
+                    TenDuAn = proj.Name,
+                    QuyMoXaydung = proj.NoiDung,
+                    SuCanThiet = proj.ThoiGianThucHien,
+                    HangMucCongViec = proj.ToChucThucHien,
+                    VonDieuLeVaQuyDuTru = duToan * 0.6m,
+                    QuyPhucLoi = duToan * 0.4m,
+                    QuyDauTuPhatTrien = 0,
+                    NguonKhac = 0,
+                    TongDeXuatPheDuyet = duToan,
+                    GhiChu = proj.SoQuyetDinh,
+                    SoQuyetDinhNghiQuyet = proj.SoQuyetDinh,
+                    PhuLucType = pType.Type
+                };
+                plDto.Rows.Add(row);
+            }
+
+            plDto.TongVonDieuLeVaQuyDuTru = plDto.Rows.Sum(r => r.VonDieuLeVaQuyDuTru);
+            plDto.TongQuyPhucLoi = plDto.Rows.Sum(r => r.QuyPhucLoi);
+            plDto.TongQuyDauTuPhatTrien = plDto.Rows.Sum(r => r.QuyDauTuPhatTrien);
+            plDto.TongNguonKhac = plDto.Rows.Sum(r => r.NguonKhac);
+            plDto.TongCongDeXuat = plDto.Rows.Sum(r => r.TongDeXuatPheDuyet);
+
+            response.PhuLucs.Add(plDto);
+        }
+
+        response.TongCacPhuLuc = response.PhuLucs.Sum(p => p.TongCongDeXuat);
+        return response;
+    }
+
+    public async Task<byte[]> ExportKeHoachVonReportExcelAsync(int? year, int? phuLuc, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonReportAsync(year, phuLuc, donViTinh);
+
+        using (var workbook = new ClosedXML.Excel.XLWorkbook())
+        {
+            foreach (var pl in report.PhuLucs)
+            {
+                string sheetName = pl.PhuLucType == 6 ? "Phụ biểu 01" : $"Phụ lục 0{pl.PhuLucType}";
+                var worksheet = workbook.Worksheets.Add(sheetName);
+
+                worksheet.Cell("A1").Value = pl.TenPhuLuc.ToUpper();
+                worksheet.Cell("A1").Style.Font.Bold = true;
+                worksheet.Cell("A1").Style.Font.FontSize = 14;
+
+                worksheet.Cell("A2").Value = $"Đơn vị tính: {report.Unit}";
+                worksheet.Cell("A2").Style.Font.Italic = true;
+
+                int row = 4;
+                worksheet.Cell(row, 1).Value = "STT";
+                worksheet.Cell(row, 2).Value = "Đơn vị / Chi nhánh";
+                worksheet.Cell(row, 3).Value = "Tên dự án / Công trình";
+                worksheet.Cell(row, 4).Value = "Quy mô / Hạng mục";
+                worksheet.Cell(row, 5).Value = "Vốn điều lệ & Quỹ dự trữ";
+                worksheet.Cell(row, 6).Value = "Quỹ phúc lợi / Khác";
+                worksheet.Cell(row, 7).Value = "Tổng đề xuất phê duyệt";
+                worksheet.Cell(row, 8).Value = "Ghi chú";
+
+                var headerRange = worksheet.Range(row, 1, row, 8);
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+
+                row++;
+                foreach (var r in pl.Rows)
+                {
+                    worksheet.Cell(row, 1).Value = r.Stt;
+                    worksheet.Cell(row, 2).Value = r.DonViChiNhanh;
+                    worksheet.Cell(row, 3).Value = r.TenDuAn;
+                    worksheet.Cell(row, 4).Value = r.QuyMoXaydung ?? r.HangMucCongViec ?? "-";
+                    worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
+                    worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
+                    worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
+                    worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
+
+                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
+
+                    row++;
+                }
+
+                worksheet.Columns().AdjustToContents();
+            }
+
+            using (var ms = new MemoryStream())
+            {
+                workbook.SaveAs(ms);
+                return ms.ToArray();
+            }
+        }
+    }
+
+    public async Task<byte[]> ExportKeHoachVonReportCsvAsync(int? year, int? phuLuc, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonReportAsync(year, phuLuc, donViTinh);
+        using (var ms = new MemoryStream())
+        {
+            using (var writer = new StreamWriter(ms, System.Text.Encoding.UTF8))
+            {
+                writer.Write('\uFEFF');
+                await writer.WriteLineAsync($"\"{report.Title}\"");
+                await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
+                await writer.WriteLineAsync();
+
+                foreach (var pl in report.PhuLucs)
+                {
+                    await writer.WriteLineAsync($"\"{pl.TenPhuLuc}\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Đơn vị\",\"Tên dự án\",\"Quy mô\",\"Vốn ĐL & Quỹ DT\",\"Quỹ phúc lợi/Khác\",\"Tổng đề xuất\",\"Ghi chú\"");
+                    foreach (var r in pl.Rows)
+                    {
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.DonViChiNhanh ?? "")}\",\"{EscapeCsvField(r.TenDuAn)}\",\"{EscapeCsvField(r.QuyMoXaydung ?? "-")}\",\"{r.VonDieuLeVaQuyDuTru}\",\"{r.QuyPhucLoi}\",\"{r.TongDeXuatPheDuyet}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                    }
+                    await writer.WriteLineAsync();
+                }
+                await writer.FlushAsync();
+            }
+            return ms.ToArray();
+        }
+    }
+
+    public async Task<byte[]> ExportKeHoachVonReportHtmlAsync(int? year, int? phuLuc, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonReportAsync(year, phuLuc, donViTinh);
+        var html = new System.Text.StringBuilder();
+        html.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>body{font-family:serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:6px;} th{background:#f0f0f0;}</style></head><body>");
+        html.AppendLine($"<h2>{System.Web.HttpUtility.HtmlEncode(report.Title)}</h2>");
+        html.AppendLine($"<p><i>Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</i></p>");
+
+        foreach (var pl in report.PhuLucs)
+        {
+            html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(pl.TenPhuLuc)}</h3>");
+            html.AppendLine("<table><thead><tr><th>STT</th><th>Đơn vị</th><th>Tên dự án</th><th>Quy mô</th><th>Tổng đề xuất</th><th>Ghi chú</th></tr></thead><tbody>");
+            foreach (var r in pl.Rows)
+            {
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.DonViChiNhanh ?? "")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TenDuAn)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.QuyMoXaydung ?? "-")}</td><td>{r.TongDeXuatPheDuyet:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+            }
+            html.AppendLine("</tbody></table>");
+        }
+        html.AppendLine("</body></html>");
+        return System.Text.Encoding.UTF8.GetBytes(html.ToString());
+    }
+
+    #endregion
+
+    #region 6. Báo cáo Tổng hợp & Phân kỳ Vốn Đầu tư CNTT Giai đoạn (Nghị quyết 16-NQ-NHHT)
+
+    public async Task<KeHoachVonCnttReportResponseDto> GetKeHoachVonCnttReportAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    {
+        int endY = toYear ?? DateTime.Now.Year;
+        int startY = fromYear ?? (endY - 2);
+        var (factor, unitName) = ParseUnit(donViTinh ?? "1");
+
+        var response = new KeHoachVonCnttReportResponseDto
+        {
+            Title = $"TỔNG HỢP KẾ HOẠCH VỐN ĐẦU TƯ CNTT GIAI ĐOẠN {startY}-{endY}",
+            FromYear = startY,
+            ToYear = endY,
+            Unit = unitName,
+            Groups = new List<KeHoachVonCnttReportGroupDto>()
+        };
+
+        var projects = await _context.DuAns
+            .AsNoTracking()
+            .Include(d => d.NhomDuAn)
+            .Where(d => d.IsActive && !d.IsDeleted)
+            .ToListAsync();
+
+        var groupTypes = new List<(int Status, string Name)>
+        {
+            (1, "I. Các dự án đã được phê duyệt, bố trí vốn đang thực hiện triển khai"),
+            (2, "II. Các dự án đầu tư mới")
+        };
+
+        if (groupStatus.HasValue && (groupStatus.Value == 1 || groupStatus.Value == 2))
+        {
+            groupTypes = groupTypes.Where(g => g.Status == groupStatus.Value).ToList();
+        }
+
+        foreach (var gType in groupTypes)
+        {
+            var gDto = new KeHoachVonCnttReportGroupDto
+            {
+                NhomTrangThai = gType.Status,
+                TenNhom = gType.Name,
+                Rows = new List<KeHoachVonCnttReportRowDto>()
+            };
+
+            var filteredProj = gType.Status == 1
+                ? projects.Where(p => p.DaTrienKhai == true || p.TrangThai == 2)
+                : projects.Where(p => p.DaTrienKhai != true && p.TrangThai != 2);
+
+            int stt = 1;
+            foreach (var proj in filteredProj)
+            {
+                decimal totalInvestment = proj.DuToanPheDuyet / factor;
+                var row = new KeHoachVonCnttReportRowDto
+                {
+                    Stt = stt++,
+                    DuAnId = proj.Id,
+                    NoiDung = proj.Name,
+                    TongMucDauTu = totalInvestment,
+                    VonTuCo = totalInvestment * 0.3m,
+                    QuyDauTuPhatTrien = totalInvestment * 0.7m,
+                    NguonKhac = 0,
+                    TrangThaiText = proj.DaTrienKhai == true ? "Đang triển khai" : "Đã phê duyệt chủ trương",
+                    DonViDeXuatChiDao = proj.ChuDauTu ?? "Trung tâm CNTT",
+                    GhiChu = proj.SoQuyetDinh,
+                    NhomTrangThai = gType.Status,
+                    PhanKyDauTu = new List<KeHoachVonCnttPhanKyDto>()
+                };
+
+                int numYears = (endY - startY + 1);
+                decimal yearlyVal = totalInvestment / (numYears > 0 ? numYears : 1);
+                for (int y = startY; y <= endY; y++)
+                {
+                    row.PhanKyDauTu.Add(new KeHoachVonCnttPhanKyDto { Nam = y, GiaTri = yearlyVal });
+                }
+
+                gDto.Rows.Add(row);
+            }
+
+            gDto.TongMucDauTuNhom = gDto.Rows.Sum(r => r.TongMucDauTu);
+            gDto.TongVonTuCoNhom = gDto.Rows.Sum(r => r.VonTuCo);
+            gDto.TongQuyDauTuPhatTrienNhom = gDto.Rows.Sum(r => r.QuyDauTuPhatTrien);
+            gDto.TongNguonKhacNhom = gDto.Rows.Sum(r => r.NguonKhac);
+
+            for (int y = startY; y <= endY; y++)
+            {
+                gDto.TongPhanKyNhom[y] = gDto.Rows.Sum(r => r.PhanKyDauTu.FirstOrDefault(pk => pk.Nam == y)?.GiaTri ?? 0);
+            }
+
+            response.Groups.Add(gDto);
+        }
+
+        response.TongCongMucDauTu = response.Groups.Sum(g => g.TongMucDauTuNhom);
+        response.TongCongVonTuCo = response.Groups.Sum(g => g.TongVonTuCoNhom);
+        response.TongCongQuyDauTuPhatTrien = response.Groups.Sum(g => g.TongQuyDauTuPhatTrienNhom);
+        response.TongCongNguonKhac = response.Groups.Sum(g => g.TongNguonKhacNhom);
+
+        for (int y = startY; y <= endY; y++)
+        {
+            response.TongCongPhanKy[y] = response.Groups.Sum(g => g.TongPhanKyNhom.ContainsKey(y) ? g.TongPhanKyNhom[y] : 0);
+        }
+
+        return response;
+    }
+
+    public async Task<byte[]> ExportKeHoachVonCnttReportExcelAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+
+        using (var workbook = new ClosedXML.Excel.XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Kế hoạch vốn CNTT");
+            worksheet.Cell("A1").Value = report.Title;
+            worksheet.Cell("A1").Style.Font.Bold = true;
+            worksheet.Cell("A1").Style.Font.FontSize = 14;
+
+            worksheet.Cell("A2").Value = $"Đơn vị tính: {report.Unit}";
+            worksheet.Cell("A2").Style.Font.Italic = true;
+
+            int row = 4;
+            worksheet.Cell(row, 1).Value = "STT";
+            worksheet.Cell(row, 2).Value = "Nội dung";
+            worksheet.Cell(row, 3).Value = "Tổng mức đầu tư";
+            worksheet.Cell(row, 4).Value = "Vốn tự có";
+            worksheet.Cell(row, 5).Value = "Quỹ ĐTPT";
+            worksheet.Cell(row, 6).Value = "Trạng thái";
+            worksheet.Cell(row, 7).Value = "Ghi chú";
+
+            var headerRange = worksheet.Range(row, 1, row, 7);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
+
+            row++;
+            foreach (var g in report.Groups)
+            {
+                worksheet.Cell(row, 1).Value = g.TenNhom;
+                worksheet.Range(row, 1, row, 7).Merge().Style.Font.Bold = true;
+                row++;
+
+                foreach (var r in g.Rows)
+                {
+                    worksheet.Cell(row, 1).Value = r.Stt;
+                    worksheet.Cell(row, 2).Value = r.NoiDung;
+                    worksheet.Cell(row, 3).Value = r.TongMucDauTu;
+                    worksheet.Cell(row, 4).Value = r.VonTuCo;
+                    worksheet.Cell(row, 5).Value = r.QuyDauTuPhatTrien;
+                    worksheet.Cell(row, 6).Value = r.TrangThaiText ?? "-";
+                    worksheet.Cell(row, 7).Value = r.GhiChu ?? "";
+
+                    worksheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+
+                    row++;
+                }
+            }
+
+            worksheet.Columns().AdjustToContents();
+
+            using (var ms = new MemoryStream())
+            {
+                workbook.SaveAs(ms);
+                return ms.ToArray();
+            }
+        }
+    }
+
+    public async Task<byte[]> ExportKeHoachVonCnttReportCsvAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+        using (var ms = new MemoryStream())
+        {
+            using (var writer = new StreamWriter(ms, System.Text.Encoding.UTF8))
+            {
+                writer.Write('\uFEFF');
+                await writer.WriteLineAsync($"\"{report.Title}\"");
+                await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
+                await writer.WriteLineAsync();
+
+                foreach (var g in report.Groups)
+                {
+                    await writer.WriteLineAsync($"\"{g.TenNhom}\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Tổng mức đầu tư\",\"Vốn tự có\",\"Quỹ ĐTPT\",\"Trạng thái\",\"Ghi chú\"");
+                    foreach (var r in g.Rows)
+                    {
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                    }
+                    await writer.WriteLineAsync();
+                }
+                await writer.FlushAsync();
+            }
+            return ms.ToArray();
+        }
+    }
+
+    public async Task<byte[]> ExportKeHoachVonCnttReportHtmlAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    {
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+        var html = new System.Text.StringBuilder();
+        html.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>body{font-family:serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:6px;} th{background:#f0f0f0;}</style></head><body>");
+        html.AppendLine($"<h2>{System.Web.HttpUtility.HtmlEncode(report.Title)}</h2>");
+        html.AppendLine($"<p><i>Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</i></p>");
+
+        foreach (var g in report.Groups)
+        {
+            html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(g.TenNhom)}</h3>");
+            html.AppendLine("<table><thead><tr><th>STT</th><th>Nội dung</th><th>Tổng mức đầu tư</th><th>Vốn tự có</th><th>Quỹ ĐTPT</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
+            foreach (var r in g.Rows)
+            {
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+            }
+            html.AppendLine("</tbody></table>");
+        }
+        html.AppendLine("</body></html>");
+        return System.Text.Encoding.UTF8.GetBytes(html.ToString());
+    }
+
+    #endregion
 }
 

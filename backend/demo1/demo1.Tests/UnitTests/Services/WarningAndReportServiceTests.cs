@@ -166,6 +166,39 @@ namespace demo1.Tests.UnitTests.Services
             htmlHopDong.Should().NotBeNullOrEmpty();
         }
 
+        [Fact]
+        public async Task ReportService_NewPdfReports_KeHoachVon_And_KeHoachVonCntt_Should_Generate_Data_And_Exports()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng" };
+            var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data" };
+            _dbContext.DuAns.AddRange(projXdcb, projCntt);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var khvReport = await service.GetKeHoachVonReportAsync(2025, 1, "triệu");
+            var khvExcel = await service.ExportKeHoachVonReportExcelAsync(2025, 1, "triệu");
+            var khvCsv = await service.ExportKeHoachVonReportCsvAsync(2025, 1, "triệu");
+
+            var cnttReport = await service.GetKeHoachVonCnttReportAsync(2022, 2024, null, "1");
+            var cnttExcel = await service.ExportKeHoachVonCnttReportExcelAsync(2022, 2024, null, "1");
+            var cnttHtml = await service.ExportKeHoachVonCnttReportHtmlAsync(2022, 2024, null, "1");
+
+            // Assert
+            khvReport.Should().NotBeNull();
+            khvReport.PhuLucs.Should().NotBeEmpty();
+            khvExcel.Should().NotBeNullOrEmpty();
+            khvCsv.Should().NotBeNullOrEmpty();
+
+            cnttReport.Should().NotBeNull();
+            cnttReport.Groups.Should().NotBeEmpty();
+            cnttExcel.Should().NotBeNullOrEmpty();
+            cnttHtml.Should().NotBeNullOrEmpty();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

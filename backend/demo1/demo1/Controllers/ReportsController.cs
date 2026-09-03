@@ -444,4 +444,168 @@ public class ReportsController(IReportService reportService) : ControllerBase
     }
 
     #endregion
+
+    #region 5. Báo cáo Kế hoạch vốn Đầu tư & Mua sắm (Mẫu Phụ lục 01-05 & Phụ biểu 01)
+
+    /// <summary>
+    /// Lấy dữ liệu Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Theo mẫu Phụ lục 01-05 &amp; Phụ biểu 01).
+    /// </summary>
+    [HttpGet("ke-hoach-von")]
+    [ProducesResponseType(typeof(KeHoachVonReportResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<KeHoachVonReportResponseDto>> GetKeHoachVonReport(
+        [FromQuery] int? year,
+        [FromQuery] int? phuLuc,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            var report = await reportService.GetKeHoachVonReportAsync(year, phuLuc, donViTinh);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn.", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Xuất file Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Excel, CSV, HTML).
+    /// </summary>
+    [HttpGet("ke-hoach-von/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportKeHoachVonReport(
+        [FromQuery] int? year,
+        [FromQuery] int? phuLuc,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await reportService.ExportKeHoachVonReportCsvAsync(year, phuLuc, donViTinh);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await reportService.ExportKeHoachVonReportHtmlAsync(year, phuLuc, donViTinh);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await reportService.ExportKeHoachVonReportExcelAsync(year, phuLuc, donViTinh);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            int selectedYear = year ?? DateTime.Now.Year;
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_KeHoachVon_{selectedYear}_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new { fileName, contentType, base64Data });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn.", detail = ex.Message });
+        }
+    }
+
+    #endregion
+
+    #region 6. Báo cáo Tổng hợp & Phân kỳ Kế hoạch vốn CNTT Giai đoạn (Nghị quyết 16-NQ-NHHT)
+
+    /// <summary>
+    /// Lấy Báo cáo Tổng hợp &amp; Phân kỳ Kế hoạch vốn CNTT Giai đoạn.
+    /// </summary>
+    [HttpGet("ke-hoach-von-cntt")]
+    [ProducesResponseType(typeof(KeHoachVonCnttReportResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<KeHoachVonCnttReportResponseDto>> GetKeHoachVonCnttReport(
+        [FromQuery] int? fromYear,
+        [FromQuery] int? toYear,
+        [FromQuery] int? groupStatus,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            var report = await reportService.GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn CNTT.", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Xuất file Báo cáo Kế hoạch vốn CNTT Giai đoạn (Excel, CSV, HTML).
+    /// </summary>
+    [HttpGet("ke-hoach-von-cntt/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportKeHoachVonCnttReport(
+        [FromQuery] int? fromYear,
+        [FromQuery] int? toYear,
+        [FromQuery] int? groupStatus,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await reportService.ExportKeHoachVonCnttReportCsvAsync(fromYear, toYear, groupStatus, donViTinh);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await reportService.ExportKeHoachVonCnttReportHtmlAsync(fromYear, toYear, groupStatus, donViTinh);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await reportService.ExportKeHoachVonCnttReportExcelAsync(fromYear, toYear, groupStatus, donViTinh);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            int endY = toYear ?? DateTime.Now.Year;
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_KeHoachVonCNTT_{endY}_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new { fileName, contentType, base64Data });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn CNTT.", detail = ex.Message });
+        }
+    }
+
+    #endregion
 }
