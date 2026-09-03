@@ -2070,6 +2070,31 @@ public class ReportService : IReportService
 
     #region 5. Báo cáo Kế hoạch vốn Đầu tư & Mua sắm (Biên bản họp đại diện vốn)
 
+    private static (string Code, string Name) ClassifyNhomKyThuat(Entity.DuAn proj, int phuLucType)
+    {
+        if (phuLucType != 4 && phuLucType != 5)
+        {
+            return ("NHOM_CHUNG", "Danh mục dự án");
+        }
+
+        string text = $"{proj.Name} {proj.NoiDung} {proj.NhomDuAn?.Name} {proj.PhanLoaiDuAn?.Name}".ToLower();
+
+        if (text.Contains("hạ tầng") || text.Contains("máy chủ") || text.Contains("lưu trữ") || text.Contains("backup") || text.Contains("server") || text.Contains("datacenter") || text.Contains("data center") || text.Contains("trang bị"))
+        {
+            return ("NHOM_I", "Nhóm I: Hạ tầng CNTT");
+        }
+        if (text.Contains("mạng") || text.Contains("bảo mật") || text.Contains("firewall") || text.Contains("truyền dẫn") || text.Contains("security") || text.Contains("an toàn thông tin"))
+        {
+            return ("NHOM_II", "Nhóm II: Mạng & Bảo mật");
+        }
+        if (text.Contains("phần mềm") || text.Contains("bản quyền") || text.Contains("giải pháp") || text.Contains("ứng dụng") || text.Contains("core") || text.Contains("thẻ") || text.Contains("ngân hàng số") || text.Contains("software"))
+        {
+            return ("NHOM_III", "Nhóm III: Phần mềm");
+        }
+
+        return ("NHOM_IV", "Nhóm IV: Mua sắm & Thiết bị khác");
+    }
+
     public async Task<KeHoachVonReportResponseDto> GetKeHoachVonReportAsync(int? year, int? phuLuc, string? donViTinh = null)
     {
         int selectedYear = year ?? DateTime.Now.Year;
@@ -2111,7 +2136,8 @@ public class ReportService : IReportService
             {
                 PhuLucType = pType.Type,
                 TenPhuLuc = pType.Name,
-                Rows = new List<KeHoachVonReportRowDto>()
+                Rows = new List<KeHoachVonReportRowDto>(),
+                NhomKyThuats = new List<KeHoachVonReportNhomKyThuatDto>()
             };
 
             IEnumerable<Entity.DuAn> filteredProj = pType.Type switch
@@ -2129,6 +2155,8 @@ public class ReportService : IReportService
             foreach (var proj in filteredProj)
             {
                 decimal duToan = proj.DuToanPheDuyet / factor;
+                var (nhomCode, nhomTen) = ClassifyNhomKyThuat(proj, pType.Type);
+
                 var row = new KeHoachVonReportRowDto
                 {
                     Stt = stt++,
@@ -2145,9 +2173,33 @@ public class ReportService : IReportService
                     TongDeXuatPheDuyet = duToan,
                     GhiChu = proj.SoQuyetDinh,
                     SoQuyetDinhNghiQuyet = proj.SoQuyetDinh,
-                    PhuLucType = pType.Type
+                    PhuLucType = pType.Type,
+                    NhomKyThuatCode = nhomCode,
+                    TenNhomKyThuat = nhomTen
                 };
                 plDto.Rows.Add(row);
+            }
+
+            // Phân nhóm kỹ thuật (Nhóm I, Nhóm II, Nhóm III)
+            var groupedNhom = plDto.Rows
+                .GroupBy(r => (r.NhomKyThuatCode, r.TenNhomKyThuat))
+                .OrderBy(g => g.Key.NhomKyThuatCode)
+                .ToList();
+
+            foreach (var g in groupedNhom)
+            {
+                var nhomDto = new KeHoachVonReportNhomKyThuatDto
+                {
+                    NhomKyThuatCode = g.Key.NhomKyThuatCode ?? "NHOM_CHUNG",
+                    TenNhomKyThuat = g.Key.TenNhomKyThuat ?? "Danh mục dự án",
+                    Rows = g.ToList(),
+                    TongVonDieuLeVaQuyDuTru = g.Sum(r => r.VonDieuLeVaQuyDuTru),
+                    TongQuyPhucLoi = g.Sum(r => r.QuyPhucLoi),
+                    TongQuyDauTuPhatTrien = g.Sum(r => r.QuyDauTuPhatTrien),
+                    TongNguonKhac = g.Sum(r => r.NguonKhac),
+                    TongCongDeXuat = g.Sum(r => r.TongDeXuatPheDuyet)
+                };
+                plDto.NhomKyThuats.Add(nhomDto);
             }
 
             plDto.TongVonDieuLeVaQuyDuTru = plDto.Rows.Sum(r => r.VonDieuLeVaQuyDuTru);
@@ -2196,23 +2248,82 @@ public class ReportService : IReportService
                 headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
 
                 row++;
-                foreach (var r in pl.Rows)
+                if (pl.NhomKyThuats.Count > 1 || (pl.NhomKyThuats.Count == 1 && pl.NhomKyThuats[0].NhomKyThuatCode != "NHOM_CHUNG"))
                 {
-                    worksheet.Cell(row, 1).Value = r.Stt;
-                    worksheet.Cell(row, 2).Value = r.DonViChiNhanh;
-                    worksheet.Cell(row, 3).Value = r.TenDuAn;
-                    worksheet.Cell(row, 4).Value = r.QuyMoXaydung ?? r.HangMucCongViec ?? "-";
-                    worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
-                    worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
-                    worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
-                    worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
+                    foreach (var nhom in pl.NhomKyThuats)
+                    {
+                        // Row Header Nhóm Kỹ Thuật
+                        worksheet.Cell(row, 1).Value = nhom.TenNhomKyThuat;
+                        var groupHeaderRange = worksheet.Range(row, 1, row, 8);
+                        groupHeaderRange.Merge();
+                        groupHeaderRange.Style.Font.Bold = true;
+                        groupHeaderRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#E6F0FA");
+                        row++;
 
-                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
-                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
-                    worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
+                        foreach (var r in nhom.Rows)
+                        {
+                            worksheet.Cell(row, 1).Value = r.Stt;
+                            worksheet.Cell(row, 2).Value = r.DonViChiNhanh;
+                            worksheet.Cell(row, 3).Value = r.TenDuAn;
+                            worksheet.Cell(row, 4).Value = r.QuyMoXaydung ?? r.HangMucCongViec ?? "-";
+                            worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
+                            worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
+                            worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
+                            worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
 
-                    row++;
+                            worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                            worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+                            worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
+                            row++;
+                        }
+
+                        // Row Subtotal Nhóm Kỹ Thuật
+                        worksheet.Cell(row, 3).Value = $"CỘNG {nhom.TenNhomKyThuat.ToUpper()}";
+                        worksheet.Cell(row, 5).Value = nhom.TongVonDieuLeVaQuyDuTru;
+                        worksheet.Cell(row, 6).Value = nhom.TongQuyPhucLoi + nhom.TongQuyDauTuPhatTrien + nhom.TongNguonKhac;
+                        worksheet.Cell(row, 7).Value = nhom.TongCongDeXuat;
+
+                        var groupSubtotalRange = worksheet.Range(row, 1, row, 8);
+                        groupSubtotalRange.Style.Font.Bold = true;
+                        groupSubtotalRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F9F9F9");
+                        worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                        worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+                        worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
+                        row++;
+                    }
                 }
+                else
+                {
+                    foreach (var r in pl.Rows)
+                    {
+                        worksheet.Cell(row, 1).Value = r.Stt;
+                        worksheet.Cell(row, 2).Value = r.DonViChiNhanh;
+                        worksheet.Cell(row, 3).Value = r.TenDuAn;
+                        worksheet.Cell(row, 4).Value = r.QuyMoXaydung ?? r.HangMucCongViec ?? "-";
+                        worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
+                        worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
+                        worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
+                        worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
+
+                        worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                        worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+                        worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
+                        row++;
+                    }
+                }
+
+                // Row Grand Total Phụ lục
+                worksheet.Cell(row, 3).Value = "TỔNG CỘNG";
+                worksheet.Cell(row, 5).Value = pl.TongVonDieuLeVaQuyDuTru;
+                worksheet.Cell(row, 6).Value = pl.TongQuyPhucLoi + pl.TongQuyDauTuPhatTrien + pl.TongNguonKhac;
+                worksheet.Cell(row, 7).Value = pl.TongCongDeXuat;
+
+                var grandTotalRange = worksheet.Range(row, 1, row, 8);
+                grandTotalRange.Style.Font.Bold = true;
+                grandTotalRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#E0E0E0");
+                worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+                worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.##";
 
                 worksheet.Columns().AdjustToContents();
             }

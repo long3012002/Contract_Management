@@ -35,6 +35,7 @@ namespace demo1.Data
         public DbSet<DuAn> DuAns { get; set; } = null!;
         public DbSet<NhomDuAn> NhomDuAns { get; set; } = null!;
         public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
+        public DbSet<NguonVon> NguonVons { get; set; } = null!;
         public DbSet<LoaiHopDong> LoaiHopDongs { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;

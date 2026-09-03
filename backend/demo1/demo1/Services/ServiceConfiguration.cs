@@ -225,6 +225,7 @@ public static class ServiceConfiguration
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<INhomDuAnService, NhomDuAnService>();
         services.AddScoped<IPhanLoaiDuAnService, PhanLoaiDuAnService>();
+        services.AddScoped<INguonVonService, NguonVonService>();
         services.AddScoped<ILoaiHopDongService, LoaiHopDongService>();
         services.AddScoped<IWarningService, WarningService>();
         services.AddScoped<IUserService, UserService>();

@@ -324,6 +324,31 @@ public static class CreateFakeDataExtensions
                         }
                     }
                 }
+                // Seed/Sync Default NguonVons
+                var defaultNguonVons = new List<(string Code, string Name)>
+                {
+                    ("NV_NHHT", "Chi phí của NHHT"),
+                    ("NV_CN", "Chi phí tại chi nhánh"),
+                    ("NV_KHAC", "Nguồn khác"),
+                    ("NV_QPL", "Quỹ phúc lợi"),
+                    ("NV_QDTPT", "Quỹ đầu tư phát triển"),
+                    ("NV_VDL_QDTR", "Vốn điều lệ và Quỹ dự trữ bổ sung vốn điều lệ")
+                };
+
+                foreach (var nv in defaultNguonVons)
+                {
+                    if (!await context.NguonVons.AnyAsync(x => x.Code == nv.Code || x.Name == nv.Name))
+                    {
+                        context.NguonVons.Add(new demo1.Entity.DanhMuc.NguonVon
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = nv.Code,
+                            Name = nv.Name,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
                 await context.SaveChangesAsync();
 
                 if (configuration.GetValue<bool>("Database:SeedSampleData"))

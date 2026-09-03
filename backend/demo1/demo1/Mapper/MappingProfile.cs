@@ -190,6 +190,16 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
+            // NguonVon mappings
+            CreateMap<NguonVon, NguonVonDto>();
+            CreateMap<CreateNguonVonDto, NguonVon>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdateNguonVonDto, NguonVon>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
             // XuatXu mappings
             CreateMap<XuatXu, XuatXuDto>();
             CreateMap<CreateXuatXuDto, XuatXu>();
