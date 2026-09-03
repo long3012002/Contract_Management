@@ -158,15 +158,15 @@ Authorization: Bearer <your_jwt_access_token>
 - **`GET /api/NghiepVu/licenses/enums`**: Danh sách Enum loại và trạng thái License.
 - **`GET /api/NghiepVu/resolutions`**: Quản lý Nghị quyết / Quyết định phê duyệt.
 
-### 2.8 Nghiệp vụ - Báo cáo & Xuất dữ liệu (`/api/NghiepVu/report`)
-- **`GET /api/NghiepVu/report/investment`**: Báo cáo tổng hợp tình hình đầu tư (năm, kỳ).
-- **`GET /api/NghiepVu/report/investment/export`**: Xuất báo cáo đầu tư (xlsx, csv, html, base64).
-- **`GET /api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau}`**: Báo cáo trình tự thực hiện gói thầu.
-- **`GET /api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau}/export`**: Xuất báo cáo tiến độ gói thầu ra Excel.
-- **`GET /api/NghiepVu/report/contract-payments`**: Báo cáo theo dõi giải ngân thanh toán hợp đồng.
-- **`GET /api/NghiepVu/report/contract-payments/export`**: Xuất báo cáo thanh toán hợp đồng ra Excel/CSV.
-- **`GET /api/NghiepVu/report/theo-doi-hop-dong`** (Alias: `/api/NghiepVu/reportTheoDoiHopDong`): Báo cáo theo dõi hợp đồng và đợt thanh toán (mẫu `Theo_dõi_HĐ.xlsx`).
-- **`GET /api/NghiepVu/report/theo-doi-hop-dong/export`** (Alias: `/api/NghiepVu/reportTheoDoiHopDong/export`): Xuất báo cáo theo dõi hợp đồng chuẩn Excel `Theo_dõi_HĐ.xlsx`.
+### 2.8 Nghiệp vụ - Báo cáo & Xuất dữ liệu (`/api/NghiepVu/reports`)
+- **`GET /api/NghiepVu/reports/dau-tu`** (Alias: `/api/NghiepVu/report/investment`): Báo cáo tổng hợp tình hình đầu tư (năm, kỳ, đơn vị tính).
+- **`GET /api/NghiepVu/reports/dau-tu/export`** (Alias: `/api/NghiepVu/report/investment/export`): Xuất báo cáo đầu tư ra file (xlsx, csv, html, base64).
+- **`GET /api/NghiepVu/reports/thanh-toan-hop-dong`** (Alias: `/api/NghiepVu/report/contract-payments`): Báo cáo theo dõi giải ngân thanh toán hợp đồng.
+- **`GET /api/NghiepVu/reports/thanh-toan-hop-dong/export`** (Alias: `/api/NghiepVu/report/contract-payments/export`): Xuất báo cáo thanh toán hợp đồng (xlsx, csv, html, base64).
+- **`GET /api/NghiepVu/reports/theo-doi-hop-dong`** (Aliases: `/api/NghiepVu/report/theo-doi-hop-dong`, `/api/NghiepVu/reportTheoDoiHopDong`): Báo cáo theo dõi hợp đồng và đợt thanh toán (mẫu `Theo_dõi_HĐ.xlsx`).
+- **`GET /api/NghiepVu/reports/theo-doi-hop-dong/export`** (Aliases: `/api/NghiepVu/report/theo-doi-hop-dong/export`, `/api/NghiepVu/reportTheoDoiHopDong/export`): Xuất báo cáo theo dõi hợp đồng (xlsx, csv, html, base64).
+- **`GET /api/NghiepVu/reports/cong-viec-goi-thau/{idGoiThau}`** (Alias: `/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau}`): Báo cáo trình tự thực hiện gói thầu.
+- **`GET /api/NghiepVu/reports/cong-viec-goi-thau/{idGoiThau}/export`** (Alias: `/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau}/export`): Xuất báo cáo tiến độ gói thầu (xlsx, csv, html, base64).
 
 
 ### 2.9 Danh mục Hệ thống (`/api/DanhMuc/...`)

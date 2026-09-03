@@ -136,6 +136,36 @@ namespace demo1.Tests.UnitTests.Services
             tyLeGiaiNgan.Should().BeApproximately(28.0, 0.01);
         }
 
+        [Fact]
+        public async Task ReportService_ExportCongViecGoiThauAndTheoDoiHopDong_Csv_Html_Should_Return_NonEmpty_Bytes()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var goiThauId = Guid.NewGuid();
+            var goiThau = new GoiThau { Id = goiThauId, Code = "GT-TEST", Name = "Gói thầu test" };
+            var congViec = new CongViecGoiThau { Id = Guid.NewGuid(), GoiThauId = goiThauId, Stt = 1, TenTaiLieu = "Tài liệu A", LoaiVanBan = "Quyết định", TinhTrang = "Hoàn thành" };
+            _dbContext.GoiThaus.Add(goiThau);
+            _dbContext.CongViecGoiThaus.Add(congViec);
+
+            var hopDong = new HopDong { Id = Guid.NewGuid(), Code = "HD-TEST", Name = "Hợp đồng test", GiaTriHopDong = 1000000000 };
+            _dbContext.HopDongs.Add(hopDong);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var csvGoiThau = await service.ExportCongViecGoiThauReportCsvAsync(goiThauId);
+            var htmlGoiThau = await service.ExportCongViecGoiThauReportHtmlAsync(goiThauId);
+            var csvHopDong = await service.ExportTheoDoiHopDongReportCsvAsync(DateTime.UtcNow.Year, null, null, null);
+            var htmlHopDong = await service.ExportTheoDoiHopDongReportHtmlAsync(DateTime.UtcNow.Year, null, null, null);
+
+            // Assert
+            csvGoiThau.Should().NotBeNullOrEmpty();
+            htmlGoiThau.Should().NotBeNullOrEmpty();
+            csvHopDong.Should().NotBeNullOrEmpty();
+            htmlHopDong.Should().NotBeNullOrEmpty();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

@@ -1878,5 +1878,194 @@ public class ReportService : IReportService
             }
         }
     }
+
+    public async Task<byte[]> ExportCongViecGoiThauReportCsvAsync(Guid idGoiThau, string? donViTinh = null)
+    {
+        var report = await GetCongViecGoiThauReportAsync(idGoiThau, donViTinh);
+
+        using (var memoryStream = new MemoryStream())
+        {
+            using (var writer = new StreamWriter(memoryStream, System.Text.Encoding.UTF8))
+            {
+                writer.Write('\uFEFF'); // UTF-8 BOM
+
+                await writer.WriteLineAsync($"\"TRÌNH TỰ THỰC HIỆN CÁC BƯỚC CÔNG VIỆC GÓI THẦU\"");
+                await writer.WriteLineAsync($"\"Mã gói thầu: {EscapeCsvField(report.MaGoiThau)}\"");
+                await writer.WriteLineAsync($"\"Tên gói thầu: {EscapeCsvField(report.TenGoiThau)}\"");
+                await writer.WriteLineAsync($"\"Dự án: {EscapeCsvField(report.TenDuAn ?? "-")}\"");
+                await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
+                await writer.WriteLineAsync();
+
+                await writer.WriteLineAsync($"\"STT\",\"Tên tài liệu\",\"Ngày ký\",\"Loại văn bản\",\"Tình trạng\",\"Ghi chú\"");
+
+                foreach (var c in report.CongViecs)
+                {
+                    string ngayKy = c.NgayKy.HasValue ? c.NgayKy.Value.ToString("dd/MM/yyyy") : "-";
+                    await writer.WriteLineAsync($"\"{c.Stt}\",\"{EscapeCsvField(c.TenTaiLieu)}\",\"{ngayKy}\",\"{EscapeCsvField(c.LoaiVanBan ?? "-")}\",\"{EscapeCsvField(c.TinhTrang ?? "-")}\",\"{EscapeCsvField(c.GhiChu ?? "-")}\"");
+                }
+
+                await writer.FlushAsync();
+            }
+            return memoryStream.ToArray();
+        }
+    }
+
+    public async Task<byte[]> ExportCongViecGoiThauReportHtmlAsync(Guid idGoiThau, string? donViTinh = null)
+    {
+        var report = await GetCongViecGoiThauReportAsync(idGoiThau, donViTinh);
+
+        var htmlBuilder = new System.Text.StringBuilder();
+        htmlBuilder.AppendLine("<!DOCTYPE html>");
+        htmlBuilder.AppendLine("<html>");
+        htmlBuilder.AppendLine("<head>");
+        htmlBuilder.AppendLine("<meta charset=\"utf-8\" />");
+        htmlBuilder.AppendLine($"<title>Báo cáo Tiến độ Gói thầu {System.Web.HttpUtility.HtmlEncode(report.MaGoiThau)}</title>");
+        htmlBuilder.AppendLine("<style>");
+        htmlBuilder.AppendLine("  body { font-family: 'Times New Roman', Times, serif; margin: 30px; font-size: 13px; color: #1f2937; }");
+        htmlBuilder.AppendLine("  .title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; }");
+        htmlBuilder.AppendLine("  .subtitle { text-align: center; font-size: 13px; font-style: italic; margin-bottom: 20px; color: #4b5563; }");
+        htmlBuilder.AppendLine("  table { width: 100%; border-collapse: collapse; margin-top: 15px; }");
+        htmlBuilder.AppendLine("  th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 12px; }");
+        htmlBuilder.AppendLine("  th { background-color: #f3f4f6; font-weight: bold; text-align: center; }");
+        htmlBuilder.AppendLine("  .text-center { text-align: center; }");
+        htmlBuilder.AppendLine("  .text-right { text-align: right; }");
+        htmlBuilder.AppendLine("</style>");
+        htmlBuilder.AppendLine("</head>");
+        htmlBuilder.AppendLine("<body>");
+
+        htmlBuilder.AppendLine($"<div class=\"title\">TRÌNH TỰ THỰC HIỆN CÁC BƯỚC CÔNG VIỆC GÓI THẦU</div>");
+        htmlBuilder.AppendLine($"<div class=\"subtitle\">Gói thầu: {System.Web.HttpUtility.HtmlEncode(report.TenGoiThau)} ({System.Web.HttpUtility.HtmlEncode(report.MaGoiThau)}) | Dự án: {System.Web.HttpUtility.HtmlEncode(report.TenDuAn ?? "-")}</div>");
+
+        htmlBuilder.AppendLine("<table>");
+        htmlBuilder.AppendLine("  <thead>");
+        htmlBuilder.AppendLine("    <tr>");
+        htmlBuilder.AppendLine("      <th>STT</th>");
+        htmlBuilder.AppendLine("      <th>Tên tài liệu</th>");
+        htmlBuilder.AppendLine("      <th>Ngày ký</th>");
+        htmlBuilder.AppendLine("      <th>Loại văn bản</th>");
+        htmlBuilder.AppendLine("      <th>Tình trạng</th>");
+        htmlBuilder.AppendLine("      <th>Ghi chú</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("  </thead>");
+        htmlBuilder.AppendLine("  <tbody>");
+
+        foreach (var c in report.CongViecs)
+        {
+            string ngayKy = c.NgayKy.HasValue ? c.NgayKy.Value.ToString("dd/MM/yyyy") : "-";
+            htmlBuilder.AppendLine("    <tr>");
+            htmlBuilder.AppendLine($"      <td class=\"text-center\">{c.Stt}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.TenTaiLieu)}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-center\">{ngayKy}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.LoaiVanBan ?? "-")}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.TinhTrang ?? "-")}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.GhiChu ?? "")}</td>");
+            htmlBuilder.AppendLine("    </tr>");
+        }
+
+        htmlBuilder.AppendLine("  </tbody>");
+        htmlBuilder.AppendLine("</table>");
+        htmlBuilder.AppendLine("</body>");
+        htmlBuilder.AppendLine("</html>");
+
+        return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
+    }
+
+    public async Task<byte[]> ExportTheoDoiHopDongReportCsvAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
+    {
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDongIds, search, donViTinh);
+
+        using (var memoryStream = new MemoryStream())
+        {
+            using (var writer = new StreamWriter(memoryStream, System.Text.Encoding.UTF8))
+            {
+                writer.Write('\uFEFF'); // UTF-8 BOM
+
+                await writer.WriteLineAsync($"\"{EscapeCsvField(report.Title)}\"");
+                await writer.WriteLineAsync($"\"Mốc thời gian: {report.CutoffDate:dd/MM/yyyy} | Đơn vị tính: {report.Unit}\"");
+                await writer.WriteLineAsync();
+
+                await writer.WriteLineAsync($"\"STT\",\"Số hợp đồng\",\"Tên hợp đồng\",\"Ngày ký\",\"Ngày kết thúc DK\",\"Giá trị HĐ ({report.Unit})\",\"Đã thanh toán ({report.Unit})\",\"Còn lại ({report.Unit})\",\"Dự kiến TT đến mốc ({report.Unit})\",\"Ghi chú\"");
+
+                foreach (var r in report.Rows)
+                {
+                    string ngayKy = r.NgayKyHopDong.HasValue ? r.NgayKyHopDong.Value.ToString("dd/MM/yyyy") : "-";
+                    string ngayKt = r.NgayKetThucDuKien.HasValue ? r.NgayKetThucDuKien.Value.ToString("dd/MM/yyyy") : "-";
+                    await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.SoHopDong)}\",\"{EscapeCsvField(r.TenHopDong)}\",\"{ngayKy}\",\"{ngayKt}\",\"{r.GiaTriHopDong}\",\"{r.GiaTriDaThanhToan}\",\"{r.GiaTriConLai}\",\"{r.DuKienThanhToanDenMoc}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                }
+
+                await writer.FlushAsync();
+            }
+            return memoryStream.ToArray();
+        }
+    }
+
+    public async Task<byte[]> ExportTheoDoiHopDongReportHtmlAsync(int? year, DateTime? cutoffDate, List<Guid>? loaiHopDongIds, string? search, string? donViTinh = null)
+    {
+        var report = await GetTheoDoiHopDongReportAsync(year, cutoffDate, loaiHopDongIds, search, donViTinh);
+
+        var htmlBuilder = new System.Text.StringBuilder();
+        htmlBuilder.AppendLine("<!DOCTYPE html>");
+        htmlBuilder.AppendLine("<html>");
+        htmlBuilder.AppendLine("<head>");
+        htmlBuilder.AppendLine("<meta charset=\"utf-8\" />");
+        htmlBuilder.AppendLine($"<title>{System.Web.HttpUtility.HtmlEncode(report.Title)}</title>");
+        htmlBuilder.AppendLine("<style>");
+        htmlBuilder.AppendLine("  body { font-family: 'Times New Roman', Times, serif; margin: 30px; font-size: 13px; color: #1f2937; }");
+        htmlBuilder.AppendLine("  .title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; }");
+        htmlBuilder.AppendLine("  .subtitle { text-align: center; font-size: 13px; font-style: italic; margin-bottom: 20px; color: #4b5563; }");
+        htmlBuilder.AppendLine("  table { width: 100%; border-collapse: collapse; margin-top: 15px; }");
+        htmlBuilder.AppendLine("  th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 12px; }");
+        htmlBuilder.AppendLine("  th { background-color: #f3f4f6; font-weight: bold; text-align: center; }");
+        htmlBuilder.AppendLine("  .text-center { text-align: center; }");
+        htmlBuilder.AppendLine("  .text-right { text-align: right; }");
+        htmlBuilder.AppendLine("</style>");
+        htmlBuilder.AppendLine("</head>");
+        htmlBuilder.AppendLine("<body>");
+
+        htmlBuilder.AppendLine($"<div class=\"title\">{System.Web.HttpUtility.HtmlEncode(report.Title)}</div>");
+        htmlBuilder.AppendLine($"<div class=\"subtitle\">Mốc thời gian: {report.CutoffDate:dd/MM/yyyy} | Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</div>");
+
+        htmlBuilder.AppendLine("<table>");
+        htmlBuilder.AppendLine("  <thead>");
+        htmlBuilder.AppendLine("    <tr>");
+        htmlBuilder.AppendLine("      <th>STT</th>");
+        htmlBuilder.AppendLine("      <th>Số HĐ</th>");
+        htmlBuilder.AppendLine("      <th>Tên Hợp đồng</th>");
+        htmlBuilder.AppendLine("      <th>Ngày ký</th>");
+        htmlBuilder.AppendLine("      <th>Ngày kết thúc DK</th>");
+        htmlBuilder.AppendLine("      <th>Giá trị HĐ</th>");
+        htmlBuilder.AppendLine("      <th>Đã thanh toán</th>");
+        htmlBuilder.AppendLine("      <th>Còn lại</th>");
+        htmlBuilder.AppendLine("      <th>Dự kiến TT</th>");
+        htmlBuilder.AppendLine("      <th>Ghi chú</th>");
+        htmlBuilder.AppendLine("    </tr>");
+        htmlBuilder.AppendLine("  </thead>");
+        htmlBuilder.AppendLine("  <tbody>");
+
+        foreach (var r in report.Rows)
+        {
+            string ngayKy = r.NgayKyHopDong.HasValue ? r.NgayKyHopDong.Value.ToString("dd/MM/yyyy") : "-";
+            string ngayKt = r.NgayKetThucDuKien.HasValue ? r.NgayKetThucDuKien.Value.ToString("dd/MM/yyyy") : "-";
+            htmlBuilder.AppendLine("    <tr>");
+            htmlBuilder.AppendLine($"      <td class=\"text-center\">{r.Stt}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(r.SoHopDong)}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(r.TenHopDong)}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-center\">{ngayKy}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-center\">{ngayKt}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.GiaTriHopDong:#,##0.##}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.GiaTriDaThanhToan:#,##0.##}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.GiaTriConLai:#,##0.##}</td>");
+            htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.DuKienThanhToanDenMoc:#,##0.##}</td>");
+            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td>");
+            htmlBuilder.AppendLine("    </tr>");
+        }
+
+        htmlBuilder.AppendLine("  </tbody>");
+        htmlBuilder.AppendLine("</table>");
+        htmlBuilder.AppendLine("</body>");
+        htmlBuilder.AppendLine("</html>");
+
+        return System.Text.Encoding.UTF8.GetBytes(htmlBuilder.ToString());
+    }
 }
 
