@@ -33,6 +33,7 @@ namespace demo1.Data
 
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
         public DbSet<DuAn> DuAns { get; set; } = null!;
+        public DbSet<DuAnNguonTrienKhai> DuAnNguonTrienKhais { get; set; } = null!;
         public DbSet<NhomDuAn> NhomDuAns { get; set; } = null!;
         public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
         public DbSet<NguonVon> NguonVons { get; set; } = null!;
@@ -244,6 +245,12 @@ namespace demo1.Data
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<DuAn>()
+                .HasOne(da => da.NguonVon)
+                .WithMany()
+                .HasForeignKey(da => da.NguonVonId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<DuAn>()
                 .HasOne(da => da.CreatedByUser)
                 .WithMany()
                 .HasForeignKey(da => da.CreatedByUserId)
@@ -258,9 +265,20 @@ namespace demo1.Data
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.ThoiGianThucHien)
                 .HasMaxLength(255);
-            modelBuilder.Entity<DuAn>()
-                .Property(da => da.NguonDuAnIds)
-                .HasMaxLength(2000);
+            modelBuilder.Entity<DuAnNguonTrienKhai>(entity =>
+            {
+                entity.HasKey(e => new { e.TrienKhaiProjectId, e.NguonProjectId });
+
+                entity.HasOne(e => e.TrienKhaiProject)
+                      .WithMany(p => p.NguonDuAns)
+                      .HasForeignKey(e => e.TrienKhaiProjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.NguonProject)
+                      .WithMany(p => p.TrienKhaiDuAns)
+                      .HasForeignKey(e => e.NguonProjectId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.NoiDung)
                 .HasMaxLength(2000);
@@ -1270,6 +1288,7 @@ namespace demo1.Data
             { "DuToanPheDuyet", "Dự toán phê duyệt" },
             { "NhomDuAnId", "Nhóm dự án" },
             { "PhanLoaiDuAnId", "Phân loại dự án" },
+            { "NguonVonId", "Nguồn vốn" },
             { "ChuDauTu", "Chủ đầu tư" },
             { "DiaDiemThucHien", "Địa điểm thực hiện" },
             { "ThoiGianThucHien", "Thời gian thực hiện" },

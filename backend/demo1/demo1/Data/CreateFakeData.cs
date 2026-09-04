@@ -197,51 +197,85 @@ public static class CreateFakeDataExtensions
                     }
                 }
 
-                if (!context.Features.Any())
+                // 1. Seed/Sync Features
+                var defaultFeatures = new List<(string Code, string Name, string Description)>
                 {
-                    // 1. Seed Features
-                    var features = new List<Feature>
-                    {
-                        new() { Code = "DU_AN", Name = "Quản lý dự án", Description = "Chức năng xem, thêm, sửa, xoá dự án" },
-                        new() { Code = "GOI_THAU", Name = "Quản lý gói thầu", Description = "Chức năng xem, thêm, sửa, xoá gói thầu" },
-                        new() { Code = "QUAN_LY_HOP_DONG", Name = "Quản lý hợp đồng", Description = "Chức năng xem, thêm, sửa, xoá hợp đồng" },
-                        new() { Code = "DOI_TAC", Name = "Quản lý đối tác", Description = "Chức năng xem, thêm, sửa, xoá đối tác" },
-                        new() { Code = "NGHI_QUYET", Name = "Quản lý nghị quyết/văn bản", Description = "Chức năng xem, thêm, sửa, xoá nghị quyết" }
-                    };
-                    context.Features.AddRange(features);
-                    await context.SaveChangesAsync();
+                    ("DU_AN", "Quản lý dự án", "Chức năng xem, thêm, sửa, xoá dự án"),
+                    ("GOI_THAU", "Quản lý gói thầu", "Chức năng xem, thêm, sửa, xoá gói thầu"),
+                    ("QUAN_LY_HOP_DONG", "Quản lý hợp đồng", "Chức năng xem, thêm, sửa, xoá hợp đồng"),
+                    ("HOP_DONG", "Quản lý loại hợp đồng", "Chức năng quản lý loại/danh mục hợp đồng"),
+                    ("DOI_TAC", "Quản lý đối tác", "Chức năng xem, thêm, sửa, xoá đối tác"),
+                    ("NGHI_QUYET", "Quản lý nghị quyết/văn bản", "Chức năng xem, thêm, sửa, xoá nghị quyết"),
+                    ("BAO_CAO", "Báo cáo & Thống kê", "Chức năng xem và xuất báo cáo thống kê")
+                };
 
-                    // 2. Seed Roles
+                foreach (var f in defaultFeatures)
+                {
+                    var existing = await context.Features.FirstOrDefaultAsync(x => x.Code == f.Code);
+                    if (existing == null)
+                    {
+                        context.Features.Add(new Feature
+                        {
+                            Code = f.Code,
+                            Name = f.Name,
+                            Description = f.Description,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        existing.Name = f.Name;
+                        existing.Description = f.Description;
+                    }
+                }
+                await context.SaveChangesAsync();
+
+                // 2. Seed Roles
+                if (!await context.Roles.AnyAsync())
+                {
                     var adminRole = new Role { Name = "Admin", Description = "Quyền quản trị toàn hệ thống" };
                     var managerRole = new Role { Name = "Manager", Description = "Quản lý dự án, hợp đồng" };
                     var staffRole = new Role { Name = "Staff", Description = "Nhân viên xem và cập nhật thông tin" };
                     context.Roles.AddRange(adminRole, managerRole, staffRole);
                     await context.SaveChangesAsync();
+                }
 
-                    // 3. Seed Admin User
-                    var adminUser = new User
+                // 3. Seed Admin Users
+                if (!await context.Users.AnyAsync(u => u.Username == "admin"))
+                {
+                    context.Users.Add(new User
                     {
                         Username = "admin",
                         FullName = "System Administrator",
                         IsActive = true,
-                        IsSystemAdmin = true
-                    };
+                        IsSystemAdmin = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                if (!await context.Users.AnyAsync(u => u.Username == "quangmd"))
+                {
                     var normalUser = new User
                     {
                         Username = "quangmd",
                         FullName = "Mai Duy Quang",
                         IsActive = true,
-                        IsSystemAdmin = true
+                        IsSystemAdmin = true,
+                        CreatedAt = DateTime.UtcNow
                     };
-                    context.Users.AddRange(adminUser, normalUser);
+                    context.Users.Add(normalUser);
                     await context.SaveChangesAsync();
 
-                    context.UserRoles.Add(new UserRole
+                    var adminRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Admin");
+                    if (adminRole != null)
                     {
-                        UserId = normalUser.Id,
-                        RoleId = adminRole.Id
-                    });
-                    await context.SaveChangesAsync();
+                        context.UserRoles.Add(new UserRole
+                        {
+                            UserId = normalUser.Id,
+                            RoleId = adminRole.Id
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
 
                     if (!context.Users.Any(u => u.Username == "anhld2"))
                     {
@@ -274,7 +308,6 @@ public static class CreateFakeDataExtensions
                         context.Users.Add(anhltUser);
                         await context.SaveChangesAsync();
                     }
-                }
 
                 // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
                 var defaultPositions = new List<(string Code, string Name, int Level)>
@@ -349,7 +382,28 @@ public static class CreateFakeDataExtensions
                         });
                     }
                 }
-                await context.SaveChangesAsync();
+                // Seed/Sync Default NhomDuAns
+                var defaultNhomDuAns = new List<(string Code, string Name)>
+                {
+                    ("NHOM_A", "Các dự án nhóm A"),
+                    ("NHOM_B", "Các dự án nhóm B"),
+                    ("NHOM_C", "Các dự án khác (Nhóm C)")
+                };
+
+                foreach (var n in defaultNhomDuAns)
+                {
+                    if (!await context.NhomDuAns.AnyAsync(x => x.Code == n.Code))
+                    {
+                        context.NhomDuAns.Add(new demo1.Entity.DanhMuc.NhomDuAn
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = n.Code,
+                            Name = n.Name,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
 
                 if (configuration.GetValue<bool>("Database:SeedSampleData"))
                 {

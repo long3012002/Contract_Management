@@ -77,18 +77,12 @@ public class DuAnDto : IHasId
     /// <summary>
     /// Danh sách GUID các nguồn vốn dự án
     /// </summary>
-    public List<Guid> ListNguonDuAnIds
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(NguonDuAnIds))
-                return new List<Guid>();
-            return NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                               .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                               .Where(g => g != Guid.Empty)
-                               .ToList();
-        }
-    }
+    public List<Guid> ListNguonDuAnIds => string.IsNullOrWhiteSpace(NguonDuAnIds) 
+        ? new List<Guid>() 
+        : NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                      .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                      .Where(g => g != Guid.Empty)
+                      .ToList();
     
     /// <summary>
     /// Tên Chủ đầu tư

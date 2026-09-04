@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using demo1.Data;
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904020017_SeedDefaultPhanLoaiDuAns")]
+    partial class SeedDefaultPhanLoaiDuAns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1119,8 +1122,9 @@ namespace demo1.Migrations
                     b.Property<DateTime?>("NgayKetThuc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("NguonVonId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("NguonDuAnIds")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<Guid?>("NhomDuAnId")
                         .HasColumnType("uuid");
@@ -1159,31 +1163,11 @@ namespace demo1.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("NguonVonId");
-
                     b.HasIndex("NhomDuAnId");
 
                     b.HasIndex("PhanLoaiDuAnId");
 
                     b.ToTable("DuAns");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DuAnNguonTrienKhai", b =>
-                {
-                    b.Property<Guid>("TrienKhaiProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("NguonProjectId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("TrienKhaiProjectId", "NguonProjectId");
-
-                    b.HasIndex("NguonProjectId");
-
-                    b.ToTable("DuAnNguonTrienKhais");
                 });
 
             modelBuilder.Entity("demo1.Entity.Feature", b =>
@@ -2367,11 +2351,6 @@ namespace demo1.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("demo1.Entity.DanhMuc.NguonVon", "NguonVon")
-                        .WithMany()
-                        .HasForeignKey("NguonVonId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("demo1.Entity.DanhMuc.NhomDuAn", "NhomDuAn")
                         .WithMany()
                         .HasForeignKey("NhomDuAnId")
@@ -2386,30 +2365,9 @@ namespace demo1.Migrations
 
                     b.Navigation("CreatedByUser");
 
-                    b.Navigation("NguonVon");
-
                     b.Navigation("NhomDuAn");
 
                     b.Navigation("PhanLoaiDuAn");
-                });
-
-            modelBuilder.Entity("demo1.Entity.DuAnNguonTrienKhai", b =>
-                {
-                    b.HasOne("demo1.Entity.DuAn", "NguonProject")
-                        .WithMany("TrienKhaiDuAns")
-                        .HasForeignKey("NguonProjectId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("demo1.Entity.DuAn", "TrienKhaiProject")
-                        .WithMany("NguonDuAns")
-                        .HasForeignKey("TrienKhaiProjectId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("NguonProject");
-
-                    b.Navigation("TrienKhaiProject");
                 });
 
             modelBuilder.Entity("demo1.Entity.FileVersion", b =>
@@ -2674,10 +2632,6 @@ namespace demo1.Migrations
                     b.Navigation("GoiThaus");
 
                     b.Navigation("Licenses");
-
-                    b.Navigation("NguonDuAns");
-
-                    b.Navigation("TrienKhaiDuAns");
                 });
 
             modelBuilder.Entity("demo1.Entity.FileAttachment", b =>

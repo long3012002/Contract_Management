@@ -49,6 +49,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn);
 
         var currentUsername = _currentUserService.GetUsername();
@@ -75,16 +76,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 var allowedSourceIds = new List<Guid>();
                 if (filter.AllocatedProjectId.HasValue)
                 {
-                    var implProject = await DbContext.DuAns.AsNoTracking()
-                        .FirstOrDefaultAsync(da => da.Id == filter.AllocatedProjectId.Value && da.LoaiDuAn == 2);
-                    if (implProject != null && !string.IsNullOrWhiteSpace(implProject.NguonDuAnIds))
-                    {
-                        allowedSourceIds = implProject.NguonDuAnIds
-                            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                            .Where(g => g != Guid.Empty)
-                            .ToList();
-                    }
+                    allowedSourceIds = await DbContext.DuAnNguonTrienKhais
+                        .Where(nk => nk.TrienKhaiProjectId == filter.AllocatedProjectId.Value)
+                        .Select(nk => nk.NguonProjectId)
+                        .ToListAsync();
                 }
 
                 if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
@@ -159,6 +154,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .ToListAsync();
         var dtos = Mapper.Map<List<DuAnDto>>(items);
@@ -172,6 +168,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .FirstOrDefaultAsync(da => da.Id == id);
         if (entity is null) return null;
@@ -242,8 +239,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
             entity.DaTrienKhai = true;
 
-            // Save source project IDs as semicolon separated string
-            entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(id => id.ToString()));
+            foreach (var sourceId in dto.SourceProjectIds)
+            {
+                entity.NguonDuAns.Add(new DuAnNguonTrienKhai
+                {
+                    TrienKhaiProjectId = entity.Id,
+                    NguonProjectId = sourceId,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
 
             // Sum budgets (approved budget + adjustments)
             decimal totalAggregatedBudget = 0;
@@ -258,7 +262,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         else // Du an nguon
         {
             entity.LoaiDuAn = 1;
-            entity.NguonDuAnIds = null;
             entity.DaTrienKhai = false;
         }
 
@@ -369,7 +372,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 }
 
                 entity.DaTrienKhai = true;
-                entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(id => id.ToString()));
+                foreach (var sourceId in dto.SourceProjectIds)
+                {
+                    entity.NguonDuAns.Add(new DuAnNguonTrienKhai
+                    {
+                        TrienKhaiProjectId = entity.Id,
+                        NguonProjectId = sourceId,
+                        CreatedAt = now
+                    });
+                }
 
                 // Tính toán ngân sách từ các dự án nguồn
                 var projectSources = sourceProjects.Where(sp => dto.SourceProjectIds.Contains(sp.Id)).ToList();
@@ -384,7 +395,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             else
             {
                 entity.LoaiDuAn = 1;
-                entity.NguonDuAnIds = null;
                 entity.DaTrienKhai = false;
             }
 
@@ -399,6 +409,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .Where(da => createdIds.Contains(da.Id))
             .ToListAsync();
@@ -437,11 +448,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
             }
 
-            // Parse existing source project IDs from current entity
-            var oldSourceIds = entity.NguonDuAnIds?.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                   .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                   .Where(g => g != Guid.Empty)
-                                                   .ToList() ?? new List<Guid>();
+            // Load current links for entity
+            var currentLinks = await DbContext.DuAnNguonTrienKhais
+                .Where(nk => nk.TrienKhaiProjectId == id)
+                .ToListAsync();
+
+            var oldSourceIds = currentLinks.Select(nk => nk.NguonProjectId).ToList();
 
             // Check if any newly added source project is already deployed in another project
             var addedIds = dto.SourceProjectIds.Except(oldSourceIds).ToList();
@@ -473,10 +485,22 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     rp.DaTrienKhai = false;
                     DbSet.Update(rp);
                 }
+
+                var linksToRemove = currentLinks.Where(nk => removedIds.Contains(nk.NguonProjectId)).ToList();
+                DbContext.DuAnNguonTrienKhais.RemoveRange(linksToRemove);
+            }
+
+            foreach (var addedId in addedIds)
+            {
+                DbContext.DuAnNguonTrienKhais.Add(new DuAnNguonTrienKhai
+                {
+                    TrienKhaiProjectId = id,
+                    NguonProjectId = addedId,
+                    CreatedAt = DateTime.UtcNow
+                });
             }
 
             entity.DaTrienKhai = true;
-            entity.NguonDuAnIds = string.Join(";", dto.SourceProjectIds.Select(spId => spId.ToString()));
 
             // Sum budgets
             decimal totalAggregatedBudget = 0;
@@ -558,18 +582,23 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await DbContext.SaveChangesAsync();
 
         // Update all implementation projects linked to this source project
-        var targetIdString = id.ToString();
-        var implementationProjects = await DbSet
-            .Where(da => da.LoaiDuAn == 2 && da.NguonDuAnIds != null && EF.Functions.Like(da.NguonDuAnIds, $"%{targetIdString}%"))
+        var implementationProjectIds = await DbContext.DuAnNguonTrienKhais
+            .Where(nk => nk.NguonProjectId == id)
+            .Select(nk => nk.TrienKhaiProjectId)
+            .Distinct()
             .ToListAsync();
-        if (implementationProjects.Any())
+
+        if (implementationProjectIds.Any())
         {
-            var allSourceIds = implementationProjects
-                .SelectMany(ip => ip.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                 .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty))
-                .Where(g => g != Guid.Empty)
-                .Distinct()
-                .ToList();
+            var implementationProjects = await DbSet
+                .Where(da => implementationProjectIds.Contains(da.Id))
+                .ToListAsync();
+
+            var allLinks = await DbContext.DuAnNguonTrienKhais
+                .Where(nk => implementationProjectIds.Contains(nk.TrienKhaiProjectId))
+                .ToListAsync();
+
+            var allSourceIds = allLinks.Select(nk => nk.NguonProjectId).Distinct().ToList();
 
             var sourceProjectsDict = new Dictionary<Guid, DuAn>();
             if (allSourceIds.Any())
@@ -580,22 +609,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 sourceProjectsDict = sourceProjectsList.ToDictionary(sp => sp.Id, sp => sp);
             }
 
-            var implementationProjectIds = implementationProjects.Select(ip => ip.Id).ToList();
-            var goiThauBudgetsDict = new Dictionary<Guid, decimal>();
-            if (implementationProjectIds.Any())
-            {
-                goiThauBudgetsDict = await DbContext.GoiThaus
-                    .Where(gt => gt.DuAnId.HasValue && implementationProjectIds.Contains(gt.DuAnId.Value))
-                    .GroupBy(gt => gt.DuAnId!.Value)
-                    .ToDictionaryAsync(g => g.Key, g => g.Sum(gt => gt.GiaTriGoiThau));
-            }
+            var goiThauBudgetsDict = await DbContext.GoiThaus
+                .Where(gt => gt.DuAnId.HasValue && implementationProjectIds.Contains(gt.DuAnId.Value))
+                .GroupBy(gt => gt.DuAnId!.Value)
+                .ToDictionaryAsync(g => g.Key, g => g.Sum(gt => gt.GiaTriGoiThau));
 
             foreach (var ip in implementationProjects)
             {
-                var sourceIds = ip.NguonDuAnIds!.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                               .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                               .Where(g => g != Guid.Empty)
-                                               .ToList();
+                var sourceIds = allLinks
+                    .Where(nk => nk.TrienKhaiProjectId == ip.Id)
+                    .Select(nk => nk.NguonProjectId)
+                    .ToList();
 
                 if (sourceIds.Contains(id))
                 {
@@ -681,28 +705,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id)
     {
-        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
-        if (entity is null || string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
-        {
-            return new List<DuAnNguonSummaryDto>();
-        }
-
-        var sourceGuids = entity.NguonDuAnIds
-            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-            .Where(g => g != Guid.Empty)
-            .ToList();
-
-        if (!sourceGuids.Any())
-        {
-            return new List<DuAnNguonSummaryDto>();
-        }
-
-        var sourceEntities = await DbSet.AsNoTracking()
+        var sourceEntities = await DbContext.DuAnNguonTrienKhais
+            .AsNoTracking()
+            .Where(nk => nk.TrienKhaiProjectId == id)
+            .Select(nk => nk.NguonProject)
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Where(da => sourceGuids.Contains(da.Id))
+            .Include(da => da.NguonVon)
             .ToListAsync();
 
         return Mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities);
@@ -710,31 +720,32 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     private async Task PopulateSourceProjectsAsync(List<DuAnDto> dtos)
     {
-        var allSourceIds = dtos
-            .SelectMany(d => d.ListNguonDuAnIds)
-            .Distinct()
-            .ToList();
-
-        if (!allSourceIds.Any())
+        var implProjectIds = dtos.Where(d => d.LoaiDuAn == 2).Select(d => d.Id).ToList();
+        if (!implProjectIds.Any())
             return;
 
-        var sourceEntities = await DbSet.AsNoTracking()
-            .Include(da => da.DieuChinhs)
-            .Where(da => allSourceIds.Contains(da.Id))
+        var links = await DbContext.DuAnNguonTrienKhais
+            .AsNoTracking()
+            .Include(nk => nk.NguonProject)
+                .ThenInclude(p => p.DieuChinhs)
+            .Include(nk => nk.NguonProject)
+                .ThenInclude(p => p.NhomDuAn)
+            .Include(nk => nk.NguonProject)
+                .ThenInclude(p => p.PhanLoaiDuAn)
+            .Include(nk => nk.NguonProject)
+                .ThenInclude(p => p.NguonVon)
+            .Where(nk => implProjectIds.Contains(nk.TrienKhaiProjectId))
             .ToListAsync();
 
-        var sourceSummaries = Mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities)
-            .ToDictionary(s => s.Id);
+        var linksByImplId = links
+            .GroupBy(nk => nk.TrienKhaiProjectId)
+            .ToDictionary(g => g.Key, g => g.Select(nk => nk.NguonProject).ToList());
 
         foreach (var dto in dtos)
         {
-            var sourceIds = dto.ListNguonDuAnIds;
-            if (sourceIds.Any())
+            if (dto.LoaiDuAn == 2 && linksByImplId.TryGetValue(dto.Id, out var sourceProjects))
             {
-                dto.SourceProjects = sourceIds
-                    .Where(id => sourceSummaries.ContainsKey(id))
-                    .Select(id => sourceSummaries[id])
-                    .ToList();
+                dto.SourceProjects = Mapper.Map<List<DuAnNguonSummaryDto>>(sourceProjects);
             }
             else
             {
@@ -1035,12 +1046,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             DbContext.GoiThaus.RemoveRange(goiThaus);
         }
 
-        if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+        if (entity.LoaiDuAn == 2)
         {
-            var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                .Where(g => g != Guid.Empty)
-                                                .ToList();
+            var sourceIds = await DbContext.DuAnNguonTrienKhais
+                .Where(nk => nk.TrienKhaiProjectId == id)
+                .Select(nk => nk.NguonProjectId)
+                .ToListAsync();
             if (sourceIds.Any())
             {
                 var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
@@ -1191,12 +1202,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         // Hủy trạng thái đã triển khai dự án nguồn nếu có
         foreach (var entity in entities)
         {
-            if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+            if (entity.LoaiDuAn == 2)
             {
-                var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                    .Where(g => g != Guid.Empty)
-                                                    .ToList();
+                var sourceIds = await DbContext.DuAnNguonTrienKhais
+                    .Where(nk => nk.TrienKhaiProjectId == entity.Id)
+                    .Select(nk => nk.NguonProjectId)
+                    .ToListAsync();
                 if (sourceIds.Any())
                 {
                     var sourceProjects = await DbSet.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
@@ -1340,12 +1351,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         // Đánh dấu lại trạng thái đã triển khai dự án nguồn nếu cần
         foreach (var entity in entities)
         {
-            if (entity.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(entity.NguonDuAnIds))
+            if (entity.LoaiDuAn == 2)
             {
-                var sourceIds = entity.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                                                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                                                    .Where(g => g != Guid.Empty)
-                                                    .ToList();
+                var sourceIds = await DbContext.DuAnNguonTrienKhais
+                    .Where(nk => nk.TrienKhaiProjectId == entity.Id)
+                    .Select(nk => nk.NguonProjectId)
+                    .ToListAsync();
                 if (sourceIds.Any())
                 {
                     var sourceProjects = await DbSet.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();

@@ -137,6 +137,94 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Calculate_KyTruoc_TrongKy_And_GiaiNgan_Correctly()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-INV-CALC", Name = "Dự án CNTT tính toán", DuToanPheDuyet = 10000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            var hopDong = new HopDong { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "HD-INV-CALC", GiaTriHopDong = 8000000000m, IsActive = true, IsDeleted = false };
+            
+            // Đợt 1: Kỳ trước (năm 2025)
+            var dotKyTruoc = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hopDong.Id,
+                HopDong = hopDong,
+                TenDot = "Đợt 1 - 2025",
+                GiaTriThanhToan = 2000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2025, 11, 15, 0, 0, 0, DateTimeKind.Utc)
+            };
+            
+            // Đợt 2: Trong kỳ (6T đầu năm 2026)
+            var dotTrongKy = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hopDong.Id,
+                HopDong = hopDong,
+                TenDot = "Đợt 2 - 2026",
+                GiaTriThanhToan = 3000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _dbContext.DuAns.Add(project);
+            _dbContext.HopDongs.Add(hopDong);
+            _dbContext.DotThanhToans.AddRange(dotKyTruoc, dotTrongKy);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: Report for year 2026, period 1 (6T)
+            var report = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+
+            // Assert
+            report.Should().NotBeNull();
+            var projectRow = report.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT tính toán");
+            projectRow.Should().NotBeNull();
+
+            // 1. Kỳ trước chuyển sang = tất cả về trước (2,000,000,000)
+            projectRow!.KhoiLuongKyTruoc.Should().Be(2000000000m);
+            
+            // 2. Thực hiện trong kỳ (3,000,000,000)
+            projectRow.KhoiLuongTrongKy.Should().Be(3000000000m);
+
+            // 3. Cột thực hiện đến ngày = kỳ trước chuyển sang + thực hiện trong kỳ (5,000,000,000)
+            projectRow.KhoiLuongLuyKe.Should().Be(5000000000m);
+            projectRow.KhoiLuongLuyKe.Should().Be(projectRow.KhoiLuongKyTruoc + projectRow.KhoiLuongTrongKy);
+
+            // 4. Giải ngân = Khối lượng thực hiện
+            projectRow.GiaiNganKyTruoc.Should().Be(projectRow.KhoiLuongKyTruoc);
+            projectRow.GiaiNganTrongKy.Should().Be(projectRow.KhoiLuongTrongKy);
+            projectRow.GiaiNganLuyKe.Should().Be(projectRow.KhoiLuongLuyKe);
+        }
+
+        [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Categorize_GroupB_Projects()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var projB = new DuAn { Id = Guid.NewGuid(), Code = "DA-B-50B", Name = "Dự án nhóm B quy mô lớn", DuToanPheDuyet = 50000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            _dbContext.DuAns.Add(projB);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+
+            // Assert
+            var groupBHeader = report.Rows.FirstOrDefault(r => r.Stt == "B" && r.RowType == "GroupHeader");
+            var groupBFooter = report.Rows.FirstOrDefault(r => r.ProjectName == "Tổng (B)" && r.RowType == "GroupFooter");
+            
+            groupBHeader.Should().NotBeNull();
+            groupBFooter.Should().NotBeNull();
+            groupBFooter!.TongMucDauTuTong.Should().BeGreaterThanOrEqualTo(50000000000m);
+        }
+
+
+
+        [Fact]
         public async Task ReportService_ExportCongViecGoiThauAndTheoDoiHopDong_Csv_Html_Should_Return_NonEmpty_Bytes()
         {
             // Arrange

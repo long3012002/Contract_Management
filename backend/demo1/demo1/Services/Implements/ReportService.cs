@@ -113,7 +113,7 @@ public class ReportService : IReportService
                 da.Name,
                 da.Code,
                 da.LoaiDuAn,
-                da.NguonDuAnIds,
+                SourceIds = da.NguonDuAns.Select(nk => nk.NguonProjectId).ToList(),
                 da.DuToanPheDuyet,
                 da.SoQuyetDinh,
                 da.NgayBatDau,
@@ -170,12 +170,9 @@ public class ReportService : IReportService
         {
             // Tính toán tổng ngân sách theo các dự án nguồn được chọn (nếu là dự án triển khai)
             decimal totalBudgetVnd = 0;
-            if (project.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(project.NguonDuAnIds))
+            if (project.LoaiDuAn == 2 && project.SourceIds != null && project.SourceIds.Any())
             {
-                var sourceIds = project.NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                    .Where(g => g != Guid.Empty)
-                    .ToList();
+                var sourceIds = project.SourceIds;
 
                 if (sourceIds.Any())
                 {
@@ -944,7 +941,7 @@ public class ReportService : IReportService
         var goiThau = await _context.GoiThaus
             .Include(g => g.DuAn)
             .Include(g => g.CongViecGoiThaus)
-            .FirstOrDefaultAsync(g => g.Id == idGoiThau);
+            .FirstOrDefaultAsync(g => g.Id == idGoiThau && (g.DuAn == null || g.DuAn.LoaiDuAn == 2));
 
         if (goiThau == null)
         {
@@ -1091,7 +1088,7 @@ public class ReportService : IReportService
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
             .Include(h => h.NhaThau)
-            .Where(h => h.IsActive && !h.IsDeleted);
+            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.LoaiDuAn == 2));
 
         if (_currentUserService != null)
         {
@@ -1616,7 +1613,7 @@ public class ReportService : IReportService
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
             .Include(h => h.NhaThau)
-            .Where(h => h.IsActive && !h.IsDeleted);
+            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.LoaiDuAn == 2));
 
         if (_currentUserService != null)
         {

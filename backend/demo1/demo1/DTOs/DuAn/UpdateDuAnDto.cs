@@ -24,6 +24,7 @@ public class UpdateDuAnDto
 
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
+    public Guid? NguonVonId { get; set; }
 
     public int TrangThai { get; set; }
 

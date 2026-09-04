@@ -70,25 +70,24 @@ public class DuAnDto : IHasId
     public string? PhanLoaiDuAnName { get; set; }
 
     /// <summary>
-    /// Chuỗi ID Nguồn vốn dự án (phân tách bởi dấu chấm phẩy)
+    /// ID Danh mục Nguồn vốn
     /// </summary>
-    public string? NguonDuAnIds { get; set; }
+    public Guid? NguonVonId { get; set; }
+
+    /// <summary>
+    /// Tên Danh mục Nguồn vốn
+    /// </summary>
+    public string? NguonVonName { get; set; }
+
+    /// <summary>
+    /// Chuỗi ID Nguồn vốn dự án (phân tách bởi dấu chấm phẩy) - Tự động tổng hợp từ SourceProjects
+    /// </summary>
+    public string? NguonDuAnIds => ListNguonDuAnIds.Any() ? string.Join(";", ListNguonDuAnIds) : null;
     
     /// <summary>
-    /// Danh sách GUID các nguồn vốn dự án
+    /// Danh sách GUID các dự án nguồn
     /// </summary>
-    public List<Guid> ListNguonDuAnIds
-    {
-        get
-        {
-            if (string.IsNullOrWhiteSpace(NguonDuAnIds))
-                return new List<Guid>();
-            return NguonDuAnIds.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                               .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-                               .Where(g => g != Guid.Empty)
-                               .ToList();
-        }
-    }
+    public List<Guid> ListNguonDuAnIds => SourceProjects?.Select(s => s.Id).ToList() ?? new List<Guid>();
     
     /// <summary>
     /// Tên Chủ đầu tư

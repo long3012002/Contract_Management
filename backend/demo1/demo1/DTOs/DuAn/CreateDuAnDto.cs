@@ -27,6 +27,7 @@ public class CreateDuAnDto
 
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
+    public Guid? NguonVonId { get; set; }
 
     public List<Guid>? SourceProjectIds { get; set; }
 
