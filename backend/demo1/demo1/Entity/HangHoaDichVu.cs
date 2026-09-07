@@ -7,6 +7,9 @@ public class HangHoaDichVu : BaseEntity
 {
     public Guid IdParent { get; set; }
 
+    public Guid? PhuLucHopDongId { get; set; }
+    public virtual PhuLucHopDong? PhuLucHopDong { get; set; }
+
     public string? Stt { get; set; }
     
     // Field to distinguish the type: HangHoa, License, DichVu

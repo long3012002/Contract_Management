@@ -41,6 +41,7 @@ namespace demo1.Data
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
         public DbSet<HopDong> HopDongs { get; set; } = null!;
+        public DbSet<PhuLucHopDong> PhuLucHopDongs { get; set; } = null!;
         public DbSet<DoiTac> DoiTacs { get; set; } = null!;
         public DbSet<DotThanhToan> DotThanhToans { get; set; } = null!;
         public DbSet<Resolution> Resolutions { get; set; } = null!;
@@ -158,6 +159,7 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
+            ConfigureBaseEntity(modelBuilder.Entity<PhuLucHopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<DoiTac>());
             ConfigureBaseEntity(modelBuilder.Entity<Resolution>());
             modelBuilder.Entity<NhaThauGoiThau>(entity =>
@@ -408,6 +410,21 @@ namespace demo1.Data
                 .HasForeignKey(hd => hd.LoaiHopDongId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<PhuLucHopDong>(entity =>
+            {
+                entity.Property(p => p.GiaTriDieuChinh)
+                    .HasPrecision(18, 2);
+                entity.Property(p => p.SoPhuLuc)
+                    .HasMaxLength(100)
+                    .IsRequired();
+                entity.Property(p => p.TenPhuLuc)
+                    .HasMaxLength(255);
+                entity.HasOne(p => p.HopDong)
+                    .WithMany(h => h.PhuLucHopDongs)
+                    .HasForeignKey(p => p.HopDongId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<DoiTac>()
                 .Property(dt => dt.TaxCode)
                 .HasMaxLength(50);
@@ -447,6 +464,12 @@ namespace demo1.Data
                 .WithMany(h => h.DotThanhToans)
                 .HasForeignKey(d => d.HopDongId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DotThanhToan>()
+                .HasOne(d => d.PhuLucHopDong)
+                .WithMany(p => p.DotThanhToans)
+                .HasForeignKey(d => d.PhuLucHopDongId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Resolution>()
                 .Property(resolution => resolution.FileUrl)
@@ -661,6 +684,11 @@ namespace demo1.Data
                     .WithMany(h => h.HangHoaDichVus)
                     .HasForeignKey(h => h.IdParent)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(h => h.PhuLucHopDong)
+                    .WithMany(p => p.HangHoaDichVus)
+                    .HasForeignKey(h => h.PhuLucHopDongId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Configure FileAttachment entity

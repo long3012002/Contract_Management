@@ -30,6 +30,7 @@ public class KeHoachVonCnttReportRowDto
     public int NhomTrangThai { get; set; } // 1: Đã phê duyệt/đang triển khai, 2: Đề xuất mới
 
     // Phân loại dự án
+    public string LoaiDuAn { get; set; } = string.Empty;
     public Guid? PhanLoaiDuAnId { get; set; }
     public string? PhanLoaiDuAnCode { get; set; }
     public string? TenPhanLoaiDuAn { get; set; }
@@ -39,6 +40,7 @@ public class KeHoachVonCnttReportGroupDto
 {
     public int NhomTrangThai { get; set; }
     public string TenNhom { get; set; } = string.Empty;
+    public string LoaiDuAnKey { get; set; } = string.Empty;
     public List<KeHoachVonCnttReportRowDto> Rows { get; set; } = new();
     public decimal TongMucDauTuNhom { get; set; }
     public decimal TongVonTuCoNhom { get; set; }
@@ -53,6 +55,7 @@ public class KeHoachVonCnttReportResponseDto
     public int FromYear { get; set; }
     public int ToYear { get; set; }
     public string Unit { get; set; } = "Đồng";
+    public int TongSoDuAn { get; set; }
     public List<KeHoachVonCnttReportGroupDto> Groups { get; set; } = new();
     public decimal TongCongMucDauTu { get; set; }
     public decimal TongCongVonTuCo { get; set; }

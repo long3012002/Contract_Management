@@ -50,6 +50,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.PhuLucHopDongs)
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau);
 
@@ -165,6 +166,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         var dtos = Mapper.Map<List<HopDongDto>>(items);
         await PopulateAttachmentsAsync(dtos);
+        CalculatePhuLucTotals(dtos);
 
         return new PagedResult<HopDongDto>
         {
@@ -193,6 +195,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.PhuLucHopDongs)
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau);
         if (currentUser != null && !currentUser.IsSystemAdmin)
@@ -204,6 +207,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var items = await query.ToListAsync();
         var dtos = Mapper.Map<List<HopDongDto>>(items);
         await PopulateAttachmentsAsync(dtos);
+        CalculatePhuLucTotals(dtos);
         return dtos;
     }
 
@@ -216,6 +220,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.ChuDauTu)
             .Include(h => h.NhaThau)
             .Include(h => h.DotThanhToans)
+            .Include(h => h.PhuLucHopDongs)
             .Include(h => h.NhaThauGoiThaus)
                 .ThenInclude(nt => nt.NhaThau)
             .Include(h => h.HangHoaDichVus)
@@ -230,6 +235,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         if (entity is null) return null;
         var dto = Mapper.Map<HopDongDto>(entity);
         await PopulateAttachmentsAsync(new List<HopDongDto> { dto });
+        CalculatePhuLucTotals(new List<HopDongDto> { dto });
         return dto;
     }
 
@@ -812,6 +818,21 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             {
                 dto.FileAttachments = fileList;
             }
+        }
+    }
+
+    private static void CalculatePhuLucTotals(IEnumerable<HopDongDto> dtos)
+    {
+        if (dtos == null) return;
+        foreach (var dto in dtos)
+        {
+            var activePhuLucs = dto.PhuLucHopDongs?.Where(p => p.TrangThai == TrangThaiPhuLuc.Active).ToList() ?? new List<PhuLucHopDongDto>();
+            dto.TongGiaTriPhuLucActive = activePhuLucs.Sum(p => p.GiaTriDieuChinh);
+            dto.TongGiaTriHienTai = dto.GiaTriHopDong + dto.TongGiaTriPhuLucActive;
+            dto.ExpiredDateHienTai = activePhuLucs
+                .Where(p => p.ExpiredDateMoi.HasValue)
+                .OrderByDescending(p => p.NgayKy)
+                .FirstOrDefault()?.ExpiredDateMoi ?? dto.ExpiredDate;
         }
     }
 

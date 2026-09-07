@@ -123,6 +123,7 @@ public class ReportService : IReportService
                 da.DaKetThuc,
                 NhomDuAnCode = da.NhomDuAn != null ? da.NhomDuAn.Code : null,
                 da.NhomDuAnId,
+                da.PhanLoaiDuAnId,
                 PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
                 PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
                 AdjustmentsSum = da.DieuChinhs
@@ -154,17 +155,53 @@ public class ReportService : IReportService
             })
             .ToDictionaryAsync(x => x.DuAnId, x => x);
 
-        // Các danh sách phụ hỗ trợ phân nhóm dự án
-        var b_I = new List<ReportRowDto>();   // Nhóm B - Xây dựng
-        var b_II = new List<ReportRowDto>();  // Nhóm B - CNTT
-        var b_III = new List<ReportRowDto>(); // Nhóm B - Khác
-        
-        var c_I = new List<ReportRowDto>();   // Nhóm C - Xây dựng
-        var c_II = new List<ReportRowDto>();  // Nhóm C - CNTT
-        var c_III = new List<ReportRowDto>(); // Nhóm C - Khác
+        // 5. Tải danh mục Phân loại dự án để phân nhóm động
+        var dbCategories = await _context.PhanLoaiDuAns
+            .AsNoTracking()
+            .Where(pl => pl.IsActive && !pl.IsDeleted)
+            .OrderBy(pl => pl.Code)
+            .Select(pl => new { pl.Id, pl.Code, pl.Name })
+            .ToListAsync();
 
-        int b_I_index = 1, b_II_index = 1, b_III_index = 1;
-        int c_I_index = 1, c_II_index = 1, c_III_index = 1;
+        var categoryList = dbCategories.Select(c => new
+        {
+            Id = c.Id,
+            Code = c.Code ?? string.Empty,
+            Name = c.Name ?? "Chưa phân loại"
+        }).ToList();
+
+        // Kiểm tra xem có dự án nào không thuộc danh mục chủ động không
+        Guid GetCategoryIdForProject(Guid? pId, string? pCode, string? pName)
+        {
+            if (pId.HasValue && pId.Value != Guid.Empty)
+            {
+                var match = categoryList.FirstOrDefault(c => c.Id == pId.Value);
+                if (match != null) return match.Id;
+            }
+            if (!string.IsNullOrWhiteSpace(pCode))
+            {
+                var match = categoryList.FirstOrDefault(c => string.Equals(c.Code, pCode, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match.Id;
+            }
+            if (!string.IsNullOrWhiteSpace(pName))
+            {
+                var match = categoryList.FirstOrDefault(c => string.Equals(c.Name, pName, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match.Id;
+            }
+            var khacMatch = categoryList.FirstOrDefault(c => c.Code.Equals("PL_KHAC", StringComparison.OrdinalIgnoreCase) || c.Name.ToLower().Contains("khác"));
+            if (khacMatch != null) return khacMatch.Id;
+
+            return Guid.Empty;
+        }
+
+        bool hasUncategorized = projectsData.Any(p => GetCategoryIdForProject(p.PhanLoaiDuAnId, p.PhanLoaiDuAnCode, p.PhanLoaiDuAnName) == Guid.Empty);
+        if (hasUncategorized && !categoryList.Any(c => c.Id == Guid.Empty))
+        {
+            categoryList.Add(new { Id = Guid.Empty, Code = "PL_KHAC_FALLBACK", Name = "Dự án / Phân loại khác" });
+        }
+
+        var groupBProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
+        var groupCProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
 
         foreach (var project in projectsData)
         {
@@ -248,25 +285,6 @@ public class ReportService : IReportService
                 approvalDecision = $"{approvalDecision} ngày {project.NgayBatDau.Value.ToString("dd/MM/yyyy")} V/v phê duyệt dự án {project.Name}";
             }
 
-            // Phân loại loại dự án dựa HOÀN TOÀN vào Danh mục Phân loại dự án (PhanLoaiDuAn)
-            string projType = "Khac";
-            if (!string.IsNullOrWhiteSpace(project.PhanLoaiDuAnCode) || !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName))
-            {
-                var codeUpper = (project.PhanLoaiDuAnCode ?? string.Empty).ToUpper();
-                var nameLower = (project.PhanLoaiDuAnName ?? string.Empty).ToLower();
-                
-                if (codeUpper.Contains("XAY_DUNG") || codeUpper.Contains("XDCB") || codeUpper.Contains("CONSTRUCTION") || 
-                    nameLower.Contains("xây dựng") || nameLower.Contains("xay dung") || nameLower.Contains("công trình"))
-                {
-                    projType = "XayDung";
-                }
-                else if (codeUpper.Contains("CNTT") || codeUpper.Contains("IT") || codeUpper.Contains("SOFTWARE") || 
-                         nameLower.Contains("công nghệ") || nameLower.Contains("cong nghe") || nameLower.Contains("cntt") || nameLower.Contains("phần mềm"))
-                {
-                    projType = "CNTT";
-                }
-            }
-
             // Phân loại nhóm dự án (Nhóm B >= 45 tỷ đồng)
             bool isGroupB = (project.NhomDuAnCode != null && project.NhomDuAnCode.Equals("NHOM_B", StringComparison.OrdinalIgnoreCase)) || 
                             (project.NhomDuAnId == null && totalBudgetVnd >= 45_000_000_000m);
@@ -289,45 +307,42 @@ public class ReportService : IReportService
                 TaiSanBanGiao = tsBanGiao
             };
 
+            var catId = GetCategoryIdForProject(project.PhanLoaiDuAnId, project.PhanLoaiDuAnCode, project.PhanLoaiDuAnName);
             if (isGroupB)
             {
-                if (projType == "XayDung")
-                {
-                    row.Stt = b_I_index++.ToString();
-                    b_I.Add(row);
-                }
-                else if (projType == "CNTT")
-                {
-                    row.Stt = b_II_index++.ToString();
-                    b_II.Add(row);
-                }
-                else
-                {
-                    row.Stt = b_III_index++.ToString();
-                    b_III.Add(row);
-                }
+                if (groupBProjectsMap.TryGetValue(catId, out var bList)) bList.Add(row);
+                else groupBProjectsMap[categoryList.First().Id].Add(row);
             }
             else
             {
-                if (projType == "XayDung")
-                {
-                    row.Stt = c_I_index++.ToString();
-                    c_I.Add(row);
-                }
-                else if (projType == "CNTT")
-                {
-                    row.Stt = c_II_index++.ToString();
-                    c_II.Add(row);
-                }
-                else
-                {
-                    row.Stt = c_III_index++.ToString();
-                    c_III.Add(row);
-                }
+                if (groupCProjectsMap.TryGetValue(catId, out var cList)) cList.Add(row);
+                else groupCProjectsMap[categoryList.First().Id].Add(row);
             }
         }
 
-        // 4. Tổ hợp hiển thị báo cáo dạng cây
+        // Chuyển đổi số nguyên sang Chữ số La Mã (I, II, III, IV, V...)
+        static string ToRomanNumber(int number)
+        {
+            if (number < 1) return string.Empty;
+            var map = new (int val, string sym)[]
+            {
+                (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+                (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+                (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")
+            };
+            var sb = new System.Text.StringBuilder();
+            foreach (var (val, sym) in map)
+            {
+                while (number >= val)
+                {
+                    sb.Append(sym);
+                    number -= val;
+                }
+            }
+            return sb.ToString();
+        }
+
+        // 6. Tổ hợp hiển thị báo cáo dạng cây gom nhóm theo Phân loại Dự án (PhanLoaiDuAn)
         var rows = new List<ReportRowDto>();
 
         // --- GROUP B ---
@@ -337,51 +352,49 @@ public class ReportService : IReportService
             RowType = "GroupHeader",
             ProjectName = "Các dự án nhóm B"
         };
-        var b_I_Header = new ReportRowDto
+        var bSubHeaders = new List<ReportRowDto>();
+        var bRows = new List<ReportRowDto> { groupBHeader };
+
+        int bCatIdx = 1;
+        foreach (var cat in categoryList)
         {
-            Stt = "I",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án đầu tư xây dựng"
-        };
-        var b_II_Header = new ReportRowDto
-        {
-            Stt = "II",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án công nghệ thông tin"
-        };
-        var b_III_Header = new ReportRowDto
-        {
-            Stt = "III",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án khác"
-        };
+            var subHeader = new ReportRowDto
+            {
+                Stt = ToRomanNumber(bCatIdx++),
+                RowType = "SubGroupHeader",
+                ProjectName = cat.Name
+            };
+
+            var pList = groupBProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
+            int pIdx = 1;
+            foreach (var pRow in pList)
+            {
+                pRow.Stt = pIdx++.ToString();
+            }
+
+            PopulateSubGroupSummary(subHeader, pList);
+            bSubHeaders.Add(subHeader);
+
+            bRows.Add(subHeader);
+            if (pList.Any())
+            {
+                bRows.AddRange(pList);
+            }
+            else
+            {
+                bRows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
+            }
+        }
+
         var groupBFooter = new ReportRowDto
         {
             RowType = "GroupFooter",
             ProjectName = "Tổng (B)"
         };
-
-        // Populate Group B values
-        PopulateSubGroupSummary(b_I_Header, b_I);
-        PopulateSubGroupSummary(b_II_Header, b_II);
-        PopulateSubGroupSummary(b_III_Header, b_III);
-        PopulateGroupSummary(groupBHeader, new List<ReportRowDto> { b_I_Header, b_II_Header, b_III_Header });
-        PopulateGroupSummary(groupBFooter, new List<ReportRowDto> { b_I_Header, b_II_Header, b_III_Header });
-
-        rows.Add(groupBHeader);
-        rows.Add(b_I_Header);
-        if (b_I.Any()) rows.AddRange(b_I);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(b_II_Header);
-        if (b_II.Any()) rows.AddRange(b_II);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(b_III_Header);
-        if (b_III.Any()) rows.AddRange(b_III);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(groupBFooter);
+        PopulateGroupSummary(groupBHeader, bSubHeaders);
+        PopulateGroupSummary(groupBFooter, bSubHeaders);
+        bRows.Add(groupBFooter);
+        rows.AddRange(bRows);
 
         // --- GROUP C ---
         var groupCHeader = new ReportRowDto
@@ -390,51 +403,49 @@ public class ReportService : IReportService
             RowType = "GroupHeader",
             ProjectName = "Các dự án khác"
         };
-        var c_I_Header = new ReportRowDto
+        var cSubHeaders = new List<ReportRowDto>();
+        var cRows = new List<ReportRowDto> { groupCHeader };
+
+        int cCatIdx = 1;
+        foreach (var cat in categoryList)
         {
-            Stt = "I",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án đầu tư xây dựng"
-        };
-        var c_II_Header = new ReportRowDto
-        {
-            Stt = "II",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án công nghệ thông tin"
-        };
-        var c_III_Header = new ReportRowDto
-        {
-            Stt = "III",
-            RowType = "SubGroupHeader",
-            ProjectName = "Dự án khác"
-        };
+            var subHeader = new ReportRowDto
+            {
+                Stt = ToRomanNumber(cCatIdx++),
+                RowType = "SubGroupHeader",
+                ProjectName = cat.Name
+            };
+
+            var pList = groupCProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
+            int pIdx = 1;
+            foreach (var pRow in pList)
+            {
+                pRow.Stt = pIdx++.ToString();
+            }
+
+            PopulateSubGroupSummary(subHeader, pList);
+            cSubHeaders.Add(subHeader);
+
+            cRows.Add(subHeader);
+            if (pList.Any())
+            {
+                cRows.AddRange(pList);
+            }
+            else
+            {
+                cRows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
+            }
+        }
+
         var groupCFooter = new ReportRowDto
         {
             RowType = "GroupFooter",
             ProjectName = "Tổng (C)"
         };
-
-        // Populate Group C values
-        PopulateSubGroupSummary(c_I_Header, c_I);
-        PopulateSubGroupSummary(c_II_Header, c_II);
-        PopulateSubGroupSummary(c_III_Header, c_III);
-        PopulateGroupSummary(groupCHeader, new List<ReportRowDto> { c_I_Header, c_II_Header, c_III_Header });
-        PopulateGroupSummary(groupCFooter, new List<ReportRowDto> { c_I_Header, c_II_Header, c_III_Header });
-
-        rows.Add(groupCHeader);
-        rows.Add(c_I_Header);
-        if (c_I.Any()) rows.AddRange(c_I);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(c_II_Header);
-        if (c_II.Any()) rows.AddRange(c_II);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(c_III_Header);
-        if (c_III.Any()) rows.AddRange(c_III);
-        else rows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-
-        rows.Add(groupCFooter);
+        PopulateGroupSummary(groupCHeader, cSubHeaders);
+        PopulateGroupSummary(groupCFooter, cSubHeaders);
+        cRows.Add(groupCFooter);
+        rows.AddRange(cRows);
 
         // --- GRAND TOTAL ---
         var grandTotal = new ReportRowDto
@@ -2374,7 +2385,13 @@ public class ReportService : IReportService
 
     #region 6. Báo cáo Tổng hợp & Phân kỳ Vốn Đầu tư CNTT Giai đoạn (Nghị quyết 16-NQ-NHHT)
 
-    public async Task<KeHoachVonCnttReportResponseDto> GetKeHoachVonCnttReportAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    public async Task<KeHoachVonCnttReportResponseDto> GetKeHoachVonCnttReportAsync(
+        int? fromYear,
+        int? toYear,
+        int? groupStatus,
+        string? donViTinh = null,
+        string? keyword = null,
+        string? projectType = null)
     {
         int endY = toYear ?? DateTime.Now.Year;
         int startY = fromYear ?? (endY - 2);
@@ -2389,48 +2406,108 @@ public class ReportService : IReportService
             Groups = new List<KeHoachVonCnttReportGroupDto>()
         };
 
-        var projects = await _context.DuAns
+        var query = _context.DuAns
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
             .Include(d => d.NguonVon)
-            .Where(d => d.IsActive && !d.IsDeleted)
-            .ToListAsync();
+            .Where(d => d.IsActive && !d.IsDeleted);
 
-        var groupTypes = new List<(int Status, string Name)>
-        {
-            (1, "I. Các dự án đã được phê duyệt, bố trí vốn đang thực hiện triển khai"),
-            (2, "II. Các dự án đầu tư mới")
-        };
-
+        // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
         if (groupStatus.HasValue && (groupStatus.Value == 1 || groupStatus.Value == 2))
         {
-            groupTypes = groupTypes.Where(g => g.Status == groupStatus.Value).ToList();
+            query = groupStatus.Value == 1
+                ? query.Where(p => p.DaTrienKhai == true || p.TrangThai == 2)
+                : query.Where(p => p.DaTrienKhai != true && p.TrangThai != 2);
         }
 
-        foreach (var gType in groupTypes)
+        // Filter keyword
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            string kw = keyword.Trim().ToLower();
+            query = query.Where(p =>
+                (p.Name != null && p.Name.ToLower().Contains(kw)) ||
+                (p.NoiDung != null && p.NoiDung.ToLower().Contains(kw)) ||
+                (p.SoQuyetDinh != null && p.SoQuyetDinh.ToLower().Contains(kw)) ||
+                (p.ChuDauTu != null && p.ChuDauTu.ToLower().Contains(kw)));
+        }
+
+        var projects = await query.ToListAsync();
+
+        // Target fixed groups A, B, C, D
+        var fixedGroups = new List<(string Key, string Name, string LoaiDuAnText)>
+        {
+            ("A", "A. HỆ THỐNG PHẦN MỀM", "Phần mềm"),
+            ("B", "B. HẠ TẦNG THIẾT BỊ HỆ THỐNG", "Hạ tầng"),
+            ("C", "C. TÍCH HỢP HỆ THỐNG", "Tích hợp"),
+            ("D", "D. DỰ ÁN KHÁC", "Khác")
+        };
+
+        // Filter projectType if specified
+        if (!string.IsNullOrWhiteSpace(projectType))
+        {
+            string pt = projectType.Trim().ToLower();
+            fixedGroups = fixedGroups.Where(g =>
+                g.Key.ToLower() == pt ||
+                g.LoaiDuAnText.ToLower() == pt ||
+                g.Name.ToLower().Contains(pt)).ToList();
+        }
+
+        // Helper method to classify projects into groups A, B, C, D
+        (string Key, string LoaiDuAnText) ClassifyProject(DuAn p)
+        {
+            var plCode = (p.PhanLoaiDuAn?.Code ?? string.Empty).Trim().ToLower();
+            var plName = (p.PhanLoaiDuAn?.Name ?? string.Empty).Trim().ToLower();
+            var name = (p.Name ?? string.Empty).Trim().ToLower();
+            var noiDung = (p.NoiDung ?? string.Empty).Trim().ToLower();
+
+            // A. Phần mềm
+            if (plCode.Contains("software") || plCode.Contains("phan_mem") || plCode.Contains("digital_banking") ||
+                plName.Contains("phần mềm") || plName.Contains("ngân hàng số") || plName.Contains("software") ||
+                name.Contains("phần mềm") || name.Contains("ứng dụng") || name.Contains("app") || noiDung.Contains("phần mềm"))
+            {
+                return ("A", "Phần mềm");
+            }
+
+            // B. Hạ tầng thiết bị
+            if (plCode.Contains("ha_tang") || plCode.Contains("hardware") || plCode.Contains("thiet_bi") || plCode.Contains("security") ||
+                plName.Contains("hạ tầng") || plName.Contains("thiết bị") || plName.Contains("bảo mật") || plName.Contains("an toàn thông tin") ||
+                name.Contains("hạ tầng") || name.Contains("thiết bị") || name.Contains("máy chủ") || name.Contains("server") || name.Contains("bảo mật") || noiDung.Contains("hạ tầng"))
+            {
+                return ("B", "Hạ tầng");
+            }
+
+            // C. Tích hợp hệ thống
+            if (plCode.Contains("tich_hop") || plCode.Contains("integration") ||
+                plName.Contains("tích hợp") ||
+                name.Contains("tích hợp") || name.Contains("gateway") || name.Contains("kết nối") || noiDung.Contains("tích hợp"))
+            {
+                return ("C", "Tích hợp");
+            }
+
+            // D. Khác
+            return ("D", "Khác");
+        }
+
+        foreach (var gMeta in fixedGroups)
         {
             var gDto = new KeHoachVonCnttReportGroupDto
             {
-                NhomTrangThai = gType.Status,
-                TenNhom = gType.Name,
+                NhomTrangThai = groupStatus ?? 1,
+                TenNhom = gMeta.Name,
+                LoaiDuAnKey = gMeta.Key,
                 Rows = new List<KeHoachVonCnttReportRowDto>()
             };
 
-            var rawFiltered = gType.Status == 1
-                ? projects.Where(p => p.DaTrienKhai == true || p.TrangThai == 2)
-                : projects.Where(p => p.DaTrienKhai != true && p.TrangThai != 2);
-
-            var filteredProj = rawFiltered
-                .OrderBy(p => p.PhanLoaiDuAn != null ? (p.PhanLoaiDuAn.Name ?? string.Empty) : "ZZZ")
-                .ThenBy(p => p.Name);
+            var groupProjs = projects
+                .Where(p => ClassifyProject(p).Key == gMeta.Key)
+                .OrderBy(p => p.Name);
 
             int stt = 1;
-            foreach (var proj in filteredProj)
+            foreach (var proj in groupProjs)
             {
                 decimal totalInvestment = proj.DuToanPheDuyet / factor;
 
-                // Determine capital source allocation
                 decimal vonTuCo = 0;
                 decimal quyDauTuPhatTrien = 0;
                 decimal nguonKhac = 0;
@@ -2456,9 +2533,10 @@ public class ReportService : IReportService
                     Stt = stt++,
                     DuAnId = proj.Id,
                     NoiDung = proj.Name,
+                    LoaiDuAn = gMeta.LoaiDuAnText,
                     PhanLoaiDuAnId = proj.PhanLoaiDuAnId,
                     PhanLoaiDuAnCode = proj.PhanLoaiDuAn?.Code,
-                    TenPhanLoaiDuAn = proj.PhanLoaiDuAn?.Name ?? "Chưa phân loại",
+                    TenPhanLoaiDuAn = proj.PhanLoaiDuAn?.Name ?? gMeta.LoaiDuAnText,
                     TongMucDauTu = totalInvestment,
                     VonTuCo = vonTuCo,
                     QuyDauTuPhatTrien = quyDauTuPhatTrien,
@@ -2466,11 +2544,10 @@ public class ReportService : IReportService
                     TrangThaiText = proj.DaTrienKhai == true ? "Đang triển khai" : "Đã phê duyệt chủ trương",
                     DonViDeXuatChiDao = proj.ChuDauTu ?? "Trung tâm CNTT",
                     GhiChu = proj.SoQuyetDinh,
-                    NhomTrangThai = gType.Status,
+                    NhomTrangThai = groupStatus ?? (proj.DaTrienKhai == true ? 1 : 2),
                     PhanKyDauTu = new List<KeHoachVonCnttPhanKyDto>()
                 };
 
-                // Determine project active years
                 int pStart = proj.NamBatDau ?? (proj.NgayBatDau?.Year ?? startY);
                 int pEnd = proj.NamKetThuc ?? (proj.NgayKetThuc?.Year ?? endY);
                 if (pEnd < pStart) pEnd = pStart;
@@ -2500,6 +2577,7 @@ public class ReportService : IReportService
             response.Groups.Add(gDto);
         }
 
+        response.TongSoDuAn = response.Groups.Sum(g => g.Rows.Count);
         response.TongCongMucDauTu = response.Groups.Sum(g => g.TongMucDauTuNhom);
         response.TongCongVonTuCo = response.Groups.Sum(g => g.TongVonTuCoNhom);
         response.TongCongQuyDauTuPhatTrien = response.Groups.Sum(g => g.TongQuyDauTuPhatTrienNhom);
@@ -2513,9 +2591,15 @@ public class ReportService : IReportService
         return response;
     }
 
-    public async Task<byte[]> ExportKeHoachVonCnttReportExcelAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    public async Task<byte[]> ExportKeHoachVonCnttReportExcelAsync(
+        int? fromYear,
+        int? toYear,
+        int? groupStatus,
+        string? donViTinh = null,
+        string? keyword = null,
+        string? projectType = null)
     {
-        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
 
         using (var workbook = new ClosedXML.Excel.XLWorkbook())
         {
@@ -2552,7 +2636,7 @@ public class ReportService : IReportService
                 {
                     worksheet.Cell(row, 1).Value = r.Stt;
                     worksheet.Cell(row, 2).Value = r.NoiDung;
-                    worksheet.Cell(row, 3).Value = r.TenPhanLoaiDuAn ?? "Chưa phân loại";
+                    worksheet.Cell(row, 3).Value = r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại";
                     worksheet.Cell(row, 4).Value = r.TongMucDauTu;
                     worksheet.Cell(row, 5).Value = r.VonTuCo;
                     worksheet.Cell(row, 6).Value = r.QuyDauTuPhatTrien;
@@ -2577,9 +2661,15 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportKeHoachVonCnttReportCsvAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    public async Task<byte[]> ExportKeHoachVonCnttReportCsvAsync(
+        int? fromYear,
+        int? toYear,
+        int? groupStatus,
+        string? donViTinh = null,
+        string? keyword = null,
+        string? projectType = null)
     {
-        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
         using (var ms = new MemoryStream())
         {
             using (var writer = new StreamWriter(ms, System.Text.Encoding.UTF8))
@@ -2595,7 +2685,7 @@ public class ReportService : IReportService
                     await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",\"Vốn tự có\",\"Quỹ ĐTPT\",\"Trạng thái\",\"Ghi chú\"");
                     foreach (var r in g.Rows)
                     {
-                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
                     }
                     await writer.WriteLineAsync();
                 }
@@ -2605,9 +2695,15 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportKeHoachVonCnttReportHtmlAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null)
+    public async Task<byte[]> ExportKeHoachVonCnttReportHtmlAsync(
+        int? fromYear,
+        int? toYear,
+        int? groupStatus,
+        string? donViTinh = null,
+        string? keyword = null,
+        string? projectType = null)
     {
-        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+        var report = await GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
         var html = new System.Text.StringBuilder();
         html.AppendLine("<!DOCTYPE html><html><head><meta charset=\"utf-8\" /><style>body{font-family:serif;margin:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:6px;} th{background:#f0f0f0;}</style></head><body>");
         html.AppendLine($"<h2>{System.Web.HttpUtility.HtmlEncode(report.Title)}</h2>");
@@ -2619,7 +2715,7 @@ public class ReportService : IReportService
             html.AppendLine("<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th><th>Vốn tự có</th><th>Quỹ ĐTPT</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
             foreach (var r in g.Rows)
             {
-                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
             }
             html.AppendLine("</tbody></table>");
         }

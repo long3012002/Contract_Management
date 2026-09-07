@@ -343,58 +343,60 @@ public static class DatabaseSeeder
             hopDongs = await context.HopDongs.ToListAsync();
         }
 
-        // 9. Seed DotThanhToans (Đợt thanh toán) - Phủ đủ Kỳ trước (2024/2025) & Trong kỳ (2026)
+        // 9. Seed DotThanhToans (Đợt thanh toán) - Phủ đủ các năm 2024, 2025 (kỳ trước) & 2026 (trong kỳ)
         if (!await context.DotThanhToans.AnyAsync() && hopDongs.Any())
         {
             var dotThanhToanList = new List<DotThanhToan>();
+            int hIdx = 0;
 
             foreach (var hd in hopDongs)
             {
-                var dot1Val = Math.Round(hd.GiaTriHopDong * 0.4m, 2);
+                var dot1Val = Math.Round(hd.GiaTriHopDong * 0.3m, 2);
                 var dot2Val = Math.Round(hd.GiaTriHopDong * 0.4m, 2);
                 var dot3Val = hd.GiaTriHopDong - dot1Val - dot2Val;
 
-                // Đợt 1: Kỳ trước (Thanh toán năm 2025)
+                // Đợt 1: Quyết toán năm 2024
                 dotThanhToanList.Add(new DotThanhToan
                 {
                     Id = Guid.NewGuid(),
                     HopDongId = hd.Id,
-                    TenDot = $"Tạm ứng 40% hợp đồng {hd.Code}",
-                    TyLeThanhToan = 40.00m,
+                    TenDot = $"Tạm ứng 30% năm 2024 hợp đồng {hd.Code}",
+                    TyLeThanhToan = 30.00m,
                     GiaTriThanhToan = dot1Val,
+                    NgayThanhToan = new DateTime(2024, 6, 15, 0, 0, 0, DateTimeKind.Utc),
+                    IsPaid = true, // Đã quyết toán năm 2024
+                    DieuKienThanhToan = "Sau khi ký kết hợp đồng và bảo lãnh tạm ứng năm 2024",
+                    CreatedAt = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                });
+
+                // Đợt 2: Quyết toán năm 2025
+                dotThanhToanList.Add(new DotThanhToan
+                {
+                    Id = Guid.NewGuid(),
+                    HopDongId = hd.Id,
+                    TenDot = $"Nghiệm thu đợt 1 (40%) năm 2025 hợp đồng {hd.Code}",
+                    TyLeThanhToan = 40.00m,
+                    GiaTriThanhToan = dot2Val,
                     NgayThanhToan = new DateTime(2025, 5, 20, 0, 0, 0, DateTimeKind.Utc),
-                    IsPaid = true, // Đã thanh toán
-                    DieuKienThanhToan = "Sau khi ký kết hợp đồng và nhận bảo lãnh tạm ứng",
+                    IsPaid = true, // Đã quyết toán năm 2025
+                    DieuKienThanhToan = "Sau khi hoàn thành nghiệm thu giai đoạn năm 2025",
                     CreatedAt = new DateTime(2025, 5, 15, 0, 0, 0, DateTimeKind.Utc)
                 });
 
-                // Đợt 2: Trong kỳ (Thanh toán 6T đầu năm 2026)
+                // Đợt 3: Thanh toán năm 2026
                 dotThanhToanList.Add(new DotThanhToan
                 {
                     Id = Guid.NewGuid(),
                     HopDongId = hd.Id,
-                    TenDot = $"Nghiệm thu đợt 1 (40%) hợp đồng {hd.Code}",
-                    TyLeThanhToan = 40.00m,
-                    GiaTriThanhToan = dot2Val,
+                    TenDot = $"Thanh toán đợt 2 (30%) năm 2026 hợp đồng {hd.Code}",
+                    TyLeThanhToan = 30.00m,
+                    GiaTriThanhToan = dot3Val,
                     NgayThanhToan = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc),
-                    IsPaid = true, // Đã thanh toán trong kỳ 2026
-                    DieuKienThanhToan = "Sau khi hoàn thành nghiệm thu giai đoạn 1",
+                    IsPaid = (hIdx % 2 == 0), // Phân nửa đã thanh toán trong kỳ 2026
+                    DieuKienThanhToan = "Sau khi ký biên bản nghiệm thu giai đoạn năm 2026",
                     CreatedAt = new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc)
                 });
-
-                // Đợt 3: Thanh toán còn lại
-                dotThanhToanList.Add(new DotThanhToan
-                {
-                    Id = Guid.NewGuid(),
-                    HopDongId = hd.Id,
-                    TenDot = $"Thanh lý 20% hợp đồng {hd.Code}",
-                    TyLeThanhToan = 20.00m,
-                    GiaTriThanhToan = dot3Val,
-                    NgayThanhToan = new DateTime(2026, 8, 20, 0, 0, 0, DateTimeKind.Utc),
-                    IsPaid = false, // Chưa thanh toán
-                    DieuKienThanhToan = "Sau khi ký biên bản nghiệm thu tổng thể",
-                    CreatedAt = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc)
-                });
+                hIdx++;
             }
             await context.DotThanhToans.AddRangeAsync(dotThanhToanList);
             await context.SaveChangesAsync();
@@ -403,10 +405,11 @@ public static class DatabaseSeeder
         {
             // Nếu DB đã có dữ liệu đợt thanh toán cũ (chưa được đánh IsPaid = true hoặc thiếu mốc thời gian)
             var existingDots = await context.DotThanhToans.Include(d => d.HopDong).ToListAsync();
-            bool hasPaidBefore = existingDots.Any(d => d.IsPaid && d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year < 2026);
-            bool hasPaidCurrent = existingDots.Any(d => d.IsPaid && d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == 2026);
+            bool hasPaid2024 = existingDots.Any(d => d.IsPaid && d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == 2024);
+            bool hasPaid2025 = existingDots.Any(d => d.IsPaid && d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == 2025);
+            bool hasPaid2026 = existingDots.Any(d => d.IsPaid && d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == 2026);
 
-            if (!hasPaidBefore || !hasPaidCurrent)
+            if (!hasPaid2024 || !hasPaid2025 || !hasPaid2026)
             {
                 int idx = 0;
                 foreach (var dot in existingDots)
@@ -414,11 +417,14 @@ public static class DatabaseSeeder
                     dot.IsPaid = true;
                     if (dot.HopDong != null && dot.HopDong.GiaTriHopDong > 0 && dot.GiaTriThanhToan == 0)
                     {
-                        dot.GiaTriThanhToan = Math.Round(dot.HopDong.GiaTriHopDong * 0.4m, 2);
+                        dot.GiaTriThanhToan = Math.Round(dot.HopDong.GiaTriHopDong * 0.33m, 2);
                     }
 
-                    // Chia phân nửa cho kỳ trước (2025) và phân nửa cho kỳ này (2026)
-                    if (idx % 2 == 0)
+                    if (idx % 3 == 0)
+                    {
+                        dot.NgayThanhToan = new DateTime(2024, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+                    }
+                    else if (idx % 3 == 1)
                     {
                         dot.NgayThanhToan = new DateTime(2025, 5, 20, 0, 0, 0, DateTimeKind.Utc);
                     }

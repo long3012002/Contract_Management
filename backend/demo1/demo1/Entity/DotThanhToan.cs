@@ -8,6 +8,9 @@ public class DotThanhToan
     public Guid HopDongId { get; set; }
     public virtual HopDong HopDong { get; set; } = null!;
 
+    public Guid? PhuLucHopDongId { get; set; }
+    public virtual PhuLucHopDong? PhuLucHopDong { get; set; }
+
     public string TenDot { get; set; } = string.Empty;
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }

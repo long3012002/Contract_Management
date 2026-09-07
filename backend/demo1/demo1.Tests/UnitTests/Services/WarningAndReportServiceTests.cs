@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using demo1.Data;
 using demo1.Entity;
+using demo1.Entity.DanhMuc;
 using demo1.Tests.Helpers;
 using FluentAssertions;
 using Xunit;
@@ -222,6 +223,110 @@ namespace demo1.Tests.UnitTests.Services
             groupBFooter!.TongMucDauTuTong.Should().BeGreaterThanOrEqualTo(50000000000m);
         }
 
+        [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Support_MultiYear_Data_And_Group_By_PhanLoaiDuAn()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var plCntt = new PhanLoaiDuAn { Id = Guid.NewGuid(), Code = "PL_CNTT", Name = "Dự án Công nghệ thông tin", IsActive = true };
+            var plXdcb = new PhanLoaiDuAn { Id = Guid.NewGuid(), Code = "PL_XDCB", Name = "Dự án Xây dựng cơ bản", IsActive = true };
+            _dbContext.PhanLoaiDuAns.AddRange(plCntt, plXdcb);
+
+            var projCntt = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-MULTI-CNTT",
+                Name = "Dự án CNTT Đa Năm",
+                DuToanPheDuyet = 60000000000m, // Group B
+                LoaiDuAn = 2,
+                PhanLoaiDuAnId = plCntt.Id,
+                TrangThai = 1
+            };
+
+            var projXdcb = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-MULTI-XDCB",
+                Name = "Dự án XDCB Đa Năm",
+                DuToanPheDuyet = 10000000000m, // Group C
+                LoaiDuAn = 2,
+                PhanLoaiDuAnId = plXdcb.Id,
+                TrangThai = 1
+            };
+
+            var hdCntt = new HopDong { Id = Guid.NewGuid(), DuAnId = projCntt.Id, Code = "HD-MULTI-CNTT", GiaTriHopDong = 50000000000m, IsActive = true };
+            var hdXdcb = new HopDong { Id = Guid.NewGuid(), DuAnId = projXdcb.Id, Code = "HD-MULTI-XDCB", GiaTriHopDong = 800000000m, IsActive = true };
+
+            // Đợt thanh toán năm 2024 (1 tỷ)
+            var dot2024 = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hdCntt.Id,
+                HopDong = hdCntt,
+                TenDot = "Tạm ứng 2024",
+                GiaTriThanhToan = 1000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2024, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            // Đợt thanh toán năm 2025 (2 tỷ)
+            var dot2025 = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hdCntt.Id,
+                HopDong = hdCntt,
+                TenDot = "Nghiệm thu 2025",
+                GiaTriThanhToan = 2000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2025, 8, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            // Đợt thanh toán năm 2026 (3 tỷ)
+            var dot2026 = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hdCntt.Id,
+                HopDong = hdCntt,
+                TenDot = "Thanh toán 2026",
+                GiaTriThanhToan = 3000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _dbContext.DuAns.AddRange(projCntt, projXdcb);
+            _dbContext.HopDongs.AddRange(hdCntt, hdXdcb);
+            _dbContext.DotThanhToans.AddRange(dot2024, dot2025, dot2026);
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Báo cáo năm 2025 (Cả năm)
+            var report2025 = await service.GetInvestmentReportAsync(2025, 2, "đồng");
+
+            // Assert 1: Năm 2025 -> Kỳ trước = 2024 (1 tỷ), Trong kỳ = 2025 (2 tỷ), Lũy kế = 3 tỷ
+            var row2025 = report2025.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
+            row2025.Should().NotBeNull();
+            row2025!.KhoiLuongKyTruoc.Should().Be(1000000000m);
+            row2025.KhoiLuongTrongKy.Should().Be(2000000000m);
+            row2025.KhoiLuongLuyKe.Should().Be(3000000000m);
+
+            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm)
+            var report2026 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+
+            // Assert 2: Năm 2026 -> Kỳ trước = 2024+2025 (3 tỷ), Trong kỳ = 2026 (3 tỷ), Lũy kế = 6 tỷ
+            var row2026 = report2026.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
+            row2026.Should().NotBeNull();
+            row2026!.KhoiLuongKyTruoc.Should().Be(3000000000m);
+            row2026.KhoiLuongTrongKy.Should().Be(3000000000m);
+            row2026.KhoiLuongLuyKe.Should().Be(6000000000m);
+
+            // Assert 3: Phân nhóm theo PhanLoaiDuAn (Dự án Công nghệ thông tin & Dự án Xây dựng cơ bản)
+            var subHeaderCntt = report2026.Rows.FirstOrDefault(r => r.RowType == "SubGroupHeader" && r.ProjectName == "Dự án Công nghệ thông tin");
+            var subHeaderXdcb = report2026.Rows.FirstOrDefault(r => r.RowType == "SubGroupHeader" && r.ProjectName == "Dự án Xây dựng cơ bản");
+            subHeaderCntt.Should().NotBeNull();
+            subHeaderXdcb.Should().NotBeNull();
+        }
+
 
 
         [Fact]
@@ -275,6 +380,8 @@ namespace demo1.Tests.UnitTests.Services
             var cnttExcel = await service.ExportKeHoachVonCnttReportExcelAsync(2022, 2024, null, "1");
             var cnttHtml = await service.ExportKeHoachVonCnttReportHtmlAsync(2022, 2024, null, "1");
 
+            var cnttReportFiltered = await service.GetKeHoachVonCnttReportAsync(2022, 2024, null, "1", keyword: "Phần mềm", projectType: "A");
+
             // Assert
             khvReport.Should().NotBeNull();
             khvReport.PhuLucs.Should().NotBeEmpty();
@@ -283,7 +390,16 @@ namespace demo1.Tests.UnitTests.Services
 
             cnttReport.Should().NotBeNull();
             cnttReport.Groups.Should().NotBeEmpty();
-            cnttReport.Groups.SelectMany(g => g.Rows).Should().AllSatisfy(r => r.TenPhanLoaiDuAn.Should().NotBeNullOrEmpty());
+            cnttReport.Groups.Should().Contain(g => !string.IsNullOrEmpty(g.LoaiDuAnKey));
+            cnttReport.Groups.SelectMany(g => g.Rows).Should().AllSatisfy(r => {
+                r.TenPhanLoaiDuAn.Should().NotBeNullOrEmpty();
+                r.LoaiDuAn.Should().NotBeNullOrEmpty();
+            });
+            cnttReport.TongSoDuAn.Should().BeGreaterOrEqualTo(0);
+
+            cnttReportFiltered.Should().NotBeNull();
+            cnttReportFiltered.Groups.Should().NotBeEmpty();
+
             cnttExcel.Should().NotBeNullOrEmpty();
             cnttHtml.Should().NotBeNullOrEmpty();
         }

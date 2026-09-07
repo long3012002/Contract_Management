@@ -132,7 +132,9 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NhaThauName, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Name : null))
                 .ForMember(dest => dest.DotThanhToans, opt => opt.MapFrom(src => src.DotThanhToans.OrderBy(d => d.CreatedAt).ToList()))
                 .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.MapFrom(src => src.NhaThauGoiThaus))
-                .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus));
+                .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus))
+                .ForMember(dest => dest.PhuLucHopDongs, opt => opt.MapFrom(src => src.PhuLucHopDongs.OrderByDescending(p => p.NgayKy).ToList()));
+            CreateMap<PhuLucHopDong, PhuLucHopDongDto>();
             CreateMap<CreateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))

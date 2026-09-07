@@ -537,11 +537,13 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] int? fromYear,
         [FromQuery] int? toYear,
         [FromQuery] int? groupStatus,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? projectType = null)
     {
         try
         {
-            var report = await reportService.GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh);
+            var report = await reportService.GetKeHoachVonCnttReportAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
             return Ok(report);
         }
         catch (Exception ex)
@@ -561,7 +563,9 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] int? groupStatus,
         [FromQuery] string format = "xlsx",
         [FromQuery] bool base64 = false,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? projectType = null)
     {
         try
         {
@@ -572,19 +576,19 @@ public class ReportsController(IReportService reportService) : ControllerBase
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportKeHoachVonCnttReportCsvAsync(fromYear, toYear, groupStatus, donViTinh);
+                fileBytes = await reportService.ExportKeHoachVonCnttReportCsvAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportKeHoachVonCnttReportHtmlAsync(fromYear, toYear, groupStatus, donViTinh);
+                fileBytes = await reportService.ExportKeHoachVonCnttReportHtmlAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportKeHoachVonCnttReportExcelAsync(fromYear, toYear, groupStatus, donViTinh);
+                fileBytes = await reportService.ExportKeHoachVonCnttReportExcelAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }

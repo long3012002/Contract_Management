@@ -32,16 +32,20 @@ public class HopDongDto : IHasId
     public string? ThoiHanThucHien { get; set; }
     public string? DiaDiemThucHien { get; set; }
     public decimal GiaTriHopDong { get; set; }
+    public decimal TongGiaTriPhuLucActive { get; set; }
+    public decimal TongGiaTriHienTai { get; set; }
     public int HinhThucThanhToan { get; set; }
     public DateTime? NgayHieuLuc { get; set; }
 
     public DateTime? ExpiredDate { get; set; }
+    public DateTime? ExpiredDateHienTai { get; set; }
     public DateTime? RenewalReminderDate { get; set; }
     public bool IsRenewalRequired { get; set; }
 
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
     public List<HangHoaDichVuDto> HangHoaDichVus { get; set; } = new();
+    public List<PhuLucHopDongDto> PhuLucHopDongs { get; set; } = new();
     public List<FileAttachmentDto> FileAttachments { get; set; } = new();
 
     public bool IsActive { get; set; }
