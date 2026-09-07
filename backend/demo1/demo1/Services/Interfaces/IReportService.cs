@@ -35,6 +35,11 @@ public interface IReportService
     Task<byte[]> ExportKeHoachVonCnttReportExcelAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
     Task<byte[]> ExportKeHoachVonCnttReportCsvAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
     Task<byte[]> ExportKeHoachVonCnttReportHtmlAsync(int? fromYear, int? toYear, int? groupStatus, string? donViTinh = null);
+
+    Task<LicenseSlaReportResponseDto> GetLicenseSlaReportAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportLicenseSlaReportExcelAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportLicenseSlaReportCsvAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportLicenseSlaReportHtmlAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
 }
 
 

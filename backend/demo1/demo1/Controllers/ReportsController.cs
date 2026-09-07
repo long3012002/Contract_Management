@@ -608,4 +608,93 @@ public class ReportsController(IReportService reportService) : ControllerBase
     }
 
     #endregion
+
+    #region 7. Báo cáo Quản lý Hạn License / Bảo trì & SLA Nhà thầu
+
+    /// <summary>
+    /// Lấy Báo cáo Quản lý Hạn License / Bảo trì &amp; SLA Nhà thầu.
+    /// </summary>
+    /// <param name="statusFilter">Bộ lọc trạng thái: 1 (Đã hết hạn), 2 (Sắp hết hạn), 3 (An toàn)</param>
+    /// <param name="search">Từ khóa tìm kiếm</param>
+    /// <param name="donViTinh">Đơn vị tính</param>
+    [HttpGet("license-sla")]
+    [HttpGet("han-license-bao-tri")]
+    [HttpGet("/api/NghiepVu/report/license-sla")]
+    [HttpGet("/api/NghiepVu/report/han-license-bao-tri")]
+    [ProducesResponseType(typeof(LicenseSlaReportResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<LicenseSlaReportResponseDto>> GetLicenseSlaReport(
+        [FromQuery] int? statusFilter,
+        [FromQuery] string? search,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            var report = await reportService.GetLicenseSlaReportAsync(statusFilter, search, donViTinh);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo Hạn License & SLA nhà thầu.", detail = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Xuất file Báo cáo Quản lý Hạn License / Bảo trì &amp; SLA Nhà thầu (Excel, CSV, HTML).
+    /// </summary>
+    [HttpGet("license-sla/export")]
+    [HttpGet("han-license-bao-tri/export")]
+    [HttpGet("/api/NghiepVu/report/license-sla/export")]
+    [HttpGet("/api/NghiepVu/report/han-license-bao-tri/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportLicenseSlaReport(
+        [FromQuery] int? statusFilter,
+        [FromQuery] string? search,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await reportService.ExportLicenseSlaReportCsvAsync(statusFilter, search, donViTinh);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await reportService.ExportLicenseSlaReportHtmlAsync(statusFilter, search, donViTinh);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await reportService.ExportLicenseSlaReportExcelAsync(statusFilter, search, donViTinh);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_LicenseSLA_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new { fileName, contentType, base64Data });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo License & SLA nhà thầu.", detail = ex.Message });
+        }
+    }
+
+    #endregion
 }

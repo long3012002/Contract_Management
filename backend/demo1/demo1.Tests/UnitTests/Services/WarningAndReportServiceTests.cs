@@ -288,6 +288,71 @@ namespace demo1.Tests.UnitTests.Services
             cnttHtml.Should().NotBeNullOrEmpty();
         }
 
+        [Fact]
+        public async Task ReportService_LicenseSlaReport_Should_Generate_Data_And_Exports()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var vendor = new DoiTac { Id = Guid.NewGuid(), Name = "FPT IS" };
+            var proj = new DuAn { Id = Guid.NewGuid(), Code = "DA-LIC", Name = "Dự án Nâng cấp Core", DuToanPheDuyet = 5000000000 };
+            var contract = new HopDong { Id = Guid.NewGuid(), Code = "HD-LIC-01", Name = "HĐ Bản quyền Oracle", GiaTriHopDong = 3000000000, DuAnId = proj.Id };
+
+            var licExpired = new License
+            {
+                Id = Guid.NewGuid(),
+                Code = "LIC-01",
+                Name = "Oracle DB License",
+                NhaCungCapId = vendor.Id,
+                DuAnId = proj.Id,
+                HopDongId = contract.Id,
+                LoaiLicense = 1,
+                NgayBatDau = DateTime.UtcNow.AddYears(-1),
+                NgayKetThuc = DateTime.UtcNow.AddDays(-10),
+                CanhBaoTruocNgay = 30,
+                TrangThai = 3
+            };
+
+            var licExpiring = new License
+            {
+                Id = Guid.NewGuid(),
+                Code = "LIC-02",
+                Name = "Fortinet License",
+                NhaCungCapId = vendor.Id,
+                DuAnId = proj.Id,
+                HopDongId = contract.Id,
+                LoaiLicense = 1,
+                NgayBatDau = DateTime.UtcNow.AddYears(-1),
+                NgayKetThuc = DateTime.UtcNow.AddDays(15),
+                CanhBaoTruocNgay = 30,
+                TrangThai = 2
+            };
+
+            _dbContext.DoiTacs.Add(vendor);
+            _dbContext.DuAns.Add(proj);
+            _dbContext.HopDongs.Add(contract);
+            _dbContext.Licenses.AddRange(licExpired, licExpiring);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetLicenseSlaReportAsync(null, null, "đồng");
+            var excelBytes = await service.ExportLicenseSlaReportExcelAsync(null, null, "đồng");
+            var csvBytes = await service.ExportLicenseSlaReportCsvAsync(null, null, "đồng");
+            var htmlBytes = await service.ExportLicenseSlaReportHtmlAsync(null, null, "đồng");
+
+            // Assert
+            report.Should().NotBeNull();
+            report.TongHop.TongSoLicense.Should().Be(2);
+            report.TongHop.SoLicenseDaHetHan.Should().Be(1);
+            report.TongHop.SoLicenseSapHetHan30Ngay.Should().Be(1);
+            report.DanhSachChiTiet.Should().HaveCount(2);
+
+            excelBytes.Should().NotBeNullOrEmpty();
+            csvBytes.Should().NotBeNullOrEmpty();
+            htmlBytes.Should().NotBeNullOrEmpty();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

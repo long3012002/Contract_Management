@@ -21,9 +21,8 @@ public class DuAn : BaseEntity
     public Guid? NguonVonId { get; set; }
     public virtual NguonVon? NguonVon { get; set; }
     
-    // Navigation Properties cho quan hệ Many-to-Many giữa Dự án Triển khai và Dự án Nguồn
+    // Navigation Properties cho quan hệ giữa Dự án Triển khai và Dự án Nguồn
     public virtual ICollection<DuAnNguonTrienKhai> NguonDuAns { get; set; } = new List<DuAnNguonTrienKhai>();
-    public virtual ICollection<DuAnNguonTrienKhai> TrienKhaiDuAns { get; set; } = new List<DuAnNguonTrienKhai>();
     
     public string? ChuDauTu { get; set; }
     public string? DiaDiemThucHien { get; set; }

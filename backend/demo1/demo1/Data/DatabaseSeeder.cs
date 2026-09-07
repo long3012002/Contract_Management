@@ -181,7 +181,7 @@ public static class DatabaseSeeder
                     LoaiDuAn = 2, // Dự án triển khai
                     NguonDuAns = new List<DuAnNguonTrienKhai>
                     {
-                        new DuAnNguonTrienKhai { NguonProjectId = randomSource.Id, CreatedAt = startDate.AddDays(-15) }
+                        new DuAnNguonTrienKhai { NguonProjectId = randomSource.Id.ToString(), CreatedAt = startDate.AddDays(-15) }
                     },
                     NhomDuAnId = isGroupB ? nhomB?.Id : null,
                     PhanLoaiDuAnId = selectedPhanLoai?.Id,

@@ -267,17 +267,16 @@ namespace demo1.Data
                 .HasMaxLength(255);
             modelBuilder.Entity<DuAnNguonTrienKhai>(entity =>
             {
-                entity.HasKey(e => new { e.TrienKhaiProjectId, e.NguonProjectId });
+                entity.HasKey(e => e.TrienKhaiProjectId);
+                entity.HasIndex(e => e.TrienKhaiProjectId).IsUnique();
+
+                entity.Property(e => e.NguonProjectId)
+                      .HasMaxLength(2000);
 
                 entity.HasOne(e => e.TrienKhaiProject)
                       .WithMany(p => p.NguonDuAns)
                       .HasForeignKey(e => e.TrienKhaiProjectId)
                       .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.NguonProject)
-                      .WithMany(p => p.TrienKhaiDuAns)
-                      .HasForeignKey(e => e.NguonProjectId)
-                      .OnDelete(DeleteBehavior.Restrict);
             });
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.NoiDung)
