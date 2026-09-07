@@ -1,12 +1,14 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using demo1.Data;
 using demo1.Entity;
 using demo1.Services.Interfaces;
 using demo1.Tests.Helpers;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
@@ -219,6 +221,93 @@ namespace demo1.Tests.UnitTests.Services
             Assert.NotNull(auditLog);
             Assert.Equal("admin", auditLog.Username);
             Assert.Equal("admin thêm người liên quan vào Dự án ABC", auditLog.Description);
+        }
+
+        [Fact]
+        public async Task GetAuditLogsByProjectIdAsync_CaseInsensitiveAndFKMappingAndChangeFiltering_WorksAsExpected()
+        {
+            // Arrange
+            var (context, mockUserService) = CreateDbContextWithUser("admin");
+
+            var nhomDuAn = new demo1.Entity.DanhMuc.NhomDuAn { Id = Guid.NewGuid(), Code = "NDA01", Name = "Nhóm CNTT" };
+            var phanLoai = new demo1.Entity.DanhMuc.PhanLoaiDuAn { Id = Guid.NewGuid(), Code = "PL01", Name = "Dự án nhóm A" };
+            var nguonVon = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV01", Name = "Ngân sách nhà nước" };
+            var doiTac = new DoiTac { Id = Guid.NewGuid(), Code = "DT01", Name = "Tập đoàn Viettel" };
+            var projectId = Guid.NewGuid();
+
+            context.NhomDuAns.Add(nhomDuAn);
+            context.PhanLoaiDuAns.Add(phanLoai);
+            context.NguonVons.Add(nguonVon);
+            context.DoiTacs.Add(doiTac);
+
+            // Audit log 1: TableName is "DuAn" (variant), EntityId is UPPERCASE Guid string, Action is UPDATE
+            var log1 = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                TableName = "DuAn",
+                EntityId = projectId.ToString().ToUpper(),
+                Action = "UPDATE",
+                Timestamp = DateTime.UtcNow.AddMinutes(-5),
+                Username = "admin",
+                OldValues = $"{{\"Name\":\"Core Banking\",\"NhomDuAnId\":\"{nhomDuAn.Id}\",\"PhanLoaiDuAnId\":\"{phanLoai.Id}\"}}",
+                NewValues = $"{{\"Name\":\"Core Banking\",\"NhomDuAnId\":\"{nhomDuAn.Id}\",\"PhanLoaiDuAnId\":\"{Guid.NewGuid()}\"}}"
+            };
+
+            // Audit log 2: TableName is "Dự án" (variant), EntityId is LOWERCASE Guid string, Action is CREATE
+            var log2 = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                TableName = "Dự án",
+                EntityId = projectId.ToString().ToLower(),
+                Action = "CREATE",
+                Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                Username = "admin",
+                NewValues = $"{{\"ChuDauTuId\":\"{doiTac.Id}\",\"NguonVonId\":\"{nguonVon.Id}\"}}"
+            };
+
+            context.AuditLogs.AddRange(log1, log2);
+            await context.SaveChangesAsync();
+
+            var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddAutoMapper(cfg => cfg.AddProfile<demo1.Mapper.MappingProfile>());
+            var serviceProvider = services.BuildServiceProvider();
+            var mapper = serviceProvider.GetRequiredService<IMapper>();
+            var mockHubContext = new Mock<Microsoft.AspNetCore.SignalR.IHubContext<demo1.Hubs.NotificationHub>>();
+            var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, mockHubContext.Object);
+
+            // Act
+            var logs = await duAnService.GetAuditLogsByProjectIdAsync(projectId);
+
+            // Assert
+            Assert.Equal(2, logs.Count);
+
+            // Log 1 assertions (UPDATE)
+            var updateLog = logs.First(l => l.Id == log1.Id);
+            Assert.Equal("Dự án", updateLog.TableName);
+            Assert.Equal("UPDATE", updateLog.Action);
+            Assert.NotNull(updateLog.OldValues);
+            Assert.NotNull(updateLog.NewValues);
+            Assert.NotNull(updateLog.ChangedColumns);
+
+            // Name field had no change ("Core Banking" vs "Core Banking"), so it should be filtered out!
+            Assert.DoesNotContain("Tên", updateLog.ChangedColumns);
+            Assert.DoesNotContain("Name", updateLog.ChangedColumns);
+            Assert.Contains("Phân loại dự án", updateLog.ChangedColumns);
+
+            // NhomDuAnId had same GUID, so filtered out!
+            Assert.DoesNotContain("Nhóm dự án", updateLog.ChangedColumns);
+
+            // Check translated GUID in OldValues for PhanLoaiDuAnId -> "Dự án nhóm A"
+            Assert.Contains("Dự án nhóm A", updateLog.OldValues);
+
+            // Log 2 assertions (CREATE)
+            var createLog = logs.First(l => l.Id == log2.Id);
+            Assert.Equal("Dự án", createLog.TableName);
+            Assert.Equal("CREATE", createLog.Action);
+            Assert.Null(createLog.OldValues);
+            Assert.Contains("Tập đoàn Viettel", createLog.NewValues);
+            Assert.Contains("Ngân sách nhà nước", createLog.NewValues);
         }
     }
 }

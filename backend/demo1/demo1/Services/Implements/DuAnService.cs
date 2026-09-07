@@ -827,9 +827,140 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         });
     }
 
+    private Dictionary<string, object?>? ParseJsonToDictionary(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) return null;
+
+            var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                dict[prop.Name] = prop.Value.Clone();
+            }
+            return dict;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string ReplaceGuidsInValue(object? val, Dictionary<string, string> entityNameMap)
+    {
+        if (val == null) return string.Empty;
+
+        if (val is System.Text.Json.JsonElement element)
+        {
+            if (element.ValueKind == System.Text.Json.JsonValueKind.Null || element.ValueKind == System.Text.Json.JsonValueKind.Undefined)
+            {
+                return string.Empty;
+            }
+            var rawStr = element.ToString();
+            return ReplaceGuidsInJson(rawStr, entityNameMap) ?? string.Empty;
+        }
+
+        var str = val.ToString() ?? string.Empty;
+        return ReplaceGuidsInJson(str, entityNameMap) ?? string.Empty;
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions AuditJsonOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    private string? ProcessAndFormatJson(string? json, Dictionary<string, string> entityNameMap)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return json;
+
+        var dict = ParseJsonToDictionary(json);
+        if (dict == null)
+        {
+            return ReplaceGuidsInJson(json, entityNameMap);
+        }
+
+        var formatted = new Dictionary<string, object?>();
+        foreach (var kvp in dict)
+        {
+            var translatedKey = AppDbContext.TranslateColumnName(kvp.Key);
+            var valStr = ReplaceGuidsInValue(kvp.Value, entityNameMap);
+            formatted[translatedKey] = valStr;
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(formatted, AuditJsonOptions);
+    }
+
+    private void ProcessUpdateLogValues(AuditLog log, Dictionary<string, string> entityNameMap)
+    {
+        var oldDict = ParseJsonToDictionary(log.OldValues);
+        var newDict = ParseJsonToDictionary(log.NewValues);
+
+        if (oldDict == null && newDict == null)
+        {
+            return;
+        }
+
+        var translatedOld = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var translatedNew = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        if (oldDict != null)
+        {
+            foreach (var kvp in oldDict)
+            {
+                var translatedKey = AppDbContext.TranslateColumnName(kvp.Key);
+                translatedOld[translatedKey] = kvp.Value;
+            }
+        }
+
+        if (newDict != null)
+        {
+            foreach (var kvp in newDict)
+            {
+                var translatedKey = AppDbContext.TranslateColumnName(kvp.Key);
+                translatedNew[translatedKey] = kvp.Value;
+            }
+        }
+
+        var allKeys = translatedOld.Keys.Union(translatedNew.Keys, StringComparer.OrdinalIgnoreCase).ToList();
+        var filteredOld = new Dictionary<string, object?>();
+        var filteredNew = new Dictionary<string, object?>();
+        var changedColumns = new List<string>();
+
+        foreach (var key in allKeys)
+        {
+            translatedOld.TryGetValue(key, out var rawOld);
+            translatedNew.TryGetValue(key, out var rawNew);
+
+            var oldStr = ReplaceGuidsInValue(rawOld, entityNameMap);
+            var newStr = ReplaceGuidsInValue(rawNew, entityNameMap);
+
+            var normOld = string.IsNullOrWhiteSpace(oldStr) ? string.Empty : oldStr.Trim();
+            var normNew = string.IsNullOrWhiteSpace(newStr) ? string.Empty : newStr.Trim();
+
+            if (!string.Equals(normOld, normNew, StringComparison.Ordinal))
+            {
+                changedColumns.Add(key);
+                if (rawOld != null) filteredOld[key] = oldStr;
+                if (rawNew != null) filteredNew[key] = newStr;
+            }
+        }
+
+        log.ChangedColumns = changedColumns.Any() ? System.Text.Json.JsonSerializer.Serialize(changedColumns, AuditJsonOptions) : null;
+        log.OldValues = filteredOld.Any() ? System.Text.Json.JsonSerializer.Serialize(filteredOld, AuditJsonOptions) : null;
+        log.NewValues = filteredNew.Any() ? System.Text.Json.JsonSerializer.Serialize(filteredNew, AuditJsonOptions) : null;
+    }
+
     public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
     {
         var projectIdStr = id.ToString();
+        var projectIdStrLower = projectIdStr.ToLower();
+
+        var duAnTableNames = new[] { "duans", "duan", "dự án" };
+        var dieuChinhTableNames = new[] { "dieuchinhduans", "dieuchinhduan", "điều chỉnh dự án" };
+        var goiThauTableNames = new[] { "goithaus", "goithau", "gói thầu" };
+        var hopDongTableNames = new[] { "hopdongs", "hopdong", "hợp đồng" };
 
         var dieuChinhIds = await DbContext.DieuChinhDuAns
                                           .Where(dc => dc.DuAnId == id)
@@ -847,13 +978,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                                         .Select(hd => hd.Id.ToString())
                                         .ToListAsync();
 
+        var dieuChinhIdsLower = dieuChinhIds.Select(i => i.ToLower()).ToList();
+        var goiThauIdsLower = goiThauIds.Select(i => i.ToLower()).ToList();
+        var hopDongIdsLower = hopDongIds.Select(i => i.ToLower()).ToList();
+
         var logs = await DbContext.AuditLogs
-                                  .Where(log => 
-                                      (log.TableName == nameof(AppDbContext.DuAns) && log.EntityId == projectIdStr) ||
-                                      (log.TableName == nameof(AppDbContext.DieuChinhDuAns) && dieuChinhIds.Contains(log.EntityId)) ||
-                                      (log.TableName == nameof(AppDbContext.GoiThaus) && goiThauIds.Contains(log.EntityId)) ||
-                                      (log.TableName == nameof(AppDbContext.HopDongs) && hopDongIds.Contains(log.EntityId))
-                                  )
+                                  .Where(log => log.EntityId != null && (
+                                      (duAnTableNames.Contains(log.TableName.ToLower()) && log.EntityId.ToLower() == projectIdStrLower) ||
+                                      (dieuChinhTableNames.Contains(log.TableName.ToLower()) && dieuChinhIdsLower.Contains(log.EntityId.ToLower())) ||
+                                      (goiThauTableNames.Contains(log.TableName.ToLower()) && goiThauIdsLower.Contains(log.EntityId.ToLower())) ||
+                                      (hopDongTableNames.Contains(log.TableName.ToLower()) && hopDongIdsLower.Contains(log.EntityId.ToLower()))
+                                  ))
                                   .OrderByDescending(log => log.Timestamp)
                                   .ToListAsync();
 
@@ -938,15 +1073,145 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 {
                     entityNameMap[dt.Id.ToString()] = dt.Name;
                 }
+
+                // 7. Map NhomDuAns
+                var dbNhomDuAns = await DbContext.NhomDuAns
+                    .Where(nd => guidList.Contains(nd.Id))
+                    .Select(nd => new { nd.Id, Name = nd.Name })
+                    .ToListAsync();
+                foreach (var item in dbNhomDuAns)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 8. Map PhanLoaiDuAns
+                var dbPhanLoai = await DbContext.PhanLoaiDuAns
+                    .Where(pl => guidList.Contains(pl.Id))
+                    .Select(pl => new { pl.Id, Name = pl.Name })
+                    .ToListAsync();
+                foreach (var item in dbPhanLoai)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 9. Map NguonVons
+                var dbNguonVon = await DbContext.NguonVons
+                    .Where(nv => guidList.Contains(nv.Id))
+                    .Select(nv => new { nv.Id, Name = nv.Name })
+                    .ToListAsync();
+                foreach (var item in dbNguonVon)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 10. Map LoaiHopDongs
+                var dbLoaiHopDong = await DbContext.LoaiHopDongs
+                    .Where(lhd => guidList.Contains(lhd.Id))
+                    .Select(lhd => new { lhd.Id, Name = lhd.Name })
+                    .ToListAsync();
+                foreach (var item in dbLoaiHopDong)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 11. Map PhongBans
+                var dbPhongBan = await DbContext.PhongBans
+                    .Where(pb => guidList.Contains(pb.Id))
+                    .Select(pb => new { pb.Id, Name = pb.TenPhongBan })
+                    .ToListAsync();
+                foreach (var item in dbPhongBan)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 12. Map DonVis
+                var dbDonVi = await DbContext.DonVis
+                    .Where(dv => guidList.Contains(dv.Id))
+                    .Select(dv => new { dv.Id, Name = dv.TenDonVi })
+                    .ToListAsync();
+                foreach (var item in dbDonVi)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 13. Map ToNhoms
+                var dbToNhom = await DbContext.ToNhoms
+                    .Where(tn => guidList.Contains(tn.Id))
+                    .Select(tn => new { tn.Id, Name = tn.TenToNhom })
+                    .ToListAsync();
+                foreach (var item in dbToNhom)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 14. Map ChucVus
+                var dbChucVu = await DbContext.ChucVus
+                    .Where(cv => guidList.Contains(cv.Id))
+                    .Select(cv => new { cv.Id, Name = cv.TenChucVu })
+                    .ToListAsync();
+                foreach (var item in dbChucVu)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 15. Map Licenses
+                var dbLicenses = await DbContext.Licenses
+                    .Where(lic => guidList.Contains(lic.Id))
+                    .Select(lic => new { lic.Id, Name = lic.Name })
+                    .ToListAsync();
+                foreach (var item in dbLicenses)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 16. Map HangHoaDichVus
+                var dbHangHoa = await DbContext.HangHoaDichVus
+                    .Where(hh => guidList.Contains(hh.Id))
+                    .Select(hh => new { hh.Id, Name = !string.IsNullOrEmpty(hh.Name) ? hh.Name : hh.TenDichVu })
+                    .ToListAsync();
+                foreach (var item in dbHangHoa)
+                {
+                    if (!string.IsNullOrEmpty(item.Name)) entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 17. Map XuatXus
+                var dbXuatXu = await DbContext.XuatXus
+                    .Where(xx => guidList.Contains(xx.Id))
+                    .Select(xx => new { xx.Id, Name = xx.Name })
+                    .ToListAsync();
+                foreach (var item in dbXuatXu)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 18. Map DonViTinhs
+                var dbDonViTinh = await DbContext.DonViTinhs
+                    .Where(dvt => guidList.Contains(dvt.Id))
+                    .Select(dvt => new { dvt.Id, Name = dvt.Name })
+                    .ToListAsync();
+                foreach (var item in dbDonViTinh)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
+
+                // 19. Map HangSanXuats
+                var dbHangSanXuat = await DbContext.HangSanXuats
+                    .Where(hsx => guidList.Contains(hsx.Id))
+                    .Select(hsx => new { hsx.Id, Name = hsx.Name })
+                    .ToListAsync();
+                foreach (var item in dbHangSanXuat)
+                {
+                    entityNameMap[item.Id.ToString()] = item.Name;
+                }
             }
 
             foreach (var log in logs)
             {
-                // Format tên bảng sang Tiếng Việt thân thiện
-                if (log.TableName == "DuAns") log.TableName = "Dự án";
-                else if (log.TableName == "DieuChinhDuAns") log.TableName = "Điều chỉnh dự án";
-                else if (log.TableName == "GoiThaus") log.TableName = "Gói thầu";
-                else if (log.TableName == "HopDongs") log.TableName = "Hợp đồng";
+                var tableLower = log.TableName?.ToLower() ?? string.Empty;
+                if (tableLower == "duans" || tableLower == "duan") log.TableName = "Dự án";
+                else if (tableLower == "dieuchinhduans" || tableLower == "dieuchinhduan") log.TableName = "Điều chỉnh dự án";
+                else if (tableLower == "goithaus" || tableLower == "goithau") log.TableName = "Gói thầu";
+                else if (tableLower == "hopdongs" || tableLower == "hopdong") log.TableName = "Hợp đồng";
 
                 var actionUpper = log.Action?.ToUpper() ?? string.Empty;
 
@@ -954,19 +1219,23 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 {
                     log.Action = "CREATE";
                     log.OldValues = null;
-                    log.NewValues = ReplaceGuidsInJson(log.NewValues, entityNameMap);
+                    log.NewValues = ProcessAndFormatJson(log.NewValues, entityNameMap);
                 }
                 else if (actionUpper == "DELETE" || actionUpper == "XÓA")
                 {
                     log.Action = "DELETE";
-                    log.OldValues = ReplaceGuidsInJson(log.OldValues, entityNameMap);
+                    log.OldValues = ProcessAndFormatJson(log.OldValues, entityNameMap);
                     log.NewValues = null;
+                }
+                else if (actionUpper == "UPDATE" || actionUpper == "CẬP NHẬT")
+                {
+                    log.Action = "UPDATE";
+                    ProcessUpdateLogValues(log, entityNameMap);
                 }
                 else
                 {
-                    log.Action = "UPDATE";
-                    log.OldValues = ReplaceGuidsInJson(log.OldValues, entityNameMap);
-                    log.NewValues = ReplaceGuidsInJson(log.NewValues, entityNameMap);
+                    log.OldValues = ProcessAndFormatJson(log.OldValues, entityNameMap);
+                    log.NewValues = ProcessAndFormatJson(log.NewValues, entityNameMap);
                 }
             }
         }

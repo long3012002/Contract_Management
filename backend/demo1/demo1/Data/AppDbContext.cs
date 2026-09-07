@@ -1296,6 +1296,9 @@ namespace demo1.Data
             { "ToChucThucHien", "Tổ chức thực hiện" },
             { "CreatedByUserId", "Người tạo dự án" },
             { "ChuDuAnId", "Chủ dự án" },
+            { "ProjectManagerId", "Quản lý dự án" },
+            { "HinhThucQuanLyId", "Hình thức quản lý" },
+            { "LoaiDuAn", "Loại dự án" },
 
             // HopDong (Contract)
             { "GiaTriHopDong", "Giá trị hợp đồng" },
@@ -1313,6 +1316,9 @@ namespace demo1.Data
             { "IsRenewalRequired", "Yêu cầu gia hạn" },
             { "LoaiHopDong", "Phân loại hợp đồng" },
             { "RenewalReminderDate", "Ngày nhắc gia hạn" },
+            { "GiaHopDong", "Giá hợp đồng" },
+            { "SoHopDong", "Số hợp đồng" },
+            { "TenHopDong", "Tên hợp đồng" },
 
             // GoiThau (Package)
             { "GiaTriGoiThau", "Giá trị gói thầu" },
@@ -1320,6 +1326,13 @@ namespace demo1.Data
             { "PhuongThucLuaChon", "Phương thức lựa chọn nhà thầu" },
             { "ThoiGianBatDau", "Thời gian bắt đầu" },
             { "ThoiGianKetThuc", "Thời gian kết thúc" },
+            { "TenGoiThau", "Tên gói thầu" },
+            { "MaGoiThau", "Mã gói thầu" },
+
+            // DieuChinhDuAn (Project Adjustment)
+            { "LyDoDieuChinh", "Lý do điều chỉnh" },
+            { "GiaTriTruocDieuChinh", "Giá trị trước điều chỉnh" },
+            { "GiaTriSauDieuChinh", "Giá trị sau điều chỉnh" },
 
             // DotThanhToan (Payment)
             { "TenDot", "Tên đợt thanh toán" },
@@ -1336,6 +1349,9 @@ namespace demo1.Data
             { "TinhTrang", "Tình trạng" },
             { "CreateUserId", "Người tạo công việc" },
             { "ModifiedUserId", "Người cập nhật công việc" },
+            { "Status", "Trạng thái" },
+            { "MucDoUuTien", "Mức độ ưu tiên" },
+            { "NgayBatDau", "Ngày bắt đầu" },
 
             // DoiTac (Partner / Contractor)
             { "TaxCode", "Mã số thuế" },
@@ -1348,7 +1364,12 @@ namespace demo1.Data
             { "ThongTinThietBi", "Thông tin thiết bị" },
             { "NhaCungCapId", "Nhà cung cấp" },
             { "NgayKichHoat", "Ngày kích hoạt" },
-            { "NgayHetHan", "Ngày hết hạn" }
+            { "NgayHetHan", "Ngày hết hạn" },
+
+            // Misc / Financial
+            { "TienTe", "Tiền tệ" },
+            { "TyGia", "Tỷ giá" },
+            { "TriGia", "Trị giá" }
         };
 
         public static string TranslateColumnName(string columnName)
