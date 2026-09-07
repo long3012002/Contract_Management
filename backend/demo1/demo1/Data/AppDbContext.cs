@@ -713,6 +713,11 @@ namespace demo1.Data
                     .HasFilter("\"IsDeleted\" = false")
                     .IsUnique();
             }
+
+            // Composite index tối ưu cho tất cả pagination queries (ORDER BY CreatedAt DESC, Id DESC)
+            builder.HasIndex(entity => new { entity.CreatedAt, entity.Id })
+                .IsDescending(true, true)
+                .HasDatabaseName($"IX_{typeof(TEntity).Name}_CreatedAt_Id_Desc");
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

@@ -176,14 +176,19 @@ public class CongViecGoiThauService
             query = ApplySearchFilter(query, keyword);
         }
 
-        var totalItems = await query.CountAsync();
-
-        List<CongViecGoiThau> items = await query
+        // Chạy count và fetch song song
+        var countTask = query.CountAsync();
+        var itemsTask = query
             .OrderBy(item => item.Stt)
             .ThenByDescending(item => item.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        await Task.WhenAll(countTask, itemsTask);
+
+        var totalItems = countTask.Result;
+        List<CongViecGoiThau> items = itemsTask.Result;
 
         var dtos = Mapper.Map<List<CongViecGoiThauDto>>(items);
         await PopulateAttachmentsAsync(dtos);
