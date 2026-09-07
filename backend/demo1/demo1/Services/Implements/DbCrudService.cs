@@ -43,12 +43,12 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             // Chạy count và fetch song song — giảm latency ~40-50% so với tuần tự
             bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
 
-            Task<int> countTask = query.CountAsync();
-            Task<List<TEntity>> itemsTask;
+            var totalItems = await query.CountAsync();
+            List<TEntity> items;
 
             if (isKeyset)
             {
-                itemsTask = query
+                items = await query
                     .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
                     .OrderByDescending(item => item.CreatedAt)
                     .ThenByDescending(item => item.Id)
@@ -57,18 +57,13 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
             }
             else
             {
-                itemsTask = query
+                items = await query
                     .OrderByDescending(item => item.CreatedAt)
                     .ThenByDescending(item => item.Id)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
             }
-
-            await Task.WhenAll(countTask, itemsTask);
-
-            var totalItems = countTask.Result;
-            var items = itemsTask.Result;
 
             string? nextCursor = null;
             if (items.Any())

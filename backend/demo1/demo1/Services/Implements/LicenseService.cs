@@ -101,15 +101,13 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
                 query = ApplySearchFilter(query, keyword);
             }
 
-            // Chạy count và fetch song song — giảm latency ~40-50%
+            var totalItems = await query.CountAsync();
+            List<License> items;
             bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
-
-            var countTask = query.CountAsync();
-            Task<List<License>> itemsTask;
 
             if (isKeyset)
             {
-                itemsTask = query
+                items = await query
                     .Where(l => l.CreatedAt < lastCreatedAt || (l.CreatedAt == lastCreatedAt && l.Id.CompareTo(lastId) < 0))
                     .OrderByDescending(l => l.CreatedAt)
                     .ThenByDescending(l => l.Id)
@@ -118,18 +116,13 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             }
             else
             {
-                itemsTask = query
+                items = await query
                     .OrderByDescending(l => l.CreatedAt)
                     .ThenByDescending(l => l.Id)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
             }
-
-            await Task.WhenAll(countTask, itemsTask);
-
-            var totalItems = countTask.Result;
-            var items = itemsTask.Result;
 
             string? nextCursor = null;
             if (items.Any())
@@ -225,18 +218,15 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
                 query = ApplySearchFilter(query, keyword);
             }
 
-            // Chạy count và fetch song song
-            var countTask = query.CountAsync();
-            var itemsTask = query
+            var totalItems = await query.CountAsync();
+            var items = await query
                 .OrderByDescending(l => l.CreatedAt)
                 .ThenByDescending(l => l.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            await Task.WhenAll(countTask, itemsTask);
-
-            var dtos = itemsTask.Result
+            var dtos = items
                 .Select(item => EnrichDtoStatus(Mapper.Map<LicenseDto>(item), item))
                 .ToList();
 
@@ -245,7 +235,7 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
                 Items = dtos,
                 Page = page,
                 PageSize = pageSize,
-                TotalItems = countTask.Result
+                TotalItems = totalItems
             };
         }
         catch (Exception ex)

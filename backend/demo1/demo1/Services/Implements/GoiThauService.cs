@@ -85,14 +85,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 query = query.Where(item => item.CreatedAt <= filter.ToDate.Value);
             }
 
-            // Chạy count và fetch song song — giảm latency ~40-50%
-            var countTask = query.CountAsync();
-            Task<List<GoiThau>> itemsTask;
+            var totalItems = await query.CountAsync();
+            List<GoiThau> items;
             bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
 
             if (isKeyset)
             {
-                itemsTask = query
+                items = await query
                     .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
                     .OrderByDescending(item => item.CreatedAt)
                     .ThenByDescending(item => item.Id)
@@ -101,18 +100,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             }
             else
             {
-                itemsTask = query
+                items = await query
                     .OrderByDescending(item => item.CreatedAt)
                     .ThenByDescending(item => item.Id)
                     .Skip((page - 1) * pageSize)
                     .Take(pageSize)
                     .ToListAsync();
             }
-
-            await Task.WhenAll(countTask, itemsTask);
-
-            var totalItems = countTask.Result;
-            var items = itemsTask.Result;
 
             string? nextCursor = null;
             if (items.Any())
