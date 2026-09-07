@@ -248,33 +248,20 @@ public class ReportService : IReportService
                 approvalDecision = $"{approvalDecision} ngày {project.NgayBatDau.Value.ToString("dd/MM/yyyy")} V/v phê duyệt dự án {project.Name}";
             }
 
-            // Phân loại loại dự án
+            // Phân loại loại dự án dựa HOÀN TOÀN vào Danh mục Phân loại dự án (PhanLoaiDuAn)
             string projType = "Khac";
-            if (project.PhanLoaiDuAnCode != null)
+            if (!string.IsNullOrWhiteSpace(project.PhanLoaiDuAnCode) || !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName))
             {
-                var codeUpper = project.PhanLoaiDuAnCode.ToUpper();
+                var codeUpper = (project.PhanLoaiDuAnCode ?? string.Empty).ToUpper();
                 var nameLower = (project.PhanLoaiDuAnName ?? string.Empty).ToLower();
-                if (codeUpper.Contains("XAY_DUNG") || codeUpper.Contains("CONSTRUCTION") || nameLower.Contains("xây dựng") || nameLower.Contains("xay dung"))
+                
+                if (codeUpper.Contains("XAY_DUNG") || codeUpper.Contains("XDCB") || codeUpper.Contains("CONSTRUCTION") || 
+                    nameLower.Contains("xây dựng") || nameLower.Contains("xay dung") || nameLower.Contains("công trình"))
                 {
                     projType = "XayDung";
                 }
-                else if (codeUpper.Contains("CNTT") || codeUpper.Contains("IT") || codeUpper.Contains("SOFTWARE") || nameLower.Contains("công nghệ") || nameLower.Contains("cong nghe"))
-                {
-                    projType = "CNTT";
-                }
-            }
-            else
-            {
-                var nameLower = project.Name.ToLower();
-                if (nameLower.Contains("xây dựng") || nameLower.Contains("kiến trúc") || nameLower.Contains("nhà") || nameLower.Contains("đất"))
-                {
-                    projType = "XayDung";
-                }
-                else if (nameLower.Contains("công nghệ") || nameLower.Contains("cntt") || nameLower.Contains("phần mềm") || 
-                         nameLower.Contains("hệ thống") || nameLower.Contains("software") || nameLower.Contains("hardware") || 
-                         nameLower.Contains("máy chủ") || nameLower.Contains("thiết bị") || nameLower.Contains("bảo mật") || 
-                         nameLower.Contains("dlp") || nameLower.Contains("hsm") || nameLower.Contains("ftp") || 
-                         nameLower.Contains("database") || nameLower.Contains("mạng") || nameLower.Contains("it"))
+                else if (codeUpper.Contains("CNTT") || codeUpper.Contains("IT") || codeUpper.Contains("SOFTWARE") || 
+                         nameLower.Contains("công nghệ") || nameLower.Contains("cong nghe") || nameLower.Contains("cntt") || nameLower.Contains("phần mềm"))
                 {
                     projType = "CNTT";
                 }
