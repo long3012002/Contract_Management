@@ -283,6 +283,7 @@ namespace demo1.Tests.UnitTests.Services
 
             cnttReport.Should().NotBeNull();
             cnttReport.Groups.Should().NotBeEmpty();
+            cnttReport.Groups.SelectMany(g => g.Rows).Should().AllSatisfy(r => r.TenPhanLoaiDuAn.Should().NotBeNullOrEmpty());
             cnttExcel.Should().NotBeNullOrEmpty();
             cnttHtml.Should().NotBeNullOrEmpty();
         }

@@ -2405,6 +2405,7 @@ public class ReportService : IReportService
         var projects = await _context.DuAns
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
+            .Include(d => d.PhanLoaiDuAn)
             .Where(d => d.IsActive && !d.IsDeleted)
             .ToListAsync();
 
@@ -2428,9 +2429,13 @@ public class ReportService : IReportService
                 Rows = new List<KeHoachVonCnttReportRowDto>()
             };
 
-            var filteredProj = gType.Status == 1
+            var rawFiltered = gType.Status == 1
                 ? projects.Where(p => p.DaTrienKhai == true || p.TrangThai == 2)
                 : projects.Where(p => p.DaTrienKhai != true && p.TrangThai != 2);
+
+            var filteredProj = rawFiltered
+                .OrderBy(p => p.PhanLoaiDuAn != null ? (p.PhanLoaiDuAn.Name ?? string.Empty) : "ZZZ")
+                .ThenBy(p => p.Name);
 
             int stt = 1;
             foreach (var proj in filteredProj)
@@ -2441,6 +2446,9 @@ public class ReportService : IReportService
                     Stt = stt++,
                     DuAnId = proj.Id,
                     NoiDung = proj.Name,
+                    PhanLoaiDuAnId = proj.PhanLoaiDuAnId,
+                    PhanLoaiDuAnCode = proj.PhanLoaiDuAn?.Code,
+                    TenPhanLoaiDuAn = proj.PhanLoaiDuAn?.Name ?? "Chưa phân loại",
                     TongMucDauTu = totalInvestment,
                     VonTuCo = totalInvestment * 0.3m,
                     QuyDauTuPhatTrien = totalInvestment * 0.7m,
@@ -2505,13 +2513,14 @@ public class ReportService : IReportService
             int row = 4;
             worksheet.Cell(row, 1).Value = "STT";
             worksheet.Cell(row, 2).Value = "Nội dung";
-            worksheet.Cell(row, 3).Value = "Tổng mức đầu tư";
-            worksheet.Cell(row, 4).Value = "Vốn tự có";
-            worksheet.Cell(row, 5).Value = "Quỹ ĐTPT";
-            worksheet.Cell(row, 6).Value = "Trạng thái";
-            worksheet.Cell(row, 7).Value = "Ghi chú";
+            worksheet.Cell(row, 3).Value = "Phân loại dự án";
+            worksheet.Cell(row, 4).Value = "Tổng mức đầu tư";
+            worksheet.Cell(row, 5).Value = "Vốn tự có";
+            worksheet.Cell(row, 6).Value = "Quỹ ĐTPT";
+            worksheet.Cell(row, 7).Value = "Trạng thái";
+            worksheet.Cell(row, 8).Value = "Ghi chú";
 
-            var headerRange = worksheet.Range(row, 1, row, 7);
+            var headerRange = worksheet.Range(row, 1, row, 8);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
 
@@ -2519,22 +2528,23 @@ public class ReportService : IReportService
             foreach (var g in report.Groups)
             {
                 worksheet.Cell(row, 1).Value = g.TenNhom;
-                worksheet.Range(row, 1, row, 7).Merge().Style.Font.Bold = true;
+                worksheet.Range(row, 1, row, 8).Merge().Style.Font.Bold = true;
                 row++;
 
                 foreach (var r in g.Rows)
                 {
                     worksheet.Cell(row, 1).Value = r.Stt;
                     worksheet.Cell(row, 2).Value = r.NoiDung;
-                    worksheet.Cell(row, 3).Value = r.TongMucDauTu;
-                    worksheet.Cell(row, 4).Value = r.VonTuCo;
-                    worksheet.Cell(row, 5).Value = r.QuyDauTuPhatTrien;
-                    worksheet.Cell(row, 6).Value = r.TrangThaiText ?? "-";
-                    worksheet.Cell(row, 7).Value = r.GhiChu ?? "";
+                    worksheet.Cell(row, 3).Value = r.TenPhanLoaiDuAn ?? "Chưa phân loại";
+                    worksheet.Cell(row, 4).Value = r.TongMucDauTu;
+                    worksheet.Cell(row, 5).Value = r.VonTuCo;
+                    worksheet.Cell(row, 6).Value = r.QuyDauTuPhatTrien;
+                    worksheet.Cell(row, 7).Value = r.TrangThaiText ?? "-";
+                    worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
 
-                    worksheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0.##";
                     worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.##";
                     worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
 
                     row++;
                 }
@@ -2565,10 +2575,10 @@ public class ReportService : IReportService
                 foreach (var g in report.Groups)
                 {
                     await writer.WriteLineAsync($"\"{g.TenNhom}\"");
-                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Tổng mức đầu tư\",\"Vốn tự có\",\"Quỹ ĐTPT\",\"Trạng thái\",\"Ghi chú\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",\"Vốn tự có\",\"Quỹ ĐTPT\",\"Trạng thái\",\"Ghi chú\"");
                     foreach (var r in g.Rows)
                     {
-                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
                     }
                     await writer.WriteLineAsync();
                 }
@@ -2589,10 +2599,10 @@ public class ReportService : IReportService
         foreach (var g in report.Groups)
         {
             html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(g.TenNhom)}</h3>");
-            html.AppendLine("<table><thead><tr><th>STT</th><th>Nội dung</th><th>Tổng mức đầu tư</th><th>Vốn tự có</th><th>Quỹ ĐTPT</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
+            html.AppendLine("<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th><th>Vốn tự có</th><th>Quỹ ĐTPT</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
             foreach (var r in g.Rows)
             {
-                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
             }
             html.AppendLine("</tbody></table>");
         }

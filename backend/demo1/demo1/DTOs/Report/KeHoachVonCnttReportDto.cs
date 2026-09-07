@@ -28,6 +28,11 @@ public class KeHoachVonCnttReportRowDto
     public string? DonViDeXuatChiDao { get; set; }
     public string? GhiChu { get; set; }
     public int NhomTrangThai { get; set; } // 1: Đã phê duyệt/đang triển khai, 2: Đề xuất mới
+
+    // Phân loại dự án
+    public Guid? PhanLoaiDuAnId { get; set; }
+    public string? PhanLoaiDuAnCode { get; set; }
+    public string? TenPhanLoaiDuAn { get; set; }
 }
 
 public class KeHoachVonCnttReportGroupDto

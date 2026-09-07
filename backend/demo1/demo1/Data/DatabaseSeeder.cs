@@ -124,8 +124,8 @@ public static class DatabaseSeeder
         var duAns = new List<DuAn>();
         if (!await context.DuAns.AnyAsync())
         {
-            var plCntt = await context.PhanLoaiDuAns.FirstOrDefaultAsync(p => p.Code == "PL_CNTT");
-            var plXdcb = await context.PhanLoaiDuAns.FirstOrDefaultAsync(p => p.Code == "PL_XDCB");
+            var phanLoaiDuAns = await context.PhanLoaiDuAns.ToListAsync();
+            var plCntt = phanLoaiDuAns.FirstOrDefault(p => p.Code == "PL_CNTT");
             var nhomB = await context.NhomDuAns.FirstOrDefaultAsync(n => n.Code == "NHOM_B");
 
             // Tạo trước một số dự án nguồn (LoaiDuAn = 1)
@@ -143,7 +143,7 @@ public static class DatabaseSeeder
                     LoaiDuAn = 1, // Dự án nguồn
                     DaTrienKhai = true,
                     ChuDauTu = "Ngân hàng Hợp tác xã Việt Nam (Co-op Bank)",
-                    PhanLoaiDuAnId = plCntt?.Id,
+                    PhanLoaiDuAnId = plCntt?.Id ?? phanLoaiDuAns.FirstOrDefault()?.Id,
                     SoQuyetDinh = $"QĐ-NHHT/2024/{100 + s}",
                     NgayBatDau = new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc),
                     NgayKetThuc = new DateTime(2027, 12, 31, 0, 0, 0, DateTimeKind.Utc),
@@ -168,6 +168,7 @@ public static class DatabaseSeeder
                 bool isCompleted = i % 4 == 0; // Một số dự án đã hoàn thành bàn giao
 
                 var randomSource = sourceProjects[(i - 1) % sourceProjects.Count];
+                var selectedPhanLoai = phanLoaiDuAns.Count > 0 ? phanLoaiDuAns[(i - 1) % phanLoaiDuAns.Count] : null;
 
                 duAns.Add(new DuAn
                 {
@@ -183,7 +184,7 @@ public static class DatabaseSeeder
                         new DuAnNguonTrienKhai { NguonProjectId = randomSource.Id, CreatedAt = startDate.AddDays(-15) }
                     },
                     NhomDuAnId = isGroupB ? nhomB?.Id : null,
-                    PhanLoaiDuAnId = isCntt ? plCntt?.Id : plXdcb?.Id,
+                    PhanLoaiDuAnId = selectedPhanLoai?.Id,
                     ChuDauTu = "Ngân hàng Hợp tác xã Việt Nam (Co-op Bank)",
                     DiaDiemThucHien = "Tòa nhà N04 Hoàng Đạo Thúy, Cầu Giấy, Hà Nội",
                     ThoiGianThucHien = $"{12 + (i % 12)} tháng",
@@ -204,7 +205,7 @@ public static class DatabaseSeeder
         }
         else
         {
-            duAns = await context.DuAns.Include(d => d.NhomDuAn).ToListAsync();
+            duAns = await context.DuAns.Include(d => d.NhomDuAn).Include(d => d.PhanLoaiDuAn).ToListAsync();
 
             // Nếu DB đã có dữ liệu từ trước nhưng chưa có dự án Nhóm B (ngân sách >= 45 tỷ hoặc mã NHOM_B), cập nhật 6 dự án đầu tiên
             var nhomB = await context.NhomDuAns.FirstOrDefaultAsync(n => n.Code == "NHOM_B");
@@ -218,6 +219,22 @@ public static class DatabaseSeeder
                     proj.DuToanPheDuyet = (50 + count * 15) * 1_000_000_000m;
                     if (nhomB != null) proj.NhomDuAnId = nhomB.Id;
                     count++;
+                }
+                await context.SaveChangesAsync();
+            }
+
+            // Gán/cập nhật Phân loại dự án cho các dự án trong DB chưa có Phân loại dự án
+            var allPhanLoai = await context.PhanLoaiDuAns.ToListAsync();
+            if (allPhanLoai.Any() && duAns.Any(d => d.PhanLoaiDuAnId == null))
+            {
+                int idx = 0;
+                foreach (var proj in duAns)
+                {
+                    if (proj.PhanLoaiDuAnId == null)
+                    {
+                        proj.PhanLoaiDuAnId = allPhanLoai[idx % allPhanLoai.Count].Id;
+                    }
+                    idx++;
                 }
                 await context.SaveChangesAsync();
             }

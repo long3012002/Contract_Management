@@ -405,6 +405,34 @@ public static class CreateFakeDataExtensions
                     }
                 }
 
+                // Seed/Sync Default PhanLoaiDuAns (Loại dự án)
+                var defaultPhanLoaiDuAns = new List<(string Code, string Name, string Description)>
+                {
+                    ("PL_CNTT", "Dự án Công nghệ thông tin", "Dự án đầu tư hạ tầng, phần mềm và giải pháp CNTT"),
+                    ("PL_XDCB", "Dự án Xây dựng cơ bản & Bảo trì", "Sửa chữa, cải tạo trụ sở, phòng giao dịch"),
+                    ("PL_MSHH_DV", "Mua sắm hàng hóa & Dịch vụ", "Trang thiết bị văn phòng, dịch vụ tư vấn..."),
+                    ("PL_DIGITAL_BANKING", "Dự án Ngân hàng số & Thẻ", "Core Banking, eBiz, Chatbot, Thẻ..."),
+                    ("PL_SECURITY", "Dự án An toàn thông tin & Bảo mật", "Bảo mật mạng, SOC, An ninh thông tin..."),
+                    ("PL_KHAC", "Dự án / Phân loại khác", "Các loại dự án khác")
+                };
+
+                foreach (var pl in defaultPhanLoaiDuAns)
+                {
+                    if (!await context.PhanLoaiDuAns.AnyAsync(x => x.Code == pl.Code))
+                    {
+                        context.PhanLoaiDuAns.Add(new demo1.Entity.DanhMuc.PhanLoaiDuAn
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = pl.Code,
+                            Name = pl.Name,
+                            Description = pl.Description,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
+
                 if (configuration.GetValue<bool>("Database:SeedSampleData"))
                 {
                     await DatabaseSeeder.SeedAsync(context);
