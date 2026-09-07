@@ -365,20 +365,7 @@ namespace demo1.Services.Implements
             };
             _context.Notifications.Add(userNoti);
 
-            // Create notification for granter (admin)
-            var adminNoti = new Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = adminId,
-                Title = "Phân quyền: Cấp quyền thành công",
-                Content = $"Bạn đã cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' cho người dùng '{user.Username}'.",
-                FeatureCode = "USER_PERMISSION",
-                EntityName = "UserPermission",
-                EntityId = permIdToNotify.ToString(),
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Notifications.Add(adminNoti);
+
 
             await _context.SaveChangesAsync();
             return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
@@ -475,20 +462,7 @@ namespace demo1.Services.Implements
                 };
                 _context.Notifications.Add(userNoti);
 
-                // Create notification for granter (admin)
-                var adminNoti = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = adminId,
-                    Title = "Phân quyền: Cấp quyền thành công",
-                    Content = $"Bạn đã cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' cho người dùng '{user.Username}'.",
-                    FeatureCode = "USER_PERMISSION",
-                    EntityName = "UserPermission",
-                    EntityId = permIdToNotify.ToString(),
-                    IsRead = false,
-                    CreatedAt = now
-                };
-                _context.Notifications.Add(adminNoti);
+
             }
 
             await _context.SaveChangesAsync();
@@ -538,20 +512,7 @@ namespace demo1.Services.Implements
             };
             _context.Notifications.Add(userNoti);
 
-            // Create notification for admin
-            var adminNoti = new Notification
-            {
-                Id = Guid.NewGuid(),
-                UserId = adminId,
-                Title = "Phân quyền: Thu hồi quyền thành công",
-                Content = $"Bạn đã thu hồi quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' trên dự án '{project?.Name ?? perm.DuAnId?.ToString() ?? perm.EntityId}' của người dùng '{perm.User?.Username ?? perm.UserId.ToString()}'.",
-                FeatureCode = "USER_PERMISSION",
-                EntityName = "UserPermission",
-                EntityId = perm.Id.ToString(),
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
-            _context.Notifications.Add(adminNoti);
+
 
             await _context.SaveChangesAsync();
             return true;
