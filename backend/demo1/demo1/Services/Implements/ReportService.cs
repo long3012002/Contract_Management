@@ -2406,6 +2406,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
+            .Include(d => d.NguonVon)
             .Where(d => d.IsActive && !d.IsDeleted)
             .ToListAsync();
 
@@ -2441,6 +2442,28 @@ public class ReportService : IReportService
             foreach (var proj in filteredProj)
             {
                 decimal totalInvestment = proj.DuToanPheDuyet / factor;
+
+                // Determine capital source allocation
+                decimal vonTuCo = 0;
+                decimal quyDauTuPhatTrien = 0;
+                decimal nguonKhac = 0;
+
+                var nguonVonName = (proj.NguonVon?.Name ?? string.Empty).Trim().ToLower();
+                var nguonVonCode = (proj.NguonVon?.Code ?? string.Empty).Trim().ToLower();
+
+                if (nguonVonCode.Contains("von_tu_co") || nguonVonName.Contains("tự có") || nguonVonName.Contains("điều lệ"))
+                {
+                    vonTuCo = totalInvestment;
+                }
+                else if (nguonVonCode.Contains("quy_dtpt") || nguonVonName.Contains("phát triển"))
+                {
+                    quyDauTuPhatTrien = totalInvestment;
+                }
+                else
+                {
+                    nguonKhac = totalInvestment;
+                }
+
                 var row = new KeHoachVonCnttReportRowDto
                 {
                     Stt = stt++,
@@ -2450,9 +2473,9 @@ public class ReportService : IReportService
                     PhanLoaiDuAnCode = proj.PhanLoaiDuAn?.Code,
                     TenPhanLoaiDuAn = proj.PhanLoaiDuAn?.Name ?? "Chưa phân loại",
                     TongMucDauTu = totalInvestment,
-                    VonTuCo = totalInvestment * 0.3m,
-                    QuyDauTuPhatTrien = totalInvestment * 0.7m,
-                    NguonKhac = 0,
+                    VonTuCo = vonTuCo,
+                    QuyDauTuPhatTrien = quyDauTuPhatTrien,
+                    NguonKhac = nguonKhac,
                     TrangThaiText = proj.DaTrienKhai == true ? "Đang triển khai" : "Đã phê duyệt chủ trương",
                     DonViDeXuatChiDao = proj.ChuDauTu ?? "Trung tâm CNTT",
                     GhiChu = proj.SoQuyetDinh,
@@ -2460,11 +2483,18 @@ public class ReportService : IReportService
                     PhanKyDauTu = new List<KeHoachVonCnttPhanKyDto>()
                 };
 
-                int numYears = (endY - startY + 1);
-                decimal yearlyVal = totalInvestment / (numYears > 0 ? numYears : 1);
+                // Determine project active years
+                int pStart = proj.NamBatDau ?? (proj.NgayBatDau?.Year ?? startY);
+                int pEnd = proj.NamKetThuc ?? (proj.NgayKetThuc?.Year ?? endY);
+                if (pEnd < pStart) pEnd = pStart;
+
+                int numProjYears = pEnd - pStart + 1;
+                decimal yearlyVal = totalInvestment / (numProjYears > 0 ? numProjYears : 1);
+
                 for (int y = startY; y <= endY; y++)
                 {
-                    row.PhanKyDauTu.Add(new KeHoachVonCnttPhanKyDto { Nam = y, GiaTri = yearlyVal });
+                    decimal valInYear = (y >= pStart && y <= pEnd) ? yearlyVal : 0m;
+                    row.PhanKyDauTu.Add(new KeHoachVonCnttPhanKyDto { Nam = y, GiaTri = valInYear });
                 }
 
                 gDto.Rows.Add(row);
