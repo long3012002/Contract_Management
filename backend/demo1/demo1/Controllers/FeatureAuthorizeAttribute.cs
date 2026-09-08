@@ -103,8 +103,11 @@ namespace demo1.Controllers
                 }
                 else if (_featureCode == "QUAN_LY_HOP_DONG")
                 {
-                    var hd = await _dbContext.HopDongs.AsNoTracking().Include(x => x.LoaiHopDongNavigation).FirstOrDefaultAsync(x => x.Id == parsedEntityId);
-                    duAnId = hd?.DuAnId;
+                    var hd = await _dbContext.HopDongs.AsNoTracking()
+                        .Include(x => x.LoaiHopDongNavigation)
+                        .Include(x => x.GoiThau)
+                        .FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                    duAnId = hd?.DuAnId ?? hd?.GoiThau?.DuAnId;
                     if (hd?.LoaiHopDongNavigation?.Code == "01" && dbUser.CanViewHopDong && httpMethod == "GET")
                     {
                         return; // Bypass immediately if they have the specific role and it's contract 01
@@ -125,14 +128,22 @@ namespace demo1.Controllers
                     return;
                 }
 
+                var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty || (duAnId.HasValue && up.DuAnId == duAnId.Value && up.FeatureCode == "DU_AN")) &&
-                        (up.EntityId == entityId || (duAnId.HasValue && up.DuAnId == duAnId.Value)) &&
-                        up.Permission != null && up.Permission.Code == "VIEW");
+                        (
+                            (duAnId.HasValue && up.DuAnId == duAnId.Value) ||
+                            up.EntityId == entityId ||
+                            up.FeatureCode == _featureCode ||
+                            up.FeatureCode == "QUAN_LY_HOP_DONG" ||
+                            up.FeatureCode == "HOP_DONG" ||
+                            up.FeatureCode == "DU_AN" ||
+                            up.FeatureCode == string.Empty
+                        ) &&
+                        up.Permission != null && validViewActions.Contains(up.Permission.Code));
 
                 if (!hasViewPermission)
                 {
@@ -272,12 +283,13 @@ namespace demo1.Controllers
             }
 
             // 3. Check HopDong: Access granted if Project Owner OR tagged in a task belonging to the contract's GoiThau
-            var hopDong = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(hd => hd.Id == entityId);
+            var hopDong = await _dbContext.HopDongs.AsNoTracking().Include(hd => hd.GoiThau).FirstOrDefaultAsync(hd => hd.Id == entityId);
             if (hopDong != null)
             {
-                if (hopDong.DuAnId.HasValue)
+                var effectiveDuAnId = hopDong.DuAnId ?? hopDong.GoiThau?.DuAnId;
+                if (effectiveDuAnId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == hopDong.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == effectiveDuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isOwner) return true;
                 }
 

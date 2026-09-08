@@ -199,6 +199,9 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                 title = notif.NotificationPayload.Title,
                 content = notif.NotificationPayload.Content,
                 link = notif.NotificationPayload.Link,
+                featureCode = notif.NotificationPayload.FeatureCode ?? "CONG_VIEC",
+                entityName = notif.NotificationPayload.EntityName,
+                entityId = notif.NotificationPayload.EntityId,
                 isRead = notif.NotificationPayload.IsRead,
                 createdAt = notif.NotificationPayload.CreatedAt
             });
