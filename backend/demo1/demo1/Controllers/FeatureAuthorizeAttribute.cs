@@ -103,8 +103,11 @@ namespace demo1.Controllers
                 }
                 else if (_featureCode == "QUAN_LY_HOP_DONG")
                 {
-                    var hd = await _dbContext.HopDongs.AsNoTracking().Include(x => x.LoaiHopDongNavigation).FirstOrDefaultAsync(x => x.Id == parsedEntityId);
-                    duAnId = hd?.DuAnId;
+                    var hd = await _dbContext.HopDongs.AsNoTracking()
+                        .Include(x => x.LoaiHopDongNavigation)
+                        .Include(x => x.GoiThau)
+                        .FirstOrDefaultAsync(x => x.Id == parsedEntityId);
+                    duAnId = hd?.DuAnId ?? hd?.GoiThau?.DuAnId;
                     if (duAnId == null && hd?.GoiThauId.HasValue == true)
                     {
                         var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == hd.GoiThauId.Value);
@@ -131,6 +134,7 @@ namespace demo1.Controllers
                 }
 
                 var normFeature = PermissionService.NormalizeFeatureCode(_featureCode);
+                var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
 
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
@@ -148,7 +152,7 @@ namespace demo1.Controllers
                             up.EntityId == entityId ||
                             (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
                         ) &&
-                        up.Permission != null);
+                        up.Permission != null && validViewActions.Contains(up.Permission.Code));
 
                 if (!hasViewPermission)
                 {
