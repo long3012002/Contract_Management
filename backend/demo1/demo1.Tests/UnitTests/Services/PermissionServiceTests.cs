@@ -238,15 +238,21 @@ namespace demo1.Tests.UnitTests.Services
             };
             var grantResult = await _permissionService.GrantUserPermissionAsync(admin.Id, grantDto);
 
-            // Assert 1: Notifications generated for target user
+            // Assert 1: Notifications generated for both
+            var adminNotis = await _dbContext.Notifications.Where(n => n.UserId == admin.Id).ToListAsync();
             var targetNotis = await _dbContext.Notifications.Where(n => n.UserId == targetUser.Id).ToListAsync();
+
+            adminNotis.Should().ContainSingle(n => n.Title.Contains("Cấp quyền thành công"));
             targetNotis.Should().ContainSingle(n => n.Title.Contains("Cấp quyền truy cập"));
 
             // Act 2: Revoke permission
             var revokeResult = await _permissionService.RevokeUserPermissionAsync(admin.Id, grantResult.Id);
 
-            // Assert 2: Revoke notification generated for target user
+            // Assert 2: Revoke notifications generated
+            var adminRevokeNotis = await _dbContext.Notifications.Where(n => n.UserId == admin.Id && n.Title.Contains("Thu hồi quyền thành công")).ToListAsync();
             var targetRevokeNotis = await _dbContext.Notifications.Where(n => n.UserId == targetUser.Id && n.Title.Contains("Thu hồi quyền truy cập")).ToListAsync();
+
+            adminRevokeNotis.Should().NotBeEmpty();
             targetRevokeNotis.Should().NotBeEmpty();
 
             // Act 3: Stakeholder dynamic permission synthesis (only VIEW)
