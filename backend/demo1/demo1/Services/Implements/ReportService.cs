@@ -2411,6 +2411,7 @@ public class ReportService : IReportService
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
             .Include(d => d.NguonVon)
+            .Include(d => d.PhanKyVons)
             .Where(d => d.IsActive && !d.IsDeleted);
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
@@ -2570,15 +2571,22 @@ public class ReportService : IReportService
                 dotThanhToanGrouped.TryGetValue(proj.Id, out var allDotThanhToans);
                 allDotThanhToans ??= new List<DotThanhToan>();
 
+                bool hasUserPhanKy = proj.PhanKyVons != null && proj.PhanKyVons.Any();
                 bool hasActualMilestones = allDotThanhToans.Any();
 
                 for (int y = startY; y <= endY; y++)
                 {
                     decimal valInYear = 0m;
 
-                    if (hasActualMilestones)
+                    if (hasUserPhanKy)
                     {
-                        // Dựa vào đợt thanh toán thực tế trong CSDL
+                        // Ưu tiên 1: Lấy phân kỳ vốn đã lập trực tiếp theo từng năm của dự án (DuAnPhanKyVon)
+                        var userPk = proj.PhanKyVons!.FirstOrDefault(pk => pk.Nam == y);
+                        valInYear = userPk != null ? (userPk.SoTienPhanKy / factor) : 0m;
+                    }
+                    else if (hasActualMilestones)
+                    {
+                        // Ưu tiên 2: Dựa vào đợt thanh toán thực tế trong CSDL (nếu chưa lập phân kỳ vốn)
                         var actualPaymentInYear = allDotThanhToans
                             .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value.Year == y) ||
                                         (!m.NgayThanhToan.HasValue && m.CreatedAt.Year == y))
@@ -2588,7 +2596,7 @@ public class ReportService : IReportService
                     }
                     else if (y >= pStart && y <= pEnd)
                     {
-                        // Dựa vào trọng số phân kỳ thực tế theo số năm dự án (không chia đều)
+                        // Ưu tiên 3: Dựa vào trọng số phân kỳ ước tính theo số năm dự án (nếu không có phân kỳ & đợt thanh toán)
                         int yearIndex = y - pStart; // 0, 1, 2...
                         decimal weight = 1.0m;
 

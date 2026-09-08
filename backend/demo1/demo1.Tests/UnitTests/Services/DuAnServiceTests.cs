@@ -119,6 +119,85 @@ namespace demo1.Tests.UnitTests.Services
             result.Items.Should().BeEmpty();
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_Save_PhanKyVons_And_Calculate_Percentages()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "DA-PHANKY-001",
+                Name = "Dự án có phân kỳ vốn",
+                DuToanPheDuyet = 1000000000m,
+                PhanKyVons = new List<CreateDuAnPhanKyVonDto>
+                {
+                    new CreateDuAnPhanKyVonDto { Nam = 2025, SoTienPhanKy = 400000000m, GhiChu = "Đợt 1" },
+                    new CreateDuAnPhanKyVonDto { Nam = 2026, SoTienPhanKy = 600000000m, GhiChu = "Đợt 2" }
+                }
+            };
+
+            var result = await _duAnService.CreateAsync(createDto);
+
+            result.Should().NotBeNull();
+            result.PhanKyVons.Should().HaveCount(2);
+            result.PhanKyVons[0].Nam.Should().Be(2025);
+            result.PhanKyVons[0].SoTienPhanKy.Should().Be(400000000m);
+            result.PhanKyVons[0].TyLePercent.Should().Be(40.00m);
+
+            result.PhanKyVons[1].Nam.Should().Be(2026);
+            result.PhanKyVons[1].SoTienPhanKy.Should().Be(600000000m);
+            result.PhanKyVons[1].TyLePercent.Should().Be(60.00m);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Upsert_And_Remove_PhanKyVons()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "DA-PHANKY-002",
+                Name = "Dự án phân kỳ vốn update",
+                DuToanPheDuyet = 1000000000m,
+                PhanKyVons = new List<CreateDuAnPhanKyVonDto>
+                {
+                    new CreateDuAnPhanKyVonDto { Nam = 2025, SoTienPhanKy = 500000000m },
+                    new CreateDuAnPhanKyVonDto { Nam = 2026, SoTienPhanKy = 500000000m }
+                }
+            };
+            var created = await _duAnService.CreateAsync(createDto);
+
+            var updateDto = new UpdateDuAnDto
+            {
+                Code = "DA-PHANKY-002",
+                Name = "Dự án phân kỳ vốn update (đã sửa)",
+                DuToanPheDuyet = 1000000000m,
+                PhanKyVons = new List<CreateDuAnPhanKyVonDto>
+                {
+                    new CreateDuAnPhanKyVonDto { Nam = 2025, SoTienPhanKy = 300000000m }, // Updated
+                    new CreateDuAnPhanKyVonDto { Nam = 2027, SoTienPhanKy = 700000000m }  // New year 2027, 2026 removed
+                }
+            };
+
+            var updateSuccess = await _duAnService.UpdateAsync(created.Id, updateDto);
+            updateSuccess.Should().BeTrue();
+
+            var updatedProject = await _duAnService.GetByIdAsync(created.Id);
+            updatedProject.Should().NotBeNull();
+            updatedProject!.PhanKyVons.Should().HaveCount(2);
+            updatedProject.PhanKyVons[0].Nam.Should().Be(2025);
+            updatedProject.PhanKyVons[0].SoTienPhanKy.Should().Be(300000000m);
+            updatedProject.PhanKyVons[0].TyLePercent.Should().Be(30.00m);
+
+            updatedProject.PhanKyVons[1].Nam.Should().Be(2027);
+            updatedProject.PhanKyVons[1].SoTienPhanKy.Should().Be(700000000m);
+            updatedProject.PhanKyVons[1].TyLePercent.Should().Be(70.00m);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

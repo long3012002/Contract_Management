@@ -52,4 +52,6 @@ public class UpdateDuAnDto
     public string? SoQuyetDinh { get; set; }
     
     public Guid? ChuDuAnId { get; set; }
+
+    public List<CreateDuAnPhanKyVonDto>? PhanKyVons { get; set; }
 }

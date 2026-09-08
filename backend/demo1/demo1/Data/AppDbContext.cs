@@ -70,6 +70,7 @@ namespace demo1.Data
         public DbSet<HangSanXuat> HangSanXuats { get; set; } = null!;
         public DbSet<FileAttachment> FileAttachments { get; set; } = null!;
         public DbSet<FileVersion> FileVersions { get; set; } = null!;
+        public DbSet<DuAnPhanKyVon> DuAnPhanKyVons { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -286,6 +287,21 @@ namespace demo1.Data
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.ToChucThucHien)
                 .HasMaxLength(500);
+
+            modelBuilder.Entity<DuAnPhanKyVon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SoTienPhanKy).HasPrecision(18, 2);
+                entity.Property(e => e.TyLePercent).HasPrecision(5, 2);
+                entity.Property(e => e.GhiChu).HasMaxLength(1000);
+
+                entity.HasOne(p => p.DuAn)
+                    .WithMany(d => d.PhanKyVons)
+                    .HasForeignKey(p => p.DuAnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.DuAnId, e.Nam }).IsUnique();
+            });
 
             modelBuilder.Entity<DieuChinhDuAn>()
                 .Property(dc => dc.GiaTriDieuChinh)
@@ -836,7 +852,7 @@ namespace demo1.Data
                     string propertyName = property.Metadata.Name;
                     if (property.Metadata.IsPrimaryKey())
                     {
-                        auditEntry.KeyValues[propertyName] = property.CurrentValue ?? "";
+                        auditEntry.KeyValues[propertyName] = property.CurrentValue ?? property.OriginalValue ?? "";
                         continue;
                     }
 
@@ -897,7 +913,7 @@ namespace demo1.Data
                 {
                     if (prop.Metadata.IsPrimaryKey())
                     {
-                        auditEntry.KeyValues[prop.Metadata.Name] = prop.CurrentValue ?? "";
+                        auditEntry.KeyValues[prop.Metadata.Name] = prop.CurrentValue ?? prop.OriginalValue ?? "";
                     }
                 }
 

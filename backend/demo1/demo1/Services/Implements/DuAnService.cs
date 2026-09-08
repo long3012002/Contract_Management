@@ -47,6 +47,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
+            .Include(da => da.PhanKyVons)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.NguonVon)
@@ -157,6 +158,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
         var items = await DbSet
             .Include(da => da.DieuChinhs)
+            .Include(da => da.PhanKyVons)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.NguonVon)
@@ -171,6 +173,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
         var entity = await DbSet
             .Include(da => da.DieuChinhs)
+            .Include(da => da.PhanKyVons)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.NguonVon)
@@ -275,6 +278,34 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             if (exists)
             {
                 throw new InvalidOperationException($"Mã dự án '{entity.Code}' đã tồn tại.");
+            }
+
+            if (dto.PhanKyVons != null && dto.PhanKyVons.Any())
+            {
+                var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateYears.Any())
+                {
+                    throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
+                }
+
+                foreach (var pkDto in dto.PhanKyVons)
+                {
+                    var percent = pkDto.TyLePercent;
+                    if (!percent.HasValue || percent == 0)
+                    {
+                        percent = entity.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / entity.DuToanPheDuyet) * 100, 2) : 0;
+                    }
+
+                    entity.PhanKyVons.Add(new DuAnPhanKyVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = entity.Id,
+                        Nam = pkDto.Nam,
+                        SoTienPhanKy = pkDto.SoTienPhanKy,
+                        TyLePercent = percent,
+                        GhiChu = pkDto.GhiChu
+                    });
+                }
             }
 
             await DbSet.AddAsync(entity);
@@ -407,6 +438,34 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 entity.DaTrienKhai = false;
             }
 
+            if (dto.PhanKyVons != null && dto.PhanKyVons.Any())
+            {
+                var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateYears.Any())
+                {
+                    throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
+                }
+
+                foreach (var pkDto in dto.PhanKyVons)
+                {
+                    var percent = pkDto.TyLePercent;
+                    if (!percent.HasValue || percent == 0)
+                    {
+                        percent = entity.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / entity.DuToanPheDuyet) * 100, 2) : 0;
+                    }
+
+                    entity.PhanKyVons.Add(new DuAnPhanKyVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = entity.Id,
+                        Nam = pkDto.Nam,
+                        SoTienPhanKy = pkDto.SoTienPhanKy,
+                        TyLePercent = percent,
+                        GhiChu = pkDto.GhiChu
+                    });
+                }
+            }
+
             entities.Add(entity);
         }
 
@@ -416,6 +475,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var createdIds = entities.Select(e => e.Id).ToList();
         var reloadedEntities = await DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
+            .Include(da => da.PhanKyVons)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.NguonVon)
@@ -432,7 +492,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
-            var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);
+            var entity = await DbSet
+                .Include(da => da.DieuChinhs)
+                .Include(da => da.PhanKyVons)
+                .FirstOrDefaultAsync(da => da.Id == id);
             if (entity is null)
             {
                 return false;
@@ -564,6 +627,54 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
             Mapper.Map(dto, entity);
             entity.UpdatedAt = DateTime.UtcNow;
+
+            if (dto.PhanKyVons != null)
+            {
+                var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                if (duplicateYears.Any())
+                {
+                    throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
+                }
+
+                var existingPhanKys = await DbContext.DuAnPhanKyVons.Where(p => p.DuAnId == id).ToListAsync();
+                var updatedYears = dto.PhanKyVons.Select(x => x.Nam).ToList();
+                var toRemove = existingPhanKys.Where(x => !updatedYears.Contains(x.Nam)).ToList();
+                if (toRemove.Any())
+                {
+                    DbContext.DuAnPhanKyVons.RemoveRange(toRemove);
+                }
+
+                foreach (var pkDto in dto.PhanKyVons)
+                {
+                    var existing = existingPhanKys.FirstOrDefault(x => x.Nam == pkDto.Nam);
+                    var percent = pkDto.TyLePercent;
+                    if (!percent.HasValue || percent == 0)
+                    {
+                        percent = entity.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / entity.DuToanPheDuyet) * 100, 2) : 0;
+                    }
+
+                    if (existing != null && !toRemove.Contains(existing))
+                    {
+                        existing.SoTienPhanKy = pkDto.SoTienPhanKy;
+                        existing.TyLePercent = percent;
+                        existing.GhiChu = pkDto.GhiChu;
+                        existing.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        await DbContext.DuAnPhanKyVons.AddAsync(new DuAnPhanKyVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = entity.Id,
+                            Nam = pkDto.Nam,
+                            SoTienPhanKy = pkDto.SoTienPhanKy,
+                            TyLePercent = percent,
+                            GhiChu = pkDto.GhiChu,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+            }
 
             await DbContext.SaveChangesAsync();
             await transaction.CommitAsync();

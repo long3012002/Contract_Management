@@ -9,6 +9,10 @@ namespace demo1.Mapper
     {
         public MappingProfile()
         {
+            // DuAnPhanKyVon mappings
+            CreateMap<DuAnPhanKyVon, DuAnPhanKyVonDto>();
+            CreateMap<CreateDuAnPhanKyVonDto, DuAnPhanKyVon>();
+
             // DuAn mappings
             CreateMap<DuAn, DuAnDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
@@ -17,7 +21,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
                 .ForMember(dest => dest.NguonVonName, opt => opt.MapFrom(src => src.NguonVon != null ? src.NguonVon.Name : null))
                 .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null))
-                .ForMember(dest => dest.ProjectManager, opt => opt.MapFrom(src => src.ChuDuAn));
+                .ForMember(dest => dest.ProjectManager, opt => opt.MapFrom(src => src.ChuDuAn))
+                .ForMember(dest => dest.PhanKyVons, opt => opt.MapFrom(src => src.PhanKyVons.OrderBy(p => p.Nam).ToList()));
             CreateMap<DuAn, DuAnNguonSummaryDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));
@@ -31,7 +36,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NoiDung, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.NoiDung)))
                 .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
                 .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
-                .ForMember(dest => dest.NguonDuAns, opt => opt.Ignore()); // Will be managed in service
+                .ForMember(dest => dest.NguonDuAns, opt => opt.Ignore()) // Will be managed in service
+                .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()); // Will be managed in service
             CreateMap<UpdateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
@@ -40,7 +46,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.ThoiGianThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiGianThucHien)))
                 .ForMember(dest => dest.NoiDung, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.NoiDung)))
                 .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
-                .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)));
+                .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
+                .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()); // Will be managed in service
 
             // DieuChinhDuAn mappings
             CreateMap<DieuChinhDuAn, DieuChinhDuAnDto>();

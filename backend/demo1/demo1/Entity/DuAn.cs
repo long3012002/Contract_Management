@@ -49,4 +49,5 @@ public class DuAn : BaseEntity
     public virtual ICollection<DieuChinhDuAn> DieuChinhs { get; set; } = new List<DieuChinhDuAn>();
     public virtual ICollection<GoiThau> GoiThaus { get; set; } = new List<GoiThau>();
     public virtual ICollection<License> Licenses { get; set; } = new List<License>();
+    public virtual ICollection<DuAnPhanKyVon> PhanKyVons { get; set; } = new List<DuAnPhanKyVon>();
 }

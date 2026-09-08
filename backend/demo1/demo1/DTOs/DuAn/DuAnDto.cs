@@ -193,4 +193,9 @@ public class DuAnDto : IHasId
     /// Thông tin tóm tắt của Chủ dự án (Project Manager)
     /// </summary>
     public UserSummaryDto? ProjectManager { get; set; }
+
+    /// <summary>
+    /// Danh sách phân kỳ vốn theo từng năm của dự án
+    /// </summary>
+    public List<DuAnPhanKyVonDto>? PhanKyVons { get; set; }
 }
