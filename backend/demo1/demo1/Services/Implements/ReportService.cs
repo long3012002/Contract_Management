@@ -2528,13 +2528,41 @@ public class ReportService : IReportService
                 var nguonVonName = (proj.NguonVon?.Name ?? string.Empty).Trim().ToLower();
                 var nguonVonCode = (proj.NguonVon?.Code ?? string.Empty).Trim().ToLower();
 
-                if (nguonVonCode.Contains("von_tu_co") || nguonVonName.Contains("tự có") || nguonVonName.Contains("điều lệ"))
-                {
-                    vonTuCo = totalInvestment;
-                }
-                else if (nguonVonCode.Contains("quy_dtpt") || nguonVonName.Contains("phát triển"))
+                bool isQuyDauTuPhatTrien = nguonVonCode.Contains("quy_dtpt") ||
+                                           nguonVonCode.Contains("qdtpt") ||
+                                           nguonVonCode.Contains("dtpt") ||
+                                           nguonVonName.Contains("phát triển") ||
+                                           nguonVonName.Contains("đầu tư phát triển");
+
+                bool isNguonKhacExplicit = nguonVonCode.Contains("nv_khac") ||
+                                           nguonVonCode.Contains("nv_qpl") ||
+                                           nguonVonName.Contains("phúc lợi") ||
+                                           (nguonVonName.Contains("khác") && !nguonVonName.Contains("ngân hàng hợp tác"));
+
+                bool isVonTuCo = proj.NguonVon == null ||
+                                 nguonVonCode.Contains("von_tu_co") ||
+                                 nguonVonCode.Contains("nv_nhht") ||
+                                 nguonVonCode.Contains("nv_cn") ||
+                                 nguonVonCode.Contains("nv_vdl") ||
+                                 nguonVonCode.Contains("nhht") ||
+                                 nguonVonName.Contains("tự có") ||
+                                 nguonVonName.Contains("điều lệ") ||
+                                 nguonVonName.Contains("nhht") ||
+                                 nguonVonName.Contains("chi nhánh") ||
+                                 nguonVonName.Contains("xây dựng cơ bản") ||
+                                 nguonVonName.Contains("mstscđ");
+
+                if (isQuyDauTuPhatTrien)
                 {
                     quyDauTuPhatTrien = totalInvestment;
+                }
+                else if (isNguonKhacExplicit)
+                {
+                    nguonKhac = totalInvestment;
+                }
+                else if (isVonTuCo)
+                {
+                    vonTuCo = totalInvestment;
                 }
                 else
                 {

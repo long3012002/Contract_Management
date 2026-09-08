@@ -405,6 +405,51 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task ReportService_KeHoachVonCntt_NguonVon_Classification_Should_Map_Correctly()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var nvNhht = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_NHHT", Name = "Chi phí của NHHT" };
+            var nvQdtpt = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_QDTPT", Name = "Quỹ đầu tư phát triển" };
+            var nvKhac = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_KHAC", Name = "Nguồn khác" };
+
+            _dbContext.NguonVons.AddRange(nvNhht, nvQdtpt, nvKhac);
+
+            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000, NguonVon = nvNhht, NguonVonId = nvNhht.Id };
+            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000, NguonVon = nvQdtpt, NguonVonId = nvQdtpt.Id };
+            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000, NguonVon = nvKhac, NguonVonId = nvKhac.Id };
+
+            _dbContext.DuAns.AddRange(p1, p2, p3);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await service.GetKeHoachVonCnttReportAsync(2022, 2024, null, "1");
+
+            // Assert
+            var rows = result.Groups.SelectMany(g => g.Rows).ToList();
+            var row1 = rows.FirstOrDefault(r => r.DuAnId == p1.Id);
+            var row2 = rows.FirstOrDefault(r => r.DuAnId == p2.Id);
+            var row3 = rows.FirstOrDefault(r => r.DuAnId == p3.Id);
+
+            row1.Should().NotBeNull();
+            row1!.VonTuCo.Should().Be(1000000);
+            row1.QuyDauTuPhatTrien.Should().Be(0);
+            row1.NguonKhac.Should().Be(0);
+
+            row2.Should().NotBeNull();
+            row2!.VonTuCo.Should().Be(0);
+            row2.QuyDauTuPhatTrien.Should().Be(2000000);
+            row2.NguonKhac.Should().Be(0);
+
+            row3.Should().NotBeNull();
+            row3!.VonTuCo.Should().Be(0);
+            row3.QuyDauTuPhatTrien.Should().Be(0);
+            row3.NguonKhac.Should().Be(3000000);
+        }
+
+        [Fact]
         public async Task ReportService_LicenseSlaReport_Should_Generate_Data_And_Exports()
         {
             // Arrange
