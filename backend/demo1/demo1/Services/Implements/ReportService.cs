@@ -2433,6 +2433,18 @@ public class ReportService : IReportService
         }
 
         var projects = await query.ToListAsync();
+        var duAnIds = projects.Select(p => p.Id).ToList();
+
+        // Lấy đợt thanh toán hợp đồng liên quan trực tiếp đến các dự án
+        var dotThanhToansByDuAnList = await _context.DotThanhToans
+            .AsNoTracking()
+            .Include(d => d.HopDong)
+            .Where(d => d.HopDong != null && d.HopDong.DuAnId.HasValue && duAnIds.Contains(d.HopDong.DuAnId.Value))
+            .ToListAsync();
+
+        var dotThanhToanGrouped = dotThanhToansByDuAnList
+            .GroupBy(d => d.HopDong!.DuAnId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Target fixed groups A, B, C, D
         var fixedGroups = new List<(string Key, string Name, string LoaiDuAnText)>
@@ -2553,11 +2565,53 @@ public class ReportService : IReportService
                 if (pEnd < pStart) pEnd = pStart;
 
                 int numProjYears = pEnd - pStart + 1;
-                decimal yearlyVal = totalInvestment / (numProjYears > 0 ? numProjYears : 1);
+
+                // Lấy danh sách đợt thanh toán hợp đồng thực tế của dự án
+                dotThanhToanGrouped.TryGetValue(proj.Id, out var allDotThanhToans);
+                allDotThanhToans ??= new List<DotThanhToan>();
+
+                bool hasActualMilestones = allDotThanhToans.Any();
 
                 for (int y = startY; y <= endY; y++)
                 {
-                    decimal valInYear = (y >= pStart && y <= pEnd) ? yearlyVal : 0m;
+                    decimal valInYear = 0m;
+
+                    if (hasActualMilestones)
+                    {
+                        // Dựa vào đợt thanh toán thực tế trong CSDL
+                        var actualPaymentInYear = allDotThanhToans
+                            .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value.Year == y) ||
+                                        (!m.NgayThanhToan.HasValue && m.CreatedAt.Year == y))
+                            .Sum(m => m.GiaTriThanhToan);
+
+                        valInYear = actualPaymentInYear / factor;
+                    }
+                    else if (y >= pStart && y <= pEnd)
+                    {
+                        // Dựa vào trọng số phân kỳ thực tế theo số năm dự án (không chia đều)
+                        int yearIndex = y - pStart; // 0, 1, 2...
+                        decimal weight = 1.0m;
+
+                        if (numProjYears == 2)
+                        {
+                            weight = yearIndex == 0 ? 0.45m : 0.55m;
+                        }
+                        else if (numProjYears == 3)
+                        {
+                            weight = yearIndex switch { 0 => 0.30m, 1 => 0.50m, _ => 0.20m };
+                        }
+                        else if (numProjYears == 4)
+                        {
+                            weight = yearIndex switch { 0 => 0.20m, 1 => 0.40m, 2 => 0.30m, _ => 0.10m };
+                        }
+                        else if (numProjYears >= 5)
+                        {
+                            weight = yearIndex switch { 0 => 0.15m, 1 => 0.30m, 2 => 0.35m, 3 => 0.15m, _ => 0.05m };
+                        }
+
+                        valInYear = totalInvestment * weight;
+                    }
+
                     row.PhanKyDauTu.Add(new KeHoachVonCnttPhanKyDto { Nam = y, GiaTri = valInYear });
                 }
 

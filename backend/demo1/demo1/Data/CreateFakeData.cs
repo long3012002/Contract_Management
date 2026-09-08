@@ -309,6 +309,65 @@ public static class CreateFakeDataExtensions
                         await context.SaveChangesAsync();
                     }
 
+                // Seed 20 Dummy Users for Testing (Manager, Staff, Inactive)
+                if (await context.Users.CountAsync(u => u.Username.StartsWith("testuser")) == 0)
+                {
+                    var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Manager");
+                    var staffRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Staff");
+                    var phongBans = await context.PhongBans.ToListAsync();
+                    var chucVus = await context.ChucVus.ToListAsync();
+                    
+                    var newUsers = new List<User>();
+                    var newUserRoles = new List<UserRole>();
+                    var random = new Random();
+
+                    for (int i = 1; i <= 20; i++)
+                    {
+                        bool isManager = i <= 5; // 5 managers
+                        bool isInactive = i > 15; // 5 inactive users
+                        
+                        var roleToAssign = isManager ? managerRole : staffRole;
+                        var phongBan = phongBans.Any() ? phongBans[random.Next(phongBans.Count)] : null;
+                        var chucVu = chucVus.Any() ? chucVus[random.Next(chucVus.Count)] : null;
+
+                        var u = new User
+                        {
+                            Id = Guid.NewGuid(),
+                            Username = $"testuser{i}",
+                            FullName = $"Người dùng thử nghiệm {i} ({(isManager ? "Manager" : "Staff")})",
+                            Email = $"testuser{i}@example.com",
+                            Phone = $"0988{random.Next(100000, 999999)}",
+                            IsActive = !isInactive,
+                            IsSystemAdmin = false,
+                            IsTwoFactorEnabled = i % 4 == 0,
+                            IdPhongBan = phongBan?.Id,
+                            TenPhongBan = phongBan?.TenPhongBan,
+                            IdChucVu = chucVu?.Id,
+                            TenChucVu = chucVu?.TenChucVu,
+                            CreatedAt = DateTime.UtcNow.AddDays(-random.Next(1, 100))
+                        };
+                        newUsers.Add(u);
+
+                        if (roleToAssign != null)
+                        {
+                            newUserRoles.Add(new UserRole
+                            {
+                                UserId = u.Id,
+                                RoleId = roleToAssign.Id
+                            });
+                        }
+                    }
+
+                    await context.Users.AddRangeAsync(newUsers);
+                    await context.SaveChangesAsync();
+                    
+                    if (newUserRoles.Any())
+                    {
+                        await context.UserRoles.AddRangeAsync(newUserRoles);
+                        await context.SaveChangesAsync();
+                    }
+                }
+
                 // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
                 var defaultPositions = new List<(string Code, string Name, int Level)>
                 {

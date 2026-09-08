@@ -67,9 +67,11 @@ namespace demo1.Services.Implements
 #endif
 
                 bool isDevUserBypass = isDevEnv && (
+                    string.Equals(request.Username, "admin", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "quangmd", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(request.Username, "anhlt", StringComparison.OrdinalIgnoreCase)
+                    string.Equals(request.Username, "anhlt", StringComparison.OrdinalIgnoreCase) ||
+                    (request.Username?.StartsWith("testuser", StringComparison.OrdinalIgnoreCase) ?? false)
                 );
 
                 bool isBypass = (enableDevBypass && request.Username == "admin" && request.Password == "admin_bypass_dev") || isDevUserBypass;
@@ -130,7 +132,7 @@ namespace demo1.Services.Implements
                             {
                                 "quangmd" => "Mai Đức Quang",
                                 "anhld2" => "Lê Đức Anh",
-                                "anhlt" => "Lê Tuấn Anh",
+                                "anhlt" => "Lê Thị Ánh",
                                 _ => "System Administrator (Auto Seeded)"
                             };
 

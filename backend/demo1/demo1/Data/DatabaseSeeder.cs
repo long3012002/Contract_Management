@@ -81,7 +81,7 @@ public static class DatabaseSeeder
                     Account = $"999000888{i:D3}",
                     Representative = $"Nguyễn Văn Đại diện {i}",
                     Position = isInvestor ? "Tổng Giám Đốc" : "Giám đốc Dự án",
-                    IsActive = true,
+                    IsActive = i % 5 != 0, // Mỗi 5 đối tác thì có 1 bị inactive
                     CreatedAt = now.AddDays(-random.Next(50, 200))
                 });
             }
@@ -108,7 +108,7 @@ public static class DatabaseSeeder
                     IssuedDate = now.Date.AddDays(-random.Next(30, 180)),
                     EffectiveDate = now.Date.AddDays(-random.Next(1, 29)),
                     FileUrl = $"https://coopbank.com/documents/resolutions/res-{i:D3}.pdf",
-                    IsActive = true,
+                    IsActive = i % 6 != 0, // Inactive case
                     CreatedAt = now.AddDays(-random.Next(30, 180))
                 });
             }
@@ -161,14 +161,24 @@ public static class DatabaseSeeder
                 bool isGroupB = i <= 10; // 10 dự án nhóm B (vốn >= 45 tỷ)
                 decimal budget = isGroupB ? (45 + (i * 5)) * 1_000_000_000m : (5 + (i * 1.2m)) * 1_000_000_000m;
                 
-                // Mốc thời gian đa dạng: một số bắt đầu từ 2024/2025, một số 2026
-                int startYear = 2024 + (i % 3); // 2024, 2025, hoặc 2026
+                // Mốc thời gian đa dạng từ 2022 đến 2026 (2022-2024, 2023-2025, 2023-2026, 2022-2026, 2025-2025, v.v.)
+                int startYear = 2022 + (i % 5); // 2022, 2023, 2024, 2025, hoặc 2026
+                int durationYears = 1 + (i % 3); // 1, 2 hoặc 3 năm
+                int endYear = Math.Min(2026, startYear + durationYears - 1);
                 var startDate = new DateTime(startYear, (i % 12) + 1, 10, 0, 0, 0, DateTimeKind.Utc);
-                var endDate = startDate.AddMonths(12 + (i % 12));
+                var endDate = new DateTime(endYear, 12, 31, 0, 0, 0, DateTimeKind.Utc);
                 bool isCompleted = i % 4 == 0; // Một số dự án đã hoàn thành bàn giao
+                bool isCancelled = i % 7 == 0; // Một số dự án bị hủy
+                bool isDraft = i % 8 == 0; // Một số dự án mới nháp
 
                 var randomSource = sourceProjects[(i - 1) % sourceProjects.Count];
-                var selectedPhanLoai = phanLoaiDuAns.Count > 0 ? phanLoaiDuAns[(i - 1) % phanLoaiDuAns.Count] : null;
+                // Thỉnh thoảng để null phân loại để test
+                var selectedPhanLoai = (phanLoaiDuAns.Count > 0 && i % 5 != 0) ? phanLoaiDuAns[(i - 1) % phanLoaiDuAns.Count] : null;
+
+                int trangThai = 1; // Đang triển khai
+                if (isCompleted) trangThai = 2; // Hoàn thành
+                else if (isCancelled) trangThai = 3; // Hủy/Tạm dừng (nếu hệ thống hỗ trợ trạng thái này)
+                else if (isDraft) trangThai = 0; // Nháp
 
                 duAns.Add(new DuAn
                 {
@@ -177,7 +187,7 @@ public static class DatabaseSeeder
                     Name = isCntt ? $"Dự án CNTT trang bị hệ thống phần mềm {i}" : $"Dự án Cải tạo nâng cấp trụ sở chi nhánh {i}",
                     Description = $"Dự án triển khai thuộc quy hoạch công nghệ và đầu tư hình thành TSCĐ số {i}.",
                     DuToanPheDuyet = budget,
-                    TrangThai = isCompleted ? 2 : 1, // 2: Hoàn thành, 1: Đang triển khai
+                    TrangThai = trangThai,
                     LoaiDuAn = 2, // Dự án triển khai
                     NguonDuAns = new List<DuAnNguonTrienKhai>
                     {
@@ -196,7 +206,7 @@ public static class DatabaseSeeder
                     NamBatDau = startDate.Year,
                     NamKetThuc = endDate.Year,
                     DaKetThuc = isCompleted,
-                    IsActive = true,
+                    IsActive = i % 10 != 0, // Một số dự án inactive
                     CreatedAt = startDate.AddDays(-15)
                 });
             }
@@ -326,12 +336,12 @@ public static class DatabaseSeeder
                     ThoiHanThucHien = "12 tháng",
                     DiaDiemThucHien = "Tòa nhà N04 Hoàng Đạo Thúy, Cầu Giấy, Hà Nội",
                     GiaTriHopDong = Math.Round(contractVal, 2),
-                    HinhThucThanhToan = 2, // Chuyển khoản
+                    HinhThucThanhToan = (i % 3 == 0) ? 1 : 2, // 1: Tiền mặt, 2: Chuyển khoản
                     NgayHieuLuc = selectedGoiThau.CreatedAt.AddDays(10),
-                    ExpiredDate = selectedGoiThau.CreatedAt.AddDays(375),
-                    RenewalReminderDate = selectedGoiThau.CreatedAt.AddDays(330),
-                    IsRenewalRequired = true,
-                    IsActive = true,
+                    ExpiredDate = (i % 4 == 0) ? now.AddDays(-random.Next(1, 30)) : selectedGoiThau.CreatedAt.AddDays(375), // Một số HĐ đã hết hạn
+                    RenewalReminderDate = (i % 5 == 0) ? now.AddDays(random.Next(1, 5)) : selectedGoiThau.CreatedAt.AddDays(330), // Sắp đến hạn gia hạn
+                    IsRenewalRequired = i % 6 != 0,
+                    IsActive = i % 7 != 0, // Một số inactive
                     CreatedAt = selectedGoiThau.CreatedAt.AddDays(10)
                 });
             }
@@ -384,6 +394,7 @@ public static class DatabaseSeeder
                 });
 
                 // Đợt 3: Thanh toán năm 2026
+                bool isPaidDot3 = (hIdx % 2 == 0);
                 dotThanhToanList.Add(new DotThanhToan
                 {
                     Id = Guid.NewGuid(),
@@ -391,11 +402,28 @@ public static class DatabaseSeeder
                     TenDot = $"Thanh toán đợt 2 (30%) năm 2026 hợp đồng {hd.Code}",
                     TyLeThanhToan = 30.00m,
                     GiaTriThanhToan = dot3Val,
-                    NgayThanhToan = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc),
-                    IsPaid = (hIdx % 2 == 0), // Phân nửa đã thanh toán trong kỳ 2026
+                    NgayThanhToan = isPaidDot3 ? new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc) : now.AddDays(-random.Next(5, 30)), // Nếu chưa trả thì đã quá hạn
+                    IsPaid = isPaidDot3, // Phân nửa đã thanh toán trong kỳ 2026
                     DieuKienThanhToan = "Sau khi ký biên bản nghiệm thu giai đoạn năm 2026",
                     CreatedAt = new DateTime(2026, 3, 10, 0, 0, 0, DateTimeKind.Utc)
                 });
+                
+                // Đợt 4 (Edge case): Thanh toán giá trị 0 hoặc quá hạn nhưng giá trị nhỏ
+                if (hIdx % 5 == 0)
+                {
+                    dotThanhToanList.Add(new DotThanhToan
+                    {
+                        Id = Guid.NewGuid(),
+                        HopDongId = hd.Id,
+                        TenDot = $"Thanh toán bảo hành hợp đồng {hd.Code}",
+                        TyLeThanhToan = 0.00m,
+                        GiaTriThanhToan = 0,
+                        NgayThanhToan = now.AddDays(random.Next(30, 90)), // Tương lai
+                        IsPaid = false,
+                        DieuKienThanhToan = "Sau khi hết hạn bảo hành",
+                        CreatedAt = now
+                    });
+                }
                 hIdx++;
             }
             await context.DotThanhToans.AddRangeAsync(dotThanhToanList);
@@ -495,7 +523,7 @@ public static class DatabaseSeeder
                     TenTaiLieu = taskInfo.Item1,
                     NgayKy = now.AddDays(-(30 - stt)),
                     LoaiVanBan = taskInfo.Item2,
-                    TinhTrang = taskInfo.Item3,
+                    TinhTrang = (i % 6 == 0 && taskInfo.Item3 != "Đã xong") ? "Chưa bắt đầu" : ((i % 5 == 0 && taskInfo.Item3 == "Đã xong") ? "Đang thực hiện" : taskInfo.Item3), // Xáo trộn tình trạng
                     GhiChu = $"Ghi chú công việc {stt} của gói thầu {gt.Code}",
                     Code = $"CVGT-{gt.Code}-{stt:D2}",
                     Name = taskInfo.Item1,

@@ -356,6 +356,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 var dot = Mapper.Map<DotThanhToan>(dotDto);
                 dot.Id = Guid.NewGuid();
                 dot.HopDongId = entity.Id;
+                dot.IsPaid = false; // Always false on create (C4)
                 // Use user-provided payment value if set, otherwise calculate based on percentage
                 dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                 dot.NgayThanhToan = dotDto.NgayThanhToan;
@@ -366,7 +367,18 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         await DbSet.AddAsync(entity);
-        await DbContext.SaveChangesAsync();
+        try
+        {
+            await DbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            if (ex.InnerException != null && (ex.InnerException.Message.Contains("IX_") || ex.InnerException.Message.Contains("unique") || ex.InnerException.Message.Contains("23505")))
+            {
+                throw new InvalidOperationException("Số ký hiệu hợp đồng hoặc gói thầu liên kết đã thuộc về hợp đồng khác.");
+            }
+            throw;
+        }
 
         var reloaded = await DbSet
             .Include(h => h.GoiThau)
@@ -590,6 +602,15 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 }
             }
 
+            // Check if existing paid installments exceed the new contract value
+            var existingPaidTotal = await DbContext.DotThanhToans
+                .Where(d => d.HopDongId == id && d.IsPaid)
+                .SumAsync(d => (decimal?)d.GiaTriThanhToan) ?? 0m;
+            if (dto.GiaTriHopDong < existingPaidTotal)
+            {
+                throw new InvalidOperationException($"Giá trị mới của hợp đồng ({dto.GiaTriHopDong:N0} VNĐ) không được nhỏ hơn tổng số tiền các đợt đã thanh toán ({existingPaidTotal:N0} VNĐ).");
+            }
+
             // Ensure unique code
             var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower() && item.Id != id);
             if (exists)
@@ -673,6 +694,14 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             // Delete existing ones not present in DTO
             var incomingIds = dto.DotThanhToans?.Where(d => d.Id.HasValue).Select(d => d.Id!.Value).ToList() ?? new List<Guid>();
             var dotsToDelete = existingDots.Where(d => !incomingIds.Contains(d.Id)).ToList();
+            
+            // Check if any deleted dot is already paid (C3)
+            var paidDotsToDelete = dotsToDelete.Where(d => d.IsPaid).ToList();
+            if (paidDotsToDelete.Any())
+            {
+                throw new InvalidOperationException($"Không thể xóa đợt thanh toán '{paidDotsToDelete.First().TenDot}' đã được xác nhận thanh toán.");
+            }
+
             if (dotsToDelete.Any())
             {
                 DbContext.DotThanhToans.RemoveRange(dotsToDelete);
@@ -691,12 +720,25 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         var existingDot = existingDots.FirstOrDefault(d => d.Id == dotDto.Id.Value);
                         if (existingDot != null)
                         {
-                            Mapper.Map(dotDto, existingDot);
-                            // Preserve user-provided value, calculate as fallback
-                            existingDot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
-                            existingDot.NgayThanhToan = dotDto.NgayThanhToan;
-                            existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
-                            existingDot.UpdatedAt = now;
+                            if (existingDot.IsPaid)
+                            {
+                                var targetGiaTri = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
+                                if (existingDot.GiaTriThanhToan != targetGiaTri || existingDot.TyLeThanhToan != dotDto.TyLeThanhToan)
+                                {
+                                    throw new InvalidOperationException($"Không thể chỉnh sửa số tiền đợt thanh toán '{existingDot.TenDot}' đã được xác nhận thanh toán.");
+                                }
+                                existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
+                                existingDot.UpdatedAt = now;
+                            }
+                            else
+                            {
+                                Mapper.Map(dotDto, existingDot);
+                                existingDot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
+                                existingDot.NgayThanhToan = dotDto.NgayThanhToan;
+                                existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
+                                existingDot.IsPaid = false;
+                                existingDot.UpdatedAt = now;
+                            }
                         }
                     }
                     else
@@ -705,7 +747,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         var dot = Mapper.Map<DotThanhToan>(dotDto);
                         dot.Id = Guid.NewGuid();
                         dot.HopDongId = id;
-                        // Preserve user-provided value, calculate as fallback
+                        dot.IsPaid = false; // Always false on create (C4)
                         dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                         dot.NgayThanhToan = dotDto.NgayThanhToan;
                         dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
@@ -747,6 +789,11 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             }
 
             await DbContext.SaveChangesAsync();
+
+            // Propagate status transitions if all installments are paid
+            await demo1.Services.Helpers.StatusPropagationHelper.PropagateContractStatusAsync(DbContext, id);
+            await DbContext.SaveChangesAsync();
+
             await transaction.CommitAsync();
             return true;
         }

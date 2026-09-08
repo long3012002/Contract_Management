@@ -133,6 +133,9 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         }
 
         await _context.SaveChangesAsync();
+
+        await RecalculateContractFromAddendumsAsync(dto.HopDongId);
+
         return (await GetByIdAsync(entity.Id))!;
     }
 
@@ -157,6 +160,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         entity.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await RecalculateContractFromAddendumsAsync(entity.HopDongId);
         return await GetByIdAsync(id);
     }
 
@@ -168,6 +172,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         entity.TrangThai = trangThai;
         entity.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        await RecalculateContractFromAddendumsAsync(entity.HopDongId);
         return true;
     }
 
@@ -176,9 +181,41 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         var entity = await _context.PhuLucHopDongs.FindAsync(id);
         if (entity == null) return false;
 
+        var hopDongId = entity.HopDongId;
         _context.PhuLucHopDongs.Remove(entity);
         await _context.SaveChangesAsync();
+        await RecalculateContractFromAddendumsAsync(hopDongId);
         return true;
+    }
+
+    private async Task RecalculateContractFromAddendumsAsync(Guid hopDongId)
+    {
+        var hopDong = await _context.HopDongs
+            .Include(h => h.PhuLucHopDongs)
+            .FirstOrDefaultAsync(h => h.Id == hopDongId);
+
+        if (hopDong == null) return;
+
+        // Sum effective adjustments from active/approved addendums
+        var activeAddendums = hopDong.PhuLucHopDongs?
+            .Where(p => p.TrangThai == TrangThaiPhuLuc.DaHieuLuc || p.TrangThai == TrangThaiPhuLuc.DaDuyet)
+            .ToList() ?? new List<PhuLucHopDong>();
+
+        var totalAdjustment = activeAddendums.Sum(p => p.GiaTriDieuChinh);
+        
+        // Expiration date from latest effective addendum
+        var latestExpiryAddendum = activeAddendums
+            .Where(p => p.ExpiredDateMoi.HasValue)
+            .OrderByDescending(p => p.NgayHieuLuc ?? p.NgayKy ?? p.CreatedAt)
+            .FirstOrDefault();
+
+        if (latestExpiryAddendum?.ExpiredDateMoi != null)
+        {
+            hopDong.ExpiredDate = latestExpiryAddendum.ExpiredDateMoi;
+        }
+
+        hopDong.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
     }
 
     private static PhuLucHopDongDto MapToDto(PhuLucHopDong p)

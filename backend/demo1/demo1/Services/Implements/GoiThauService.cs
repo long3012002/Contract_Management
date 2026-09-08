@@ -350,6 +350,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
     public override async Task<IEnumerable<GoiThauDto>> CreateRangeAsync(IEnumerable<CreateGoiThauDto> dtos)
     {
+        using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
             var dtoList = dtos.ToList();
@@ -443,10 +444,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             var result = Mapper.Map<List<GoiThauDto>>(reloadedEntities);
             await PopulateTongGiaTriHopDongAsync(result);
+
+            await transaction.CommitAsync();
             return result;
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Lỗi xảy ra trong CreateRangeAsync của GoiThauService.");
             throw;
         }
@@ -454,6 +458,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
     public override async Task<bool> UpdateAsync(Guid id, UpdateGoiThauDto dto)
     {
+        using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
             var entity = await DbSet.FindAsync(id);
@@ -495,11 +500,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             entity.UpdatedAt = DateTime.UtcNow;
 
             await DbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return true;
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Lỗi xảy ra trong UpdateAsync của GoiThauService cho ID {Id}.", id);
             throw;
         }
