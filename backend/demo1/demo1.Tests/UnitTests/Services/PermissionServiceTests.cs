@@ -92,6 +92,50 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task CreateRequestAsync_Should_Send_Notifications_To_Admins_And_ProjectOwner()
+        {
+            // Arrange
+            var requester = new User { Id = Guid.NewGuid(), Username = "requester_user", IsActive = true };
+            var adminUser = new User { Id = Guid.NewGuid(), Username = "admin_user", IsSystemAdmin = true, IsActive = true };
+            var projectOwner = new User { Id = Guid.NewGuid(), Username = "owner_user", IsSystemAdmin = false, IsActive = true };
+            _dbContext.Users.AddRange(requester, adminUser, projectOwner);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-NOTI", Name = "Dự án nhận thông báo", ChuDauTu = "CoopBank", ChuDuAnId = projectOwner.Id };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            var reqDto = new CreatePermissionRequestDto
+            {
+                EntityName = "DuAn",
+                EntityId = project.Id.ToString(),
+                RequestedAction = "EDIT",
+                Reason = "Xin quyền chỉnh sửa thông tin dự án"
+            };
+
+            // Act
+            var result = await _permissionService.CreateRequestAsync(requester.Id, reqDto);
+
+            // Assert
+            result.Should().NotBeNull();
+
+            var adminNotifications = await _dbContext.Notifications
+                .Where(n => n.UserId == adminUser.Id && n.FeatureCode == "PERMISSION_REQUEST")
+                .ToListAsync();
+
+            var ownerNotifications = await _dbContext.Notifications
+                .Where(n => n.UserId == projectOwner.Id && n.FeatureCode == "PERMISSION_REQUEST")
+                .ToListAsync();
+
+            var requesterNotifications = await _dbContext.Notifications
+                .Where(n => n.UserId == requester.Id && n.FeatureCode == "PERMISSION_REQUEST")
+                .ToListAsync();
+
+            adminNotifications.Should().ContainSingle(n => n.Title.Contains("Yêu cầu xin quyền mới"));
+            ownerNotifications.Should().ContainSingle(n => n.Title.Contains("Yêu cầu xin quyền mới"));
+            requesterNotifications.Should().BeEmpty();
+        }
+
+        [Fact]
         public async Task TC18_ApproveRequestAsync_Should_Approve_And_Grant_UserPermission()
         {
             // Arrange

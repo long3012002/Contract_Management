@@ -198,7 +198,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
 
         // Sum effective adjustments from active/approved addendums
         var activeAddendums = hopDong.PhuLucHopDongs?
-            .Where(p => p.TrangThai == TrangThaiPhuLuc.DaHieuLuc || p.TrangThai == TrangThaiPhuLuc.DaDuyet)
+            .Where(p => p.TrangThai == TrangThaiPhuLuc.Active)
             .ToList() ?? new List<PhuLucHopDong>();
 
         var totalAdjustment = activeAddendums.Sum(p => p.GiaTriDieuChinh);
@@ -206,7 +206,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         // Expiration date from latest effective addendum
         var latestExpiryAddendum = activeAddendums
             .Where(p => p.ExpiredDateMoi.HasValue)
-            .OrderByDescending(p => p.NgayHieuLuc ?? p.NgayKy ?? p.CreatedAt)
+            .OrderByDescending(p => p.NgayHieuLuc)
             .FirstOrDefault();
 
         if (latestExpiryAddendum?.ExpiredDateMoi != null)

@@ -105,6 +105,11 @@ namespace demo1.Controllers
                 {
                     var hd = await _dbContext.HopDongs.AsNoTracking().Include(x => x.LoaiHopDongNavigation).FirstOrDefaultAsync(x => x.Id == parsedEntityId);
                     duAnId = hd?.DuAnId;
+                    if (duAnId == null && hd?.GoiThauId.HasValue == true)
+                    {
+                        var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == hd.GoiThauId.Value);
+                        duAnId = gt?.DuAnId;
+                    }
                     if (hd?.LoaiHopDongNavigation?.Code == "01" && dbUser.CanViewHopDong && httpMethod == "GET")
                     {
                         return; // Bypass immediately if they have the specific role and it's contract 01
@@ -125,14 +130,25 @@ namespace demo1.Controllers
                     return;
                 }
 
+                var normFeature = PermissionService.NormalizeFeatureCode(_featureCode);
+
                 var hasViewPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == string.Empty || (duAnId.HasValue && up.DuAnId == duAnId.Value && up.FeatureCode == "DU_AN")) &&
-                        (up.EntityId == entityId || (duAnId.HasValue && up.DuAnId == duAnId.Value)) &&
-                        up.Permission != null && up.Permission.Code == "VIEW");
+                        (
+                            up.FeatureCode == _featureCode ||
+                            up.FeatureCode == string.Empty ||
+                            PermissionService.NormalizeFeatureCode(up.FeatureCode) == normFeature ||
+                            PermissionService.NormalizeFeatureCode(up.FeatureCode) == "DU_AN" ||
+                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                        ) &&
+                        (
+                            up.EntityId == entityId ||
+                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                        ) &&
+                        up.Permission != null);
 
                 if (!hasViewPermission)
                 {
@@ -275,9 +291,16 @@ namespace demo1.Controllers
             var hopDong = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(hd => hd.Id == entityId);
             if (hopDong != null)
             {
-                if (hopDong.DuAnId.HasValue)
+                var targetDuAnId = hopDong.DuAnId;
+                if (!targetDuAnId.HasValue && hopDong.GoiThauId.HasValue)
                 {
-                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == hopDong.DuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
+                    var parentGoiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == hopDong.GoiThauId.Value);
+                    targetDuAnId = parentGoiThau?.DuAnId;
+                }
+
+                if (targetDuAnId.HasValue)
+                {
+                    var isOwner = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => da.Id == targetDuAnId.Value && (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
                     if (isOwner) return true;
                 }
 

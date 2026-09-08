@@ -113,6 +113,9 @@ namespace demo1.Services.Implements
                 existingPending.DuAnId = duAnId;
                 existingPending.PermissionId = userPerm?.Id;
                 existingPending.RequestedPermissionId = targetPermCatalog.Id;
+
+                await NotifyAdminsAndProjectOwnerAsync(user, existingPending, targetPermCatalog, duAnId, dto);
+
                 await _context.SaveChangesAsync();
                 return MapToRequestDto(existingPending, user, null, targetPermCatalog);
             }
@@ -135,6 +138,9 @@ namespace demo1.Services.Implements
             };
 
             _context.PermissionRequests.Add(request);
+
+            await NotifyAdminsAndProjectOwnerAsync(user, request, targetPermCatalog, duAnId, dto);
+
             await _context.SaveChangesAsync();
 
             return MapToRequestDto(request, user, null, targetPermCatalog);
@@ -365,7 +371,22 @@ namespace demo1.Services.Implements
             };
             _context.Notifications.Add(userNoti);
 
-
+            if (admin != null)
+            {
+                var adminNoti = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = adminId,
+                    Title = "Phân quyền: Cấp quyền thành công",
+                    Content = $"Đã cấp quyền '{permCatalog.Name}' cho người dùng '{user.Username}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}'.",
+                    FeatureCode = "USER_PERMISSION",
+                    EntityName = "UserPermission",
+                    EntityId = permIdToNotify.ToString(),
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Notifications.Add(adminNoti);
+            }
 
             await _context.SaveChangesAsync();
             return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
@@ -512,7 +533,22 @@ namespace demo1.Services.Implements
             };
             _context.Notifications.Add(userNoti);
 
-
+            if (admin != null)
+            {
+                var adminNoti = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = adminId,
+                    Title = "Phân quyền: Thu hồi quyền thành công",
+                    Content = $"Đã thu hồi quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' của người dùng '{perm.User?.Username}' trên dự án '{project?.Name ?? perm.DuAnId?.ToString() ?? perm.EntityId}'.",
+                    FeatureCode = "USER_PERMISSION",
+                    EntityName = "UserPermission",
+                    EntityId = perm.Id.ToString(),
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Notifications.Add(adminNoti);
+            }
 
             await _context.SaveChangesAsync();
             return true;
@@ -1088,6 +1124,63 @@ namespace demo1.Services.Implements
         private async Task CascadeProjectPermissionsAsync(Guid userId, Guid permissionId, Guid duAnId, Guid grantedByUserId)
         {
             await Task.CompletedTask;
+        }
+
+        private async Task NotifyAdminsAndProjectOwnerAsync(User requester, PermissionRequest request, Permission targetPermCatalog, Guid? duAnId, CreatePermissionRequestDto dto)
+        {
+            var duAn = duAnId.HasValue
+                ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value)
+                : null;
+
+            var potentialRecipientIds = new List<Guid>();
+
+            var adminUserIds = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.IsSystemAdmin && u.IsActive && u.Id != requester.Id)
+                .Select(u => u.Id)
+                .ToListAsync();
+            potentialRecipientIds.AddRange(adminUserIds);
+
+            if (duAn != null)
+            {
+                if (duAn.ChuDuAnId.HasValue && duAn.ChuDuAnId.Value != requester.Id)
+                {
+                    potentialRecipientIds.Add(duAn.ChuDuAnId.Value);
+                }
+                if (duAn.CreatedByUserId.HasValue && duAn.CreatedByUserId.Value != requester.Id)
+                {
+                    potentialRecipientIds.Add(duAn.CreatedByUserId.Value);
+                }
+            }
+
+            var activeRecipientIds = await _context.Users
+                .AsNoTracking()
+                .Where(u => potentialRecipientIds.Distinct().Contains(u.Id) && u.IsActive)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            var entityTitleText = !string.IsNullOrWhiteSpace(dto.EntityTitle)
+                ? dto.EntityTitle
+                : (duAn != null ? duAn.Name : dto.EntityId);
+
+            var reasonText = !string.IsNullOrWhiteSpace(dto.Reason) ? $" Lý do: {dto.Reason}" : string.Empty;
+
+            foreach (var recipientId in activeRecipientIds)
+            {
+                var noti = new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = recipientId,
+                    Title = "Yêu cầu cấp quyền: Yêu cầu xin quyền mới",
+                    Content = $"Người dùng '{requester.FullName ?? requester.Username}' đã gửi yêu cầu xin quyền '{targetPermCatalog.Name}' cho '{entityTitleText}'.{reasonText}",
+                    FeatureCode = "PERMISSION_REQUEST",
+                    EntityName = "PermissionRequest",
+                    EntityId = request.Id.ToString(),
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Notifications.Add(noti);
+            }
         }
     }
 }
