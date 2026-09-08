@@ -70,16 +70,6 @@ public class DuAnDto : IHasId
     public string? PhanLoaiDuAnName { get; set; }
 
     /// <summary>
-    /// ID Danh mục Nguồn vốn
-    /// </summary>
-    public Guid? NguonVonId { get; set; }
-
-    /// <summary>
-    /// Tên Danh mục Nguồn vốn
-    /// </summary>
-    public string? NguonVonName { get; set; }
-
-    /// <summary>
     /// Chuỗi ID Nguồn vốn dự án (phân tách bởi dấu chấm phẩy) - Tự động tổng hợp từ SourceProjects
     /// </summary>
     public string? NguonDuAnIds => ListNguonDuAnIds.Any() ? string.Join(";", ListNguonDuAnIds) : null;
@@ -198,4 +188,9 @@ public class DuAnDto : IHasId
     /// Danh sách phân kỳ vốn theo từng năm của dự án
     /// </summary>
     public List<DuAnPhanKyVonDto>? PhanKyVons { get; set; }
+
+    /// <summary>
+    /// Danh sách các nguồn vốn và số tiền tương ứng của dự án
+    /// </summary>
+    public List<DuAnNguonVonDto>? DanhSachNguonVon { get; set; }
 }

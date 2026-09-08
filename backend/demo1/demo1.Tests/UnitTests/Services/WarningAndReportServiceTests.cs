@@ -417,9 +417,14 @@ namespace demo1.Tests.UnitTests.Services
 
             _dbContext.NguonVons.AddRange(nvNhht, nvQdtpt, nvKhac);
 
-            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000, NguonVon = nvNhht, NguonVonId = nvNhht.Id };
-            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000, NguonVon = nvQdtpt, NguonVonId = nvQdtpt.Id };
-            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000, NguonVon = nvKhac, NguonVonId = nvKhac.Id };
+            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000 };
+            p1.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p1.Id, NguonVonId = nvNhht.Id, SoTien = 1000000 });
+
+            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000 };
+            p2.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p2.Id, NguonVonId = nvQdtpt.Id, SoTien = 2000000 });
+
+            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000 };
+            p3.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p3.Id, NguonVonId = nvKhac.Id, SoTien = 3000000 });
 
             _dbContext.DuAns.AddRange(p1, p2, p3);
             await _dbContext.SaveChangesAsync();
@@ -508,6 +513,53 @@ namespace demo1.Tests.UnitTests.Services
             report.TongHop.SoLicenseDaHetHan.Should().Be(1);
             report.TongHop.SoLicenseSapHetHan30Ngay.Should().Be(1);
             report.DanhSachChiTiet.Should().HaveCount(2);
+
+            excelBytes.Should().NotBeNullOrEmpty();
+            csvBytes.Should().NotBeNullOrEmpty();
+            htmlBytes.Should().NotBeNullOrEmpty();
+        }
+
+        [Fact]
+        public async Task ReportService_KeHoachVonCntt_Multiple_NguonVon_Per_Project_Should_Map_Correctly()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var nv1 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST_1", Name = "Vốn tự có NHHT" };
+            var nv2 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST_2", Name = "Quỹ ĐTPT" };
+            _dbContext.NguonVons.AddRange(nv1, nv2);
+
+            var proj = new DuAn 
+            { 
+                Id = Guid.NewGuid(), 
+                Code = "DA-MULTI-NV", 
+                Name = "Dự án CNTT nhiều nguồn vốn", 
+                DuToanPheDuyet = 3000000000m 
+            };
+
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1000000000m });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv2.Id, SoTien = 2000000000m });
+            proj.PhanKyVons.Add(new DuAnPhanKyVon { Id = Guid.NewGuid(), DuAnId = proj.Id, Nam = 2025, SoTienPhanKy = 1500000000m });
+            proj.PhanKyVons.Add(new DuAnPhanKyVon { Id = Guid.NewGuid(), DuAnId = proj.Id, Nam = 2026, SoTienPhanKy = 1500000000m });
+
+            _dbContext.DuAns.Add(proj);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetKeHoachVonCnttReportAsync(2025, 2026, null, "1");
+            var excelBytes = await service.ExportKeHoachVonCnttReportExcelAsync(2025, 2026, null, "1");
+            var csvBytes = await service.ExportKeHoachVonCnttReportCsvAsync(2025, 2026, null, "1");
+            var htmlBytes = await service.ExportKeHoachVonCnttReportHtmlAsync(2025, 2026, null, "1");
+
+            // Assert
+            report.Should().NotBeNull();
+            var row = report.Groups.SelectMany(g => g.Rows).FirstOrDefault(r => r.DuAnId == proj.Id);
+            row.Should().NotBeNull();
+            row!.NguonVonChiTiet[nv1.Id].Should().Be(1000000000m);
+            row.NguonVonChiTiet[nv2.Id].Should().Be(2000000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2025)?.GiaTri.Should().Be(1500000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2026)?.GiaTri.Should().Be(1500000000m);
 
             excelBytes.Should().NotBeNullOrEmpty();
             csvBytes.Should().NotBeNullOrEmpty();

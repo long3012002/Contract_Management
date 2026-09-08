@@ -13,16 +13,22 @@ namespace demo1.Mapper
             CreateMap<DuAnPhanKyVon, DuAnPhanKyVonDto>();
             CreateMap<CreateDuAnPhanKyVonDto, DuAnPhanKyVon>();
 
+            // DuAnNguonVon mappings
+            CreateMap<DuAnNguonVon, DuAnNguonVonDto>()
+                .ForMember(dest => dest.MaNguonVon, opt => opt.MapFrom(src => src.NguonVon != null ? src.NguonVon.Code : null))
+                .ForMember(dest => dest.TenNguonVon, opt => opt.MapFrom(src => src.NguonVon != null ? src.NguonVon.Name : null));
+            CreateMap<CreateDuAnNguonVonDto, DuAnNguonVon>();
+
             // DuAn mappings
             CreateMap<DuAn, DuAnDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)))
                 .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
                 .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
-                .ForMember(dest => dest.NguonVonName, opt => opt.MapFrom(src => src.NguonVon != null ? src.NguonVon.Name : null))
                 .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null))
                 .ForMember(dest => dest.ProjectManager, opt => opt.MapFrom(src => src.ChuDuAn))
-                .ForMember(dest => dest.PhanKyVons, opt => opt.MapFrom(src => src.PhanKyVons.OrderBy(p => p.Nam).ToList()));
+                .ForMember(dest => dest.PhanKyVons, opt => opt.MapFrom(src => src.PhanKyVons.OrderBy(p => p.Nam).ToList()))
+                .ForMember(dest => dest.DanhSachNguonVon, opt => opt.MapFrom(src => src.DanhSachNguonVon.ToList()));
             CreateMap<DuAn, DuAnNguonSummaryDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));

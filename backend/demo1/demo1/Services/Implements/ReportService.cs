@@ -2397,12 +2397,27 @@ public class ReportService : IReportService
         int startY = fromYear ?? (endY - 2);
         var (factor, unitName) = ParseUnit(donViTinh ?? "1");
 
+        // 1. Lấy danh sách Nguồn vốn đang hoạt động trong CSDL
+        var dbNguonVons = await _context.NguonVons
+            .AsNoTracking()
+            .Where(nv => nv.IsActive && !nv.IsDeleted)
+            .OrderBy(nv => nv.Code)
+            .ToListAsync();
+
+        var danhSachNguonVonDto = dbNguonVons.Select(nv => new NguonVonHeaderDto
+        {
+            Id = nv.Id,
+            Code = nv.Code,
+            Name = nv.Name
+        }).ToList();
+
         var response = new KeHoachVonCnttReportResponseDto
         {
             Title = $"TỔNG HỢP KẾ HOẠCH VỐN ĐẦU TƯ CNTT GIAI ĐOẠN {startY}-{endY}",
             FromYear = startY,
             ToYear = endY,
             Unit = unitName,
+            DanhSachNguonVon = danhSachNguonVonDto,
             Groups = new List<KeHoachVonCnttReportGroupDto>()
         };
 
@@ -2410,8 +2425,9 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
-            .Include(d => d.NguonVon)
             .Include(d => d.PhanKyVons)
+            .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(d => d.NguonDuAns)
             .Where(d => d.IsActive && !d.IsDeleted);
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
@@ -2525,48 +2541,31 @@ public class ReportService : IReportService
                 decimal quyDauTuPhatTrien = 0;
                 decimal nguonKhac = 0;
 
-                var nguonVonName = (proj.NguonVon?.Name ?? string.Empty).Trim().ToLower();
-                var nguonVonCode = (proj.NguonVon?.Code ?? string.Empty).Trim().ToLower();
-
-                bool isQuyDauTuPhatTrien = nguonVonCode.Contains("quy_dtpt") ||
-                                           nguonVonCode.Contains("qdtpt") ||
-                                           nguonVonCode.Contains("dtpt") ||
-                                           nguonVonName.Contains("phát triển") ||
-                                           nguonVonName.Contains("đầu tư phát triển");
-
-                bool isNguonKhacExplicit = nguonVonCode.Contains("nv_khac") ||
-                                           nguonVonCode.Contains("nv_qpl") ||
-                                           nguonVonName.Contains("phúc lợi") ||
-                                           (nguonVonName.Contains("khác") && !nguonVonName.Contains("ngân hàng hợp tác"));
-
-                bool isVonTuCo = proj.NguonVon == null ||
-                                 nguonVonCode.Contains("von_tu_co") ||
-                                 nguonVonCode.Contains("nv_nhht") ||
-                                 nguonVonCode.Contains("nv_cn") ||
-                                 nguonVonCode.Contains("nv_vdl") ||
-                                 nguonVonCode.Contains("nhht") ||
-                                 nguonVonName.Contains("tự có") ||
-                                 nguonVonName.Contains("điều lệ") ||
-                                 nguonVonName.Contains("nhht") ||
-                                 nguonVonName.Contains("chi nhánh") ||
-                                 nguonVonName.Contains("xây dựng cơ bản") ||
-                                 nguonVonName.Contains("mstscđ");
-
-                if (isQuyDauTuPhatTrien)
+                if (proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any())
                 {
-                    quyDauTuPhatTrien = totalInvestment;
-                }
-                else if (isNguonKhacExplicit)
-                {
-                    nguonKhac = totalInvestment;
-                }
-                else if (isVonTuCo)
-                {
-                    vonTuCo = totalInvestment;
+                    foreach (var nvItem in proj.DanhSachNguonVon)
+                    {
+                        var nvName = (nvItem.NguonVon?.Name ?? string.Empty).Trim().ToLower();
+                        var nvCode = (nvItem.NguonVon?.Code ?? string.Empty).Trim().ToLower();
+                        decimal itemVal = nvItem.SoTien / factor;
+
+                        if (nvCode.Contains("quy_dtpt") || nvCode.Contains("qdtpt") || nvCode.Contains("dtpt") || nvName.Contains("phát triển"))
+                        {
+                            quyDauTuPhatTrien += itemVal;
+                        }
+                        else if (nvCode.Contains("nv_khac") || nvCode.Contains("nv_qpl") || nvName.Contains("phúc lợi") || nvName.Contains("khác"))
+                        {
+                            nguonKhac += itemVal;
+                        }
+                        else
+                        {
+                            vonTuCo += itemVal;
+                        }
+                    }
                 }
                 else
                 {
-                    nguonKhac = totalInvestment;
+                    vonTuCo = totalInvestment;
                 }
 
                 var row = new KeHoachVonCnttReportRowDto
@@ -2579,6 +2578,8 @@ public class ReportService : IReportService
                     PhanLoaiDuAnCode = proj.PhanLoaiDuAn?.Code,
                     TenPhanLoaiDuAn = proj.PhanLoaiDuAn?.Name ?? gMeta.LoaiDuAnText,
                     TongMucDauTu = totalInvestment,
+                    NguonVonId = null,
+                    TenNguonVon = null,
                     VonTuCo = vonTuCo,
                     QuyDauTuPhatTrien = quyDauTuPhatTrien,
                     NguonKhac = nguonKhac,
@@ -2588,6 +2589,40 @@ public class ReportService : IReportService
                     NhomTrangThai = groupStatus ?? (proj.DaTrienKhai == true ? 1 : 2),
                     PhanKyDauTu = new List<KeHoachVonCnttPhanKyDto>()
                 };
+
+                // Điền chi tiết số tiền theo từng Nguồn vốn trong danh mục
+                foreach (var nvHeader in danhSachNguonVonDto)
+                {
+                    row.NguonVonChiTiet[nvHeader.Id] = 0m;
+                }
+
+                bool hasMultipleNguonVon = proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any();
+                if (hasMultipleNguonVon)
+                {
+                    foreach (var nvItem in proj.DanhSachNguonVon!)
+                    {
+                        if (row.NguonVonChiTiet.ContainsKey(nvItem.NguonVonId))
+                        {
+                            row.NguonVonChiTiet[nvItem.NguonVonId] += nvItem.SoTien / factor;
+                        }
+                        else
+                        {
+                            row.NguonVonChiTiet[nvItem.NguonVonId] = nvItem.SoTien / factor;
+                        }
+                    }
+                }
+                else
+                {
+                    var defaultNv = danhSachNguonVonDto.FirstOrDefault(nv => nv.Code.Contains("NV_NHHT") || nv.Code.Contains("VON_TU_CO") || nv.Name.Contains("NHHT") || nv.Name.Contains("tự có"));
+                    if (defaultNv != null)
+                    {
+                        row.NguonVonChiTiet[defaultNv.Id] = totalInvestment;
+                    }
+                    else if (danhSachNguonVonDto.Any())
+                    {
+                        row.NguonVonChiTiet[danhSachNguonVonDto.First().Id] = totalInvestment;
+                    }
+                }
 
                 int pStart = proj.NamBatDau ?? (proj.NgayBatDau?.Year ?? startY);
                 int pEnd = proj.NamKetThuc ?? (proj.NgayKetThuc?.Year ?? endY);
@@ -2659,6 +2694,11 @@ public class ReportService : IReportService
             gDto.TongQuyDauTuPhatTrienNhom = gDto.Rows.Sum(r => r.QuyDauTuPhatTrien);
             gDto.TongNguonKhacNhom = gDto.Rows.Sum(r => r.NguonKhac);
 
+            foreach (var nvHeader in danhSachNguonVonDto)
+            {
+                gDto.TongNguonVonByDanhMucNhom[nvHeader.Id] = gDto.Rows.Sum(r => r.NguonVonChiTiet.TryGetValue(nvHeader.Id, out var val) ? val : 0m);
+            }
+
             for (int y = startY; y <= endY; y++)
             {
                 gDto.TongPhanKyNhom[y] = gDto.Rows.Sum(r => r.PhanKyDauTu.FirstOrDefault(pk => pk.Nam == y)?.GiaTri ?? 0);
@@ -2672,6 +2712,11 @@ public class ReportService : IReportService
         response.TongCongVonTuCo = response.Groups.Sum(g => g.TongVonTuCoNhom);
         response.TongCongQuyDauTuPhatTrien = response.Groups.Sum(g => g.TongQuyDauTuPhatTrienNhom);
         response.TongCongNguonKhac = response.Groups.Sum(g => g.TongNguonKhacNhom);
+
+        foreach (var nvHeader in danhSachNguonVonDto)
+        {
+            response.TongCongNguonVonByDanhMuc[nvHeader.Id] = response.Groups.Sum(g => g.TongNguonVonByDanhMucNhom.TryGetValue(nvHeader.Id, out var val) ? val : 0m);
+        }
 
         for (int y = startY; y <= endY; y++)
         {
@@ -2701,17 +2746,39 @@ public class ReportService : IReportService
             worksheet.Cell("A2").Value = $"Đơn vị tính: {report.Unit}";
             worksheet.Cell("A2").Style.Font.Italic = true;
 
+            int numYears = report.ToYear >= report.FromYear ? (report.ToYear - report.FromYear + 1) : 0;
+            int nvColCount = report.DanhSachNguonVon.Any() ? report.DanhSachNguonVon.Count : 2;
+            int totalCols = 4 + nvColCount + numYears + 2;
+
             int row = 4;
             worksheet.Cell(row, 1).Value = "STT";
             worksheet.Cell(row, 2).Value = "Nội dung";
             worksheet.Cell(row, 3).Value = "Phân loại dự án";
             worksheet.Cell(row, 4).Value = "Tổng mức đầu tư";
-            worksheet.Cell(row, 5).Value = "Vốn tự có";
-            worksheet.Cell(row, 6).Value = "Quỹ ĐTPT";
-            worksheet.Cell(row, 7).Value = "Trạng thái";
-            worksheet.Cell(row, 8).Value = "Ghi chú";
 
-            var headerRange = worksheet.Range(row, 1, row, 8);
+            int col = 5;
+            if (report.DanhSachNguonVon.Any())
+            {
+                foreach (var nv in report.DanhSachNguonVon)
+                {
+                    worksheet.Cell(row, col++).Value = nv.Name;
+                }
+            }
+            else
+            {
+                worksheet.Cell(row, col++).Value = "Vốn tự có";
+                worksheet.Cell(row, col++).Value = "Quỹ ĐTPT";
+            }
+
+            for (int y = report.FromYear; y <= report.ToYear; y++)
+            {
+                worksheet.Cell(row, col++).Value = $"Năm {y}";
+            }
+
+            worksheet.Cell(row, col++).Value = "Trạng thái";
+            worksheet.Cell(row, col++).Value = "Ghi chú";
+
+            var headerRange = worksheet.Range(row, 1, row, totalCols);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
 
@@ -2719,7 +2786,7 @@ public class ReportService : IReportService
             foreach (var g in report.Groups)
             {
                 worksheet.Cell(row, 1).Value = g.TenNhom;
-                worksheet.Range(row, 1, row, 8).Merge().Style.Font.Bold = true;
+                worksheet.Range(row, 1, row, totalCols).Merge().Style.Font.Bold = true;
                 row++;
 
                 foreach (var r in g.Rows)
@@ -2728,18 +2795,113 @@ public class ReportService : IReportService
                     worksheet.Cell(row, 2).Value = r.NoiDung;
                     worksheet.Cell(row, 3).Value = r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại";
                     worksheet.Cell(row, 4).Value = r.TongMucDauTu;
-                    worksheet.Cell(row, 5).Value = r.VonTuCo;
-                    worksheet.Cell(row, 6).Value = r.QuyDauTuPhatTrien;
-                    worksheet.Cell(row, 7).Value = r.TrangThaiText ?? "-";
-                    worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
-
                     worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.##";
-                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
-                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
+
+                    col = 5;
+                    if (report.DanhSachNguonVon.Any())
+                    {
+                        foreach (var nv in report.DanhSachNguonVon)
+                        {
+                            decimal val = r.NguonVonChiTiet.TryGetValue(nv.Id, out var v) ? v : 0m;
+                            worksheet.Cell(row, col).Value = val;
+                            worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                            col++;
+                        }
+                    }
+                    else
+                    {
+                        worksheet.Cell(row, col).Value = r.VonTuCo;
+                        worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+                        worksheet.Cell(row, col).Value = r.QuyDauTuPhatTrien;
+                        worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+                    }
+
+                    for (int y = report.FromYear; y <= report.ToYear; y++)
+                    {
+                        var pk = r.PhanKyDauTu.FirstOrDefault(p => p.Nam == y);
+                        decimal pkVal = pk != null ? pk.GiaTri : 0m;
+                        worksheet.Cell(row, col).Value = pkVal;
+                        worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                        col++;
+                    }
+
+                    worksheet.Cell(row, col++).Value = r.TrangThaiText ?? "-";
+                    worksheet.Cell(row, col++).Value = r.GhiChu ?? "";
 
                     row++;
                 }
+
+                // Hàng Cộng nhóm
+                worksheet.Cell(row, 2).Value = $"CỘNG NHÓM ({g.TenNhom})";
+                worksheet.Cell(row, 4).Value = g.TongMucDauTuNhom;
+                worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.##";
+
+                col = 5;
+                if (report.DanhSachNguonVon.Any())
+                {
+                    foreach (var nv in report.DanhSachNguonVon)
+                    {
+                        decimal val = g.TongNguonVonByDanhMucNhom.TryGetValue(nv.Id, out var v) ? v : 0m;
+                        worksheet.Cell(row, col).Value = val;
+                        worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                        col++;
+                    }
+                }
+                else
+                {
+                    worksheet.Cell(row, col).Value = g.TongVonTuCoNhom;
+                    worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+                    worksheet.Cell(row, col).Value = g.TongQuyDauTuPhatTrienNhom;
+                    worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+                }
+
+                for (int y = report.FromYear; y <= report.ToYear; y++)
+                {
+                    decimal yVal = g.TongPhanKyNhom.TryGetValue(y, out var v) ? v : 0m;
+                    worksheet.Cell(row, col).Value = yVal;
+                    worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                    col++;
+                }
+
+                worksheet.Range(row, 1, row, totalCols).Style.Font.Bold = true;
+                worksheet.Range(row, 1, row, totalCols).Style.Fill.BackgroundColor = XLColor.FromHtml("#EBF1F5");
+                row++;
             }
+
+            // Hàng Tổng cộng toàn bộ báo cáo
+            worksheet.Cell(row, 2).Value = "TỔNG CỘNG TOÀN BỘ DỰ ÁN";
+            worksheet.Cell(row, 4).Value = report.TongCongMucDauTu;
+            worksheet.Cell(row, 4).Style.NumberFormat.Format = "#,##0.##";
+
+            col = 5;
+            if (report.DanhSachNguonVon.Any())
+            {
+                foreach (var nv in report.DanhSachNguonVon)
+                {
+                    decimal val = report.TongCongNguonVonByDanhMuc.TryGetValue(nv.Id, out var v) ? v : 0m;
+                    worksheet.Cell(row, col).Value = val;
+                    worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                    col++;
+                }
+            }
+            else
+            {
+                worksheet.Cell(row, col).Value = report.TongCongVonTuCo;
+                worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+                worksheet.Cell(row, col).Value = report.TongCongQuyDauTuPhatTrien;
+                worksheet.Cell(row, col++).Style.NumberFormat.Format = "#,##0.##";
+            }
+
+            for (int y = report.FromYear; y <= report.ToYear; y++)
+            {
+                decimal yVal = report.TongCongPhanKy.TryGetValue(y, out var v) ? v : 0m;
+                worksheet.Cell(row, col).Value = yVal;
+                worksheet.Cell(row, col).Style.NumberFormat.Format = "#,##0.##";
+                col++;
+            }
+
+            worksheet.Range(row, 1, row, totalCols).Style.Font.Bold = true;
+            worksheet.Range(row, 1, row, totalCols).Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E1F2");
 
             worksheet.Columns().AdjustToContents();
 
@@ -2769,13 +2931,28 @@ public class ReportService : IReportService
                 await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
                 await writer.WriteLineAsync();
 
+                var nvHeaderNames = report.DanhSachNguonVon.Any()
+                    ? string.Join(",", report.DanhSachNguonVon.Select(nv => $"\"{EscapeCsvField(nv.Name)}\""))
+                    : "\"Vốn tự có\",\"Quỹ ĐTPT\"";
+
+                var yearHeaderNames = string.Join(",", Enumerable.Range(report.FromYear, report.ToYear - report.FromYear + 1).Select(y => $"\"Năm {y}\""));
+
                 foreach (var g in report.Groups)
                 {
                     await writer.WriteLineAsync($"\"{g.TenNhom}\"");
-                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",\"Vốn tự có\",\"Quỹ ĐTPT\",\"Trạng thái\",\"Ghi chú\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",{nvHeaderNames},{yearHeaderNames},\"Trạng thái\",\"Ghi chú\"");
                     foreach (var r in g.Rows)
                     {
-                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\",\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                        var nvVals = report.DanhSachNguonVon.Any()
+                            ? string.Join(",", report.DanhSachNguonVon.Select(nv => $"\"{r.NguonVonChiTiet.GetValueOrDefault(nv.Id)}\""))
+                            : $"\"{r.VonTuCo}\",\"{r.QuyDauTuPhatTrien}\"";
+
+                        var yearVals = string.Join(",", Enumerable.Range(report.FromYear, report.ToYear - report.FromYear + 1).Select(y => {
+                            var pk = r.PhanKyDauTu.FirstOrDefault(p => p.Nam == y);
+                            return $"\"{pk?.GiaTri ?? 0m}\"";
+                        }));
+
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",{nvVals},{yearVals},\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
                     }
                     await writer.WriteLineAsync();
                 }
@@ -2799,13 +2976,28 @@ public class ReportService : IReportService
         html.AppendLine($"<h2>{System.Web.HttpUtility.HtmlEncode(report.Title)}</h2>");
         html.AppendLine($"<p><i>Đơn vị tính: {System.Web.HttpUtility.HtmlEncode(report.Unit)}</i></p>");
 
+        var nvThs = report.DanhSachNguonVon.Any()
+            ? string.Concat(report.DanhSachNguonVon.Select(nv => $"<th>{System.Web.HttpUtility.HtmlEncode(nv.Name)}</th>"))
+            : "<th>Vốn tự có</th><th>Quỹ ĐTPT</th>";
+
+        var yearThs = string.Concat(Enumerable.Range(report.FromYear, report.ToYear - report.FromYear + 1).Select(y => $"<th>Năm {y}</th>"));
+
         foreach (var g in report.Groups)
         {
             html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(g.TenNhom)}</h3>");
-            html.AppendLine("<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th><th>Vốn tự có</th><th>Quỹ ĐTPT</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
+            html.AppendLine($"<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th>{nvThs}{yearThs}<th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
             foreach (var r in g.Rows)
             {
-                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td><td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+                var nvTds = report.DanhSachNguonVon.Any()
+                    ? string.Concat(report.DanhSachNguonVon.Select(nv => $"<td>{(r.NguonVonChiTiet.TryGetValue(nv.Id, out var val) ? val : 0m):#,##0.##}</td>"))
+                    : $"<td>{r.VonTuCo:#,##0.##}</td><td>{r.QuyDauTuPhatTrien:#,##0.##}</td>";
+
+                var yearTds = string.Concat(Enumerable.Range(report.FromYear, report.ToYear - report.FromYear + 1).Select(y => {
+                    var pk = r.PhanKyDauTu.FirstOrDefault(p => p.Nam == y);
+                    return $"<td>{(pk?.GiaTri ?? 0m):#,##0.##}</td>";
+                }));
+
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td>{nvTds}{yearTds}<td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
             }
             html.AppendLine("</tbody></table>");
         }

@@ -48,9 +48,9 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn);
 
         var currentUsername = _currentUserService.GetUsername();
@@ -159,9 +159,9 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var items = await DbSet
             .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .ToListAsync();
         var dtos = Mapper.Map<List<DuAnDto>>(items);
@@ -174,9 +174,9 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var entity = await DbSet
             .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .FirstOrDefaultAsync(da => da.Id == id);
         if (entity is null) return null;
@@ -304,6 +304,22 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                         SoTienPhanKy = pkDto.SoTienPhanKy,
                         TyLePercent = percent,
                         GhiChu = pkDto.GhiChu
+                    });
+                }
+            }
+
+            if (dto.DanhSachNguonVon != null && dto.DanhSachNguonVon.Any())
+            {
+                foreach (var nvDto in dto.DanhSachNguonVon)
+                {
+                    entity.DanhSachNguonVon.Add(new DuAnNguonVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = entity.Id,
+                        NguonVonId = nvDto.NguonVonId,
+                        SoTien = nvDto.SoTien,
+                        GhiChu = nvDto.GhiChu,
+                        CreatedAt = DateTime.UtcNow
                     });
                 }
             }
@@ -478,7 +494,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.PhanKyVons)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.NguonVon)
             .Include(da => da.ChuDuAn)
             .Where(da => createdIds.Contains(da.Id))
             .ToListAsync();
@@ -670,6 +685,40 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                             SoTienPhanKy = pkDto.SoTienPhanKy,
                             TyLePercent = percent,
                             GhiChu = pkDto.GhiChu,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+            }
+
+            if (dto.DanhSachNguonVon != null)
+            {
+                var existingNguonVons = await DbContext.DuAnNguonVons.Where(p => p.DuAnId == id).ToListAsync();
+                var updatedNguonVonIds = dto.DanhSachNguonVon.Select(x => x.NguonVonId).ToList();
+                var toRemoveNv = existingNguonVons.Where(x => !updatedNguonVonIds.Contains(x.NguonVonId)).ToList();
+                if (toRemoveNv.Any())
+                {
+                    DbContext.DuAnNguonVons.RemoveRange(toRemoveNv);
+                }
+
+                foreach (var nvDto in dto.DanhSachNguonVon)
+                {
+                    var existingNv = existingNguonVons.FirstOrDefault(x => x.NguonVonId == nvDto.NguonVonId);
+                    if (existingNv != null && !toRemoveNv.Contains(existingNv))
+                    {
+                        existingNv.SoTien = nvDto.SoTien;
+                        existingNv.GhiChu = nvDto.GhiChu;
+                        existingNv.UpdatedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        await DbContext.DuAnNguonVons.AddAsync(new DuAnNguonVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = entity.Id,
+                            NguonVonId = nvDto.NguonVonId,
+                            SoTien = nvDto.SoTien,
+                            GhiChu = nvDto.GhiChu,
                             CreatedAt = DateTime.UtcNow
                         });
                     }
@@ -884,7 +933,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.DieuChinhs)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.NguonVon)
             .ToListAsync();
 
         return Mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities);
@@ -916,7 +964,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 .Include(da => da.DieuChinhs)
                 .Include(da => da.NhomDuAn)
                 .Include(da => da.PhanLoaiDuAn)
-                .Include(da => da.NguonVon)
                 .ToListAsync();
             sourceEntitiesDict = sourceEntities.ToDictionary(s => s.Id, s => s);
         }

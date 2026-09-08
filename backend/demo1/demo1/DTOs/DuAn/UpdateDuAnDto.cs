@@ -24,7 +24,6 @@ public class UpdateDuAnDto
 
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
-    public Guid? NguonVonId { get; set; }
 
     public int TrangThai { get; set; }
 
@@ -54,4 +53,5 @@ public class UpdateDuAnDto
     public Guid? ChuDuAnId { get; set; }
 
     public List<CreateDuAnPhanKyVonDto>? PhanKyVons { get; set; }
+    public List<CreateDuAnNguonVonDto>? DanhSachNguonVon { get; set; }
 }

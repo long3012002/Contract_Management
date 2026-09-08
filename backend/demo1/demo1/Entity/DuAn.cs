@@ -18,9 +18,6 @@ public class DuAn : BaseEntity
     public Guid? PhanLoaiDuAnId { get; set; }
     public virtual PhanLoaiDuAn? PhanLoaiDuAn { get; set; }
 
-    public Guid? NguonVonId { get; set; }
-    public virtual NguonVon? NguonVon { get; set; }
-    
     // Navigation Properties cho quan hệ giữa Dự án Triển khai và Dự án Nguồn
     public virtual ICollection<DuAnNguonTrienKhai> NguonDuAns { get; set; } = new List<DuAnNguonTrienKhai>();
     
@@ -50,4 +47,5 @@ public class DuAn : BaseEntity
     public virtual ICollection<GoiThau> GoiThaus { get; set; } = new List<GoiThau>();
     public virtual ICollection<License> Licenses { get; set; } = new List<License>();
     public virtual ICollection<DuAnPhanKyVon> PhanKyVons { get; set; } = new List<DuAnPhanKyVon>();
+    public virtual ICollection<DuAnNguonVon> DanhSachNguonVon { get; set; } = new List<DuAnNguonVon>();
 }

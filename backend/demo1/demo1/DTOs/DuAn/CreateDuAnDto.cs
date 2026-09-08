@@ -27,7 +27,6 @@ public class CreateDuAnDto
 
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
-    public Guid? NguonVonId { get; set; }
 
     public List<Guid>? SourceProjectIds { get; set; }
 
@@ -57,4 +56,5 @@ public class CreateDuAnDto
     public Guid? ChuDuAnId { get; set; }
 
     public List<CreateDuAnPhanKyVonDto>? PhanKyVons { get; set; }
+    public List<CreateDuAnNguonVonDto>? DanhSachNguonVon { get; set; }
 }

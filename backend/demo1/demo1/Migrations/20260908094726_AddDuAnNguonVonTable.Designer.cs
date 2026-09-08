@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using demo1.Data;
@@ -11,9 +12,11 @@ using demo1.Data;
 namespace demo1.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260908094726_AddDuAnNguonVonTable")]
+    partial class AddDuAnNguonVonTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1164,6 +1167,9 @@ namespace demo1.Migrations
                     b.Property<DateTime?>("NgayKetThuc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("NguonVonId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("NhomDuAnId")
                         .HasColumnType("uuid");
 
@@ -1200,6 +1206,8 @@ namespace demo1.Migrations
                         .HasFilter("\"IsDeleted\" = false");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("NguonVonId");
 
                     b.HasIndex("NhomDuAnId");
 
@@ -2612,6 +2620,11 @@ namespace demo1.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("demo1.Entity.DanhMuc.NguonVon", "NguonVon")
+                        .WithMany()
+                        .HasForeignKey("NguonVonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("demo1.Entity.DanhMuc.NhomDuAn", "NhomDuAn")
                         .WithMany()
                         .HasForeignKey("NhomDuAnId")
@@ -2625,6 +2638,8 @@ namespace demo1.Migrations
                     b.Navigation("ChuDuAn");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("NguonVon");
 
                     b.Navigation("NhomDuAn");
 

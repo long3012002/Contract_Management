@@ -71,6 +71,7 @@ namespace demo1.Data
         public DbSet<FileAttachment> FileAttachments { get; set; } = null!;
         public DbSet<FileVersion> FileVersions { get; set; } = null!;
         public DbSet<DuAnPhanKyVon> DuAnPhanKyVons { get; set; } = null!;
+        public DbSet<DuAnNguonVon> DuAnNguonVons { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -248,12 +249,6 @@ namespace demo1.Data
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<DuAn>()
-                .HasOne(da => da.NguonVon)
-                .WithMany()
-                .HasForeignKey(da => da.NguonVonId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            modelBuilder.Entity<DuAn>()
                 .HasOne(da => da.CreatedByUser)
                 .WithMany()
                 .HasForeignKey(da => da.CreatedByUserId)
@@ -301,6 +296,23 @@ namespace demo1.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(e => new { e.DuAnId, e.Nam }).IsUnique();
+            });
+
+            modelBuilder.Entity<DuAnNguonVon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SoTien).HasPrecision(18, 2);
+                entity.Property(e => e.GhiChu).HasMaxLength(1000);
+
+                entity.HasOne(p => p.DuAn)
+                    .WithMany(d => d.DanhSachNguonVon)
+                    .HasForeignKey(p => p.DuAnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(p => p.NguonVon)
+                    .WithMany()
+                    .HasForeignKey(p => p.NguonVonId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<DieuChinhDuAn>()
