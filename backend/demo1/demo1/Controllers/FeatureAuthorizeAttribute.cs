@@ -172,27 +172,28 @@ namespace demo1.Controllers
                 return;
             }
 
-            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner / Related User
+            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner
             if (httpMethod == "POST")
             {
-                if (!string.IsNullOrEmpty(entityId) && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
+                if (!string.IsNullOrEmpty(entityId) && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId, isReadOnlyCheck: true))
                 {
                     return;
                 }
-                if (duAnId.HasValue && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, duAnId.Value.ToString()))
+                if (duAnId.HasValue && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, duAnId.Value.ToString(), isReadOnlyCheck: true))
                 {
                     return;
                 }
 
                 var requiredPermCode = "CREATE";
 
-                // High-performance Lookup on UserPermissions + Permission Catalog Code
+                // Composite Index Lookup on UserPermissions + Permission Catalog Code + DuAnId check if available
                 var hasPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (up.FeatureCode == _featureCode || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) &&
+                        (!duAnId.HasValue || up.DuAnId == duAnId.Value) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
                 if (!hasPermission)
@@ -212,7 +213,7 @@ namespace demo1.Controllers
                 }
             }
 
-            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User
+            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User (for tasks/comments)
             if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
             {
                 if (string.IsNullOrEmpty(entityId))
@@ -220,9 +221,9 @@ namespace demo1.Controllers
                     return;
                 }
 
-                if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
+                if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId, isReadOnlyCheck: false))
                 {
-                    return; // Project Owner or Related User has unrestricted edit/delete access
+                    return; // Project Owner or Related User (for assigned task/comment) has operational access
                 }
 
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
@@ -262,7 +263,7 @@ namespace demo1.Controllers
             return await _dbContext.DuAns.AsNoTracking().AnyAsync(da => (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
         }
 
-        private async Task<bool> IsProjectOwnerOrRelatedUserAsync(Guid userId, string entityIdStr)
+        private async Task<bool> IsProjectOwnerOrRelatedUserAsync(Guid userId, string entityIdStr, bool isReadOnlyCheck = true)
         {
             if (!Guid.TryParse(entityIdStr, out var entityId))
             {
@@ -276,7 +277,7 @@ namespace demo1.Controllers
                 if (duAn.CreatedByUserId == userId || duAn.ChuDuAnId == userId) return true;
             }
 
-            // 2. Check GoiThau: Access granted if Project Owner OR tagged in a task belonging to THIS GoiThau
+            // 2. Check GoiThau: Access granted if Project Owner (Full) OR tagged in a task belonging to THIS GoiThau (Read-only)
             var goiThau = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(gt => gt.Id == entityId);
             if (goiThau != null)
             {
@@ -286,12 +287,15 @@ namespace demo1.Controllers
                     if (isOwner) return true;
                 }
 
-                var isRelatedToGoiThau = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
-                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == entityId);
-                if (isRelatedToGoiThau) return true;
+                if (isReadOnlyCheck)
+                {
+                    var isRelatedToGoiThau = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                        .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == entityId);
+                    if (isRelatedToGoiThau) return true;
+                }
             }
 
-            // 3. Check HopDong: Access granted if Project Owner OR tagged in a task belonging to the contract's GoiThau
+            // 3. Check HopDong: Access granted if Project Owner (Full) OR tagged in a task belonging to the contract's GoiThau (Read-only)
             var hopDong = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(hd => hd.Id == entityId);
             if (hopDong != null)
             {
@@ -308,7 +312,7 @@ namespace demo1.Controllers
                     if (isOwner) return true;
                 }
 
-                if (hopDong.GoiThauId.HasValue)
+                if (isReadOnlyCheck && hopDong.GoiThauId.HasValue)
                 {
                     var isRelatedToHopDong = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
                         .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == hopDong.GoiThauId.Value);
@@ -316,7 +320,7 @@ namespace demo1.Controllers
                 }
             }
 
-            // 4. Check CongViecGoiThau: Access granted if Project Owner OR directly tagged in THIS task
+            // 4. Check CongViecGoiThau: Access granted if Project Owner OR directly tagged in THIS task (allows view, status update, confirm)
             var congViec = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == entityId);
             if (congViec != null)
             {
