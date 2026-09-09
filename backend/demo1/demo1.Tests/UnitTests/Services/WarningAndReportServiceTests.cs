@@ -221,6 +221,34 @@ namespace demo1.Tests.UnitTests.Services
             groupBHeader.Should().NotBeNull();
             groupBFooter.Should().NotBeNull();
             groupBFooter!.TongMucDauTuTong.Should().BeGreaterThanOrEqualTo(50000000000m);
+
+            // Verify that Group C is excluded since it has no projects
+            report.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeFalse();
+            report.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Exclude_Empty_Project_Groups()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            // Case 1: No projects at all -> Neither Group B nor Group C should be in rows
+            var emptyReport = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            emptyReport.Rows.Any(r => r.RowType == "GroupHeader").Should().BeFalse();
+            emptyReport.Rows.Any(r => r.RowType == "GrandTotal").Should().BeTrue();
+
+            // Case 2: Only Group C project (< 45B) -> Group B should be excluded, Group C included
+            var projC = new DuAn { Id = Guid.NewGuid(), Code = "DA-C-10B", Name = "Dự án nhóm C quy mô nhỏ", DuToanPheDuyet = 10000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            _dbContext.DuAns.Add(projC);
+            await _dbContext.SaveChangesAsync();
+
+            var reportWithC = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            reportWithC.Rows.Any(r => r.Stt == "B" && r.RowType == "GroupHeader").Should().BeFalse();
+            reportWithC.Rows.Any(r => r.ProjectName == "Tổng (B)").Should().BeFalse();
+            reportWithC.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeTrue();
+            reportWithC.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeTrue();
         }
 
         [Fact]
@@ -366,8 +394,8 @@ namespace demo1.Tests.UnitTests.Services
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng" };
-            var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data" };
+            var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng", LoaiDuAn = 2 };
+            var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data", LoaiDuAn = 2 };
             _dbContext.DuAns.AddRange(projXdcb, projCntt);
             await _dbContext.SaveChangesAsync();
 
@@ -417,13 +445,13 @@ namespace demo1.Tests.UnitTests.Services
 
             _dbContext.NguonVons.AddRange(nvNhht, nvQdtpt, nvKhac);
 
-            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000 };
+            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000, LoaiDuAn = 2 };
             p1.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p1.Id, NguonVonId = nvNhht.Id, SoTien = 1000000 });
 
-            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000 };
+            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000, LoaiDuAn = 2 };
             p2.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p2.Id, NguonVonId = nvQdtpt.Id, SoTien = 2000000 });
 
-            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000 };
+            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000, LoaiDuAn = 2 };
             p3.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p3.Id, NguonVonId = nvKhac.Id, SoTien = 3000000 });
 
             _dbContext.DuAns.AddRange(p1, p2, p3);
@@ -535,7 +563,8 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(), 
                 Code = "DA-MULTI-NV", 
                 Name = "Dự án CNTT nhiều nguồn vốn", 
-                DuToanPheDuyet = 3000000000m 
+                DuToanPheDuyet = 3000000000m,
+                LoaiDuAn = 2
             };
 
             proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1000000000m });
@@ -564,6 +593,92 @@ namespace demo1.Tests.UnitTests.Services
             excelBytes.Should().NotBeNullOrEmpty();
             csvBytes.Should().NotBeNullOrEmpty();
             htmlBytes.Should().NotBeNullOrEmpty();
+        }
+
+        [Fact]
+        public async Task GetKeHoachVonCnttReportAsync_Should_Only_Include_LoaiDuAn_2_And_Exclude_LoaiDuAn_1()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var projNguon = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-NGUON-01",
+                Name = "Dự án nguồn CNTT",
+                DuToanPheDuyet = 500000000m,
+                LoaiDuAn = 1,
+                NoiDung = "Phần mềm nguồn",
+                IsActive = true
+            };
+
+            var projTrienKhai = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-TRIENKHAI-01",
+                Name = "Dự án triển khai CNTT",
+                DuToanPheDuyet = 500000000m,
+                LoaiDuAn = 2,
+                NoiDung = "Phần mềm triển khai",
+                IsActive = true
+            };
+
+            _dbContext.DuAns.AddRange(projNguon, projTrienKhai);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetKeHoachVonCnttReportAsync(2025, 2026, null, "1");
+
+            // Assert
+            report.Should().NotBeNull();
+            var allRowProjectIds = report.Groups.SelectMany(g => g.Rows).Select(r => r.DuAnId).ToList();
+
+            allRowProjectIds.Should().Contain(projTrienKhai.Id);
+            allRowProjectIds.Should().NotContain(projNguon.Id);
+        }
+
+        [Fact]
+        public async Task GetKeHoachVonReportAsync_Should_Only_Include_LoaiDuAn_2_And_Exclude_LoaiDuAn_1()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var projNguon = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-NGUON-XDCB",
+                Name = "Dự án nguồn XDCB",
+                DuToanPheDuyet = 500000000m,
+                LoaiDuAn = 1,
+                NoiDung = "xây dựng công trình nguồn",
+                IsActive = true
+            };
+
+            var projTrienKhai = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-TRIENKHAI-XDCB",
+                Name = "Dự án triển khai XDCB",
+                DuToanPheDuyet = 500000000m,
+                LoaiDuAn = 2,
+                NoiDung = "xây dựng công trình triển khai",
+                IsActive = true
+            };
+
+            _dbContext.DuAns.AddRange(projNguon, projTrienKhai);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetKeHoachVonReportAsync(DateTime.Now.Year, 1, "triệu");
+
+            // Assert
+            report.Should().NotBeNull();
+            var allRowProjectIds = report.PhuLucs.SelectMany(pl => pl.Rows).Select(r => r.DuAnId).ToList();
+
+            allRowProjectIds.Should().Contain(projTrienKhai.Id);
+            allRowProjectIds.Should().NotContain(projNguon.Id);
         }
 
         public void Dispose()

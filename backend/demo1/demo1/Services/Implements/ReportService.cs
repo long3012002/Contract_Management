@@ -358,6 +358,9 @@ public class ReportService : IReportService
         int bCatIdx = 1;
         foreach (var cat in categoryList)
         {
+            var pList = groupBProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
+            if (!pList.Any()) continue;
+
             var subHeader = new ReportRowDto
             {
                 Stt = ToRomanNumber(bCatIdx++),
@@ -365,7 +368,6 @@ public class ReportService : IReportService
                 ProjectName = cat.Name
             };
 
-            var pList = groupBProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
             int pIdx = 1;
             foreach (var pRow in pList)
             {
@@ -376,14 +378,7 @@ public class ReportService : IReportService
             bSubHeaders.Add(subHeader);
 
             bRows.Add(subHeader);
-            if (pList.Any())
-            {
-                bRows.AddRange(pList);
-            }
-            else
-            {
-                bRows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-            }
+            bRows.AddRange(pList);
         }
 
         var groupBFooter = new ReportRowDto
@@ -391,10 +386,13 @@ public class ReportService : IReportService
             RowType = "GroupFooter",
             ProjectName = "Tổng (B)"
         };
-        PopulateGroupSummary(groupBHeader, bSubHeaders);
-        PopulateGroupSummary(groupBFooter, bSubHeaders);
-        bRows.Add(groupBFooter);
-        rows.AddRange(bRows);
+        if (bSubHeaders.Any())
+        {
+            PopulateGroupSummary(groupBHeader, bSubHeaders);
+            PopulateGroupSummary(groupBFooter, bSubHeaders);
+            bRows.Add(groupBFooter);
+            rows.AddRange(bRows);
+        }
 
         // --- GROUP C ---
         var groupCHeader = new ReportRowDto
@@ -409,6 +407,9 @@ public class ReportService : IReportService
         int cCatIdx = 1;
         foreach (var cat in categoryList)
         {
+            var pList = groupCProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
+            if (!pList.Any()) continue;
+
             var subHeader = new ReportRowDto
             {
                 Stt = ToRomanNumber(cCatIdx++),
@@ -416,7 +417,6 @@ public class ReportService : IReportService
                 ProjectName = cat.Name
             };
 
-            var pList = groupCProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
             int pIdx = 1;
             foreach (var pRow in pList)
             {
@@ -427,14 +427,7 @@ public class ReportService : IReportService
             cSubHeaders.Add(subHeader);
 
             cRows.Add(subHeader);
-            if (pList.Any())
-            {
-                cRows.AddRange(pList);
-            }
-            else
-            {
-                cRows.Add(new ReportRowDto { RowType = "EmptyPlaceholder", ProjectName = "(Không có)" });
-            }
+            cRows.AddRange(pList);
         }
 
         var groupCFooter = new ReportRowDto
@@ -442,10 +435,13 @@ public class ReportService : IReportService
             RowType = "GroupFooter",
             ProjectName = "Tổng (C)"
         };
-        PopulateGroupSummary(groupCHeader, cSubHeaders);
-        PopulateGroupSummary(groupCFooter, cSubHeaders);
-        cRows.Add(groupCFooter);
-        rows.AddRange(cRows);
+        if (cSubHeaders.Any())
+        {
+            PopulateGroupSummary(groupCHeader, cSubHeaders);
+            PopulateGroupSummary(groupCFooter, cSubHeaders);
+            cRows.Add(groupCFooter);
+            rows.AddRange(cRows);
+        }
 
         // --- GRAND TOTAL ---
         var grandTotal = new ReportRowDto
@@ -453,7 +449,10 @@ public class ReportService : IReportService
             RowType = "GrandTotal",
             ProjectName = "TỔNG CỘNG"
         };
-        PopulateGroupSummary(grandTotal, new List<ReportRowDto> { groupBFooter, groupCFooter });
+        var activeFooters = new List<ReportRowDto>();
+        if (bSubHeaders.Any()) activeFooters.Add(groupBFooter);
+        if (cSubHeaders.Any()) activeFooters.Add(groupCFooter);
+        PopulateGroupSummary(grandTotal, activeFooters);
         rows.Add(grandTotal);
 
         return new ReportResponseDto
@@ -2107,7 +2106,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
-            .Where(d => d.IsActive && !d.IsDeleted && (d.NamBatDau == null || d.NamBatDau <= selectedYear))
+            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.NamBatDau == null || d.NamBatDau <= selectedYear))
             .ToListAsync();
 
         var phuLucTypes = new List<(int Type, string Name)>
@@ -2428,7 +2427,7 @@ public class ReportService : IReportService
             .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(d => d.NguonDuAns)
-            .Where(d => d.IsActive && !d.IsDeleted);
+            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2);
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
         if (groupStatus.HasValue && (groupStatus.Value == 1 || groupStatus.Value == 2))

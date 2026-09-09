@@ -219,6 +219,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
                 }
 
+                // Kiểm tra trùng lặp trong chính danh sách SourceProjectIds được truyền vào
+                if (dto.SourceProjectIds.Count != dto.SourceProjectIds.Distinct().Count())
+                {
+                    throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
+                }
+
                 // Get source projects
                 var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
                                                 .Where(da => dto.SourceProjectIds.Contains(da.Id))
@@ -232,6 +238,16 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 if (sourceProjects.Any(da => da.LoaiDuAn != 1))
                 {
                     throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
+                }
+
+                // Kiểm tra xem có dự án nguồn nào đã thuộc về DuAnNguonTrienKhai của dự án triển khai khác không
+                var linkedSourceIds = await GetLinkedSourceProjectIdsAsync();
+                var alreadyLinkedId = dto.SourceProjectIds.FirstOrDefault(id => linkedSourceIds.Contains(id));
+                if (alreadyLinkedId != Guid.Empty)
+                {
+                    var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
+                    var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
+                    throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
                 }
 
                 // Check if any of these source projects are already linked to an existing implementation project
@@ -269,6 +285,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             }
             else // Du an nguon
             {
+                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
+                {
+                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
+                }
+
                 entity.LoaiDuAn = 1;
                 entity.DaTrienKhai = false;
             }
@@ -361,9 +382,20 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         }
 
         // 3. Tải toàn bộ dự án nguồn liên kết trong 1 truy vấn SQL
-        var allSourceProjectIds = dtoList
+        foreach (var dto in dtoList.Where(d => d.LoaiDuAn == 2 && d.SourceProjectIds != null))
+        {
+            if (dto.SourceProjectIds!.Count != dto.SourceProjectIds!.Distinct().Count())
+            {
+                throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
+            }
+        }
+
+        var allRawSourceProjectIds = dtoList
             .Where(d => d.LoaiDuAn == 2 && d.SourceProjectIds != null)
             .SelectMany(d => d.SourceProjectIds!)
+            .ToList();
+
+        var allSourceProjectIds = allRawSourceProjectIds
             .Distinct()
             .ToList();
 
@@ -382,6 +414,26 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             if (sourceProjects.Any(da => da.LoaiDuAn != 1))
             {
                 throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
+            }
+
+            var duplicateAcrossBatch = allRawSourceProjectIds
+                .GroupBy(x => x)
+                .FirstOrDefault(g => g.Count() > 1);
+
+            if (duplicateAcrossBatch != null)
+            {
+                var duplicateProj = sourceProjects.FirstOrDefault(sp => sp.Id == duplicateAcrossBatch.Key);
+                var projName = duplicateProj?.Name ?? duplicateAcrossBatch.Key.ToString();
+                throw new InvalidOperationException($"Dự án nguồn '{projName}' được liên kết nhiều hơn một lần trong danh sách tạo.");
+            }
+
+            var linkedSourceIds = await GetLinkedSourceProjectIdsAsync();
+            var alreadyLinkedId = allSourceProjectIds.FirstOrDefault(id => linkedSourceIds.Contains(id));
+            if (alreadyLinkedId != Guid.Empty)
+            {
+                var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
+                var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
+                throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
             }
 
             var alreadyDeployedProj = sourceProjects.FirstOrDefault(da => da.DaTrienKhai == true);
@@ -450,6 +502,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             }
             else
             {
+                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
+                {
+                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
+                }
+
                 entity.LoaiDuAn = 1;
                 entity.DaTrienKhai = false;
             }
@@ -525,6 +582,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
                 }
 
+                // Kiểm tra trùng lặp trong chính danh sách SourceProjectIds được truyền vào
+                if (dto.SourceProjectIds.Count != dto.SourceProjectIds.Distinct().Count())
+                {
+                    throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
+                }
+
                 var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
                                                 .Where(da => dto.SourceProjectIds.Contains(da.Id))
                                                 .ToListAsync();
@@ -537,6 +600,16 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 if (sourceProjects.Any(da => da.LoaiDuAn != 1))
                 {
                     throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
+                }
+
+                // Kiểm tra xem có dự án nguồn nào đã thuộc về DuAnNguonTrienKhai của dự án triển khai khác không
+                var otherLinkedSourceIds = await GetLinkedSourceProjectIdsAsync(excludeTrienKhaiProjectId: id);
+                var alreadyLinkedId = dto.SourceProjectIds.FirstOrDefault(spId => otherLinkedSourceIds.Contains(spId));
+                if (alreadyLinkedId != Guid.Empty)
+                {
+                    var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
+                    var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
+                    throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
                 }
 
                 // Load current link for entity
@@ -616,6 +689,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 if (totalAggregatedBudget < goiThauBudgetsSum)
                 {
                     throw new InvalidOperationException($"Tổng ngân sách dự án nguồn mới ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ tổng giá trị dự toán các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
+                }
+            }
+            else
+            {
+                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
+                {
+                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
                 }
             }
 
@@ -1866,6 +1946,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     .ToList() ?? new List<Guid>();
                 if (sourceIds.Any())
                 {
+                    var otherLinkedSourceIds = await GetLinkedSourceProjectIdsAsync(excludeTrienKhaiProjectId: entity.Id);
+                    var conflictedId = sourceIds.FirstOrDefault(id => otherLinkedSourceIds.Contains(id));
+                    if (conflictedId != Guid.Empty)
+                    {
+                        var conflictedProj = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(da => da.Id == conflictedId);
+                        var projName = conflictedProj?.Name ?? conflictedId.ToString();
+                        throw new InvalidOperationException($"Không thể khôi phục dự án '{entity.Name}'. Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
+                    }
+
                     var sourceProjects = await DbSet.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();
                     foreach (var sp in sourceProjects)
                     {
@@ -1877,6 +1966,43 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         await DbContext.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>
+    /// Lấy tất cả Id của các dự án nguồn (LoaiDuAn = 1) đã được liên kết trong DuAnNguonTrienKhais
+    /// của các dự án triển khai đang hoạt động (chưa bị xóa).
+    /// </summary>
+    /// <param name="excludeTrienKhaiProjectId">Bỏ qua dự án triển khai này nếu đang cập nhật</param>
+    private async Task<HashSet<Guid>> GetLinkedSourceProjectIdsAsync(Guid? excludeTrienKhaiProjectId = null)
+    {
+        var activeTrienKhaiQuery = DbSet.Where(da => !da.IsDeleted && da.LoaiDuAn == 2);
+        if (excludeTrienKhaiProjectId.HasValue)
+        {
+            activeTrienKhaiQuery = activeTrienKhaiQuery.Where(da => da.Id != excludeTrienKhaiProjectId.Value);
+        }
+
+        var activeTrienKhaiIds = activeTrienKhaiQuery.Select(da => da.Id);
+
+        var links = await DbContext.DuAnNguonTrienKhais
+            .Where(nk => activeTrienKhaiIds.Contains(nk.TrienKhaiProjectId) && !string.IsNullOrWhiteSpace(nk.NguonProjectId))
+            .Select(nk => nk.NguonProjectId)
+            .ToListAsync();
+
+        var result = new HashSet<Guid>();
+        foreach (var nguonStr in links)
+        {
+            if (string.IsNullOrWhiteSpace(nguonStr)) continue;
+            var parts = nguonStr.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                if (Guid.TryParse(part.Trim(), out var parsedId))
+                {
+                    result.Add(parsedId);
+                }
+            }
+        }
+
+        return result;
     }
 }
 
