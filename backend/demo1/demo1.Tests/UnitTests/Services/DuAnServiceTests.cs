@@ -198,6 +198,85 @@ namespace demo1.Tests.UnitTests.Services
             updatedProject.PhanKyVons[1].TyLePercent.Should().Be(70.00m);
         }
 
+        [Fact]
+        public async Task GetByIdAsync_And_GetAllAsync_Should_Return_TenNguonVon_Correctly()
+        {
+            // Arrange
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var nv1 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_VCSH", Name = "Vốn chủ sở hữu", IsActive = true };
+            var nv2 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_VAY", Name = "Vốn vay thương mại", IsActive = true };
+            _dbContext.NguonVons.AddRange(nv1, nv2);
+            await _dbContext.SaveChangesAsync();
+
+            // Project 1: Single funding source
+            var createDto1 = new CreateDuAnDto
+            {
+                Code = "DA-NV-001",
+                Name = "Dự án Nguồn Vốn Đơn",
+                LoaiDuAn = 1,
+                DuToanPheDuyet = 500000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nv1.Id, SoTien = 500000000m }
+                }
+            };
+            var proj1 = await _duAnService.CreateAsync(createDto1);
+
+            // Project 2: Multiple funding sources
+            var createDto2 = new CreateDuAnDto
+            {
+                Code = "DA-NV-002",
+                Name = "Dự án Nguồn Vốn Đa Nguồn",
+                LoaiDuAn = 1,
+                DuToanPheDuyet = 1000000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nv1.Id, SoTien = 600000000m },
+                    new CreateDuAnNguonVonDto { NguonVonId = nv2.Id, SoTien = 400000000m }
+                }
+            };
+            var proj2 = await _duAnService.CreateAsync(createDto2);
+
+            // Act - GetById
+            var fetched1 = await _duAnService.GetByIdAsync(proj1.Id);
+            var fetched2 = await _duAnService.GetByIdAsync(proj2.Id);
+
+            // Assert - GetById
+            fetched1.Should().NotBeNull();
+            fetched1!.TenNguonVon.Should().Be("Vốn chủ sở hữu");
+            fetched1.NguonVonName.Should().Be("Vốn chủ sở hữu");
+            fetched1.NguonVonId.Should().Be(nv1.Id);
+
+            fetched1.ThongTinNguonVon.Should().Contain("Vốn chủ sở hữu");
+            fetched1.DanhSachNguonVon.Should().HaveCount(1);
+            fetched1.DanhSachNguonVon![0].SoTien.Should().Be(500000000m);
+
+            fetched2.Should().NotBeNull();
+            fetched2!.TenNguonVon.Should().Be("Vốn chủ sở hữu, Vốn vay thương mại");
+            fetched2.NguonVonName.Should().Be("Vốn chủ sở hữu, Vốn vay thương mại");
+            fetched2.ThongTinNguonVon.Should().Contain("Vốn chủ sở hữu").And.Contain("Vốn vay thương mại");
+            fetched2.DanhSachNguonVon.Should().HaveCount(2);
+
+            // Act - GetAll
+            var paged = await _duAnService.GetAllAsync(new DuAnFilterDto { Page = 1, PageSize = 10 });
+            var pagedItem1 = paged.Items.FirstOrDefault(x => x.Id == proj1.Id);
+            var pagedItem2 = paged.Items.FirstOrDefault(x => x.Id == proj2.Id);
+
+            // Assert - GetAll
+            pagedItem1.Should().NotBeNull();
+            pagedItem1!.TenNguonVon.Should().Be("Vốn chủ sở hữu");
+            pagedItem1.NguonVonName.Should().Be("Vốn chủ sở hữu");
+            pagedItem1.DanhSachNguonVon.Should().HaveCount(1);
+            pagedItem1.DanhSachNguonVon![0].SoTien.Should().Be(500000000m);
+
+            pagedItem2.Should().NotBeNull();
+            pagedItem2!.TenNguonVon.Should().Be("Vốn chủ sở hữu, Vốn vay thương mại");
+            pagedItem2.NguonVonName.Should().Be("Vốn chủ sở hữu, Vốn vay thương mại");
+            pagedItem2.DanhSachNguonVon.Should().HaveCount(2);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

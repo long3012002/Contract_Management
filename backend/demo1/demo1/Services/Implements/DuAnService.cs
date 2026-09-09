@@ -492,6 +492,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var reloadedEntities = await DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.ChuDuAn)

@@ -70,6 +70,61 @@ public class DuAnDto : IHasId
     public string? PhanLoaiDuAnName { get; set; }
 
     /// <summary>
+    /// ID Danh mục Nguồn vốn (lấy từ nguồn vốn đầu tiên nếu có)
+    /// </summary>
+    public Guid? NguonVonId
+    {
+        get => _nguonVonId ?? DanhSachNguonVon?.FirstOrDefault()?.NguonVonId;
+        set => _nguonVonId = value;
+    }
+    private Guid? _nguonVonId;
+
+    /// <summary>
+    /// Tên Nguồn vốn để hiển thị (tổng hợp từ DanhSachNguonVon)
+    /// </summary>
+    public string? TenNguonVon
+    {
+        get
+        {
+            if (DanhSachNguonVon != null && DanhSachNguonVon.Any())
+            {
+                var names = DanhSachNguonVon
+                    .Where(nv => !string.IsNullOrWhiteSpace(nv.TenNguonVon))
+                    .Select(nv => nv.TenNguonVon!.Trim())
+                    .Distinct()
+                    .ToList();
+
+                if (names.Any())
+                {
+                    return string.Join(", ", names);
+                }
+            }
+
+            return _tenNguonVon;
+        }
+        set => _tenNguonVon = value;
+    }
+    private string? _tenNguonVon;
+
+    /// <summary>
+    /// Tên Danh mục Nguồn vốn (alias cho TenNguonVon để tương thích ngược)
+    /// </summary>
+    public string? NguonVonName
+    {
+        get => TenNguonVon;
+        set => _tenNguonVon = value;
+    }
+
+    /// <summary>
+    /// Chuỗi tóm tắt Nguồn vốn kèm số tiền để hiển thị nhanh trên bảng (vd: "Vốn chủ sở hữu: 6.000.000.000 VNĐ")
+    /// </summary>
+    public string? ThongTinNguonVon => DanhSachNguonVon != null && DanhSachNguonVon.Any()
+        ? string.Join("; ", DanhSachNguonVon
+            .Where(nv => !string.IsNullOrWhiteSpace(nv.TenNguonVon))
+            .Select(nv => $"{nv.TenNguonVon}: {nv.SoTien:N0} VNĐ"))
+        : null;
+
+    /// <summary>
     /// Chuỗi ID Nguồn vốn dự án (phân tách bởi dấu chấm phẩy) - Tự động tổng hợp từ SourceProjects
     /// </summary>
     public string? NguonDuAnIds => ListNguonDuAnIds.Any() ? string.Join(";", ListNguonDuAnIds) : null;
