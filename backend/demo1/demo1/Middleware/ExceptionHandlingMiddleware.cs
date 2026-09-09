@@ -29,6 +29,11 @@ public class ExceptionHandlingMiddleware
             _logger.LogWarning(ex, $"Yêu cầu không hợp lệ: {ex.Message}");
             await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, $"Không có quyền truy cập: {ex.Message}");
+            await WriteErrorAsync(context, HttpStatusCode.Forbidden, ex.Message);
+        }
         catch (KeyNotFoundException ex)
         {
             _logger.LogWarning(ex, $"Không tìm thấy tài nguyên: {ex.Message}");

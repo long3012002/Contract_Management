@@ -84,6 +84,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     [HttpPost("{id:guid}/dieu-chinh")]
     [ProducesResponseType(typeof(DieuChinhDuAnDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DieuChinhDuAnDto>> AdjustBudget(Guid id, [FromBody] CreateDieuChinhDuAnDto dto)
     {
@@ -95,6 +96,10 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -112,12 +117,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách các đợt điều chỉnh kinh phí</returns>
     /// <response code="200">Lấy lịch sử điều chỉnh thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpGet("{id:guid}/dieu-chinh")]
     [ProducesResponseType(typeof(IReadOnlyList<DieuChinhDuAnDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<DieuChinhDuAnDto>>> GetAdjustments(Guid id)
     {
-        var result = await _duAnService.GetAdjustmentsAsync(id);
-        return Ok(result);
+        try
+        {
+            var result = await _duAnService.GetAdjustmentsAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -127,10 +147,12 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <returns>Thông tin dự án với trạng thái mới</returns>
     /// <response code="200">Chuyển trạng thái thành công</response>
     /// <response code="400">Dự án đã ở trạng thái cuối hoặc chưa đủ điều kiện chuyển</response>
+    /// <response code="403">Không có quyền thực hiện</response>
     /// <response code="404">Không tìm thấy dự án</response>
     [HttpPost("{id:guid}/advance-status")]
     [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> AdvanceStatus(Guid id)
     {
@@ -142,6 +164,10 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -155,9 +181,11 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Thông tin dự án đã được đóng</returns>
     /// <response code="200">Đóng dự án thành công</response>
+    /// <response code="403">Không có quyền thực hiện</response>
     /// <response code="404">Không tìm thấy dự án</response>
     [HttpPost("{id:guid}/close")]
     [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> CloseProject(Guid id)
     {
@@ -170,6 +198,10 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         {
             return NotFound(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -178,12 +210,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách dự án nguồn liên kết</returns>
     /// <response code="200">Lấy danh sách dự án nguồn thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpGet("{id:guid}/du-an-nguon")]
     [ProducesResponseType(typeof(IReadOnlyList<DuAnNguonSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<DuAnNguonSummaryDto>>> GetSourceProjects(Guid id)
     {
-        var result = await _duAnService.GetSourceProjectsByProjectIdAsync(id);
-        return Ok(result);
+        try
+        {
+            var result = await _duAnService.GetSourceProjectsByProjectIdAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -192,12 +239,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách gói thầu thuộc dự án</returns>
     /// <response code="200">Lấy danh sách gói thầu thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpGet("{id:guid}/goi-thau")]
     [ProducesResponseType(typeof(IReadOnlyList<GoiThauDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<GoiThauDto>>> GetGoiThaus(Guid id)
     {
-        var result = await _duAnService.GetGoiThausByProjectIdAsync(id);
-        return Ok(result);
+        try
+        {
+            var result = await _duAnService.GetGoiThausByProjectIdAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -206,12 +268,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách hợp đồng thuộc dự án</returns>
     /// <response code="200">Lấy danh sách hợp đồng thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpGet("{id:guid}/hop-dong")]
     [ProducesResponseType(typeof(IReadOnlyList<HopDongDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<HopDongDto>>> GetHopDongs(Guid id)
     {
-        var result = await _duAnService.GetHopDongsByProjectIdAsync(id);
-        return Ok(result);
+        try
+        {
+            var result = await _duAnService.GetHopDongsByProjectIdAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -220,12 +297,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="id">Mã định danh Dự án (GUID)</param>
     /// <returns>Danh sách audit logs</returns>
     /// <response code="200">Lấy audit logs thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
     [HttpGet("{id:guid}/audit-log")]
     [ProducesResponseType(typeof(IReadOnlyList<demo1.Entity.AuditLog>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<demo1.Entity.AuditLog>>> GetAuditLogs(Guid id)
     {
-        var result = await _duAnService.GetAuditLogsByProjectIdAsync(id);
-        return Ok(result);
+        try
+        {
+            var result = await _duAnService.GetAuditLogsByProjectIdAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>

@@ -826,6 +826,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             throw new KeyNotFoundException("Không tìm thấy dự án.");
         }
 
+        await EnsureUserHasProjectAccessAsync(entity, "EDIT");
+
         if (entity.LoaiDuAn != 1)
         {
             throw new InvalidOperationException("Chỉ dự án nguồn mới có thể thực hiện điều chỉnh dự toán.");
@@ -948,6 +950,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<DieuChinhDuAnDto>> GetAdjustmentsAsync(Guid id)
     {
+        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        await EnsureUserHasProjectAccessAsync(entity, "VIEW");
+
         var adjustments = await DbContext.DieuChinhDuAns
                                          .Where(dc => dc.DuAnId == id)
                                          .OrderByDescending(dc => dc.NgayDieuChinh)
@@ -962,6 +972,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         {
             throw new KeyNotFoundException("Không tìm thấy dự án.");
         }
+
+        await EnsureUserHasProjectAccessAsync(entity, "EDIT");
 
         if (entity.TrangThai >= (int)TrangThaiDuAn.HoanThanh)
         {
@@ -985,6 +997,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             throw new KeyNotFoundException("Không tìm thấy dự án.");
         }
 
+        await EnsureUserHasProjectAccessAsync(entity, "EDIT");
+
         entity.TrangThai = (int)TrangThaiDuAn.HoanThanh;
         entity.DaKetThuc = true;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -996,6 +1010,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id)
     {
+        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        await EnsureUserHasProjectAccessAsync(entity, "VIEW");
+
         var link = await DbContext.DuAnNguonTrienKhais
             .AsNoTracking()
             .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == id);
@@ -1068,6 +1090,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id)
     {
+        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        await EnsureUserHasProjectAccessAsync(entity, "VIEW");
+
         var items = await DbContext.GoiThaus
                                    .Where(gt => gt.DuAnId == id)
                                    .ToListAsync();
@@ -1076,6 +1106,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id)
     {
+        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null)
+        {
+            throw new KeyNotFoundException("Không tìm thấy dự án.");
+        }
+
+        await EnsureUserHasProjectAccessAsync(entity, "VIEW");
+
         var items = await DbContext.HopDongs
                                    .Include(hd => hd.GoiThau)
                                    .Where(hd => hd.GoiThau != null && hd.GoiThau.DuAnId == id)
@@ -1236,6 +1274,12 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
     {
+        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
+        if (entity != null)
+        {
+            await EnsureUserHasProjectAccessAsync(entity, "VIEW");
+        }
+
         var projectIdStr = id.ToString();
         var projectIdStrLower = projectIdStr.ToLower();
 
@@ -1966,6 +2010,46 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         await DbContext.SaveChangesAsync();
         return true;
+    }
+
+    private async Task EnsureUserHasProjectAccessAsync(DuAn entity, string requiredAction = "EDIT")
+    {
+        var currentUsername = _currentUserService.GetUsername();
+        if (string.IsNullOrEmpty(currentUsername))
+        {
+            throw new UnauthorizedAccessException("Người dùng không hợp lệ hoặc chưa đăng nhập.");
+        }
+
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser == null)
+        {
+            throw new UnauthorizedAccessException("Người dùng không hợp lệ hoặc chưa đăng nhập.");
+        }
+
+        if (currentUser.IsSystemAdmin || entity.CreatedByUserId == currentUser.Id || entity.ChuDuAnId == currentUser.Id)
+        {
+            return;
+        }
+
+        var validActions = (requiredAction == "VIEW") 
+            ? new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" }
+            : new[] { "EDIT", "ADMIN" };
+
+        var validFeatureCodes = new[] { "DU_AN", "DUAN", "PROJECT", "PROJECTS", "" };
+
+        var hasPermission = await DbContext.UserPermissions
+            .AsNoTracking()
+            .Include(up => up.Permission)
+            .AnyAsync(up =>
+                up.UserId == currentUser.Id &&
+                (up.DuAnId == entity.Id || up.EntityId == entity.Id.ToString()) &&
+                validFeatureCodes.Contains(up.FeatureCode) &&
+                up.Permission != null && validActions.Contains(up.Permission.Code));
+
+        if (!hasPermission)
+        {
+            throw new UnauthorizedAccessException("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
     }
 
     /// <summary>

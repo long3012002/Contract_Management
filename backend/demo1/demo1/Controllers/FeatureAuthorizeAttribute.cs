@@ -86,7 +86,17 @@ namespace demo1.Controllers
             Guid? duAnId = null;
             if (!string.IsNullOrEmpty(entityId) && Guid.TryParse(entityId, out var parsedEntityId))
             {
-                if (_featureCode == "DU_AN") duAnId = parsedEntityId;
+                if (_featureCode == "DU_AN")
+                {
+                    var exists = await _dbContext.DuAns.AnyAsync(x => x.Id == parsedEntityId);
+                    if (!exists)
+                    {
+                        // Quy tắc: Kiểm tra sự tồn tại của dữ liệu (404) trước khi kiểm tra quyền truy cập (403)
+                        // Nếu ID không tồn tại trong DB -> Cho đi tiếp vào Controller để Controller trả về 404 Not Found
+                        return;
+                    }
+                    duAnId = parsedEntityId;
+                }
                 else if (_featureCode == "GOI_THAU")
                 {
                     var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == parsedEntityId);
@@ -133,7 +143,7 @@ namespace demo1.Controllers
                     return;
                 }
 
-                var normFeature = PermissionService.NormalizeFeatureCode(_featureCode);
+                var validCodes = GetEquivalentFeatureCodes(_featureCode);
                 var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
 
                 var hasViewPermission = await _dbContext.UserPermissions
@@ -142,10 +152,7 @@ namespace demo1.Controllers
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
-                            up.FeatureCode == _featureCode ||
-                            up.FeatureCode == string.Empty ||
-                            PermissionService.NormalizeFeatureCode(up.FeatureCode) == normFeature ||
-                            PermissionService.NormalizeFeatureCode(up.FeatureCode) == "DU_AN" ||
+                            validCodes.Contains(up.FeatureCode) ||
                             (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
                         ) &&
                         (
@@ -185,6 +192,7 @@ namespace demo1.Controllers
                 }
 
                 var requiredPermCode = "CREATE";
+                var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
                 // Composite Index Lookup on UserPermissions + Permission Catalog Code + DuAnId check if available
                 var hasPermission = await _dbContext.UserPermissions
@@ -192,7 +200,7 @@ namespace demo1.Controllers
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
-                        (up.FeatureCode == _featureCode || up.FeatureCode == "DU_AN" || up.FeatureCode == string.Empty) &&
+                        validCodes.Contains(up.FeatureCode) &&
                         (!duAnId.HasValue || up.DuAnId == duAnId.Value) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
@@ -227,6 +235,7 @@ namespace demo1.Controllers
                 }
 
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
+                var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
                 // High-performance Composite Index Lookup on UserPermissions + Permission Catalog Code
                 var hasPermission = await _dbContext.UserPermissions
@@ -235,7 +244,7 @@ namespace demo1.Controllers
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
-                            ((up.FeatureCode == _featureCode || up.FeatureCode == string.Empty) && up.EntityId == entityId) ||
+                            (validCodes.Contains(up.FeatureCode) && up.EntityId == entityId) ||
                             (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
                         ) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
@@ -256,6 +265,67 @@ namespace demo1.Controllers
                     return;
                 }
             }
+        }
+
+        private static List<string> GetEquivalentFeatureCodes(string featureCode)
+        {
+            var norm = PermissionService.NormalizeFeatureCode(featureCode);
+            var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "", featureCode, norm };
+
+            switch (norm)
+            {
+                case "DU_AN":
+                    codes.Add("DU_AN");
+                    codes.Add("DUAN");
+                    codes.Add("PROJECT");
+                    codes.Add("PROJECTS");
+                    break;
+                case "GOI_THAU":
+                    codes.Add("GOI_THAU");
+                    codes.Add("GOITHAU");
+                    codes.Add("PACKAGE");
+                    codes.Add("PACKAGES");
+                    break;
+                case "QUAN_LY_HOP_DONG":
+                    codes.Add("QUAN_LY_HOP_DONG");
+                    codes.Add("QUANLYHOPDONG");
+                    codes.Add("HOP_DONG");
+                    codes.Add("HOPDONG");
+                    codes.Add("CONTRACT");
+                    codes.Add("CONTRACTS");
+                    break;
+                case "CONG_VIEC":
+                    codes.Add("CONG_VIEC");
+                    codes.Add("CONGVIEC");
+                    codes.Add("TASK");
+                    codes.Add("TASKS");
+                    break;
+                case "DOI_TAC":
+                    codes.Add("DOI_TAC");
+                    codes.Add("DOITAC");
+                    codes.Add("PARTNER");
+                    codes.Add("PARTNERS");
+                    break;
+                case "BAO_CAO":
+                    codes.Add("BAO_CAO");
+                    codes.Add("BAOCAO");
+                    codes.Add("REPORT");
+                    codes.Add("REPORTS");
+                    break;
+                case "LICENSE":
+                    codes.Add("LICENSE");
+                    codes.Add("LICENSES");
+                    codes.Add("BANQUYEN");
+                    break;
+            }
+
+            // Always include project codes as project-level permissions can grant access
+            codes.Add("DU_AN");
+            codes.Add("DUAN");
+            codes.Add("PROJECT");
+            codes.Add("PROJECTS");
+
+            return codes.ToList();
         }
 
         private async Task<bool> IsProjectOwnerAnywhereAsync(Guid userId)

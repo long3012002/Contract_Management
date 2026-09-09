@@ -427,6 +427,156 @@ namespace demo1.Tests.UnitTests.Services
                 .WithMessage("*được liên kết nhiều hơn một lần trong danh sách tạo*");
         }
 
+        [Fact]
+        public async Task AdjustBudgetAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
+        {
+            var nonExistentId = Guid.NewGuid();
+            var dto = new CreateDieuChinhDuAnDto { GiaTriDieuChinh = 100000, LyDoDieuChinh = "Tăng ngân sách" };
+
+            Func<Task> act = async () => await _duAnService.AdjustBudgetAsync(nonExistentId, dto);
+            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
+                .WithMessage("Không tìm thấy dự án.");
+        }
+
+        [Fact]
+        public async Task AdjustBudgetAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
+        {
+            var owner = new User { Id = Guid.NewGuid(), Username = "project_owner", FullName = "Owner", IsActive = true, IsSystemAdmin = false };
+            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_user", FullName = "No Perm", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.AddRange(owner, unauthorizedUser);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-PERM-01",
+                Name = "Dự án bảo mật",
+                LoaiDuAn = 1,
+                DuToanPheDuyet = 5000000m,
+                CreatedByUserId = owner.Id,
+                ChuDuAnId = owner.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_user");
+
+            var dto = new CreateDieuChinhDuAnDto { GiaTriDieuChinh = 100000, LyDoDieuChinh = "Tăng ngân sách" };
+
+            Func<Task> act = async () => await _duAnService.AdjustBudgetAsync(project.Id, dto);
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
+
+        [Fact]
+        public async Task AdvanceStatusAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
+        {
+            var nonExistentId = Guid.NewGuid();
+
+            Func<Task> act = async () => await _duAnService.AdvanceStatusAsync(nonExistentId);
+            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
+                .WithMessage("Không tìm thấy dự án.");
+        }
+
+        [Fact]
+        public async Task AdvanceStatusAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
+        {
+            var owner = new User { Id = Guid.NewGuid(), Username = "owner_2", FullName = "Owner 2", IsActive = true, IsSystemAdmin = false };
+            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_2", FullName = "No Perm 2", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.AddRange(owner, unauthorizedUser);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-PERM-02",
+                Name = "Dự án chuyển trạng thái",
+                LoaiDuAn = 1,
+                TrangThai = 1,
+                CreatedByUserId = owner.Id,
+                ChuDuAnId = owner.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_2");
+
+            Func<Task> act = async () => await _duAnService.AdvanceStatusAsync(project.Id);
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
+
+        [Fact]
+        public async Task CloseProjectAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
+        {
+            var nonExistentId = Guid.NewGuid();
+
+            Func<Task> act = async () => await _duAnService.CloseProjectAsync(nonExistentId);
+            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
+                .WithMessage("Không tìm thấy dự án.");
+        }
+
+        [Fact]
+        public async Task CloseProjectAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
+        {
+            var owner = new User { Id = Guid.NewGuid(), Username = "owner_3", FullName = "Owner 3", IsActive = true, IsSystemAdmin = false };
+            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_3", FullName = "No Perm 3", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.AddRange(owner, unauthorizedUser);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-PERM-03",
+                Name = "Dự án đóng",
+                LoaiDuAn = 1,
+                TrangThai = 1,
+                CreatedByUserId = owner.Id,
+                ChuDuAnId = owner.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_3");
+
+            Func<Task> act = async () => await _duAnService.CloseProjectAsync(project.Id);
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
+
+        [Fact]
+        public async Task GetAdjustmentsAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
+        {
+            var nonExistentId = Guid.NewGuid();
+
+            Func<Task> act = async () => await _duAnService.GetAdjustmentsAsync(nonExistentId);
+            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
+                .WithMessage("Không tìm thấy dự án.");
+        }
+
+        [Fact]
+        public async Task GetAdjustmentsAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
+        {
+            var owner = new User { Id = Guid.NewGuid(), Username = "owner_4", FullName = "Owner 4", IsActive = true, IsSystemAdmin = false };
+            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_4", FullName = "No Perm 4", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.AddRange(owner, unauthorizedUser);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-PERM-04",
+                Name = "Dự án tra cứu điều chỉnh",
+                LoaiDuAn = 1,
+                CreatedByUserId = owner.Id,
+                ChuDuAnId = owner.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_4");
+
+            Func<Task> act = async () => await _duAnService.GetAdjustmentsAsync(project.Id);
+            await act.Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
