@@ -25,6 +25,34 @@ public class HangHoaDichVusController : CrudControllerBase<HangHoaDichVuDto, Cre
     }
 
     /// <summary>
+    /// Lấy danh sách bản ghi có phân trang và hỗ trợ lọc theo loại (Hàng hóa, License, Dịch vụ).
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public override async Task<ActionResult<demo1.DTOs.PagedResult<HangHoaDichVuDto>>> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? cursor = null)
+    {
+        // Handled by custom GetAll with loai below
+        return await GetAllWithLoai(search, page, pageSize, null, cursor);
+    }
+
+    [HttpGet("list")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<demo1.DTOs.PagedResult<HangHoaDichVuDto>>> GetAllWithLoai(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] LoaiHangHoaDichVu? loai = null,
+        [FromQuery] string? cursor = null)
+    {
+        var result = await _hangHoaDichVuService.GetAllAsync(search, page, pageSize, loai, cursor);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Lấy danh sách sản phẩm/dịch vụ/license theo ID Hợp đồng, hỗ trợ lọc theo Loại (Hàng hóa, Dịch vụ, License hoặc Tất cả).
     /// </summary>
     /// <param name="idParent">Mã định danh Hợp đồng (GUID)</param>
