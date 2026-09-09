@@ -120,96 +120,215 @@ public static class DatabaseSeeder
             resolutions = await context.Resolutions.ToListAsync();
         }
 
-        // 5. Seed DuAns (Dự án) - 35 bản ghi
+        // 5. Seed DuAns (Dự án)
         var duAns = new List<DuAn>();
         if (!await context.DuAns.AnyAsync())
         {
             var phanLoaiDuAns = await context.PhanLoaiDuAns.ToListAsync();
-            var plCntt = phanLoaiDuAns.FirstOrDefault(p => p.Code == "PL_CNTT");
-            var nhomB = await context.NhomDuAns.FirstOrDefaultAsync(n => n.Code == "NHOM_B");
+            var nhomDuAns = await context.NhomDuAns.ToListAsync();
+            var nguonVons = await context.NguonVons.ToListAsync();
 
-            // Tạo trước một số dự án nguồn (LoaiDuAn = 1)
-            var sourceProjects = new List<DuAn>();
-            for (int s = 1; s <= 5; s++)
+            var plCntt = phanLoaiDuAns.FirstOrDefault(p => p.Code == "PL_CNTT");
+            var nhomB = nhomDuAns.FirstOrDefault(n => n.Code == "NHOM_B");
+
+            // Danh sách các số tiền đẹp cho dự án nguồn (đơn vị: đồng: từ 1 tỷ đến 5 tỷ)
+            var niceSourceBudgets = new decimal[]
             {
+                1_000_000_000m, // 1 tỷ
+                1_500_000_000m, // 1.5 tỷ
+                2_000_000_000m, // 2 tỷ
+                2_500_000_000m, // 2.5 tỷ
+                3_000_000_000m, // 3 tỷ
+                3_500_000_000m, // 3.5 tỷ
+                4_000_000_000m, // 4 tỷ
+                5_000_000_000m  // 5 tỷ
+            };
+
+            // Danh sách các số tiền đẹp cho dự án triển khai (đơn vị: đồng: từ 200 triệu đến 3 tỷ)
+            var niceImplBudgets = new decimal[]
+            {
+                200_000_000m,   // 200 triệu
+                350_000_000m,   // 350 triệu
+                500_000_000m,   // 500 triệu
+                650_000_000m,   // 650 triệu
+                800_000_000m,   // 800 triệu
+                1_000_000_000m, // 1 tỷ
+                1_200_000_000m, // 1.2 tỷ
+                1_500_000_000m, // 1.5 tỷ
+                1_800_000_000m, // 1.8 tỷ
+                2_000_000_000m, // 2 tỷ
+                2_500_000_000m, // 2.5 tỷ
+                3_000_000_000m  // 3 tỷ
+            };
+
+            // --- 5.1 Tạo các dự án nguồn (LoaiDuAn = 1) ---
+            var sourceProjects = new List<DuAn>();
+            int totalSourceProjects = 8;
+            for (int s = 1; s <= totalSourceProjects; s++)
+            {
+                // Random năm từ 2022-2026
+                int startYear = 2022 + random.Next(0, 5); // 2022, 2023, 2024, 2025, 2026
+                int duration = random.Next(2, 4); // 2 đến 3 năm
+                int endYear = Math.Min(2026, startYear + duration);
+
+                var startDate = new DateTime(startYear, random.Next(1, 4), 15, 0, 0, 0, DateTimeKind.Utc);
+                var endDate = new DateTime(endYear, 12, 31, 0, 0, 0, DateTimeKind.Utc);
+
+                var phanLoai = phanLoaiDuAns.Count > 0 ? phanLoaiDuAns[(s - 1) % phanLoaiDuAns.Count] : null;
+                var nhom = nhomDuAns.Count > 0 ? nhomDuAns[(s - 1) % nhomDuAns.Count] : null;
+                decimal budget = niceSourceBudgets[(s - 1) % niceSourceBudgets.Length];
+
+                // Trạng thái dự án nguồn (1: Đang triển khai, 2: Hoàn thành, 0: Nháp)
+                int trangThai = (s % 3 == 0) ? 2 : ((s % 4 == 0) ? 0 : 1);
+
                 var sp = new DuAn
                 {
                     Id = Guid.NewGuid(),
                     Code = $"SRC-{s:D3}",
-                    Name = $"Dự án nguồn quy hoạch hạ tầng và ứng dụng số {s}",
-                    Description = $"Dự án nguồn về đầu tư hạ tầng công nghệ và mở rộng hệ thống số {s}.",
-                    DuToanPheDuyet = (40 + s * 20) * 1_000_000_000m,
-                    TrangThai = 1,
+                    Name = $"Dự án nguồn quy hoạch hạ tầng và phát triển hệ thống CNTT số {s}",
+                    Description = $"Dự án nguồn về quy hoạch tổng thể đầu tư hạ tầng công nghệ và mở rộng hệ thống số {s}.",
+                    DuToanPheDuyet = budget,
+                    TrangThai = trangThai,
                     LoaiDuAn = 1, // Dự án nguồn
-                    DaTrienKhai = true,
+                    DaTrienKhai = trangThai != 0,
                     ChuDauTu = "Ngân hàng Hợp tác xã Việt Nam (Co-op Bank)",
-                    PhanLoaiDuAnId = plCntt?.Id ?? phanLoaiDuAns.FirstOrDefault()?.Id,
-                    SoQuyetDinh = $"QĐ-NHHT/2024/{100 + s}",
-                    NgayBatDau = new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc),
-                    NgayKetThuc = new DateTime(2027, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+                    PhanLoaiDuAnId = phanLoai?.Id,
+                    NhomDuAnId = nhom?.Id,
+                    SoQuyetDinh = $"QĐ-NHHT/{startYear}/{100 + s}",
+                    NgayBatDau = startDate,
+                    NgayKetThuc = endDate,
+                    NamBatDau = startYear,
+                    NamKetThuc = endYear,
+                    DaKetThuc = trangThai == 2,
                     IsActive = true,
-                    CreatedAt = new DateTime(2024, 1, 10, 0, 0, 0, DateTimeKind.Utc)
+                    CreatedAt = startDate.AddDays(-10)
                 };
+
+                // Gán Nguồn vốn ngẫu nhiên cho dự án nguồn (1-3 nguồn vốn)
+                if (nguonVons.Any())
+                {
+                    int nvCount = random.Next(1, Math.Min(4, nguonVons.Count + 1));
+                    var selectedNguonVons = nguonVons.OrderBy(_ => random.Next()).Take(nvCount).ToList();
+                    decimal partMoney = Math.Round(budget / nvCount, 0);
+
+                    for (int nvIdx = 0; nvIdx < selectedNguonVons.Count; nvIdx++)
+                    {
+                        var nv = selectedNguonVons[nvIdx];
+                        decimal amt = (nvIdx == selectedNguonVons.Count - 1) ? (budget - partMoney * (selectedNguonVons.Count - 1)) : partMoney;
+                        sp.DanhSachNguonVon.Add(new DuAnNguonVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = sp.Id,
+                            NguonVonId = nv.Id,
+                            SoTien = amt,
+                            GhiChu = $"Nguồn vốn {nv.Name} cho dự án nguồn {sp.Code}",
+                            CreatedAt = startDate.AddDays(-10)
+                        });
+                    }
+                }
+
                 sourceProjects.Add(sp);
             }
             duAns.AddRange(sourceProjects);
 
-            // Tạo 30 dự án triển khai (LoaiDuAn = 2)
-            for (int i = 1; i <= 30; i++)
+            // --- 5.2 Tạo các dự án triển khai (LoaiDuAn = 2) ---
+            int totalImplProjects = 30;
+            for (int i = 1; i <= totalImplProjects; i++)
             {
-                bool isCntt = i % 2 == 1;
-                bool isGroupB = i <= 10; // 10 dự án nhóm B (vốn >= 45 tỷ)
-                decimal budget = isGroupB ? (45 + (i * 5)) * 1_000_000_000m : (5 + (i * 1.2m)) * 1_000_000_000m;
-                
-                // Mốc thời gian đa dạng từ 2022 đến 2026 (2022-2024, 2023-2025, 2023-2026, 2022-2026, 2025-2025, v.v.)
-                int startYear = 2022 + (i % 5); // 2022, 2023, 2024, 2025, hoặc 2026
-                int durationYears = 1 + (i % 3); // 1, 2 hoặc 3 năm
-                int endYear = Math.Min(2026, startYear + durationYears - 1);
+                int startYear = 2022 + random.Next(0, 5); // 2022, 2023, 2024, 2025, 2026
+                int durationYears = random.Next(1, 3);
+                int endYear = Math.Min(2026, startYear + durationYears);
+
                 var startDate = new DateTime(startYear, (i % 12) + 1, 10, 0, 0, 0, DateTimeKind.Utc);
                 var endDate = new DateTime(endYear, 12, 31, 0, 0, 0, DateTimeKind.Utc);
-                bool isCompleted = i % 4 == 0; // Một số dự án đã hoàn thành bàn giao
-                bool isCancelled = i % 7 == 0; // Một số dự án bị hủy
-                bool isDraft = i % 8 == 0; // Một số dự án mới nháp
 
-                var randomSource = sourceProjects[(i - 1) % sourceProjects.Count];
-                // Thỉnh thoảng để null phân loại để test
-                var selectedPhanLoai = (phanLoaiDuAns.Count > 0 && i % 5 != 0) ? phanLoaiDuAns[(i - 1) % phanLoaiDuAns.Count] : null;
+                // Trạng thái đa dạng: 1: Đang triển khai, 2: Hoàn thành, 0: Nháp
+                int trangThai = 1;
+                if (i % 4 == 0) trangThai = 2; // Hoàn thành
+                else if (i % 7 == 0) trangThai = 0; // Nháp
 
-                int trangThai = 1; // Đang triển khai
-                if (isCompleted) trangThai = 2; // Hoàn thành
-                else if (isCancelled) trangThai = 3; // Hủy/Tạm dừng (nếu hệ thống hỗ trợ trạng thái này)
-                else if (isDraft) trangThai = 0; // Nháp
+                var phanLoai = phanLoaiDuAns.Count > 0 ? phanLoaiDuAns[(i - 1) % phanLoaiDuAns.Count] : null;
+                var nhom = nhomDuAns.Count > 0 ? nhomDuAns[(i - 1) % nhomDuAns.Count] : null;
+                decimal budget = niceImplBudgets[(i - 1) % niceImplBudgets.Length];
 
-                duAns.Add(new DuAn
+                var implProj = new DuAn
                 {
                     Id = Guid.NewGuid(),
                     Code = $"PRJ-{i:D3}",
-                    Name = isCntt ? $"Dự án CNTT trang bị hệ thống phần mềm {i}" : $"Dự án Cải tạo nâng cấp trụ sở chi nhánh {i}",
+                    Name = (i % 2 == 1) ? $"Dự án triển khai nâng cấp phần mềm & thiết bị số {i}" : $"Dự án cải tạo, xây dựng hạ tầng chi nhánh số {i}",
                     Description = $"Dự án triển khai thuộc quy hoạch công nghệ và đầu tư hình thành TSCĐ số {i}.",
                     DuToanPheDuyet = budget,
                     TrangThai = trangThai,
                     LoaiDuAn = 2, // Dự án triển khai
-                    NguonDuAns = new List<DuAnNguonTrienKhai>
-                    {
-                        new DuAnNguonTrienKhai { NguonProjectId = randomSource.Id.ToString(), CreatedAt = startDate.AddDays(-15) }
-                    },
-                    NhomDuAnId = isGroupB ? nhomB?.Id : null,
-                    PhanLoaiDuAnId = selectedPhanLoai?.Id,
+                    NhomDuAnId = nhom?.Id,
+                    PhanLoaiDuAnId = phanLoai?.Id,
                     ChuDauTu = "Ngân hàng Hợp tác xã Việt Nam (Co-op Bank)",
                     DiaDiemThucHien = "Tòa nhà N04 Hoàng Đạo Thúy, Cầu Giấy, Hà Nội",
                     ThoiGianThucHien = $"{12 + (i % 12)} tháng",
-                    NoiDung = $"Nội dung thực hiện chi tiết cho dự án đầu tư mã {i}.",
+                    NoiDung = $"Nội dung thực hiện chi tiết cho dự án đầu tư triển khai mã {i}.",
                     ToChucThucHien = "Ban Quản lý Dự án CNTT - Co-op Bank",
                     SoQuyetDinh = $"QĐ-NHHT/{startYear}/{200 + i}",
                     NgayBatDau = startDate,
                     NgayKetThuc = endDate,
-                    NamBatDau = startDate.Year,
-                    NamKetThuc = endDate.Year,
-                    DaKetThuc = isCompleted,
-                    IsActive = i % 10 != 0, // Một số dự án inactive
+                    NamBatDau = startYear,
+                    NamKetThuc = endYear,
+                    DaKetThuc = trangThai == 2,
+                    IsActive = i % 10 != 0,
                     CreatedAt = startDate.AddDays(-15)
-                });
+                };
+
+                // Quyết định liên kết với dự án nguồn:
+                // Nếu i % 3 == 0 => liên kết 1-1 với 1 dự án nguồn (triển khai trực tiếp)
+                // Ngược lại => liên kết với 2 dự án nguồn
+                if (i % 3 == 0)
+                {
+                    var src1 = sourceProjects[(i - 1) % sourceProjects.Count];
+                    implProj.NguonDuAns.Add(new DuAnNguonTrienKhai
+                    {
+                        TrienKhaiProjectId = implProj.Id,
+                        NguonProjectId = src1.Id.ToString(),
+                        CreatedAt = startDate.AddDays(-15)
+                    });
+                }
+                else
+                {
+                    var src1 = sourceProjects[(i - 1) % sourceProjects.Count];
+                    var src2 = sourceProjects[i % sourceProjects.Count];
+                    implProj.NguonDuAns.Add(new DuAnNguonTrienKhai
+                    {
+                        TrienKhaiProjectId = implProj.Id,
+                        NguonProjectId = src1.Id.ToString(),
+                        CreatedAt = startDate.AddDays(-15)
+                    });
+                    if (src1.Id != src2.Id)
+                    {
+                        implProj.NguonDuAns.Add(new DuAnNguonTrienKhai
+                        {
+                            TrienKhaiProjectId = implProj.Id,
+                            NguonProjectId = src2.Id.ToString(),
+                            CreatedAt = startDate.AddDays(-15)
+                        });
+                    }
+                }
+
+                // Gán Nguồn vốn cho dự án triển khai nếu có
+                if (nguonVons.Any())
+                {
+                    var nv = nguonVons[(i - 1) % nguonVons.Count];
+                    implProj.DanhSachNguonVon.Add(new DuAnNguonVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = implProj.Id,
+                        NguonVonId = nv.Id,
+                        SoTien = budget,
+                        GhiChu = $"Nguồn vốn {nv.Name} cho dự án triển khai {implProj.Code}",
+                        CreatedAt = startDate.AddDays(-15)
+                    });
+                }
+
+                duAns.Add(implProj);
             }
+
             await context.DuAns.AddRangeAsync(duAns);
             await context.SaveChangesAsync();
         }
