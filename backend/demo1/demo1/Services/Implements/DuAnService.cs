@@ -191,7 +191,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
-            DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
+            DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
             
             var entity = Mapper.Map<DuAn>(dto);
             entity.Id = Guid.NewGuid();
@@ -282,6 +282,25 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 }
 
                 entity.DuToanPheDuyet = totalAggregatedBudget;
+
+                // Tự động kế thừa Ngày bắt đầu từ dự án nguồn (chủ trương) nếu chưa nhập
+                if (!entity.NgayBatDau.HasValue)
+                {
+                    var sourceDates = sourceProjects
+                        .Where(sp => sp.NgayBatDau.HasValue)
+                        .Select(sp => sp.NgayBatDau!.Value)
+                        .OrderBy(d => d)
+                        .ToList();
+
+                    if (sourceDates.Any())
+                    {
+                        entity.NgayBatDau = sourceDates.First();
+                        if (!entity.NamBatDau.HasValue)
+                        {
+                            entity.NamBatDau = entity.NgayBatDau.Value.Year;
+                        }
+                    }
+                }
             }
             else // Du an nguon
             {
@@ -699,7 +718,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 }
             }
 
-            DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
+            DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
 
             // Prevent direct budget modification for projects
             if (dto.DuToanPheDuyet != entity.DuToanPheDuyet)

@@ -95,6 +95,16 @@ public class CreateHopDongDto
     public DateTime? ExpiredDate { get; set; }
 
     /// <summary>
+    /// Ngày kết thúc thực tế (ngày thanh lý, hoàn tất nghiệm thu thực tế của hợp đồng)
+    /// </summary>
+    public DateTime? NgayKetThucThucTe { get; set; }
+
+    /// <summary>
+    /// Đã kết thúc/thanh lý hợp đồng hay chưa
+    /// </summary>
+    public bool DaKetThuc { get; set; } = false;
+
+    /// <summary>
     /// Ngày nhắc nhở gia hạn hợp đồng
     /// </summary>
     public DateTime? RenewalReminderDate { get; set; }
@@ -113,4 +123,9 @@ public class CreateHopDongDto
     /// Danh sách nhà thầu liên kết
     /// </summary>
     public List<NhaThauGoiThauInputDto>? NhaThauGoiThaus { get; set; } = new();
+
+    /// <summary>
+    /// Thông tin tạo mới nhà thầu inline (nếu có)
+    /// </summary>
+    public CreateDoiTacDto? NewNhaThau { get; set; }
 }

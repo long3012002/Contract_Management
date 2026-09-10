@@ -47,6 +47,7 @@ public class CreateDuAnDto
 
     public DateTime? NgayBatDau { get; set; }
     public DateTime? NgayKetThuc { get; set; }
+    public DateTime? NgayKetThucThucTe { get; set; }
     public int? NamBatDau { get; set; }
     public int? NamKetThuc { get; set; }
     public bool DaKetThuc { get; set; } = false;

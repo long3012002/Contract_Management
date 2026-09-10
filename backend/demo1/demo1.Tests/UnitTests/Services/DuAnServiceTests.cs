@@ -577,6 +577,44 @@ namespace demo1.Tests.UnitTests.Services
                 .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_Inherit_NgayBatDau_From_Source_Project_When_Not_Provided_For_Implementation_Project()
+        {
+            // Arrange
+            var sourceNgayBatDau = new DateTime(2025, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+            var sourceProj = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-NGUON-DATE",
+                Name = "Dự án Nguồn Test Ngày",
+                LoaiDuAn = 1,
+                DuToanPheDuyet = 5000000000,
+                NgayBatDau = sourceNgayBatDau,
+                DaTrienKhai = false
+            };
+            _dbContext.DuAns.Add(sourceProj);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "DA-TK-DATE",
+                Name = "Dự án Triển khai Kế thừa Ngày",
+                LoaiDuAn = 2,
+                SourceProjectIds = new List<Guid> { sourceProj.Id },
+                NgayBatDau = null, // không nhập ngày bắt đầu
+                NgayKetThuc = null // không yêu cầu nhập luôn ngày kết thúc
+            };
+
+            // Act
+            var result = await _duAnService.CreateAsync(createDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.NgayBatDau.Should().Be(sourceNgayBatDau);
+            result.NamBatDau.Should().Be(2025);
+            result.NgayKetThuc.Should().BeNull();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

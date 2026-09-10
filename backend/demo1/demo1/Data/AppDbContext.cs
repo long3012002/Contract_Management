@@ -488,6 +488,9 @@ namespace demo1.Data
                 .Property(d => d.GiaTriThanhToan)
                 .HasPrecision(18, 2);
             modelBuilder.Entity<DotThanhToan>()
+                .Property(d => d.GhiChuThanhToan)
+                .HasMaxLength(1000);
+            modelBuilder.Entity<DotThanhToan>()
                 .HasOne(d => d.HopDong)
                 .WithMany(h => h.DotThanhToans)
                 .HasForeignKey(d => d.HopDongId)

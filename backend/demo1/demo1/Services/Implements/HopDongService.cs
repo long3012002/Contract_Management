@@ -320,12 +320,29 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         {
             throw new KeyNotFoundException("Không tìm thấy thông tin chủ đầu tư.");
         }
-        if (dto.NhaThauId.HasValue && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaThauId.Value))
+        // Handle inline contractor creation if provided
+        DoiTac? createdInlineContractor = null;
+        if (dto.NewNhaThau != null && !dto.NhaThauId.HasValue)
+        {
+            createdInlineContractor = Mapper.Map<DoiTac>(dto.NewNhaThau);
+            createdInlineContractor.Id = Guid.NewGuid();
+            createdInlineContractor.CreatedAt = DateTime.UtcNow;
+            var codeExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Code.ToLower() == createdInlineContractor.Code.ToLower());
+            if (codeExists)
+            {
+                throw new InvalidOperationException($"Mã nhà thầu '{createdInlineContractor.Code}' đã tồn tại.");
+            }
+            await DbContext.DoiTacs.AddAsync(createdInlineContractor);
+            dto.NhaThauId = createdInlineContractor.Id;
+        }
+
+        if (dto.NhaThauId.HasValue && createdInlineContractor == null && !await DbContext.DoiTacs.AnyAsync(dt => dt.Id == dto.NhaThauId.Value))
         {
             throw new KeyNotFoundException("Không tìm thấy thông tin nhà thầu.");
         }
 
         var entity = Mapper.Map<HopDong>(dto);
+        entity.NhaThauId = dto.NhaThauId;
         entity.Id = Guid.NewGuid();
         entity.CreatedAt = DateTime.UtcNow;
 
@@ -804,7 +821,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
     }
 
-    public async Task<bool> ConfirmPaymentAsync(Guid dotThanhToanId)
+    public async Task<bool> ConfirmPaymentAsync(Guid dotThanhToanId, ConfirmPaymentDto? dto = null)
     {
         var dotThanhToan = await DbContext.DotThanhToans.FirstOrDefaultAsync(d => d.Id == dotThanhToanId);
         if (dotThanhToan == null)
@@ -813,12 +830,21 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         dotThanhToan.IsPaid = true;
+        dotThanhToan.NgayThanhToanThucTe = dto?.NgayThanhToanThucTe ?? DateTime.UtcNow;
+        if (!string.IsNullOrWhiteSpace(dto?.GhiChuThanhToan))
+        {
+            dotThanhToan.GhiChuThanhToan = dto.GhiChuThanhToan;
+        }
         dotThanhToan.UpdatedAt = DateTime.UtcNow;
+
+        // Nếu ngày kế hoạch trước đó chưa có, gán bằng ngày thực tế
         if (dotThanhToan.NgayThanhToan == null)
         {
-            dotThanhToan.NgayThanhToan = DateTime.UtcNow;
+            dotThanhToan.NgayThanhToan = dotThanhToan.NgayThanhToanThucTe;
         }
 
+        await DbContext.SaveChangesAsync();
+        await demo1.Services.Helpers.StatusPropagationHelper.PropagateContractStatusAsync(DbContext, dotThanhToan.HopDongId);
         await DbContext.SaveChangesAsync();
         return true;
     }
@@ -832,9 +858,12 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         dotThanhToan.IsPaid = false;
+        dotThanhToan.NgayThanhToanThucTe = null;
         dotThanhToan.UpdatedAt = DateTime.UtcNow;
-        dotThanhToan.NgayThanhToan = null;
+        // BẢO LƯU NGUYÊN VẸN dotThanhToan.NgayThanhToan (ngày kế hoạch)
 
+        await DbContext.SaveChangesAsync();
+        await demo1.Services.Helpers.StatusPropagationHelper.PropagateContractStatusAsync(DbContext, dotThanhToan.HopDongId);
         await DbContext.SaveChangesAsync();
         return true;
     }

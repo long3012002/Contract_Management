@@ -4,7 +4,7 @@ namespace demo1.Validator;
 
 public static class DuAnValidator
 {
-    public static void EnsureValid(decimal duToanPheDuyet, DateTime? ngayBatDau, DateTime? ngayKetThuc, int? namBatDau, int? namKetThuc)
+    public static void EnsureValid(decimal duToanPheDuyet, DateTime? ngayBatDau, DateTime? ngayKetThuc, int? namBatDau, int? namKetThuc, DateTime? ngayKetThucThucTe = null)
     {
         if (duToanPheDuyet < 0)
         {
@@ -14,6 +14,11 @@ public static class DuAnValidator
         if (ngayBatDau.HasValue && ngayKetThuc.HasValue && ngayBatDau.Value > ngayKetThuc.Value)
         {
             throw new ArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
+        }
+
+        if (ngayBatDau.HasValue && ngayKetThucThucTe.HasValue && ngayBatDau.Value > ngayKetThucThucTe.Value)
+        {
+            throw new ArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc thực tế.");
         }
 
         if (namBatDau.HasValue && namKetThuc.HasValue && namBatDau.Value > namKetThuc.Value)

@@ -10,7 +10,9 @@ public class DotThanhToanDto
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }
     public DateTime? NgayThanhToan { get; set; }
+    public DateTime? NgayThanhToanThucTe { get; set; }
     public string? DieuKienThanhToan { get; set; }
+    public string? GhiChuThanhToan { get; set; }
     public bool IsPaid { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

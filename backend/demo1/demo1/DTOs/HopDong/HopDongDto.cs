@@ -39,6 +39,8 @@ public class HopDongDto : IHasId
 
     public DateTime? ExpiredDate { get; set; }
     public DateTime? ExpiredDateHienTai { get; set; }
+    public DateTime? NgayKetThucThucTe { get; set; }
+    public bool DaKetThuc { get; set; }
     public DateTime? RenewalReminderDate { get; set; }
     public bool IsRenewalRequired { get; set; }
 

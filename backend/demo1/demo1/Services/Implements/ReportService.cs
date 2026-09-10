@@ -118,6 +118,7 @@ public class ReportService : IReportService
                 da.SoQuyetDinh,
                 da.NgayBatDau,
                 da.NgayKetThuc,
+                da.NgayKetThucThucTe,
                 da.UpdatedAt,
                 da.TrangThai,
                 da.DaKetThuc,
@@ -143,7 +144,7 @@ public class ReportService : IReportService
             .Select(dt => new
             {
                 DuAnId = dt.HopDong.DuAnId!.Value,
-                PaymentDate = dt.NgayThanhToan ?? dt.CreatedAt,
+                PaymentDate = dt.NgayThanhToanThucTe ?? dt.NgayThanhToan ?? dt.CreatedAt,
                 dt.GiaTriThanhToan
             })
             .GroupBy(x => x.DuAnId)
@@ -243,15 +244,16 @@ public class ReportService : IReportService
             if (project.TrangThai == (int)TrangThaiDuAn.HoanThanh || project.DaKetThuc)
             {
                 bool isCompletedBeforeEnd = false;
-                if (project.NgayKetThuc.HasValue && project.NgayKetThuc.Value <= endOfPeriod)
+                var effectiveEndDate = project.NgayKetThucThucTe ?? project.NgayKetThuc;
+                if (effectiveEndDate.HasValue && effectiveEndDate.Value <= endOfPeriod)
                 {
                     isCompletedBeforeEnd = true;
                 }
-                else if (!project.NgayKetThuc.HasValue && project.UpdatedAt.HasValue && project.UpdatedAt.Value <= endOfPeriod)
+                else if (!effectiveEndDate.HasValue && project.UpdatedAt.HasValue && project.UpdatedAt.Value <= endOfPeriod)
                 {
                     isCompletedBeforeEnd = true;
                 }
-                else if (!project.NgayKetThuc.HasValue && !project.UpdatedAt.HasValue)
+                else if (!effectiveEndDate.HasValue && !project.UpdatedAt.HasValue)
                 {
                     isCompletedBeforeEnd = true; // Giá trị mặc định nếu trạng thái đã hoàn thành
                 }
@@ -1154,7 +1156,9 @@ public class ReportService : IReportService
             ).ToList();
 
             decimal rawPhaiThanhToanTrongNam = milestonesInYear.Sum(m => m.GiaTriThanhToan);
-            decimal rawDaThanhToanTrongNam = milestonesInYear.Where(m => m.IsPaid).Sum(m => m.GiaTriThanhToan);
+            decimal rawDaThanhToanTrongNam = milestones
+                .Where(m => m.IsPaid && ((m.NgayThanhToanThucTe ?? m.NgayThanhToan)?.Year == year))
+                .Sum(m => m.GiaTriThanhToan);
             decimal rawConPhaiThanhToanTrongNam = rawPhaiThanhToanTrongNam - rawDaThanhToanTrongNam;
             if (rawConPhaiThanhToanTrongNam < 0) rawConPhaiThanhToanTrongNam = 0;
 
@@ -1177,7 +1181,7 @@ public class ReportService : IReportService
             {
                 trangThaiThanhToan = "Đang thanh toán";
             }
-            else if (contract.ExpiredDate.HasValue && contract.ExpiredDate.Value < DateTime.UtcNow && soKyConPhaiThanhToan > 0)
+            else if (contract.ExpiredDate.HasValue && contract.ExpiredDate.Value < DateTime.UtcNow && soKyConPhaiThanhToan > 0 && !contract.DaKetThuc && !contract.NgayKetThucThucTe.HasValue)
             {
                 trangThaiThanhToan = "Quá hạn";
             }
@@ -1195,7 +1199,9 @@ public class ReportService : IReportService
                 TyLeThanhToan = m.TyLeThanhToan,
                 GiaTriThanhToan = m.GiaTriThanhToan / factor,
                 NgayThanhToan = m.NgayThanhToan,
+                NgayThanhToanThucTe = m.NgayThanhToanThucTe,
                 DieuKienThanhToan = m.DieuKienThanhToan,
+                GhiChuThanhToan = m.GhiChuThanhToan,
                 IsPaid = m.IsPaid
             }).ToList();
 
@@ -1212,6 +1218,8 @@ public class ReportService : IReportService
                 GiaTriHopDong = giaTriHopDong,
                 NgayHieuLuc = contract.NgayHieuLuc,
                 ExpiredDate = contract.ExpiredDate,
+                NgayKetThucThucTe = contract.NgayKetThucThucTe,
+                DaKetThuc = contract.DaKetThuc,
                 TongSoKy = tongSoKy,
                 SoKyDaThanhToan = soKyDaThanhToan,
                 SoKyConPhaiThanhToan = soKyConPhaiThanhToan,
@@ -1681,7 +1689,9 @@ public class ReportService : IReportService
                 TyLeThanhToan = m.TyLeThanhToan,
                 GiaTriThanhToan = m.GiaTriThanhToan / factor,
                 NgayThanhToan = m.NgayThanhToan,
+                NgayThanhToanThucTe = m.NgayThanhToanThucTe,
                 DieuKienThanhToan = m.DieuKienThanhToan,
+                GhiChuThanhToan = m.GhiChuThanhToan,
                 IsPaid = m.IsPaid
             }).ToList();
 
@@ -1693,6 +1703,8 @@ public class ReportService : IReportService
                 TenHopDong = contract.Name,
                 NgayKyHopDong = contract.NgayHieuLuc,
                 NgayKetThucDuKien = contract.ExpiredDate,
+                NgayKetThucThucTe = contract.NgayKetThucThucTe,
+                DaKetThuc = contract.DaKetThuc,
                 GiaTriHopDong = giaTriHopDong,
                 GiaTriDaThanhToan = giaTriDaThanhToan,
                 GiaTriConLai = giaTriConLai,
@@ -2427,14 +2439,12 @@ public class ReportService : IReportService
             .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(d => d.NguonDuAns)
-            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2);
+            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.DaTrienKhai == true || d.TrangThai == 2));
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
-        if (groupStatus.HasValue && (groupStatus.Value == 1 || groupStatus.Value == 2))
+        if (groupStatus.HasValue && groupStatus.Value == 1)
         {
-            query = groupStatus.Value == 1
-                ? query.Where(p => p.DaTrienKhai == true || p.TrangThai == 2)
-                : query.Where(p => p.DaTrienKhai != true && p.TrangThai != 2);
+            query = query.Where(p => p.DaTrienKhai == true || p.TrangThai == 2);
         }
 
         // Filter keyword

@@ -175,6 +175,11 @@ public class DuAnDto : IHasId
     public DateTime? NgayKetThuc { get; set; }
 
     /// <summary>
+    /// Ngày kết thúc thực tế của dự án
+    /// </summary>
+    public DateTime? NgayKetThucThucTe { get; set; }
+
+    /// <summary>
     /// Năm bắt đầu
     /// </summary>
     public int? NamBatDau { get; set; }

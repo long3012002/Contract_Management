@@ -10,7 +10,9 @@ public class ContractPaymentReportMilestoneDto
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }
     public DateTime? NgayThanhToan { get; set; }
+    public DateTime? NgayThanhToanThucTe { get; set; }
     public string? DieuKienThanhToan { get; set; }
+    public string? GhiChuThanhToan { get; set; }
     public bool IsPaid { get; set; }
 }
 
@@ -27,6 +29,8 @@ public class ContractPaymentReportRowDto
     public decimal GiaTriHopDong { get; set; }
     public DateTime? NgayHieuLuc { get; set; }
     public DateTime? ExpiredDate { get; set; }
+    public DateTime? NgayKetThucThucTe { get; set; }
+    public bool DaKetThuc { get; set; }
 
     // Milestones count
     public int TongSoKy { get; set; }

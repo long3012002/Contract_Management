@@ -174,6 +174,119 @@ namespace demo1.Tests.UnitTests.Services
             isExpiringSoon.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task ConfirmPaymentAsync_Should_Record_Actual_Payment_Date_And_Preserve_Planned_Date()
+        {
+            // Arrange
+            var plannedDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+            var actualDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc);
+            var contract = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-PAY-CONFIRM",
+                Name = "Hợp đồng test xác nhận thanh toán",
+                GiaTriHopDong = 1000000000
+            };
+            _dbContext.HopDongs.Add(contract);
+
+            var dot = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = contract.Id,
+                TenDot = "Đợt 1",
+                GiaTriThanhToan = 500000000,
+                NgayThanhToan = plannedDate, // Ngày kế hoạch
+                IsPaid = false
+            };
+            _dbContext.DotThanhToans.Add(dot);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: Confirm payment with actual date
+            var confirmDto = new ConfirmPaymentDto
+            {
+                NgayThanhToanThucTe = actualDate,
+                GhiChuThanhToan = "UNC số 123456"
+            };
+            var result = await _hopDongService.ConfirmPaymentAsync(dot.Id, confirmDto);
+
+            // Assert
+            result.Should().BeTrue();
+            var dbDot = await _dbContext.DotThanhToans.FindAsync(dot.Id);
+            dbDot!.IsPaid.Should().BeTrue();
+            dbDot.NgayThanhToan.Should().Be(plannedDate); // Kế hoạch được bảo toàn
+            dbDot.NgayThanhToanThucTe.Should().Be(actualDate); // Ngày thực tế được ghi nhận
+            dbDot.GhiChuThanhToan.Should().Be("UNC số 123456");
+        }
+
+        [Fact]
+        public async Task UndoPaymentAsync_Should_Clear_Actual_Payment_Date_And_Preserve_Planned_Date()
+        {
+            // Arrange
+            var plannedDate = new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+            var actualDate = new DateTime(2026, 12, 10, 0, 0, 0, DateTimeKind.Utc);
+            var contract = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-PAY-UNDO",
+                Name = "Hợp đồng test hoàn tác thanh toán",
+                GiaTriHopDong = 1000000000
+            };
+            _dbContext.HopDongs.Add(contract);
+
+            var dot = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = contract.Id,
+                TenDot = "Đợt 1",
+                GiaTriThanhToan = 500000000,
+                NgayThanhToan = plannedDate,
+                NgayThanhToanThucTe = actualDate,
+                IsPaid = true
+            };
+            _dbContext.DotThanhToans.Add(dot);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _hopDongService.UndoPaymentAsync(dot.Id);
+
+            // Assert
+            result.Should().BeTrue();
+            var dbDot = await _dbContext.DotThanhToans.FindAsync(dot.Id);
+            dbDot!.IsPaid.Should().BeFalse();
+            dbDot.NgayThanhToanThucTe.Should().BeNull();
+            dbDot.NgayThanhToan.Should().Be(plannedDate); // Không bị xóa trắng ngày kế hoạch
+        }
+
+        [Fact]
+        public async Task CreateAsync_Should_Create_Inline_Contractor_When_NewNhaThau_Is_Provided()
+        {
+            // Arrange
+            var createDto = new CreateHopDongDto
+            {
+                Code = "HD-INLINE-CONTRACTOR",
+                Name = "Hợp đồng tạo kèm nhà thầu inline",
+                GiaTriHopDong = 500000000,
+                NewNhaThau = new CreateDoiTacDto
+                {
+                    Code = "NT-NEW-INLINE",
+                    Name = "Công ty TNHH Phần mềm Mới",
+                    TaxCode = "0109999999",
+                    Email = null // Email optional
+                }
+            };
+
+            // Act
+            var result = await _hopDongService.CreateAsync(createDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.NhaThauId.Should().NotBeNull();
+            var dbContractor = await _dbContext.DoiTacs.FindAsync(result.NhaThauId);
+            dbContractor.Should().NotBeNull();
+            dbContractor!.Code.Should().Be("NT-NEW-INLINE");
+            dbContractor.Name.Should().Be("Công ty TNHH Phần mềm Mới");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

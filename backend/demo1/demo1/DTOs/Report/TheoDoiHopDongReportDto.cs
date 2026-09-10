@@ -10,7 +10,9 @@ public class TheoDoiHopDongDotThanhToanDto
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }
     public DateTime? NgayThanhToan { get; set; }
+    public DateTime? NgayThanhToanThucTe { get; set; }
     public string? DieuKienThanhToan { get; set; }
+    public string? GhiChuThanhToan { get; set; }
     public bool IsPaid { get; set; }
 }
 
@@ -22,6 +24,8 @@ public class TheoDoiHopDongReportRowDto
     public string TenHopDong { get; set; } = string.Empty;
     public DateTime? NgayKyHopDong { get; set; }
     public DateTime? NgayKetThucDuKien { get; set; }
+    public DateTime? NgayKetThucThucTe { get; set; }
+    public bool DaKetThuc { get; set; }
     public decimal GiaTriHopDong { get; set; }
     public decimal GiaTriDaThanhToan { get; set; }
     public decimal GiaTriConLai { get; set; }

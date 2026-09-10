@@ -31,7 +31,12 @@ public class WarningService : IWarningService
             var thresholdDate = today.AddDays(ExpiringSoonDays);
             var result = await _dbContext.HopDongs
                 .AsNoTracking()
-                .Where(h => h.IsActive && h.ExpiredDate.HasValue && h.ExpiredDate.Value.Date >= today.Date && h.ExpiredDate.Value.Date <= thresholdDate.Date)
+                .Where(h => h.IsActive 
+                    && !h.DaKetThuc 
+                    && !h.NgayKetThucThucTe.HasValue
+                    && h.ExpiredDate.HasValue 
+                    && h.ExpiredDate.Value.Date >= today.Date 
+                    && h.ExpiredDate.Value.Date <= thresholdDate.Date)
                 .Select(h => new ContractWarningDto
                 {
                     ContractId = h.Id,
@@ -62,6 +67,8 @@ public class WarningService : IWarningService
             var dbContracts = await _dbContext.HopDongs
                 .AsNoTracking()
                 .Where(c => c.IsActive 
+                    && !c.DaKetThuc 
+                    && !c.NgayKetThucThucTe.HasValue
                     && c.ExpiredDate.HasValue 
                     && c.ExpiredDate.Value.Date < today.Date)
                 .Select(c => new { c.Id, c.Code, c.Name, c.ExpiredDate })

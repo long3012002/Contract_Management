@@ -30,6 +30,8 @@ public class HopDong : BaseEntity
     
     // Auxiliary fields to support contract warning services
     public DateTime? ExpiredDate { get; set; }
+    public DateTime? NgayKetThucThucTe { get; set; }
+    public bool DaKetThuc { get; set; } = false;
     public DateTime? RenewalReminderDate { get; set; }
     public bool IsRenewalRequired { get; set; } = true;
 
