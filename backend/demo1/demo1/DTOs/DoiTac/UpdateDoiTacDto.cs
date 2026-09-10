@@ -19,7 +19,7 @@ public class UpdateDoiTacDto
     public string? Phone { get; set; }
 
     [StringLength(255)]
-    [EmailAddress]
+    [demo1.Validator.OptionalEmailAddress]
     public string? Email { get; set; }
 
     [StringLength(500)]

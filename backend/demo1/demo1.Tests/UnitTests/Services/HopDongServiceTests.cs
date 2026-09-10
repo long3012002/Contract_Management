@@ -287,6 +287,21 @@ namespace demo1.Tests.UnitTests.Services
             dbContractor.Name.Should().Be("Công ty TNHH Phần mềm Mới");
         }
 
+        [Theory]
+        [InlineData(null, true)]
+        [InlineData("", true)]
+        [InlineData("   ", true)]
+        [InlineData("user@example.com", true)]
+        [InlineData("invalid-email", false)]
+        [InlineData("@invalid.com", false)]
+        [InlineData("invalid@", false)]
+        public void OptionalEmailAddressAttribute_Should_Validate_Correctly(string? email, bool expectedValid)
+        {
+            var attribute = new demo1.Validator.OptionalEmailAddressAttribute();
+            var isValid = attribute.IsValid(email);
+            isValid.Should().Be(expectedValid);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
