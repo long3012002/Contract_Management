@@ -95,7 +95,14 @@ public class DotThanhToanService(AppDbContext context) : IDotThanhToanService
 
                 DuAnId = d.HopDong.DuAnId,
                 DuAnCode = d.HopDong.DuAn != null ? d.HopDong.DuAn.Code : null,
-                DuAnName = d.HopDong.DuAn != null ? d.HopDong.DuAn.Name : null
+                DuAnName = d.HopDong.DuAn != null ? d.HopDong.DuAn.Name : null,
+
+                TinhTrangHoSoNghiemThu = !string.IsNullOrWhiteSpace(d.GhiChuThanhToan)
+                    ? d.GhiChuThanhToan
+                    : (d.IsPaid ? "Đã nhận hồ sơ & hoàn thành nghiệm thu" : "Chờ hoàn thiện hồ sơ nghiệm thu"),
+                GiaTriHopDongConLaiChuaTra = d.HopDong != null
+                    ? d.HopDong.GiaTriHopDong - d.HopDong.DotThanhToans.Where(dt => dt.IsPaid).Sum(dt => dt.GiaTriThanhToan)
+                    : 0
             })
             .ToListAsync();
 

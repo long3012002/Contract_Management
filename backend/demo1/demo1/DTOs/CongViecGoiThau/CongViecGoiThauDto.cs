@@ -129,6 +129,31 @@ public class CongViecGoiThauReportDto
     public string? TenDuAn { get; set; }
     public string Unit { get; set; } = "Đồng";
     public decimal GiaTriGoiThau { get; set; }
+
+    /// <summary>Mã dự án</summary>
+    public string? MaDuAn { get; set; }
+
+    /// <summary>Hình thức lựa chọn nhà thầu</summary>
+    public string? HinhThucLcnt { get; set; }
+
+    /// <summary>Phương thức lựa chọn nhà thầu</summary>
+    public string? PhuongThucLcnt { get; set; }
+
+    /// <summary>Tổng giá trị hợp đồng đã ký</summary>
+    public decimal TongGiaTriHopDong { get; set; }
+
+    /// <summary>Giá trị tiết kiệm = GiaTriGoiThau - TongGiaTriHopDong</summary>
+    public decimal GiaTriTietKiem => GiaTriGoiThau > TongGiaTriHopDong ? GiaTriGoiThau - TongGiaTriHopDong : 0;
+
+    /// <summary>Tỷ lệ sử dụng dự toán (%)</summary>
+    public double TyLeSuDungDuToanPercent => GiaTriGoiThau > 0 ? Math.Round((double)(TongGiaTriHopDong / GiaTriGoiThau) * 100, 2) : 0;
+
+    /// <summary>Tên nhà thầu trúng thầu</summary>
+    public string? TenNhaThauTrungThau { get; set; }
+
+    /// <summary>Trạng thái gói thầu</summary>
+    public string TrangThaiGoiThau { get; set; } = "Đang thực hiện";
+
     public List<CongViecGoiThauDto> CongViecs { get; set; } = new List<CongViecGoiThauDto>();
     public int TongSoCongViec { get; set; }
     public int SoCongViecDaHoanThanh { get; set; }

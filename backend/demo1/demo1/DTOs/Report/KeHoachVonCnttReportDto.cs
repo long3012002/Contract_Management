@@ -77,4 +77,29 @@ public class KeHoachVonCnttReportResponseDto
     public decimal TongCongNguonKhac { get; set; }
     public Dictionary<Guid, decimal> TongCongNguonVonByDanhMuc { get; set; } = new();
     public Dictionary<int, decimal> TongCongPhanKy { get; set; } = new();
+
+    /// <summary>
+    /// Danh sách chi tiết phân bổ từ Dự án nguồn sang Dự án triển khai (Mẫu Báo cáo 2 Excel)
+    /// </summary>
+    public List<KeHoachVonPhanBoNguonRowDto> DanhSachPhanBoNguon { get; set; } = new();
+}
+
+/// <summary>
+/// DTO hàng báo cáo phân bổ vốn Dự án nguồn ➔ Dự án triển khai (Mẫu Báo cáo 2 Excel)
+/// </summary>
+public class KeHoachVonPhanBoNguonRowDto
+{
+    public int Stt { get; set; }
+    public string MaDuAnNguon { get; set; } = string.Empty;
+    public string TenDuAnNguon { get; set; } = string.Empty;
+    public string? SoQuyetDinhPheDuyet { get; set; }
+    public string? SoQDPheDuyet => SoQuyetDinhPheDuyet;
+    public decimal TongVonPheDuyet { get; set; }
+    public decimal TongVonPheDuyetNguon => TongVonPheDuyet;
+    public string MaDuAnTrienKhaiLienKet { get; set; } = string.Empty;
+    public string TenDuAnTrienKhai { get; set; } = string.Empty;
+    public decimal VonPhanBoChoDaTrienKhai { get; set; }
+    public Dictionary<int, decimal> PhanKyVonTheoNam { get; set; } = new();
+    public decimal VonNguonConLaiChuaPhanBo { get; set; }
+    public string TrangThaiNguon { get; set; } = "Đã phân bổ";
 }

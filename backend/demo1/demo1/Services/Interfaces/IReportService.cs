@@ -40,6 +40,8 @@ public interface IReportService
     Task<byte[]> ExportLicenseSlaReportExcelAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
     Task<byte[]> ExportLicenseSlaReportCsvAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
     Task<byte[]> ExportLicenseSlaReportHtmlAsync(int? statusFilter = null, string? search = null, string? donViTinh = null);
+
+    Task<GoiThauLcntReportResponseDto> GetGoiThauLcntReportAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
 }
 
 

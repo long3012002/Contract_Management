@@ -91,10 +91,19 @@ public class PhuLucHopDongService : IPhuLucHopDongService
                     TyLeThanhToan = dot.TyLeThanhToan,
                     GiaTriThanhToan = dot.GiaTriThanhToan,
                     NgayThanhToan = dot.NgayThanhToan,
+                    NgayThanhToanThucTe = dot.NgayThanhToanThucTe,
                     DieuKienThanhToan = dot.DieuKienThanhToan,
-                    IsPaid = dot.IsPaid,
+                    IsPaid = dot.NgayThanhToanThucTe.HasValue ? true : dot.IsPaid,
                     CreatedAt = DateTime.UtcNow
                 };
+                if (dotEntity.IsPaid && !dotEntity.NgayThanhToanThucTe.HasValue)
+                {
+                    dotEntity.NgayThanhToanThucTe = dotEntity.NgayThanhToan ?? DateTime.UtcNow;
+                }
+                if (dotEntity.NgayThanhToanThucTe.HasValue && dotEntity.NgayThanhToan == null)
+                {
+                    dotEntity.NgayThanhToan = dotEntity.NgayThanhToanThucTe;
+                }
                 _context.DotThanhToans.Add(dotEntity);
             }
         }

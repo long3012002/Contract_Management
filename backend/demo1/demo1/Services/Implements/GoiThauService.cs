@@ -191,15 +191,43 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
         var goiThauIds = dtos.Select(d => d.Id).ToList();
 
-        var contractSums = await DbContext.HopDongs
+        var contracts = await DbContext.HopDongs
+            .AsNoTracking()
+            .Include(h => h.NhaThau)
             .Where(h => h.GoiThauId.HasValue && goiThauIds.Contains(h.GoiThauId.Value))
+            .ToListAsync();
+
+        var contractGrouped = contracts
             .GroupBy(h => h.GoiThauId!.Value)
-            .Select(g => new { GoiThauId = g.Key, Total = g.Sum(h => h.GiaTriHopDong) })
-            .ToDictionaryAsync(x => x.GoiThauId, x => x.Total);
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var duAnIds = dtos.Where(d => d.DuAnId.HasValue).Select(d => d.DuAnId!.Value).Distinct().ToList();
+        var duAns = duAnIds.Any()
+            ? await DbContext.DuAns.AsNoTracking().Where(d => duAnIds.Contains(d.Id)).ToDictionaryAsync(d => d.Id, d => d.Code)
+            : new Dictionary<Guid, string>();
 
         foreach (var dto in dtos)
         {
-            dto.TongGiaTriHopDong = contractSums.TryGetValue(dto.Id, out var sum) ? sum : 0;
+            if (dto.DuAnId.HasValue && duAns.TryGetValue(dto.DuAnId.Value, out var daCode))
+            {
+                dto.MaDuAn = daCode;
+            }
+
+            if (contractGrouped.TryGetValue(dto.Id, out var hds) && hds.Any())
+            {
+                dto.TongGiaTriHopDong = hds.Sum(h => h.GiaTriHopDong);
+                var firstNhaThau = hds.FirstOrDefault(h => h.NhaThau != null)?.NhaThau?.Name;
+                if (!string.IsNullOrWhiteSpace(firstNhaThau))
+                {
+                    dto.TenNhaThauTrungThau = firstNhaThau;
+                }
+                dto.TrangThaiGoiThau = "Đã hoàn thành LCNT";
+            }
+            else
+            {
+                dto.TongGiaTriHopDong = 0;
+                dto.TrangThaiGoiThau = "Đang lựa chọn nhà thầu";
+            }
         }
     }
 

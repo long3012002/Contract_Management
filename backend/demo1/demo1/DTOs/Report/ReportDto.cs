@@ -28,6 +28,16 @@ public class ReportRowDto
     
     // Giá trị tài sản đã hoàn thành đưa vào sử dụng
     public decimal TaiSanBanGiao { get; set; }
+
+    // Thông tin bổ sung theo Mẫu Báo Cáo 1 (Tiến độ Dự án triển khai)
+    public string? MaDuAn { get; set; }
+    public string? DonViChuTri { get; set; }
+    public string? PmPhuTrach { get; set; }
+    public double? TienDo { get; set; }
+    public int? ThoiGianConLaiNgay { get; set; }
+    public string? TrangThaiThucTe { get; set; }
+    public string? CanhBaoRuiRo { get; set; }
+    public string? CanhBaoRuiRoRAG => CanhBaoRuiRo;
 }
 
 public class ReportResponseDto

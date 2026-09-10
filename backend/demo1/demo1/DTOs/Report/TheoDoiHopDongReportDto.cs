@@ -38,6 +38,21 @@ public class TheoDoiHopDongReportRowDto
     public string? TenGoiThau { get; set; }
     public string? TenNhaThau { get; set; }
 
+    /// <summary>Người đại diện / SĐT nhà thầu (ví dụ: "Lê Văn T (0912345678)")</summary>
+    public string? NguoiDaiDienVaSdt { get; set; }
+    public string? NguoiDaiDien_SDT => NguoiDaiDienVaSdt;
+    public string? NguoiDaiDien_Sdt => NguoiDaiDienVaSdt;
+
+    /// <summary>Số ngày còn lại đến khi hết hạn hợp đồng (0 nếu đã hết hạn)</summary>
+    public int SoNgayConLai { get; set; }
+
+    /// <summary>Trạng thái thực hiện (Đang thực hiện, Đã hết hạn, Đã hoàn thành...)</summary>
+    public string TrangThaiThucHienText { get; set; } = string.Empty;
+    public string TrangThaiThucHien => TrangThaiThucHienText;
+
+    /// <summary>Cảnh báo hành động (🟡 Chờ ký Biên bản nghiệm thu, 🔴 Quá hạn nghiệm thu, 🟢 Hoàn thành...)</summary>
+    public string CanhBaoHanhDong { get; set; } = string.Empty;
+
     public List<TheoDoiHopDongDotThanhToanDto> DanhSachDotThanhToan { get; set; } = new();
 }
 

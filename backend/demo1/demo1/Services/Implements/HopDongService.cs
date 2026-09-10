@@ -373,10 +373,27 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 var dot = Mapper.Map<DotThanhToan>(dotDto);
                 dot.Id = Guid.NewGuid();
                 dot.HopDongId = entity.Id;
-                dot.IsPaid = false; // Always false on create (C4)
                 // Use user-provided payment value if set, otherwise calculate based on percentage
                 dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                 dot.NgayThanhToan = dotDto.NgayThanhToan;
+                dot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
+                if (dotDto.NgayThanhToanThucTe.HasValue)
+                {
+                    dot.IsPaid = true;
+                    if (dot.NgayThanhToan == null)
+                    {
+                        dot.NgayThanhToan = dot.NgayThanhToanThucTe;
+                    }
+                }
+                else if (dotDto.IsPaid)
+                {
+                    dot.IsPaid = true;
+                    dot.NgayThanhToanThucTe = dot.NgayThanhToan ?? DateTime.UtcNow;
+                }
+                else
+                {
+                    dot.IsPaid = false;
+                }
                 dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                 dot.CreatedAt = now.AddMilliseconds(index++);
                 entity.DotThanhToans.Add(dot);
@@ -547,6 +564,20 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                     dot.HopDongId = entity.Id;
                     dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                     dot.NgayThanhToan = dotDto.NgayThanhToan;
+                    dot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
+                    if (dotDto.NgayThanhToanThucTe.HasValue)
+                    {
+                        dot.IsPaid = true;
+                        if (dot.NgayThanhToan == null)
+                        {
+                            dot.NgayThanhToan = dot.NgayThanhToanThucTe;
+                        }
+                    }
+                    else if (dotDto.IsPaid)
+                    {
+                        dot.IsPaid = true;
+                        dot.NgayThanhToanThucTe = dot.NgayThanhToan ?? DateTime.UtcNow;
+                    }
                     dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                     dot.CreatedAt = now.AddMilliseconds(dotIndex++);
                     entity.DotThanhToans.Add(dot);
@@ -744,6 +775,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                                 {
                                     throw new InvalidOperationException($"Không thể chỉnh sửa số tiền đợt thanh toán '{existingDot.TenDot}' đã được xác nhận thanh toán.");
                                 }
+                                if (dotDto.NgayThanhToanThucTe.HasValue)
+                                {
+                                    existingDot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
+                                }
                                 existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                                 existingDot.UpdatedAt = now;
                             }
@@ -752,8 +787,25 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                                 Mapper.Map(dotDto, existingDot);
                                 existingDot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                                 existingDot.NgayThanhToan = dotDto.NgayThanhToan;
+                                existingDot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
+                                if (dotDto.NgayThanhToanThucTe.HasValue)
+                                {
+                                    existingDot.IsPaid = true;
+                                    if (existingDot.NgayThanhToan == null)
+                                    {
+                                        existingDot.NgayThanhToan = existingDot.NgayThanhToanThucTe;
+                                    }
+                                }
+                                else if (dotDto.IsPaid)
+                                {
+                                    existingDot.IsPaid = true;
+                                    existingDot.NgayThanhToanThucTe = existingDot.NgayThanhToan ?? DateTime.UtcNow;
+                                }
+                                else
+                                {
+                                    existingDot.IsPaid = false;
+                                }
                                 existingDot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
-                                existingDot.IsPaid = false;
                                 existingDot.UpdatedAt = now;
                             }
                         }
@@ -764,9 +816,26 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         var dot = Mapper.Map<DotThanhToan>(dotDto);
                         dot.Id = Guid.NewGuid();
                         dot.HopDongId = id;
-                        dot.IsPaid = false; // Always false on create (C4)
                         dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                         dot.NgayThanhToan = dotDto.NgayThanhToan;
+                        dot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
+                        if (dotDto.NgayThanhToanThucTe.HasValue)
+                        {
+                            dot.IsPaid = true;
+                            if (dot.NgayThanhToan == null)
+                            {
+                                dot.NgayThanhToan = dot.NgayThanhToanThucTe;
+                            }
+                        }
+                        else if (dotDto.IsPaid)
+                        {
+                            dot.IsPaid = true;
+                            dot.NgayThanhToanThucTe = dot.NgayThanhToan ?? DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            dot.IsPaid = false;
+                        }
                         dot.DieuKienThanhToan = dotDto.DieuKienThanhToan;
                         dot.CreatedAt = now.AddMilliseconds(index++);
                         await DbContext.DotThanhToans.AddAsync(dot);

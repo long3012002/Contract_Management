@@ -253,4 +253,34 @@ public class DuAnDto : IHasId
     /// Danh sách các nguồn vốn và số tiền tương ứng của dự án
     /// </summary>
     public List<DuAnNguonVonDto>? DanhSachNguonVon { get; set; }
+
+    /// <summary>
+    /// Đơn vị chủ trì / phòng ban phụ trách (tương thích mẫu Báo cáo 1)
+    /// </summary>
+    public string? DonViChuTri { get; set; }
+
+    /// <summary>
+    /// PM phụ trách dự án (lấy từ ChuDuAnName hoặc ProjectManager)
+    /// </summary>
+    public string? PmPhuTrach => ChuDuAnName ?? ProjectManager?.FullName;
+
+    /// <summary>
+    /// Tiến độ thực hiện dự án (0.0 đến 1.0, vd 0.1 tương đương 10%)
+    /// </summary>
+    public double? TienDo { get; set; }
+
+    /// <summary>
+    /// Số ngày còn lại tính đến Ngày kết thúc (null nếu chưa có Ngày kết thúc)
+    /// </summary>
+    public int? ThoiGianConLaiNgay { get; set; }
+
+    /// <summary>
+    /// Tên trạng thái thực tế dạng văn bản (Đang triển khai, Chuẩn bị đầu tư, Đã kết thúc...)
+    /// </summary>
+    public string TrangThaiThucTe { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Cảnh báo rủi ro RAG (🟢 Đúng tiến độ, 🟡 Cần chú ý, 🔴 Trễ hạn, ⚪ Đang lập kế hoạch)
+    /// </summary>
+    public string CanhBaoRuiRo { get; set; } = "🟢 Đúng tiến độ";
 }

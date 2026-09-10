@@ -41,6 +41,10 @@ public class LicenseSlaItemDto
     public decimal GiaTriHopDong { get; set; }
     public Guid? DuAnId { get; set; }
     public string TenDuAn { get; set; } = string.Empty;
+
+    // Contact info of vendor / contractor
+    public string? NguoiDaiDien { get; set; }
+    public string? SoDienThoai { get; set; }
 }
 
 public class LicenseSlaReportResponseDto

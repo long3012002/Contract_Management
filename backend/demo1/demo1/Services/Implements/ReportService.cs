@@ -122,6 +122,9 @@ public class ReportService : IReportService
                 da.UpdatedAt,
                 da.TrangThai,
                 da.DaKetThuc,
+                da.ToChucThucHien,
+                da.ChuDauTu,
+                PmPhuTrach = da.ChuDuAn != null ? da.ChuDuAn.FullName : null,
                 NhomDuAnCode = da.NhomDuAn != null ? da.NhomDuAn.Code : null,
                 da.NhomDuAnId,
                 da.PhanLoaiDuAnId,
@@ -306,7 +309,25 @@ public class ReportService : IReportService
                 GiaiNganKyTruoc = gNganKyTruoc,
                 GiaiNganTrongKy = gNganTrongKy,
                 GiaiNganLuyKe = gNganLuyKe,
-                TaiSanBanGiao = tsBanGiao
+                TaiSanBanGiao = tsBanGiao,
+
+                // Mẫu Báo cáo 1
+                MaDuAn = project.Code,
+                DonViChuTri = !string.IsNullOrWhiteSpace(project.ToChucThucHien) ? project.ToChucThucHien : project.ChuDauTu,
+                PmPhuTrach = project.PmPhuTrach,
+                ThoiGianConLaiNgay = project.NgayKetThuc.HasValue ? (int?)(project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days : null,
+                TrangThaiThucTe = project.DaKetThuc || project.TrangThai == 2 ? "Đã hoàn thành" :
+                                  project.TrangThai == 1 ? "Đang triển khai" : "Chuẩn bị đầu tư",
+                TienDo = project.DaKetThuc || project.TrangThai == 2 ? 1.0 :
+                         (!project.NgayBatDau.HasValue || !project.NgayKetThuc.HasValue) ? (double?)null :
+                         DateTime.UtcNow.Date <= project.NgayBatDau.Value.Date ? 0.0 :
+                         DateTime.UtcNow.Date >= project.NgayKetThuc.Value.Date ? 1.0 :
+                         Math.Round((DateTime.UtcNow.Date - project.NgayBatDau.Value.Date).TotalDays / (project.NgayKetThuc.Value.Date - project.NgayBatDau.Value.Date).TotalDays, 2),
+                CanhBaoRuiRo = (project.DaKetThuc || project.TrangThai == 2) ? "🟢 Hoàn thành" :
+                               !project.NgayKetThuc.HasValue ? "⚪ Đang lập kế hoạch" :
+                               (project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days < 0 ? "🔴 Trễ tiến độ" :
+                               (project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days <= 30 ? "🟡 Nguy cơ trễ hạn" :
+                               "🟢 Đúng tiến độ"
             };
 
             var catId = GetCategoryIdForProject(project.PhanLoaiDuAnId, project.PhanLoaiDuAnCode, project.PhanLoaiDuAnName);
@@ -972,12 +993,28 @@ public class ReportService : IReportService
         int completed = congViecs.Count(c => c.TinhTrang != null && c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
         int inProgress = congViecs.Count(c => c.TinhTrang != null && !c.TinhTrang.Equals("Đã xong", StringComparison.OrdinalIgnoreCase));
 
+        // Nạp hợp đồng liên kết gói thầu để lấy số liệu đấu thầu
+        var contracts = await _context.HopDongs
+            .AsNoTracking()
+            .Include(h => h.NhaThau)
+            .Where(h => h.GoiThauId == idGoiThau && !h.IsDeleted)
+            .ToListAsync();
+
+        decimal tongGiaTriHd = contracts.Sum(h => h.GiaTriHopDong) / factor;
+        var nhaThauTrungThau = contracts.FirstOrDefault(h => h.NhaThau != null)?.NhaThau?.Name;
+
         return new CongViecGoiThauReportDto
         {
             GoiThauId = goiThau.Id,
             TenGoiThau = goiThau.Name,
             MaGoiThau = goiThau.Code,
             TenDuAn = goiThau.DuAn?.Name,
+            MaDuAn = goiThau.DuAn?.Code,
+            HinhThucLcnt = "Đấu thầu rộng rãi qua mạng",
+            PhuongThucLcnt = "1 GĐ 1 THS",
+            TongGiaTriHopDong = tongGiaTriHd,
+            TenNhaThauTrungThau = nhaThauTrungThau,
+            TrangThaiGoiThau = contracts.Any() ? "Đã hoàn thành LCNT" : "Đang lựa chọn nhà thầu",
             Unit = unitName,
             GiaTriGoiThau = goiThau.GiaTriGoiThau / factor,
             CongViecs = congViecs,
@@ -1192,18 +1229,33 @@ public class ReportService : IReportService
 
             string loaiHopDongTen = GetLoaiHopDongName(contract.LoaiHopDong);
 
-            var milestoneDtos = milestones.Select(m => new ContractPaymentReportMilestoneDto
+            decimal cumulativePaid = 0m;
+            var milestoneDtos = new List<ContractPaymentReportMilestoneDto>();
+            foreach (var m in milestones)
             {
-                Id = m.Id,
-                TenDot = m.TenDot,
-                TyLeThanhToan = m.TyLeThanhToan,
-                GiaTriThanhToan = m.GiaTriThanhToan / factor,
-                NgayThanhToan = m.NgayThanhToan,
-                NgayThanhToanThucTe = m.NgayThanhToanThucTe,
-                DieuKienThanhToan = m.DieuKienThanhToan,
-                GhiChuThanhToan = m.GhiChuThanhToan,
-                IsPaid = m.IsPaid
-            }).ToList();
+                if (m.IsPaid)
+                {
+                    cumulativePaid += m.GiaTriThanhToan;
+                }
+                decimal remainingForMilestone = Math.Max(0, (contract.GiaTriHopDong - cumulativePaid) / factor);
+
+                milestoneDtos.Add(new ContractPaymentReportMilestoneDto
+                {
+                    Id = m.Id,
+                    TenDot = m.TenDot,
+                    TyLeThanhToan = m.TyLeThanhToan,
+                    GiaTriThanhToan = m.GiaTriThanhToan / factor,
+                    NgayThanhToan = m.NgayThanhToan,
+                    NgayThanhToanThucTe = m.NgayThanhToanThucTe,
+                    DieuKienThanhToan = m.DieuKienThanhToan,
+                    GhiChuThanhToan = m.GhiChuThanhToan,
+                    IsPaid = m.IsPaid,
+                    TinhTrangHoSoNghiemThu = !string.IsNullOrWhiteSpace(m.GhiChuThanhToan)
+                        ? m.GhiChuThanhToan
+                        : (m.IsPaid ? "Đã nhận hồ sơ & hoàn thành nghiệm thu" : "Chờ hoàn thiện hồ sơ nghiệm thu"),
+                    GiaTriHopDongConLaiChuaTra = remainingForMilestone
+                });
+            }
 
             rows.Add(new ContractPaymentReportRowDto
             {
@@ -1230,6 +1282,7 @@ public class ReportService : IReportService
                 DaThanhToanTrongNam = daThanhToanTrongNam,
                 ConPhaiThanhToanTrongNam = conPhaiThanhToanTrongNam,
                 TrangThaiThanhToan = trangThaiThanhToan,
+                TinhTrangHoSoNghiemThu = soKyDaThanhToan == tongSoKy ? "Đã hoàn tất toàn bộ nghiệm thu" : $"{soKyDaThanhToan}/{tongSoKy} đợt đã nghiệm thu",
                 DanhSachDotThanhToan = milestoneDtos
             });
         }
@@ -1251,6 +1304,34 @@ public class ReportService : IReportService
 
         string loaiFilterName = loaiHopDong.HasValue ? GetLoaiHopDongName(loaiHopDong.Value) : "Tất cả loại hợp đồng";
 
+        var flatMilestones = new List<ContractPaymentFlatMilestoneDto>();
+        int flatStt = 1;
+        foreach (var r in rows)
+        {
+            foreach (var m in r.DanhSachDotThanhToan)
+            {
+                flatMilestones.Add(new ContractPaymentFlatMilestoneDto
+                {
+                    Stt = flatStt++,
+                    DotThanhToanId = m.Id,
+                    TenDotThanhToan = m.TenDot,
+                    DieuKienThanhToan = m.DieuKienThanhToan,
+                    MaHopDong = r.MaHopDong,
+                    TenHopDong = r.TenHopDong,
+                    DuAnGoiThau = !string.IsNullOrWhiteSpace(r.TenDuAn) && !string.IsNullOrWhiteSpace(r.TenGoiThau)
+                        ? $"{r.TenDuAn} / {r.TenGoiThau}"
+                        : (!string.IsNullOrWhiteSpace(r.TenDuAn) ? r.TenDuAn : r.TenGoiThau),
+                    TyLeThanhToan = m.TyLeThanhToan,
+                    GiaTriThanhToan = m.GiaTriThanhToan,
+                    HanThanhToan = m.NgayThanhToan,
+                    NgayThanhToanThucTe = m.NgayThanhToanThucTe,
+                    TinhTrangHoSoNghiemThu = m.TinhTrangHoSoNghiemThu,
+                    TrangThaiThanhToan = m.IsPaid ? "🟢 Đã thanh toán" : "🟡 Chưa thanh toán",
+                    GiaTriHopDongConLaiChuaTra = m.GiaTriHopDongConLaiChuaTra
+                });
+            }
+        }
+
         return new ContractPaymentReportResponseDto
         {
             Title = $"BÁO CÁO THEO DÕI THANH TOÁN HỢP ĐỒNG NĂM {year}",
@@ -1259,7 +1340,8 @@ public class ReportService : IReportService
             LoaiHopDong = loaiHopDong,
             LoaiHopDongFilterTen = loaiFilterName,
             Summary = summary,
-            Rows = rows
+            Rows = rows,
+            FlatMilestones = flatMilestones
         };
     }
 
@@ -1695,6 +1777,37 @@ public class ReportService : IReportService
                 IsPaid = m.IsPaid
             }).ToList();
 
+            int soNgayConLai = contract.ExpiredDate.HasValue
+                ? Math.Max(0, (contract.ExpiredDate.Value.Date - DateTime.UtcNow.Date).Days)
+                : 0;
+
+            string trangThaiThucHienText = contract.DaKetThuc
+                ? "Đã hoàn thành"
+                : (contract.ExpiredDate.HasValue && contract.ExpiredDate.Value.Date < DateTime.UtcNow.Date ? "Đã hết hạn" : "Đang thực hiện");
+
+            string canhBaoHanhDong = contract.DaKetThuc
+                ? "🟢 Đã thanh lý hoàn thành"
+                : (contract.ExpiredDate.HasValue && contract.ExpiredDate.Value.Date < DateTime.UtcNow.Date
+                    ? "🟡 Chờ ký Biên bản nghiệm thu"
+                    : (soNgayConLai <= 30 && soNgayConLai > 0
+                        ? "🟡 Sắp hết hạn - Chuẩn bị gia hạn"
+                        : "🟢 Đang thực hiện bình thường"));
+
+            string? nguoiDaiDienVaSdt = null;
+            if (contract.NhaThau != null)
+            {
+                if (!string.IsNullOrWhiteSpace(contract.NhaThau.Representative))
+                {
+                    nguoiDaiDienVaSdt = !string.IsNullOrWhiteSpace(contract.NhaThau.Phone)
+                        ? $"{contract.NhaThau.Representative} ({contract.NhaThau.Phone})"
+                        : contract.NhaThau.Representative;
+                }
+                else
+                {
+                    nguoiDaiDienVaSdt = contract.NhaThau.Phone;
+                }
+            }
+
             rows.Add(new TheoDoiHopDongReportRowDto
             {
                 Stt = stt++,
@@ -1715,6 +1828,10 @@ public class ReportService : IReportService
                 TenDuAn = contract.DuAn?.Name,
                 TenGoiThau = contract.GoiThau?.Name,
                 TenNhaThau = contract.NhaThau?.Name,
+                NguoiDaiDienVaSdt = nguoiDaiDienVaSdt,
+                SoNgayConLai = soNgayConLai,
+                TrangThaiThucHienText = trangThaiThucHienText,
+                CanhBaoHanhDong = canhBaoHanhDong,
                 DanhSachDotThanhToan = milestoneDtos
             });
         }
@@ -2732,6 +2849,68 @@ public class ReportService : IReportService
             response.TongCongPhanKy[y] = response.Groups.Sum(g => g.TongPhanKyNhom.ContainsKey(y) ? g.TongPhanKyNhom[y] : 0);
         }
 
+        // Bổ sung DanhSachPhanBoNguon cho Mẫu Báo cáo 2 Excel (Dự án nguồn ➔ Dự án triển khai)
+        var allNguonLinks = await _context.DuAnNguonTrienKhais
+            .AsNoTracking()
+            .Where(nl => !string.IsNullOrWhiteSpace(nl.NguonProjectId))
+            .ToListAsync();
+
+        var sourceGuids = allNguonLinks
+            .SelectMany(nl => nl.NguonProjectId!.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            .Select(Guid.Parse)
+            .Distinct()
+            .ToList();
+
+        var sourceEntities = sourceGuids.Any()
+            ? await _context.DuAns
+                .AsNoTracking()
+                .Include(s => s.DieuChinhs)
+                .Where(s => sourceGuids.Contains(s.Id) && !s.IsDeleted)
+                .ToDictionaryAsync(s => s.Id, s => s)
+            : new Dictionary<Guid, DuAn>();
+
+        int sttPhanBo = 1;
+        var phanBoList = new List<KeHoachVonPhanBoNguonRowDto>();
+
+        foreach (var link in allNguonLinks)
+        {
+            var matchedImpl = projects.FirstOrDefault(p => p.Id == link.TrienKhaiProjectId);
+            if (matchedImpl == null) continue;
+
+            var sIds = link.NguonProjectId!.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse);
+            foreach (var sId in sIds)
+            {
+                if (!sourceEntities.TryGetValue(sId, out var srcDuAn)) continue;
+
+                decimal srcTotal = (srcDuAn.DuToanPheDuyet + (srcDuAn.DieuChinhs != null ? srcDuAn.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0m)) / factor;
+                decimal implAllocated = matchedImpl.DuToanPheDuyet / factor;
+                decimal remaining = srcTotal > implAllocated ? srcTotal - implAllocated : 0m;
+
+                var pkDict = new Dictionary<int, decimal>();
+                for (int y = startY; y <= endY; y++)
+                {
+                    var pk = matchedImpl.PhanKyVons?.FirstOrDefault(p => p.Nam == y);
+                    pkDict[y] = pk != null ? (pk.SoTienPhanKy / factor) : 0m;
+                }
+
+                phanBoList.Add(new KeHoachVonPhanBoNguonRowDto
+                {
+                    Stt = sttPhanBo++,
+                    MaDuAnNguon = srcDuAn.Code,
+                    TenDuAnNguon = srcDuAn.Name,
+                    SoQuyetDinhPheDuyet = srcDuAn.SoQuyetDinh,
+                    TongVonPheDuyet = srcTotal,
+                    MaDuAnTrienKhaiLienKet = matchedImpl.Code,
+                    TenDuAnTrienKhai = matchedImpl.Name,
+                    VonPhanBoChoDaTrienKhai = implAllocated,
+                    PhanKyVonTheoNam = pkDict,
+                    VonNguonConLaiChuaPhanBo = remaining,
+                    TrangThaiNguon = remaining <= 0 ? "Đã phân bổ hết" : "Đã phân bổ"
+                });
+            }
+        }
+        response.DanhSachPhanBoNguon = phanBoList;
+
         return response;
     }
 
@@ -3110,7 +3289,9 @@ public class ReportService : IReportService
                 TenHopDong = lic.HopDong?.Name ?? string.Empty,
                 GiaTriHopDong = contractVal,
                 DuAnId = lic.DuAnId,
-                TenDuAn = lic.DuAn?.Name ?? string.Empty
+                TenDuAn = lic.DuAn?.Name ?? string.Empty,
+                NguoiDaiDien = lic.NhaCungCap?.Representative,
+                SoDienThoai = lic.NhaCungCap?.Phone
             });
         }
 
@@ -3250,6 +3431,110 @@ public class ReportService : IReportService
         html.AppendLine("</tbody></table></body></html>");
 
         return System.Text.Encoding.UTF8.GetBytes(html.ToString());
+    }
+
+    #endregion
+
+    #region 8. Báo cáo Kế hoạch & Kết quả Lựa chọn Nhà thầu (Gói thầu) LCNT (Mẫu Báo cáo 3)
+
+    public async Task<GoiThauLcntReportResponseDto> GetGoiThauLcntReportAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null)
+    {
+        var (factor, unitName) = ParseUnit(donViTinh);
+
+        var query = _context.GoiThaus
+            .AsNoTracking()
+            .Include(g => g.DuAn)
+            .Where(g => !g.IsDeleted && (g.DuAn == null || (!g.DuAn.IsDeleted && g.DuAn.LoaiDuAn == 2)))
+            .AsQueryable();
+
+        if (duAnId.HasValue)
+        {
+            query = query.Where(g => g.DuAnId == duAnId.Value);
+        }
+
+        if (year.HasValue)
+        {
+            query = query.Where(g => g.CreatedAt.Year == year.Value || (g.DuAn != null && g.DuAn.NgayBatDau.HasValue && g.DuAn.NgayBatDau.Value.Year == year.Value));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            string sLower = search.Trim().ToLower();
+            query = query.Where(g => g.Name.ToLower().Contains(sLower) || g.Code.ToLower().Contains(sLower) || (g.DuAn != null && g.DuAn.Name.ToLower().Contains(sLower)));
+        }
+
+        var goiThaus = await query
+            .OrderByDescending(g => g.CreatedAt)
+            .ToListAsync();
+
+        var goiThauIds = goiThaus.Select(g => g.Id).ToList();
+
+        // Nạp các hợp đồng liên kết
+        var contracts = await _context.HopDongs
+            .AsNoTracking()
+            .Include(h => h.NhaThau)
+            .Where(h => h.GoiThauId.HasValue && goiThauIds.Contains(h.GoiThauId.Value) && !h.IsDeleted)
+            .ToListAsync();
+
+        var contractsByGoiThau = contracts
+            .GroupBy(h => h.GoiThauId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var rows = new List<GoiThauLcntReportRowDto>();
+        int stt = 1;
+
+        foreach (var gt in goiThaus)
+        {
+            contractsByGoiThau.TryGetValue(gt.Id, out var linkedContracts);
+            linkedContracts ??= new List<HopDong>();
+
+            decimal giaTriDuToan = gt.GiaTriGoiThau / factor;
+            decimal tongGiaTriHd = linkedContracts.Sum(h => h.GiaTriHopDong) / factor;
+            decimal giaTriTietKiem = Math.Max(0, giaTriDuToan - tongGiaTriHd);
+            double tyLeSuDung = giaTriDuToan > 0 ? Math.Round((double)(tongGiaTriHd / giaTriDuToan) * 100, 2) : 0;
+            string tenNhaThau = linkedContracts.FirstOrDefault(h => h.NhaThau != null)?.NhaThau?.Name ?? (linkedContracts.Any() ? "Đã ký HĐ" : "-");
+            string trangThai = linkedContracts.Any() ? "Đã hoàn thành LCNT" : "Đang lựa chọn nhà thầu";
+
+            rows.Add(new GoiThauLcntReportRowDto
+            {
+                Stt = stt++,
+                GoiThauId = gt.Id,
+                DuAnId = gt.DuAnId,
+                MaDuAn = gt.DuAn?.Code ?? string.Empty,
+                TenDuAn = gt.DuAn?.Name ?? string.Empty,
+                MaGoiThau = gt.Code,
+                TenGoiThau = gt.Name,
+                GiaTriDuToan = giaTriDuToan,
+                HinhThucLcnt = "Đấu thầu rộng rãi qua mạng",
+                PhuongThucLcnt = "1 GĐ 1 THS",
+                TongGiaTriHopDongDaKy = tongGiaTriHd,
+                GiaTriTietKiem = giaTriTietKiem,
+                TyLeSuDungDuToanPercent = tyLeSuDung,
+                TenNhaThauTrungThau = tenNhaThau,
+                TrangThaiGoiThau = trangThai
+            });
+        }
+
+        var totalDuToan = rows.Sum(r => r.GiaTriDuToan);
+        var totalHd = rows.Sum(r => r.TongGiaTriHopDongDaKy);
+        var totalTietKiem = rows.Sum(r => r.GiaTriTietKiem);
+        double tyLeTietKiemChung = totalDuToan > 0 ? Math.Round((double)(totalTietKiem / totalDuToan) * 100, 2) : 0;
+
+        return new GoiThauLcntReportResponseDto
+        {
+            Title = "BÁO CÁO KẾ HOẠCH & KẾT QUẢ LỰA CHỌN NHÀ THẦU",
+            Unit = unitName,
+            Year = year,
+            Summary = new GoiThauLcntReportSummaryDto
+            {
+                TongSoGoiThau = rows.Count,
+                TongGiaTriDuToan = totalDuToan,
+                TongGiaTriHopDongDaKy = totalHd,
+                TongGiaTriTietKiem = totalTietKiem,
+                TyLeTietKiemChungPercent = tyLeTietKiemChung
+            },
+            Rows = rows
+        };
     }
 
     #endregion

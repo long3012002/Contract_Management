@@ -701,4 +701,35 @@ public class ReportsController(IReportService reportService) : ControllerBase
     }
 
     #endregion
+
+    #region 8. Báo cáo Kế hoạch & Kết quả Lựa chọn Nhà thầu (Gói thầu) LCNT (Mẫu Báo cáo 3)
+
+    /// <summary>
+    /// Lấy Báo cáo Kế hoạch &amp; Kết quả Lựa chọn Nhà thầu (Gói thầu) LCNT.
+    /// </summary>
+    /// <param name="year">Năm triển khai / phê duyệt</param>
+    /// <param name="duAnId">Lọc theo Dự án triển khai</param>
+    /// <param name="search">Từ khóa tìm kiếm gói thầu hoặc dự án</param>
+    /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
+    [HttpGet("goi-thau-lcnt")]
+    [HttpGet("/api/NghiepVu/report/goi-thau-lcnt")]
+    [ProducesResponseType(typeof(GoiThauLcntReportResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GoiThauLcntReportResponseDto>> GetGoiThauLcntReport(
+        [FromQuery] int? year,
+        [FromQuery] Guid? duAnId,
+        [FromQuery] string? search,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            var report = await reportService.GetGoiThauLcntReportAsync(year, duAnId, search, donViTinh);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch và kết quả lựa chọn nhà thầu.", detail = ex.Message });
+        }
+    }
+
+    #endregion
 }

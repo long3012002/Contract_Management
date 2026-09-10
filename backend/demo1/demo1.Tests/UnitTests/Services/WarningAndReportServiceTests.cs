@@ -742,6 +742,73 @@ namespace demo1.Tests.UnitTests.Services
             allRowProjectIds.Should().NotContain(projNguon.Id);
         }
 
+        [Fact]
+        public async Task GetGoiThauLcntReportAsync_Should_Calculate_Savings_And_Summary_Correctly()
+        {
+            // Arrange
+            var service = new demo1.Services.Implements.ReportService(_dbContext, null!);
+
+            var proj = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-LCNT-01",
+                Name = "Dự án LCNT Test",
+                LoaiDuAn = 2,
+                IsActive = true
+            };
+            _dbContext.DuAns.Add(proj);
+
+            var gt1 = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                Code = "GT-01",
+                Name = "Gói thầu thiết bị",
+                DuAnId = proj.Id,
+                GiaTriGoiThau = 500000000m,
+                IsActive = true
+            };
+            var contractor = new DoiTac
+            {
+                Id = Guid.NewGuid(),
+                Code = "NT-01",
+                Name = "Công ty CP Công nghệ X",
+                IsActive = true
+            };
+            _dbContext.DoiTacs.Add(contractor);
+
+            var contract1 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-GT-01",
+                Name = "Hợp đồng thiết bị",
+                GoiThauId = gt1.Id,
+                DuAnId = proj.Id,
+                NhaThauId = contractor.Id,
+                GiaTriHopDong = 485000000m,
+                IsActive = true
+            };
+
+            _dbContext.GoiThaus.Add(gt1);
+            _dbContext.HopDongs.Add(contract1);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetGoiThauLcntReportAsync(null, proj.Id, null, "đồng");
+
+            // Assert
+            report.Should().NotBeNull();
+            report.Summary.TongSoGoiThau.Should().Be(1);
+            report.Summary.TongGiaTriDuToan.Should().Be(500000000m);
+            report.Summary.TongGiaTriHopDongDaKy.Should().Be(485000000m);
+            report.Summary.TongGiaTriTietKiem.Should().Be(15000000m);
+            report.Summary.TyLeTietKiemChungPercent.Should().Be(3.0);
+
+            var row = report.Rows.First();
+            row.TenNhaThauTrungThau.Should().Be("Công ty CP Công nghệ X");
+            row.TrangThaiGoiThau.Should().Be("Đã hoàn thành LCNT");
+            row.TyLeSuDungDuToanPercent.Should().Be(97.0);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

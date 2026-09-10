@@ -302,6 +302,42 @@ namespace demo1.Tests.UnitTests.Services
             isValid.Should().Be(expectedValid);
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_Record_Actual_Payment_Date_When_Provided_In_CreateDotThanhToanDto()
+        {
+            // Arrange
+            var plannedDate = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+            var actualDate = new DateTime(2026, 8, 15, 0, 0, 0, DateTimeKind.Utc);
+            var createDto = new CreateHopDongDto
+            {
+                Code = "HD-PAY-ACTUAL-CREATE",
+                Name = "Hợp đồng có ngày thanh toán thực tế khi tạo",
+                GiaTriHopDong = 1000000000,
+                DotThanhToans = new List<CreateDotThanhToanDto>
+                {
+                    new CreateDotThanhToanDto
+                    {
+                        TenDot = "Đợt 1",
+                        GiaTriThanhToan = 500000000,
+                        NgayThanhToan = plannedDate,
+                        NgayThanhToanThucTe = actualDate
+                    }
+                }
+            };
+
+            // Act
+            var result = await _hopDongService.CreateAsync(createDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            var dbContract = await _dbContext.HopDongs.Include(h => h.DotThanhToans).FirstOrDefaultAsync(h => h.Id == result.Id);
+            dbContract.Should().NotBeNull();
+            var dot = dbContract!.DotThanhToans.First();
+            dot.NgayThanhToan.Should().Be(plannedDate);
+            dot.NgayThanhToanThucTe.Should().Be(actualDate);
+            dot.IsPaid.Should().BeTrue();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

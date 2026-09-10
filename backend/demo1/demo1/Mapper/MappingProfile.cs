@@ -53,7 +53,25 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NguonVonId, opt => opt.MapFrom(src => 
                     src.DanhSachNguonVon != null && src.DanhSachNguonVon.Any()
                         ? src.DanhSachNguonVon.FirstOrDefault()!.NguonVonId
-                        : (Guid?)null));
+                        : (Guid?)null))
+                .ForMember(dest => dest.DonViChuTri, opt => opt.MapFrom(src => !string.IsNullOrWhiteSpace(src.ToChucThucHien) ? src.ToChucThucHien : src.ChuDauTu))
+                .ForMember(dest => dest.TrangThaiThucTe, opt => opt.MapFrom(src => 
+                    src.DaKetThuc || src.TrangThai == 2 ? "Đã hoàn thành" :
+                    src.DaTrienKhai == true || src.TrangThai == 1 ? "Đang triển khai" : "Chuẩn bị đầu tư"))
+                .ForMember(dest => dest.ThoiGianConLaiNgay, opt => opt.MapFrom(src => 
+                    src.NgayKetThuc.HasValue ? (int?)(src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days : null))
+                .ForMember(dest => dest.TienDo, opt => opt.MapFrom(src => 
+                    src.DaKetThuc || src.TrangThai == 2 ? 1.0 :
+                    (!src.NgayBatDau.HasValue || !src.NgayKetThuc.HasValue) ? (double?)null :
+                    DateTime.UtcNow.Date <= src.NgayBatDau.Value.Date ? 0.0 :
+                    DateTime.UtcNow.Date >= src.NgayKetThuc.Value.Date ? 1.0 :
+                    Math.Round((DateTime.UtcNow.Date - src.NgayBatDau.Value.Date).TotalDays / (src.NgayKetThuc.Value.Date - src.NgayBatDau.Value.Date).TotalDays, 2)))
+                .ForMember(dest => dest.CanhBaoRuiRo, opt => opt.MapFrom(src => 
+                    (src.DaKetThuc || src.TrangThai == 2) ? "🟢 Hoàn thành" :
+                    !src.NgayKetThuc.HasValue ? "⚪ Đang lập kế hoạch" :
+                    (src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days < 0 ? "🔴 Trễ tiến độ" :
+                    (src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days <= 30 ? "🟡 Nguy cơ trễ hạn" :
+                    "🟢 Đúng tiến độ"));
             CreateMap<DuAn, DuAnNguonSummaryDto>()
                 .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
                     src.DuToanPheDuyet + (src.DieuChinhs != null ? src.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0)));
@@ -87,7 +105,8 @@ namespace demo1.Mapper
 
             // GoiThau mappings
             CreateMap<GoiThau, GoiThauDto>()
-                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null));
+                .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
+                .ForMember(dest => dest.MaDuAn, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Code : null));
             CreateMap<CreateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))

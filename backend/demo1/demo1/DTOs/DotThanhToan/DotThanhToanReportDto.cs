@@ -30,4 +30,13 @@ public class DotThanhToanReportDto
     public Guid? DuAnId { get; set; }
     public string? DuAnCode { get; set; }
     public string? DuAnName { get; set; }
+
+    /// <summary>Tình trạng hồ sơ nghiệm thu (Mẫu Báo cáo 5 Excel)</summary>
+    public string? TinhTrangHoSoNghiemThu { get; set; }
+
+    /// <summary>Trạng thái thanh toán dạng hiển thị (🟢 Đã thanh toán / 🟡 Chưa thanh toán)</summary>
+    public string TrangThaiThanhToanText => IsPaid ? "🟢 Đã thanh toán" : "🟡 Chưa thanh toán";
+
+    /// <summary>Giá trị hợp đồng còn lại chưa trả sau đợt này</summary>
+    public decimal GiaTriHopDongConLaiChuaTra { get; set; }
 }
