@@ -230,15 +230,80 @@ public static class CreateFakeDataExtensions
                 }
                 await context.SaveChangesAsync();
 
-                // 2. Seed Roles
-                if (!await context.Roles.AnyAsync())
+                // 2. Seed/Sync Default Roles
+                var defaultRoles = new List<(string Name, string Description)>
                 {
-                    var adminRole = new Role { Name = "Admin", Description = "Quyền quản trị toàn hệ thống" };
-                    var managerRole = new Role { Name = "Manager", Description = "Quản lý dự án, hợp đồng" };
-                    var staffRole = new Role { Name = "Staff", Description = "Nhân viên xem và cập nhật thông tin" };
-                    context.Roles.AddRange(adminRole, managerRole, staffRole);
-                    await context.SaveChangesAsync();
+                    ("Admin", "Quyền quản trị toàn hệ thống"),
+                    ("Manager", "Quản lý dự án, hợp đồng"),
+                    ("Staff", "Nhân viên xem và cập nhật thông tin")
+                };
+
+                foreach (var r in defaultRoles)
+                {
+                    if (!await context.Roles.AnyAsync(x => x.Name == r.Name))
+                    {
+                        context.Roles.Add(new Role
+                        {
+                            Id = Guid.NewGuid(),
+                            Name = r.Name,
+                            Description = r.Description
+                        });
+                    }
                 }
+                await context.SaveChangesAsync();
+
+                // 2b. Seed/Sync Default LoaiHopDongs
+                var defaultLoaiHopDongs = new List<(string Code, string Name, string Description)>
+                {
+                    ("01", "Bảo trì", "Hợp đồng bảo trì (Mặc định)"),
+                    ("02", "Mua sắm phần cứng", "Hợp đồng mua sắm thiết bị, phần cứng"),
+                    ("03", "Bản quyền phần mềm", "Hợp đồng mua sắm bản quyền, phần mềm"),
+                    ("04", "Tư vấn", "Hợp đồng tư vấn (lập dự án, thẩm định, giám sát)"),
+                    ("05", "Thuê dịch vụ", "Hợp đồng thuê dịch vụ (đường truyền, cloud, server)"),
+                    ("99", "Khác", "Các loại hợp đồng khác")
+                };
+
+                foreach (var lhd in defaultLoaiHopDongs)
+                {
+                    if (!await context.LoaiHopDongs.AnyAsync(x => x.Code == lhd.Code || x.Name == lhd.Name))
+                    {
+                        context.LoaiHopDongs.Add(new LoaiHopDong
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = lhd.Code,
+                            Name = lhd.Name,
+                            Description = lhd.Description,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
+
+                // 2c. Seed/Sync Default Permissions
+                var defaultPermissions = new List<(string Code, string Name, string Description)>
+                {
+                    ("VIEW", "Xem", "Quyền xem dữ liệu"),
+                    ("CREATE", "Tạo mới", "Quyền tạo mới dữ liệu"),
+                    ("EDIT", "Chỉnh sửa", "Quyền chỉnh sửa bản ghi"),
+                    ("DELETE", "Xóa", "Quyền xóa bản ghi"),
+                    ("APPROVE", "Phê duyệt", "Quyền phê duyệt yêu cầu")
+                };
+
+                foreach (var p in defaultPermissions)
+                {
+                    if (!await context.Permissions.AnyAsync(x => x.Code == p.Code))
+                    {
+                        context.Permissions.Add(new Permission
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = p.Code,
+                            Name = p.Name,
+                            Description = p.Description,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
 
                 // 3. Seed Admin Users
                 if (!await context.Users.AnyAsync(u => u.Username == "admin"))
@@ -309,6 +374,7 @@ public static class CreateFakeDataExtensions
                         await context.SaveChangesAsync();
                     }
 
+                /*
                 // Seed 20 Dummy Users for Testing (Manager, Staff, Inactive)
                 if (await context.Users.CountAsync(u => u.Username.StartsWith("testuser")) == 0)
                 {
@@ -367,6 +433,7 @@ public static class CreateFakeDataExtensions
                         await context.SaveChangesAsync();
                     }
                 }
+                */
 
                 // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
                 var defaultPositions = new List<(string Code, string Name, int Level)>
@@ -492,10 +559,41 @@ public static class CreateFakeDataExtensions
                 }
                 await context.SaveChangesAsync();
 
+                // Seed/Sync Default PhongBans
+                var defaultPhongBans = new[]
+                {
+                    "Phòng CNTT",
+                    "Phòng Kế hoạch",
+                    "Phòng Tài chính",
+                    "Phòng Nhân sự",
+                    "Phòng Pháp chế",
+                    "Phòng Kinh doanh",
+                    "Phòng Dự án",
+                    "Phòng Kỹ thuật",
+                    "Phòng R&D",
+                    "Phòng Giám sát"
+                };
+
+                foreach (var pbName in defaultPhongBans)
+                {
+                    if (!await context.PhongBans.AnyAsync(x => x.TenPhongBan == pbName))
+                    {
+                        context.PhongBans.Add(new demo1.Entity.DanhMuc.PhongBan
+                        {
+                            Id = Guid.NewGuid(),
+                            TenPhongBan = pbName,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                await context.SaveChangesAsync();
+
+                /*
                 if (configuration.GetValue<bool>("Database:SeedSampleData"))
                 {
                     await DatabaseSeeder.SeedAsync(context);
                 }
+                */
             }
             catch (Exception ex)
             {
