@@ -41,7 +41,6 @@ public class TheoDoiHopDongReportRowDto
     /// <summary>Người đại diện / SĐT nhà thầu (ví dụ: "Lê Văn T (0912345678)")</summary>
     public string? NguoiDaiDienVaSdt { get; set; }
     public string? NguoiDaiDien_SDT => NguoiDaiDienVaSdt;
-    public string? NguoiDaiDien_Sdt => NguoiDaiDienVaSdt;
 
     /// <summary>Số ngày còn lại đến khi hết hạn hợp đồng (0 nếu đã hết hạn)</summary>
     public int SoNgayConLai { get; set; }

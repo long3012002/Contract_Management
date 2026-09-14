@@ -809,6 +809,30 @@ namespace demo1.Tests.UnitTests.Services
             row.TyLeSuDungDuToanPercent.Should().Be(97.0);
         }
 
+        [Fact]
+        public void TheoDoiHopDongReportDto_JsonSerialization_ShouldNotHavePropertyCollision()
+        {
+            var dto = new demo1.DTOs.TheoDoiHopDongReportResponseDto
+            {
+                Rows = new System.Collections.Generic.List<demo1.DTOs.TheoDoiHopDongReportRowDto>
+                {
+                    new demo1.DTOs.TheoDoiHopDongReportRowDto
+                    {
+                        SoHopDong = "HD01",
+                        TenHopDong = "Hợp đồng thử nghiệm",
+                        NguoiDaiDienVaSdt = "Nguyễn Văn A (0987654321)"
+                    }
+                }
+            };
+
+            var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+            var json = System.Text.Json.JsonSerializer.Serialize(dto, options);
+
+            json.Should().NotBeNullOrWhiteSpace();
+            json.Should().Contain("nguoiDaiDienVaSdt");
+            json.Should().Contain("nguoiDaiDien_SDT");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
