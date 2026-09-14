@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using demo1.Data;
 using demo1.Entity;
 using demo1.DTOs;
@@ -24,6 +25,8 @@ namespace demo1.Controllers
     public class FileUploadController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
+        private readonly IWebHostEnvironment _env;
+        private readonly ILogger<FileUploadController> _logger;
         private readonly string _storagePath;
         private readonly long _maxFileSize;
         private readonly string[] _allowedExtensions;
@@ -31,9 +34,12 @@ namespace demo1.Controllers
         public FileUploadController(
             AppDbContext dbContext,
             IConfiguration configuration, 
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            ILogger<FileUploadController> logger)
         {
             _dbContext = dbContext;
+            _env = env;
+            _logger = logger;
             
             var uploadSettings = configuration.GetSection("UploadSettings");
             var configPath = uploadSettings["StoragePath"] ?? "uploads";
@@ -135,10 +141,11 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Lỗi trong quá trình upload file đính kèm.");
                 return StatusCode(StatusCodes.Status500InternalServerError, new 
                 { 
                     Message = "Đã xảy ra lỗi trong quá trình upload file.", 
-                    Detail = ex.Message 
+                    Detail = _env.IsDevelopment() ? ex.Message : null 
                 });
             }
         }
@@ -307,7 +314,7 @@ namespace demo1.Controllers
             catch (Exception ex)
             {
                 // Ghi log chi tiết hệ thống để debug nội bộ
-                // _logger.LogError(ex, "Lỗi khi lấy cấu hình ONLYOFFICE");
+                _logger.LogError(ex, "Lỗi khi lấy cấu hình ONLYOFFICE");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi hệ thống khi khởi tạo trình soạn thảo. Vui lòng liên hệ quản trị viên." });
             }
         }
@@ -352,7 +359,7 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
-                // _logger.LogError(ex, "Lỗi khi tải file ONLYOFFICE");
+                _logger.LogError(ex, "Lỗi khi tải file ONLYOFFICE");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi trong quá trình tải xuống tệp tin." });
             }
         }
@@ -377,7 +384,7 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
-                // _logger.LogError(ex, "Lỗi xử lý callback ONLYOFFICE");
+                _logger.LogError(ex, "Lỗi xử lý callback ONLYOFFICE");
             }
 
             return Ok(new { error = 1 });
@@ -406,7 +413,7 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
-                // _logger.LogError(ex, "Lỗi lấy danh sách phiên bản file");
+                _logger.LogError(ex, "Lỗi lấy danh sách phiên bản file");
                 return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Không thể lấy lịch sử phiên bản tệp tin." });
             }
         }

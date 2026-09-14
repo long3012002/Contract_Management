@@ -4,8 +4,10 @@ using System.Threading.Tasks;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace demo1.Controllers;
 
@@ -16,7 +18,7 @@ namespace demo1.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/NghiepVu/reports")]
-public class ReportsController(IReportService reportService) : ControllerBase
+public class ReportsController(IReportService reportService, IWebHostEnvironment env, ILogger<ReportsController> logger) : ControllerBase
 {
     #region 1. Báo cáo Tổng hợp Tình hình Đầu tư Dự án
 
@@ -50,7 +52,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo báo cáo đầu tư.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo báo cáo đầu tư.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -128,7 +131,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo đầu tư.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo đầu tư.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -163,7 +167,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo theo dõi thanh toán hợp đồng.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo theo dõi thanh toán hợp đồng.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -238,7 +243,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo theo dõi thanh toán hợp đồng.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo theo dõi thanh toán hợp đồng.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -272,7 +278,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo theo dõi hợp đồng.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo theo dõi hợp đồng.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -347,7 +354,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo theo dõi hợp đồng.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo theo dõi hợp đồng.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -377,7 +385,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo công việc gói thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo công việc gói thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -448,7 +457,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo công việc gói thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo công việc gói thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -473,7 +483,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -529,7 +540,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -557,7 +569,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn CNTT.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch vốn CNTT.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -619,7 +632,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn CNTT.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo kế hoạch vốn CNTT.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -650,7 +664,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo Hạn License & SLA nhà thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo Hạn License & SLA nhà thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -708,7 +723,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo License & SLA nhà thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo License & SLA nhà thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -739,7 +755,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch và kết quả lựa chọn nhà thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch và kết quả lựa chọn nhà thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 
@@ -777,7 +794,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo lựa chọn nhà thầu.", detail = ex.Message });
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo lựa chọn nhà thầu.", detail = env.IsDevelopment() ? ex.Message : null });
         }
     }
 

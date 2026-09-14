@@ -4,8 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MiniExcelLibs;
 using demo1.DTOs;
 using demo1.Services.Interfaces;
@@ -18,7 +20,7 @@ namespace demo1.Controllers
     [Authorize]
     [ApiController]
     [Route("api/HeThong/user")]
-    public class UserController(IUserService userService, IAdminService adminService) : ControllerBase
+    public class UserController(IUserService userService, IAdminService adminService, IWebHostEnvironment env, ILogger<UserController> logger) : ControllerBase
     {
         /// <summary>
         /// Lấy danh sách người dùng kèm vai trò (Phân trang, Tìm kiếm, Lọc theo Phòng ban/Đơn vị).
@@ -146,7 +148,8 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi khi đọc file Excel.", Detail = ex.Message });
+                logger.LogError(ex, "Lỗi khi đọc file Excel import người dùng.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi khi đọc file Excel.", Detail = env.IsDevelopment() ? ex.Message : null });
             }
         }
 
@@ -232,7 +235,8 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi khi cập nhật người dùng.", Detail = ex.Message });
+                logger.LogError(ex, "Lỗi khi cập nhật người dùng.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi khi cập nhật người dùng.", Detail = env.IsDevelopment() ? ex.Message : null });
             }
         }
 

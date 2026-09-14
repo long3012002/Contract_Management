@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using demo1.DTOs;
 using demo1.DTOs.Permission;
 using demo1.Services.Interfaces;
@@ -22,11 +25,19 @@ namespace demo1.Controllers
     {
         private readonly IPermissionService _permissionService;
         private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _env;
+        private readonly ILogger<PermissionRequestsController> _logger;
 
-        public PermissionRequestsController(IPermissionService permissionService, AppDbContext context)
+        public PermissionRequestsController(
+            IPermissionService permissionService, 
+            AppDbContext context,
+            IWebHostEnvironment env,
+            ILogger<PermissionRequestsController> logger)
         {
             _permissionService = permissionService;
             _context = context;
+            _env = env;
+            _logger = logger;
         }
 
         private async Task<Guid?> GetCurrentUserIdAsync()
@@ -65,9 +76,14 @@ namespace demo1.Controllers
                 var result = await _permissionService.CreateRequestAsync(userId.Value, dto);
                 return Ok(result);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
                 return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi tạo yêu cầu cấp quyền.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi hệ thống khi tạo yêu cầu cấp quyền.", Detail = _env.IsDevelopment() ? ex.Message : null });
             }
         }
 
@@ -145,9 +161,14 @@ namespace demo1.Controllers
             {
                 return NotFound(new { Message = ex.Message });
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
                 return BadRequest(new { Message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi phê duyệt/từ chối yêu cầu cấp quyền.");
+                return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Đã xảy ra lỗi hệ thống khi xử lý yêu cầu cấp quyền.", Detail = _env.IsDevelopment() ? ex.Message : null });
             }
         }
     }
