@@ -45,9 +45,16 @@ public class DuAnDto : IHasId
     public int TrangThai { get; set; }
 
     /// <summary>
-    /// Phân loại/Loại hình dự án
+    /// Phân loại/Loại hình dự án (1: Dự án nguồn, 2: Dự án triển khai)
     /// </summary>
     public int LoaiDuAn { get; set; }
+
+    /// <summary>
+    /// Tên loại dự án dạng văn bản (lấy theo Phân loại hoặc Loại hình nguồn/triển khai)
+    /// </summary>
+    public string LoaiDuAnText => !string.IsNullOrWhiteSpace(PhanLoaiDuAnName) 
+        ? PhanLoaiDuAnName 
+        : (LoaiDuAn == 1 ? "Dự án nguồn" : "Dự án triển khai");
 
     /// <summary>
     /// ID Nhóm dự án thuộc danh mục

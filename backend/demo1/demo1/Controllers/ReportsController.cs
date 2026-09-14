@@ -70,7 +70,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] int period = 1,
         [FromQuery] string format = "xlsx",
         [FromQuery] bool base64 = false,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] int version = 1)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
@@ -102,13 +103,15 @@ public class ReportsController(IReportService reportService) : ControllerBase
             }
             else
             {
-                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period, donViTinh);
+                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period, donViTinh, version);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
 
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
-            string fileName = $"BaoCaoDauTu_{selectedYear}_{report.PeriodName}_{timestamp}.{extension}";
+            string fileName = version == 2
+                ? $"Bao_cao_Tien_do_Du_an_{timestamp}.{extension}"
+                : $"BaoCaoDauTu_{selectedYear}_{report.PeriodName}_{timestamp}.{extension}";
 
             if (base64)
             {
@@ -184,7 +187,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] string? search,
         [FromQuery] string format = "xlsx",
         [FromQuery] bool base64 = false,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] int version = 1)
     {
         int selectedYear = year ?? DateTime.UtcNow.Year;
 
@@ -209,13 +213,15 @@ public class ReportsController(IReportService reportService) : ControllerBase
             }
             else
             {
-                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh);
+                fileBytes = await reportService.ExportContractPaymentReportExcelAsync(selectedYear, loaiHopDong, loaiHopDongIds, search, donViTinh, version);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
 
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
-            string fileName = $"BaoCao_TheoDoiThanhToanHopDong_{selectedYear}_{timestamp}.{extension}";
+            string fileName = version == 2
+                ? $"Bao_cao_Dot_thanh_toan_{timestamp}.{extension}"
+                : $"BaoCao_TheoDoiThanhToanHopDong_{selectedYear}_{timestamp}.{extension}";
 
             if (base64)
             {
@@ -291,7 +297,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] string? search,
         [FromQuery] string format = "xlsx",
         [FromQuery] bool base64 = false,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] int version = 1)
     {
         try
         {
@@ -314,14 +321,16 @@ public class ReportsController(IReportService reportService) : ControllerBase
             }
             else
             {
-                fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDongIds, search, donViTinh);
+                fileBytes = await reportService.ExportTheoDoiHopDongReportExcelAsync(year, cutoffDate, loaiHopDongIds, search, donViTinh, version);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
 
             int selectedYear = year ?? DateTime.Now.Year;
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
-            string fileName = $"BaoCao_TheoDoiHopDong_{selectedYear}_{timestamp}.{extension}";
+            string fileName = version == 2
+                ? $"Bao_cao_Quan_ly_Hop_dong_{timestamp}.{extension}"
+                : $"BaoCao_TheoDoiHopDong_{selectedYear}_{timestamp}.{extension}";
 
             if (base64)
             {
@@ -565,7 +574,8 @@ public class ReportsController(IReportService reportService) : ControllerBase
         [FromQuery] bool base64 = false,
         [FromQuery] string? donViTinh = null,
         [FromQuery] string? keyword = null,
-        [FromQuery] string? projectType = null)
+        [FromQuery] string? projectType = null,
+        [FromQuery] int version = 1)
     {
         try
         {
@@ -588,14 +598,16 @@ public class ReportsController(IReportService reportService) : ControllerBase
             }
             else
             {
-                fileBytes = await reportService.ExportKeHoachVonCnttReportExcelAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType);
+                fileBytes = await reportService.ExportKeHoachVonCnttReportExcelAsync(fromYear, toYear, groupStatus, donViTinh, keyword, projectType, version);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
 
             int endY = toYear ?? DateTime.Now.Year;
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
-            string fileName = $"BaoCao_KeHoachVonCNTT_{endY}_{timestamp}.{extension}";
+            string fileName = version == 2
+                ? $"Bao_cao_Phan_bo_va_Ke_hoach_Von_{timestamp}.{extension}"
+                : $"BaoCao_KeHoachVonCNTT_{endY}_{timestamp}.{extension}";
 
             if (base64)
             {
@@ -730,6 +742,45 @@ public class ReportsController(IReportService reportService) : ControllerBase
             return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo kế hoạch và kết quả lựa chọn nhà thầu.", detail = ex.Message });
         }
     }
+
+    /// <summary>
+    /// Xuất file Báo cáo Lựa chọn Nhà thầu (LCNT) ra Excel.
+    /// </summary>
+    [HttpGet("goi-thau-lcnt/export")]
+    [HttpGet("/api/NghiepVu/report/goi-thau-lcnt/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportGoiThauLcntReport(
+        [FromQuery] int? year,
+        [FromQuery] Guid? duAnId,
+        [FromQuery] string? search,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] int version = 2)
+    {
+        try
+        {
+            byte[] fileBytes = await reportService.ExportGoiThauLcntReportExcelAsync(year, duAnId, search, donViTinh, version);
+            string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            string extension = "xlsx";
+
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"Bao_cao_Lua_chon_Nha_thau_LCNT_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new { fileName, contentType, base64Data });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo lựa chọn nhà thầu.", detail = ex.Message });
+        }
+    }
+
 
     #endregion
 }

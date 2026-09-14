@@ -833,6 +833,153 @@ namespace demo1.Tests.UnitTests.Services
             json.Should().Contain("nguoiDaiDien_SDT");
         }
 
+        [Fact]
+        public async Task ReportExportExcel_Version1_And_Version2_Should_Generate_Correct_Sheets_And_Headers()
+        {
+            // Arrange
+            var service = new demo1.Services.Implements.ReportService(_dbContext, null!);
+
+            var proj = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-TEST-V2",
+                Name = "Dự án Thử nghiệm V2",
+                LoaiDuAn = 2,
+                NgayBatDau = DateTime.UtcNow.AddMonths(-2),
+                NgayKetThuc = DateTime.UtcNow.AddMonths(4),
+                DuToanPheDuyet = 500000000m,
+                IsActive = true
+            };
+            _dbContext.DuAns.Add(proj);
+
+            var gt = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                Code = "GT-TEST-V2",
+                Name = "Gói thầu V2",
+                DuAnId = proj.Id,
+                GiaTriGoiThau = 300000000m,
+                IsActive = true
+            };
+            _dbContext.GoiThaus.Add(gt);
+
+            var contractor = new DoiTac
+            {
+                Id = Guid.NewGuid(),
+                Code = "DT-V2",
+                Name = "Nhà thầu V2",
+                Representative = "Lê Văn T",
+                Phone = "0912345678",
+                IsActive = true
+            };
+            _dbContext.DoiTacs.Add(contractor);
+
+            var hopDong = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-V2",
+                Name = "Hợp đồng V2",
+                DuAnId = proj.Id,
+                GoiThauId = gt.Id,
+                NhaThauId = contractor.Id,
+                GiaTriHopDong = 280000000m,
+                NgayHieuLuc = DateTime.UtcNow.AddMonths(-1),
+                ExpiredDate = DateTime.UtcNow.AddMonths(3),
+                IsActive = true
+            };
+            _dbContext.HopDongs.Add(hopDong);
+
+            var dotTt = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hopDong.Id,
+                TenDot = "Tạm ứng 30%",
+                TyLeThanhToan = 30m,
+                GiaTriThanhToan = 84000000m,
+                NgayThanhToan = DateTime.UtcNow.AddMonths(1),
+                DieuKienThanhToan = "Sau khi ký hợp đồng",
+                IsPaid = true
+            };
+            _dbContext.DotThanhToans.Add(dotTt);
+            await _dbContext.SaveChangesAsync();
+
+            // 1. Test Báo cáo 1: Tiến độ Dự án (V1 vs V2)
+            var bytesV1 = await service.ExportInvestmentReportExcelAsync(DateTime.UtcNow.Year, 1, "đồng", 1);
+            bytesV1.Should().NotBeNullOrEmpty();
+            using (var wbV1 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(bytesV1)))
+            {
+                wbV1.Worksheets.Contains("Bao cao").Should().BeTrue();
+            }
+
+            var bytesV2 = await service.ExportInvestmentReportExcelAsync(DateTime.UtcNow.Year, 1, "đồng", 2);
+            bytesV2.Should().NotBeNullOrEmpty();
+            using (var wbV2 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(bytesV2)))
+            {
+                wbV2.Worksheets.Contains("Tiến độ Dự án").Should().BeTrue();
+                var ws = wbV2.Worksheet("Tiến độ Dự án");
+                ws.Cell("B5").GetString().Should().Be("STT");
+                ws.Cell("C5").GetString().Should().Be("Mã dự án");
+                ws.Cell("D5").GetString().Should().Be("Tên dự án triển khai");
+                ws.Cell("M5").GetString().Should().Be("Cảnh báo rủi ro (RAG)");
+            }
+
+            // 2. Test Báo cáo 2: Phân bổ & Kế hoạch Vốn (V1 vs V2)
+            var b2BytesV1 = await service.ExportKeHoachVonCnttReportExcelAsync(2025, 2026, null, "đồng", null, null, 1);
+            b2BytesV1.Should().NotBeNullOrEmpty();
+
+            var b2BytesV2 = await service.ExportKeHoachVonCnttReportExcelAsync(2025, 2026, null, "đồng", null, null, 2);
+            b2BytesV2.Should().NotBeNullOrEmpty();
+            using (var wbB2 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(b2BytesV2)))
+            {
+                wbB2.Worksheets.Contains("Phân bổ & Kế hoạch Vốn").Should().BeTrue();
+                var ws = wbB2.Worksheet("Phân bổ & Kế hoạch Vốn");
+                ws.Cell("C3").GetString().Should().Be("STT");
+                ws.Cell("D3").GetString().Should().Be("Mã dự án nguồn");
+                ws.Cell("N3").GetString().Should().Be("Trạng thái nguồn");
+            }
+
+            // 3. Test Báo cáo 3: Lựa chọn Nhà thầu (LCNT)
+            var b3BytesV2 = await service.ExportGoiThauLcntReportExcelAsync(null, null, null, "đồng", 2);
+            b3BytesV2.Should().NotBeNullOrEmpty();
+            using (var wbB3 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(b3BytesV2)))
+            {
+                wbB3.Worksheets.Contains("Lựa chọn Nhà thầu").Should().BeTrue();
+                var ws = wbB3.Worksheet("Lựa chọn Nhà thầu");
+                ws.Cell("C3").GetString().Should().Be("STT");
+                ws.Cell("D3").GetString().Should().Be("Mã dự án");
+                ws.Cell("N3").GetString().Should().Be("Trạng thái gói thầu");
+            }
+
+            // 4. Test Báo cáo 4: Quản lý Hợp đồng (V1 vs V2)
+            var b4BytesV1 = await service.ExportTheoDoiHopDongReportExcelAsync(null, null, null, null, "đồng", 1);
+            b4BytesV1.Should().NotBeNullOrEmpty();
+
+            var b4BytesV2 = await service.ExportTheoDoiHopDongReportExcelAsync(null, null, null, null, "đồng", 2);
+            b4BytesV2.Should().NotBeNullOrEmpty();
+            using (var wbB4 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(b4BytesV2)))
+            {
+                wbB4.Worksheets.Contains("Quản lý Hợp đồng").Should().BeTrue();
+                var ws = wbB4.Worksheet("Quản lý Hợp đồng");
+                ws.Cell("B4").GetString().Should().Be("STT");
+                ws.Cell("C4").GetString().Should().Be("Số / Mã HĐ");
+                ws.Cell("M4").GetString().Should().Be("Cảnh báo hành động");
+            }
+
+            // 5. Test Báo cáo 5: Đợt thanh toán (V1 vs V2)
+            var b5BytesV1 = await service.ExportContractPaymentReportExcelAsync(DateTime.UtcNow.Year, null, null, null, "đồng", 1);
+            b5BytesV1.Should().NotBeNullOrEmpty();
+
+            var b5BytesV2 = await service.ExportContractPaymentReportExcelAsync(DateTime.UtcNow.Year, null, null, null, "đồng", 2);
+            b5BytesV2.Should().NotBeNullOrEmpty();
+            using (var wbB5 = new ClosedXML.Excel.XLWorkbook(new System.IO.MemoryStream(b5BytesV2)))
+            {
+                wbB5.Worksheets.Contains("Đợt thanh toán").Should().BeTrue();
+                var ws = wbB5.Worksheet("Đợt thanh toán");
+                ws.Cell("B3").GetString().Should().Be("STT");
+                ws.Cell("C3").GetString().Should().Be("Tên đợt thanh toán");
+            }
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

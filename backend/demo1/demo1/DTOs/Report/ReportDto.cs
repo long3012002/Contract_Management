@@ -33,6 +33,10 @@ public class ReportRowDto
     public string? MaDuAn { get; set; }
     public string? DonViChuTri { get; set; }
     public string? PmPhuTrach { get; set; }
+    public string? LoaiDuAn { get; set; }
+    public string? TenLoaiDuAn => LoaiDuAn;
+    public DateTime? NgayBatDau { get; set; }
+    public DateTime? NgayKetThuc { get; set; }
     public double? TienDo { get; set; }
     public int? ThoiGianConLaiNgay { get; set; }
     public string? TrangThaiThucTe { get; set; }
