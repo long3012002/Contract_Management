@@ -860,8 +860,6 @@ namespace demo1.Data
                     Username = username,
                     IpAddress = ipAddress
                 };
-                auditEntries.Add(auditEntry);
-
                 foreach (var property in entry.Properties)
                 {
                     string propertyName = property.Metadata.Name;
@@ -900,13 +898,26 @@ namespace demo1.Data
                             break;
                     }
                 }
+
+                // If entity state is Modified but no unignored property actually changed value, skip audit log creation
+                if (entry.State == EntityState.Modified && auditEntry.ChangedColumns.Count == 0)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrEmpty(auditEntry.Action))
+                {
+                    continue;
+                }
+
+                auditEntries.Add(auditEntry);
             }
 
             foreach (var auditEntry in auditEntries)
             {
                 var actionText = FormatActionName(auditEntry.Action);
                 var recordName = GetRecordName(auditEntry.Entry);
-                auditEntry.Description = $"{auditEntry.Username} {actionText} {recordName}".Trim();
+                auditEntry.Description = FormatBusinessDescription(auditEntry, actionText, recordName);
             }
 
             foreach (var auditEntry in auditEntries.Where(ae => !ae.Entry.Properties.Any(p => p.Metadata.IsPrimaryKey() && p.IsTemporary)))
@@ -934,7 +945,7 @@ namespace demo1.Data
 
                 var actionText = FormatActionName(auditEntry.Action);
                 var recordName = GetRecordName(auditEntry.Entry);
-                auditEntry.Description = $"{auditEntry.Username} {actionText} {recordName}".Trim();
+                auditEntry.Description = FormatBusinessDescription(auditEntry, actionText, recordName);
 
                 AuditLogs.Add(auditEntry.ToAuditLog());
             }
@@ -1469,6 +1480,87 @@ namespace demo1.Data
                 "DELETE" => "xóa",
                 _ => action.ToLowerInvariant()
             };
+        }
+
+        private static string FormatBusinessDescription(AuditEntry auditEntry, string actionText, string recordName)
+        {
+            var entityType = auditEntry.Entry.Metadata.ClrType.Name;
+
+            if (auditEntry.Action == "UPDATE")
+            {
+                var statusProp = auditEntry.Entry.Properties.FirstOrDefault(p =>
+                    p.Metadata.Name.Equals("TrangThai", System.StringComparison.OrdinalIgnoreCase) ||
+                    p.Metadata.Name.Equals("Status", System.StringComparison.OrdinalIgnoreCase) ||
+                    p.Metadata.Name.Equals("TinhTrang", System.StringComparison.OrdinalIgnoreCase));
+
+                if (statusProp != null && statusProp.IsModified && !Equals(statusProp.OriginalValue, statusProp.CurrentValue))
+                {
+                    var oldStatusStr = FormatStatusValue(statusProp.OriginalValue, entityType);
+                    var newStatusStr = FormatStatusValue(statusProp.CurrentValue, entityType);
+                    var entityNameVi = GetEntityTypeNameVietnamese(entityType);
+                    return $"{auditEntry.Username} đã chuyển trạng thái {entityNameVi} [{recordName}] từ [{oldStatusStr}] sang [{newStatusStr}]";
+                }
+            }
+
+            return $"{auditEntry.Username} {actionText} {recordName}".Trim();
+        }
+
+        private static string GetEntityTypeNameVietnamese(string entityType)
+        {
+            return entityType.ToLowerInvariant() switch
+            {
+                "duan" => "dự án",
+                "goithau" => "gói thầu",
+                "hopdong" => "hợp đồng",
+                "phuluchopdong" => "phụ lực hợp đồng",
+                "dotthanhtoan" => "đợt thanh toán",
+                "congviecgoithau" => "công việc",
+                "dieuchinhduan" => "điều chỉnh dự án",
+                "doitac" => "đối tác/nhà thầu",
+                "license" => "bản quyền/license",
+                "user" => "người dùng",
+                "role" => "vai trò",
+                "phongban" => "phòng ban",
+                "donvi" => "đơn vị",
+                "tonhom" => "tổ nhóm",
+                "chucvu" => "chức vụ",
+                "nhomduan" => "nhóm dự án",
+                "phanloaiduan" => "phân loại dự án",
+                "nguonvon" => "nguồn vốn",
+                "loaihopdong" => "loại hợp đồng",
+                _ => entityType.ToLowerInvariant()
+            };
+        }
+
+        private static string FormatStatusValue(object? statusVal, string entityName)
+        {
+            if (statusVal == null) return "Chưa xác định";
+            var str = statusVal.ToString() ?? "";
+            if (int.TryParse(str, out var val))
+            {
+                if (entityName.Equals("DuAn", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return val switch
+                    {
+                        1 => "Đang triển khai",
+                        2 => "Đã hoàn thành",
+                        0 => "Tất cả trạng thái",
+                        _ => str
+                    };
+                }
+                if (entityName.Equals("DotThanhToan", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return val switch
+                    {
+                        0 => "Chưa thanh toán",
+                        1 => "Đang xử lý",
+                        2 => "Đã thanh toán",
+                        3 => "Đã hủy",
+                        _ => str
+                    };
+                }
+            }
+            return str;
         }
     }
 }

@@ -82,6 +82,31 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task SaveChangesAsync_UpdateEntityWithNoChanges_DoesNotGenerateAuditLog()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("nguyenvana");
+            var duAn = new DuAn
+            {
+                Code = "DA002_NOCHANGE",
+                Name = "Hệ thống Không đổi"
+            };
+            context.DuAns.Add(duAn);
+            await context.SaveChangesAsync();
+
+            int initialAuditLogCount = await context.AuditLogs.CountAsync();
+
+            // Act - Mark as updated but don't change any actual business property values
+            context.DuAns.Update(duAn);
+            duAn.UpdatedAt = DateTime.UtcNow; // ignored property
+            await context.SaveChangesAsync();
+
+            // Assert - No new AuditLog should be created for this update call
+            int currentAuditLogCount = await context.AuditLogs.CountAsync();
+            Assert.Equal(initialAuditLogCount, currentAuditLogCount);
+        }
+
+        [Fact]
         public async Task SaveChangesAsync_DeleteEntity_GeneratesAuditLogWithFormattedDescription()
         {
             // Arrange
@@ -308,6 +333,62 @@ namespace demo1.Tests.UnitTests.Services
             Assert.Null(createLog.OldValues);
             Assert.Contains("Tập đoàn Viettel", createLog.NewValues);
             Assert.Contains("Ngân sách nhà nước", createLog.NewValues);
+        }
+
+        [Fact]
+        public async Task SaveChangesAsync_StatusTransition_GeneratesFormattedStatusDescription()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("admin");
+            var duAn = new DuAn
+            {
+                Code = "DA004",
+                Name = "Dự án Chuyển Trạng Thái",
+                TrangThai = (int)TrangThaiDuAn.DangTrienKhai
+            };
+            context.DuAns.Add(duAn);
+            await context.SaveChangesAsync();
+
+            // Act - Change status to HoanThanh
+            duAn.TrangThai = (int)TrangThaiDuAn.HoanThanh;
+            context.DuAns.Update(duAn);
+            await context.SaveChangesAsync();
+
+            // Assert
+            var auditLog = await context.AuditLogs
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync(a => a.TableName == "DuAns" && a.Action == "Cập nhật");
+
+            Assert.NotNull(auditLog);
+            Assert.Equal("admin", auditLog.Username);
+            Assert.Equal("admin đã chuyển trạng thái dự án [Dự án Chuyển Trạng Thái] từ [Đang triển khai] sang [Đã hoàn thành]", auditLog.Description);
+        }
+
+        [Fact]
+        public async Task EntityNameCacheService_CachesAndResolvesNamesSuccessfully()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("admin");
+            var user = new User { Id = Guid.NewGuid(), Username = "testuser", FullName = "Test User FullName" };
+            var duAn = new DuAn { Id = Guid.NewGuid(), Code = "DA005", Name = "Dự án Cache Test" };
+            context.Users.Add(user);
+            context.DuAns.Add(duAn);
+            await context.SaveChangesAsync();
+
+            var memoryCache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+            var cacheService = new demo1.Services.Implements.EntityNameCacheService(memoryCache);
+
+            // Act 1: First fetch from DB & populate cache
+            var resolvedMap1 = await cacheService.GetEntityNamesAsync(new[] { user.Id, duAn.Id }, context);
+
+            // Assert 1
+            Assert.Equal("Test User FullName", resolvedMap1[user.Id.ToString()]);
+            Assert.Equal("Dự án Cache Test", resolvedMap1[duAn.Id.ToString()]);
+
+            // Act 2: Second fetch should be served directly from memory cache
+            var resolvedMap2 = await cacheService.GetEntityNamesAsync(new[] { user.Id, duAn.Id }, context);
+            Assert.Equal("Test User FullName", resolvedMap2[user.Id.ToString()]);
+            Assert.Equal("Dự án Cache Test", resolvedMap2[duAn.Id.ToString()]);
         }
     }
 }

@@ -254,6 +254,7 @@ public static class ServiceConfiguration
 
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
+        services.AddScoped<IEntityNameCacheService, EntityNameCacheService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddHostedService<AuditLogRetentionWorker>();
         services.AddHostedService<ContractScanWorker>();

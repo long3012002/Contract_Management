@@ -18,15 +18,18 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 {
     private readonly ICurrentUserService _currentUserService;
     private readonly IHubContext<NotificationHub> _hubContext;
+    private readonly IEntityNameCacheService? _entityNameCacheService;
 
     public DuAnService(
         AppDbContext dbContext,
         IMapper mapper,
         ICurrentUserService currentUserService,
-        IHubContext<NotificationHub> hubContext) : base(dbContext, mapper)
+        IHubContext<NotificationHub> hubContext,
+        IEntityNameCacheService? entityNameCacheService = null) : base(dbContext, mapper)
     {
         _currentUserService = currentUserService;
         _hubContext = hubContext;
+        _entityNameCacheService = entityNameCacheService;
     }
 
     public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -1359,15 +1362,21 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             var entityNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (guidList.Any())
             {
-                // 1. Map Users
-                var dbUsers = await DbContext.Users
-                    .Where(u => guidList.Contains(u.Id))
-                    .Select(u => new { u.Id, Name = !string.IsNullOrEmpty(u.FullName) ? u.FullName : u.Username })
-                    .ToListAsync();
-                foreach (var u in dbUsers)
+                if (_entityNameCacheService != null)
                 {
-                    entityNameMap[u.Id.ToString()] = u.Name;
+                    entityNameMap = await _entityNameCacheService.GetEntityNamesAsync(guidList, DbContext);
                 }
+                else
+                {
+                    // Fallback to direct DB batch queries if cache service is not injected
+                    var dbUsers = await DbContext.Users
+                        .Where(u => guidList.Contains(u.Id))
+                        .Select(u => new { u.Id, Name = !string.IsNullOrEmpty(u.FullName) ? u.FullName : u.Username })
+                        .ToListAsync();
+                    foreach (var u in dbUsers)
+                    {
+                        entityNameMap[u.Id.ToString()] = u.Name;
+                    }
 
                 // 2. Map DuAns
                 var dbDuAns = await DbContext.DuAns
@@ -1548,6 +1557,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 {
                     entityNameMap[item.Id.ToString()] = item.Name;
                 }
+            }
             }
 
             foreach (var log in logs)
