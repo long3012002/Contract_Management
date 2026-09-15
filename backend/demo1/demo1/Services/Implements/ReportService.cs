@@ -45,28 +45,109 @@ public class ReportService : IReportService
         return (1m, "Đồng");
     }
 
-    public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period, string? donViTinh = null)
+    private static (DateTime StartOfPeriod, DateTime EndOfPeriod, string PeriodDisplayName, string PeriodName) CalculateReportPeriod(int year, int period, DateTime? fromDate, DateTime? toDate)
+    {
+        if (period == 0 || fromDate.HasValue || toDate.HasValue)
+        {
+            DateTime start = fromDate ?? new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime end;
+            if (toDate.HasValue)
+            {
+                end = toDate.Value;
+                if (end.TimeOfDay == TimeSpan.Zero)
+                {
+                    end = end.Date.AddDays(1).AddTicks(-1);
+                }
+            }
+            else
+            {
+                end = new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+            }
+
+            if (start.Kind != DateTimeKind.Utc) start = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+            if (end.Kind != DateTimeKind.Utc) end = DateTime.SpecifyKind(end, DateTimeKind.Utc);
+            return (start, end, $"từ {start:dd/MM/yyyy} đến {end:dd/MM/yyyy}", "TuyChon");
+        }
+
+        switch (period)
+        {
+            case 1: // Cả năm
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"năm {year}",
+                    "1N"
+                );
+            case 2: // 6 tháng đầu năm (Kỳ 1)
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc),
+                    $"6T đầu năm {year}",
+                    "6T"
+                );
+            case 3: // 6 tháng cuối năm (Kỳ 2)
+                return (
+                    new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"6T cuối năm {year}",
+                    "6TCuoi"
+                );
+            case 4: // Quý 1
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 3, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"Quý 1 năm {year}",
+                    "Q1"
+                );
+            case 5: // Quý 2
+                return (
+                    new DateTime(year, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc),
+                    $"Quý 2 năm {year}",
+                    "Q2"
+                );
+            case 6: // Quý 3
+                return (
+                    new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 9, 30, 23, 59, 59, DateTimeKind.Utc),
+                    $"Quý 3 năm {year}",
+                    "Q3"
+                );
+            case 7: // Quý 4
+                return (
+                    new DateTime(year, 10, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"Quý 4 năm {year}",
+                    "Q4"
+                );
+            default:
+                if (period >= 11 && period <= 22) // Tháng 1 - 12
+                {
+                    int month = period - 10;
+                    int days = DateTime.DaysInMonth(year, month);
+                    return (
+                        new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc),
+                        new DateTime(year, month, days, 23, 59, 59, DateTimeKind.Utc),
+                        $"Tháng {month} năm {year}",
+                        $"T{month}"
+                    );
+                }
+
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"năm {year}",
+                    "1N"
+                );
+        }
+    }
+
+    public async Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
         var (conversionFactor, unitName) = ParseUnit(donViTinh);
 
         // 1. Tính toán thời gian báo cáo
-        DateTime startOfPeriod = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        DateTime endOfPeriod;
-
-        string periodDisplayName;
-        string periodName;
-        if (period == 1) // 6T
-        {
-            endOfPeriod = new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc);
-            periodDisplayName = $"6T đầu năm {year}";
-            periodName = "6T";
-        }
-        else // 1N
-        {
-            endOfPeriod = new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc);
-            periodDisplayName = $"năm {year}";
-            periodName = "1N";
-        }
+        var (startOfPeriod, endOfPeriod, periodDisplayName, periodName) = CalculateReportPeriod(year, period, fromDate, toDate);
 
         // 2. Tải bản đồ ngân sách tất cả dự án nguồn (LoaiDuAn = 1) để tính tổng ngân sách cho dự án triển khai theo danh sách dự án nguồn được chọn
         var sourceProjectsMap = await _context.DuAns
@@ -89,6 +170,20 @@ public class ReportService : IReportService
 
         // Tránh trùng lặp dự án nguồn đã triển khai thành dự án thực hiện
         query = query.Where(da => !(da.LoaiDuAn == 1 && da.DaTrienKhai == true));
+
+        // Lọc dự án khởi tạo/bắt đầu trước hoặc trong kỳ báo cáo (từ năm trước hoặc trong khoảng từ ngày - đến ngày của kỳ báo cáo; loại bỏ các dự án bắt đầu sau endOfPeriod)
+        query = query.Where(da => 
+            (da.NgayBatDau.HasValue && da.NgayBatDau.Value <= endOfPeriod) ||
+            (!da.NgayBatDau.HasValue && da.NamBatDau.HasValue && da.NamBatDau.Value <= endOfPeriod.Year) ||
+            (!da.NgayBatDau.HasValue && !da.NamBatDau.HasValue && da.CreatedAt <= endOfPeriod)
+        );
+
+        // Lọc bỏ các dự án đã kết thúc trước khi bắt đầu kỳ báo cáo (ngày kết thúc < startOfPeriod)
+        query = query.Where(da => 
+            (da.NgayKetThucThucTe.HasValue ? da.NgayKetThucThucTe.Value >= startOfPeriod :
+             da.NgayKetThuc.HasValue ? da.NgayKetThuc.Value >= startOfPeriod :
+             !da.NamKetThuc.HasValue || da.NamKetThuc.Value >= startOfPeriod.Year)
+        );
 
         if (_currentUserService != null)
         {
@@ -483,11 +578,13 @@ public class ReportService : IReportService
 
         return new ReportResponseDto
         {
-            Title = $"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB ({periodDisplayName})",
+            Title = $"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB ({periodDisplayName.ToUpper()})",
             Unit = unitName,
             Year = year,
             Period = period,
             PeriodName = periodName,
+            FromDate = startOfPeriod,
+            ToDate = endOfPeriod,
             Rows = rows
         };
     }
@@ -532,14 +629,14 @@ public class ReportService : IReportService
         summaryRow.TaiSanBanGiao = subgroupRows.Sum(r => r.TaiSanBanGiao);
     }
 
-    public async Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period, string? donViTinh = null, int version = 1)
+    public async Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period, string? donViTinh = null, int version = 1, DateTime? fromDate = null, DateTime? toDate = null)
     {
         if (version == 2)
         {
-            return await ExportBaoCao1TienDoDuAnV2Async(year, period, donViTinh);
+            return await ExportBaoCao1TienDoDuAnV2Async(year, period, donViTinh, fromDate, toDate);
         }
 
-        var report = await GetInvestmentReportAsync(year, period, donViTinh);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
         
         using (var workbook = new XLWorkbook())
         {
@@ -747,10 +844,10 @@ public class ReportService : IReportService
         }
     }
 
-    public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null)
+    public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
-        var report = await GetInvestmentReportAsync(year, period, donViTinh);
-        string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
+        var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
+        string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : (period == 1 ? $"30/06/{year}" : $"31/12/{year}");
 
         using (var memoryStream = new MemoryStream())
         {
@@ -764,7 +861,7 @@ public class ReportService : IReportService
                 await writer.WriteLineAsync($"\"TRUNG TÂM CÔNG NGHỆ THÔNG TIN\"");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync($"\"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB\"");
-                string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+                string periodText = report.FromDate.HasValue && report.ToDate.HasValue ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}" : (period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}");
                 await writer.WriteLineAsync($"\"( {periodText} )\"");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
@@ -802,9 +899,9 @@ public class ReportService : IReportService
         return field.Replace("\"", "\"\"");
     }
 
-    public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null)
+    public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
-        var report = await GetInvestmentReportAsync(year, period, donViTinh);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
         string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
         string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
 
@@ -2253,7 +2350,9 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
-            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.NamBatDau == null || d.NamBatDau <= selectedYear))
+            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2)
+            .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= selectedYear : d.NamBatDau!.Value <= selectedYear))
+            .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= selectedYear : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= selectedYear : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= selectedYear))
             .ToListAsync();
 
         var phuLucTypes = new List<(int Type, string Name)>
@@ -2574,7 +2673,9 @@ public class ReportService : IReportService
             .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(d => d.NguonDuAns)
-            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.DaTrienKhai == true || d.TrangThai == 2));
+            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.DaTrienKhai == true || d.TrangThai == 2))
+            .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= endY : d.NamBatDau!.Value <= endY))
+            .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= startY : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= startY : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= startY));
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
         if (groupStatus.HasValue && groupStatus.Value == 1)
@@ -3573,9 +3674,9 @@ public class ReportService : IReportService
 
     #region V2 Excel Report Generators (Mẫu Mới Chuẩn Anh Đức)
 
-    private async Task<byte[]> ExportBaoCao1TienDoDuAnV2Async(int year, int period, string? donViTinh)
+    private async Task<byte[]> ExportBaoCao1TienDoDuAnV2Async(int year, int period, string? donViTinh, DateTime? fromDate = null, DateTime? toDate = null)
     {
-        var report = await GetInvestmentReportAsync(year, period, donViTinh);
+        var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Tiến độ Dự án");
         worksheet.Style.Font.FontName = "Times New Roman";

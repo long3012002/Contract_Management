@@ -201,6 +201,26 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Support_Custom_FromDate_And_ToDate()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var fromDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var toDate = new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc);
+
+            // Act
+            var report = await service.GetInvestmentReportAsync(2026, 1, "đồng", fromDate, toDate);
+
+            // Assert
+            report.Should().NotBeNull();
+            report.FromDate.Should().Be(fromDate);
+            report.ToDate.Should().Be(toDate);
+            report.PeriodName.Should().Be("TuyChon");
+        }
+
+        [Fact]
         public async Task ReportService_GetInvestmentReportAsync_Should_Categorize_GroupB_Projects()
         {
             // Arrange
@@ -270,7 +290,8 @@ namespace demo1.Tests.UnitTests.Services
                 DuToanPheDuyet = 60000000000m, // Group B
                 LoaiDuAn = 2,
                 PhanLoaiDuAnId = plCntt.Id,
-                TrangThai = 1
+                TrangThai = 1,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             };
 
             var projXdcb = new DuAn
@@ -281,7 +302,8 @@ namespace demo1.Tests.UnitTests.Services
                 DuToanPheDuyet = 10000000000m, // Group C
                 LoaiDuAn = 2,
                 PhanLoaiDuAnId = plXdcb.Id,
-                TrangThai = 1
+                TrangThai = 1,
+                CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             };
 
             var hdCntt = new HopDong { Id = Guid.NewGuid(), DuAnId = projCntt.Id, Code = "HD-MULTI-CNTT", GiaTriHopDong = 50000000000m, IsActive = true };
@@ -328,8 +350,8 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DotThanhToans.AddRange(dot2024, dot2025, dot2026);
             await _dbContext.SaveChangesAsync();
 
-            // Act 1: Báo cáo năm 2025 (Cả năm)
-            var report2025 = await service.GetInvestmentReportAsync(2025, 2, "đồng");
+            // Act 1: Báo cáo năm 2025 (Cả năm - period 1)
+            var report2025 = await service.GetInvestmentReportAsync(2025, 1, "đồng");
 
             // Assert 1: Năm 2025 -> Kỳ trước = 2024 (1 tỷ), Trong kỳ = 2025 (2 tỷ), Lũy kế = 3 tỷ
             var row2025 = report2025.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
@@ -338,8 +360,8 @@ namespace demo1.Tests.UnitTests.Services
             row2025.KhoiLuongTrongKy.Should().Be(2000000000m);
             row2025.KhoiLuongLuyKe.Should().Be(3000000000m);
 
-            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm)
-            var report2026 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm - period 2)
+            var report2026 = await service.GetInvestmentReportAsync(2026, 2, "đồng");
 
             // Assert 2: Năm 2026 -> Kỳ trước = 2024+2025 (3 tỷ), Trong kỳ = 2026 (3 tỷ), Lũy kế = 6 tỷ
             var row2026 = report2026.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");

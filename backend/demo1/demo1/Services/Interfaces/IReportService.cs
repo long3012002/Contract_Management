@@ -6,10 +6,10 @@ namespace demo1.Services.Interfaces;
 
 public interface IReportService
 {
-    Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period, string? donViTinh = null);
-    Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period, string? donViTinh = null, int version = 1);
-    Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null);
-    Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null);
+    Task<ReportResponseDto> GetInvestmentReportAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<byte[]> ExportInvestmentReportExcelAsync(int year, int period, string? donViTinh = null, int version = 1, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null);
 
     Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau, string? donViTinh = null);
     Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau, string? donViTinh = null);

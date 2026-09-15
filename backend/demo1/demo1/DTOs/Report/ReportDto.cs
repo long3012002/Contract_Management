@@ -51,5 +51,7 @@ public class ReportResponseDto
     public int Year { get; set; }
     public int Period { get; set; } // 1: 6T, 2: 1N
     public string PeriodName { get; set; } = string.Empty; // "6T" or "1N"
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
     public List<ReportRowDto> Rows { get; set; } = new();
 }

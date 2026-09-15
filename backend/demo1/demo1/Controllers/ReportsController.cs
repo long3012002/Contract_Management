@@ -36,18 +36,26 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     public async Task<ActionResult<ReportResponseDto>> GetInvestmentReport(
         [FromQuery] int? year,
         [FromQuery] int period = 1,
-        [FromQuery] string? donViTinh = null)
+        [FromQuery] string? donViTinh = null,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null,
+        [FromQuery(Name = "from")] DateTime? fromAlt = null,
+        [FromQuery(Name = "to")] DateTime? toAlt = null)
     {
-        int selectedYear = year ?? DateTime.UtcNow.Year;
+        var effectiveFromDate = fromDate ?? fromDateAlt ?? fromAlt;
+        var effectiveToDate = toDate ?? toDateAlt ?? toAlt;
+        int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
 
-        if (period != 1 && period != 2)
+        if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
         {
-            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ. Chỉ chấp nhận 1 (6 tháng đầu năm) hoặc 2 (1 năm)." });
+            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ." });
         }
 
         try
         {
-            var report = await reportService.GetInvestmentReportAsync(selectedYear, period, donViTinh);
+            var report = await reportService.GetInvestmentReportAsync(selectedYear, period, donViTinh, effectiveFromDate, effectiveToDate);
             return Ok(report);
         }
         catch (Exception ex)
@@ -61,10 +69,17 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Xuất file báo cáo đầu tư (Excel, CSV, HTML hoặc chuỗi mã hóa Base64).
     /// </summary>
     /// <param name="year">Năm báo cáo</param>
-    /// <param name="period">Kỳ báo cáo: 1 (6 tháng), 2 (1 năm)</param>
+    /// <param name="period">Kỳ báo cáo</param>
     /// <param name="format">Định dạng xuất: xlsx, csv, html (mặc định: xlsx)</param>
     /// <param name="base64">Trả về chuỗi Base64 thay vì download file trực tiếp</param>
     /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
+    /// <param name="version">Phiên bản mẫu xuất</param>
+    /// <param name="fromDate">Từ ngày</param>
+    /// <param name="toDate">Đến ngày</param>
+    /// <param name="fromDateAlt">Từ ngày (tùy chọn 2)</param>
+    /// <param name="toDateAlt">Đến ngày (tùy chọn 2)</param>
+    /// <param name="fromAlt">Từ ngày (tùy chọn 3)</param>
+    /// <param name="toAlt">Đến ngày (tùy chọn 3)</param>
     [HttpGet("dau-tu/export")]
     [HttpGet("/api/NghiepVu/report/investment/export")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -74,19 +89,25 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
         [FromQuery] string format = "xlsx",
         [FromQuery] bool base64 = false,
         [FromQuery] string? donViTinh = null,
-        [FromQuery] int version = 1)
+        [FromQuery] int version = 1,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null,
+        [FromQuery(Name = "from")] DateTime? fromAlt = null,
+        [FromQuery(Name = "to")] DateTime? toAlt = null)
     {
-        int selectedYear = year ?? DateTime.UtcNow.Year;
+        var effectiveFromDate = fromDate ?? fromDateAlt ?? fromAlt;
+        var effectiveToDate = toDate ?? toDateAlt ?? toAlt;
+        int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
 
-        if (period != 1 && period != 2)
+        if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
         {
-            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ. Chỉ chấp nhận 1 (6 tháng đầu năm) hoặc 2 (1 năm)." });
+            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ." });
         }
 
         try
         {
-            var report = await reportService.GetInvestmentReportAsync(selectedYear, period, donViTinh);
-
             byte[] fileBytes;
             string contentType;
             string extension;
@@ -94,27 +115,28 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportInvestmentReportCsvAsync(selectedYear, period, donViTinh);
+                fileBytes = await reportService.ExportInvestmentReportCsvAsync(selectedYear, period, donViTinh, effectiveFromDate, effectiveToDate);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportInvestmentReportHtmlAsync(selectedYear, period, donViTinh);
+                fileBytes = await reportService.ExportInvestmentReportHtmlAsync(selectedYear, period, donViTinh, effectiveFromDate, effectiveToDate);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period, donViTinh, version);
+                fileBytes = await reportService.ExportInvestmentReportExcelAsync(selectedYear, period, donViTinh, version, effectiveFromDate, effectiveToDate);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }
 
             string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string periodLabel = (effectiveFromDate.HasValue || effectiveToDate.HasValue || period == 0) ? "TuyChon" : $"K{period}";
             string fileName = version == 2
                 ? $"Bao_cao_Tien_do_Du_an_{timestamp}.{extension}"
-                : $"BaoCaoDauTu_{selectedYear}_{report.PeriodName}_{timestamp}.{extension}";
+                : $"BaoCaoDauTu_{selectedYear}_{periodLabel}_{timestamp}.{extension}";
 
             if (base64)
             {
@@ -799,6 +821,14 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
         }
     }
 
+
+    private static bool IsValidPeriod(int period, bool hasCustomDates)
+    {
+        if (hasCustomDates || period == 0) return true;
+        if (period >= 1 && period <= 7) return true;
+        if (period >= 11 && period <= 22) return true;
+        return false;
+    }
 
     #endregion
 }
