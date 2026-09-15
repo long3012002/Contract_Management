@@ -6,7 +6,9 @@ using demo1.Data;
 using demo1.DTOs;
 using demo1.DTOs.Permission;
 using demo1.Entity;
+using demo1.Hubs;
 using demo1.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace demo1.Services.Implements
@@ -16,12 +18,18 @@ namespace demo1.Services.Implements
         private readonly AppDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<PermissionService> _logger;
+        private readonly IHubContext<NotificationHub>? _hubContext;
 
-        public PermissionService(AppDbContext context, ICurrentUserService currentUserService, ILogger<PermissionService> logger)
+        public PermissionService(
+            AppDbContext context,
+            ICurrentUserService currentUserService,
+            ILogger<PermissionService> logger,
+            IHubContext<NotificationHub>? hubContext = null)
         {
             _context = context;
             _currentUserService = currentUserService;
             _logger = logger;
+            _hubContext = hubContext;
         }
 
         public async Task<bool> HasPermissionAsync(Guid userId, string featureCode, string entityName, string entityId, string action)
@@ -290,6 +298,7 @@ namespace demo1.Services.Implements
                 CreatedAt = DateTime.UtcNow
             };
             _context.Notifications.Add(notification);
+            await SendSignalRNotificationAsync(request.User?.Username, notification);
 
             await _context.SaveChangesAsync();
 
@@ -370,6 +379,7 @@ namespace demo1.Services.Implements
                 CreatedAt = DateTime.UtcNow
             };
             _context.Notifications.Add(userNoti);
+            await SendSignalRNotificationAsync(user?.Username, userNoti);
 
             if (admin != null)
             {
@@ -386,6 +396,7 @@ namespace demo1.Services.Implements
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.Notifications.Add(adminNoti);
+                await SendSignalRNotificationAsync(admin.Username, adminNoti);
             }
 
             await _context.SaveChangesAsync();
@@ -482,6 +493,7 @@ namespace demo1.Services.Implements
                     CreatedAt = now
                 };
                 _context.Notifications.Add(userNoti);
+                await SendSignalRNotificationAsync(user.Username, userNoti);
 
 
             }
@@ -532,6 +544,7 @@ namespace demo1.Services.Implements
                 CreatedAt = DateTime.UtcNow
             };
             _context.Notifications.Add(userNoti);
+            await SendSignalRNotificationAsync(perm.User?.Username, userNoti);
 
             if (admin != null)
             {
@@ -548,6 +561,7 @@ namespace demo1.Services.Implements
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.Notifications.Add(adminNoti);
+                await SendSignalRNotificationAsync(admin.Username, adminNoti);
             }
 
             await _context.SaveChangesAsync();
@@ -1153,10 +1167,9 @@ namespace demo1.Services.Implements
                 }
             }
 
-            var activeRecipientIds = await _context.Users
+            var activeRecipients = await _context.Users
                 .AsNoTracking()
                 .Where(u => potentialRecipientIds.Distinct().Contains(u.Id) && u.IsActive)
-                .Select(u => u.Id)
                 .ToListAsync();
 
             var entityTitleText = !string.IsNullOrWhiteSpace(dto.EntityTitle)
@@ -1165,12 +1178,12 @@ namespace demo1.Services.Implements
 
             var reasonText = !string.IsNullOrWhiteSpace(dto.Reason) ? $" Lý do: {dto.Reason}" : string.Empty;
 
-            foreach (var recipientId in activeRecipientIds)
+            foreach (var recipient in activeRecipients)
             {
                 var noti = new Notification
                 {
                     Id = Guid.NewGuid(),
-                    UserId = recipientId,
+                    UserId = recipient.Id,
                     Title = "Yêu cầu cấp quyền: Yêu cầu xin quyền mới",
                     Content = $"Người dùng '{requester.FullName ?? requester.Username}' đã gửi yêu cầu xin quyền '{targetPermCatalog.Name}' cho '{entityTitleText}'.{reasonText}",
                     FeatureCode = "PERMISSION_REQUEST",
@@ -1180,6 +1193,20 @@ namespace demo1.Services.Implements
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.Notifications.Add(noti);
+                await SendSignalRNotificationAsync(recipient.Username, noti);
+            }
+        }
+
+        private async Task SendSignalRNotificationAsync(string? username, Notification notification)
+        {
+            if (_hubContext == null || string.IsNullOrWhiteSpace(username)) return;
+            try
+            {
+                await _hubContext.Clients.User(username).SendAsync("ReceiveNotification", notification);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Không thể gửi thông báo SignalR tới {Username}", username);
             }
         }
     }

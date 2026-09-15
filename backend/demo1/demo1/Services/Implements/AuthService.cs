@@ -295,7 +295,7 @@ namespace demo1.Services.Implements
 
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                return AuthResult.Fail(400, "Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
+                return AuthResult.Fail(401, "Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
             }
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -303,18 +303,19 @@ namespace demo1.Services.Implements
             var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
             var key = Encoding.UTF8.GetBytes(secretKey);
 
+            var issuer = jwtSettings["Issuer"] ?? "ContractManagementBackend";
+            var audience = jwtSettings["Audience"] ?? "ContractManagementFrontend";
+
             try
             {
                 var validationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtSettings["Issuer"] ?? "ContractManagementBackend",
-                    ValidateAudience = true,
-                    ValidAudience = jwtSettings["Audience"] ?? "ContractManagementFrontend",
+                    ValidateIssuer = false,   // Refresh token được bảo vệ bằng Signature & DB Hash
+                    ValidateAudience = false, // Không cần bắt buộc validate issuer/audience claim của token cũ
                     ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero
+                    ClockSkew = TimeSpan.FromMinutes(5)
                 };
 
                 var principal = tokenHandler.ValidateToken(refreshToken, validationParameters, out var validatedToken);
@@ -322,18 +323,22 @@ namespace demo1.Services.Implements
 
                 if (string.IsNullOrWhiteSpace(username))
                 {
+                    _logger.LogWarning("RefreshAsync: Token does not contain valid username/sub claim.");
                     return AuthResult.Fail(401, "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
                 }
 
                 var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
                 if (dbUser == null)
                 {
+                    _logger.LogWarning("RefreshAsync: User {Username} not found or inactive.", username);
                     return AuthResult.Fail(401, "Tài khoản không hoạt động hoặc không tồn tại. Vui lòng đăng nhập lại.");
                 }
 
                 var incomingHash = ComputeHash(refreshToken);
                 if (dbUser.RefreshTokenHash != incomingHash || dbUser.RefreshTokenExpiryTime == null || dbUser.RefreshTokenExpiryTime < DateTime.UtcNow)
                 {
+                    _logger.LogWarning("RefreshAsync: Token hash mismatch or expired for user {Username}. DBExpiry={DBExpiry}, NowUtc={NowUtc}",
+                        username, dbUser.RefreshTokenExpiryTime, DateTime.UtcNow);
                     return AuthResult.Fail(401, "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
                 }
 
@@ -358,8 +363,9 @@ namespace demo1.Services.Implements
                     IsSystemAdmin = dbUser.IsSystemAdmin
                 });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "RefreshAsync failed with exception: {Message}", ex.Message);
                 return AuthResult.Fail(401, "Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.");
             }
         }
@@ -493,6 +499,39 @@ namespace demo1.Services.Implements
             }
         }
 
+        public async Task<AuthResult> GetMeAsync(string username)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(username))
+                {
+                    return AuthResult.Fail(401, "Chưa xác thực.");
+                }
+
+                var dbUser = await _dbContext.Users
+                    .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+
+                if (dbUser == null)
+                {
+                    return AuthResult.Fail(401, "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa.");
+                }
+
+                return AuthResult.Success(new LoginResponse
+                {
+                    Message = "OK",
+                    UserId = dbUser.Id,
+                    Username = dbUser.Username,
+                    FullName = dbUser.FullName,
+                    IsSystemAdmin = dbUser.IsSystemAdmin
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi xảy ra trong GetMeAsync cho Username {Username}.", username);
+                return AuthResult.Fail(500, "Server error");
+            }
+        }
+
         public async Task<AuthResult> LogoutAsync(string username)
         {
             try
@@ -531,12 +570,15 @@ namespace demo1.Services.Implements
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "Iip7U9SQ3R8wZdAaicLRbrJKBeG8zgEYeX6wlfw8p7k=";
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var now = DateTime.UtcNow;
+            var expires = now.AddMinutes(expiryInMinutes);
 
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, username),
                 new Claim(JwtRegisteredClaimNames.Sub, username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
 
             if (userId.HasValue && userId.Value != Guid.Empty)
@@ -549,17 +591,16 @@ namespace demo1.Services.Implements
                 claims.Add(new Claim("is_temp", "true"));
             }
 
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(expiryInMinutes),
-                Issuer = jwtSettings["Issuer"] ?? "ContractManagementBackend",
-                Audience = jwtSettings["Audience"] ?? "ContractManagementFrontend",
-                SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature)
-            };
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"] ?? "ContractManagementBackend",
+                audience: jwtSettings["Audience"] ?? "ContractManagementFrontend",
+                claims: claims,
+                notBefore: now,
+                expires: expires,
+                signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+            );
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var token = tokenHandler.CreateToken(tokenDescriptor);
             return tokenHandler.WriteToken(token);
         }
 
@@ -724,6 +765,9 @@ namespace demo1.Services.Implements
             isDevEnv = true;
 #endif
 
+            // Dùng !isDevEnv thay vì IsHttps để tương thích Nginx reverse proxy:
+            // Nginx terminate TLS → forward HTTP plain đến ASP.NET → IsHttps = false dù client dùng HTTPS.
+            // Trên production cookie phải có Secure flag để trình duyệt gửi qua HTTPS.
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,

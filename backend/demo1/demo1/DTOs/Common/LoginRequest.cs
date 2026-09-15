@@ -96,9 +96,8 @@ namespace demo1.DTOs
     public class RefreshRequest
     {
         /// <summary>
-        /// Mã Refresh Token hợp lệ
+        /// Mã Refresh Token hợp lệ (optional nếu lấy từ Cookie HttpOnly)
         /// </summary>
-        [Required]
-        public string RefreshToken { get; set; } = string.Empty;
+        public string? RefreshToken { get; set; }
     }
 }

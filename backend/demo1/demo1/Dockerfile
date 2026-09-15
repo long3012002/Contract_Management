@@ -12,15 +12,21 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+
+# Copy csproj và restore trước
 COPY ["demo1/demo1.csproj", "demo1/"]
-RUN dotnet restore "./demo1/demo1.csproj"
+RUN dotnet restore "./demo1/demo1.csproj" --no-cache
+
+# Copy toàn bộ source code (Invalidate cache từ tầng này nếu có bất kỳ file .cs nào thay đổi)
 COPY . .
+
 WORKDIR "/src/demo1"
-RUN dotnet build "./demo1.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet clean "./demo1.csproj" -c $BUILD_CONFIGURATION
+RUN dotnet build "./demo1.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-incremental
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./demo1.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./demo1.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-restore
 
 FROM base AS final
 WORKDIR /app

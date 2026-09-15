@@ -45,10 +45,35 @@ namespace demo1.Controllers
         [HttpPost("refresh")]
         [ProducesResponseType(typeof(LoginResponse), 200)]
         [ProducesResponseType(401)]
-        public async Task<IActionResult> Refresh([FromBody] RefreshRequest request)
+        public async Task<IActionResult> Refresh([FromBody] RefreshRequest? request)
         {
-            var token = request?.RefreshToken;
-            var result = await authService.RefreshAsync(new RefreshRequest { RefreshToken = token ?? "" });
+            // Khi client gọi với body rỗng ({}) hoặc không có RefreshToken,
+            // để null thay vì chuỗi rỗng — AuthService sẽ fallback sang đọc cookie HttpOnly.
+            var token = string.IsNullOrWhiteSpace(request?.RefreshToken) ? null : request.RefreshToken;
+            var result = await authService.RefreshAsync(new RefreshRequest { RefreshToken = token });
+            return HandleResult(result);
+        }
+
+        /// <summary>
+        /// Lấy thông tin phiên đăng nhập hiện tại từ Access Token (cookie hoặc header).
+        /// Dùng sau khi reload trang (F5) để khôi phục trạng thái xác thực mà không cần đăng nhập lại.
+        /// </summary>
+        /// <returns>Thông tin User đang đăng nhập</returns>
+        /// <response code="200">Trả về thông tin user hiện tại</response>
+        /// <response code="401">Chưa xác thực hoặc token không hợp lệ</response>
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [HttpGet("me")]
+        [ProducesResponseType(typeof(LoginResponse), 200)]
+        [ProducesResponseType(401)]
+        public async Task<IActionResult> Me()
+        {
+            var username = User.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new { Message = "Chưa xác thực." });
+            }
+
+            var result = await authService.GetMeAsync(username);
             return HandleResult(result);
         }
 

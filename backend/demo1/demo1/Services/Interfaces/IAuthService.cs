@@ -8,6 +8,7 @@ namespace demo1.Services.Interfaces
     {
         Task<AuthResult> LoginAsync(LoginRequest request);
         Task<AuthResult> RefreshAsync(RefreshRequest request);
+        Task<AuthResult> GetMeAsync(string username);
         Task<AuthResult> Enable2FaAsync(Verify2FARequest request, string authHeader);
         Task<AuthResult> Verify2FaAsync(Verify2FARequest request, string authHeader);
         Task<AuthResult> LogoutAsync(string username);
