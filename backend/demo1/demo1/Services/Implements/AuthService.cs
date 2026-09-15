@@ -765,13 +765,14 @@ namespace demo1.Services.Implements
             isDevEnv = true;
 #endif
 
-            // Dùng !isDevEnv thay vì IsHttps để tương thích Nginx reverse proxy:
-            // Nginx terminate TLS → forward HTTP plain đến ASP.NET → IsHttps = false dù client dùng HTTPS.
-            // Trên production cookie phải có Secure flag để trình duyệt gửi qua HTTPS.
+            // Chỉ bật Secure khi request đến thực sự là HTTPS (hoặc qua proxy có X-Forwarded-Proto = https)
+            bool isHttps = httpContext.Request.IsHttps || 
+                string.Equals(httpContext.Request.Headers["X-Forwarded-Proto"], "https", StringComparison.OrdinalIgnoreCase);
+
             var cookieOptions = new CookieOptions
             {
                 HttpOnly = true,
-                Secure = !isDevEnv,
+                Secure = isHttps,
                 SameSite = SameSiteMode.Lax,
                 Path = "/"
             };
