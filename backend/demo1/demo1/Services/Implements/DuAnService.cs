@@ -103,14 +103,23 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     }
                 }
 
-                if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                if (filter.Status.Equals("Draft", StringComparison.OrdinalIgnoreCase))
                 {
-                    query = query.Where(da => da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id));
+                    query = query.Where(da => da.TrangThai == (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
+                }
+                else if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => (da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id)) && da.TrangThai != (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
                 }
                 else if (filter.Status.Equals("Allocated", StringComparison.OrdinalIgnoreCase))
                 {
-                    query = query.Where(da => da.DaTrienKhai == true);
+                    query = query.Where(da => da.DaTrienKhai == true && da.DaKetThuc != true);
                 }
+                else if (filter.Status.Equals("Closed", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => da.DaKetThuc == true);
+                }
+
             }
         }
 
@@ -132,13 +141,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (filter.StartDate.HasValue)
         {
             var start = filter.StartDate.Value.Date;
-            query = query.Where(item => (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date >= start) || (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date >= start));
+            query = query.Where(item => item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date >= start);
         }
 
         if (filter.EndDate.HasValue)
         {
             var end = filter.EndDate.Value.Date;
-            query = query.Where(item => (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end) || (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date <= end));
+            query = query.Where(item => 
+                (item.NgayKetThucThucTe.HasValue && item.NgayKetThucThucTe.Value.Date <= end) ||
+                (!item.NgayKetThucThucTe.HasValue && item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end));
         }
 
         var totalItems = await query.CountAsync();

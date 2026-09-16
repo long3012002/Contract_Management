@@ -413,7 +413,7 @@ public class ReportService : IReportService
                 LoaiDuAn = !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName) ? project.PhanLoaiDuAnName : (project.LoaiDuAn == 1 ? "Dự án nguồn" : "Dự án triển khai"),
                 NgayBatDau = project.NgayBatDau,
                 NgayKetThuc = project.NgayKetThuc,
-                ThoiGianConLaiNgay = project.NgayKetThuc.HasValue ? (int?)(project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days : null,
+                ThoiGianConLaiNgay = project.NgayKetThuc.HasValue ? (int?)Math.Max(0, (project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days) : null,
                 TrangThaiThucTe = project.DaKetThuc || project.TrangThai == 2 ? "Đã hoàn thành" :
                                   project.TrangThai == 1 ? "Đang triển khai" : "Chuẩn bị đầu tư",
                 TienDo = project.DaKetThuc || project.TrangThai == 2 ? 1.0 :

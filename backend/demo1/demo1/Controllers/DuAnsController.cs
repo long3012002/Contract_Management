@@ -33,6 +33,9 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     public IActionResult GetDuAnEnums()
     {
         var trangThaiOptions = Enum.GetValues<TrangThaiDuAn>()
+            .Distinct()
+            .GroupBy(e => (int)e)
+            .Select(g => g.First())
             .Select(e => new { Value = (int)e, Code = e.ToString(), Label = e.GetDisplayName() });
 
         var loaiDuAnOptions = new[]
