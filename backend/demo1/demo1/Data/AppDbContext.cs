@@ -1542,10 +1542,10 @@ namespace demo1.Data
                 {
                     return val switch
                     {
-                        1 => "Đang triển khai",
-                        2 => "Đã hoàn thành",
+                        (int)TrangThaiDuAn.Implementing => "Đang triển khai",
+                        (int)TrangThaiDuAn.Completed => "Đã hoàn thành",
                         0 => "Tất cả trạng thái",
-                        _ => str
+                        _ => Enum.IsDefined(typeof(TrangThaiDuAn), val) ? ((TrangThaiDuAn)val).GetDisplayName() : str
                     };
                 }
                 if (entityName.Equals("DotThanhToan", System.StringComparison.OrdinalIgnoreCase))

@@ -5,6 +5,7 @@ using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
 using demo1.Services.Implements;
+using demo1.Services.Implements.SubServices;
 using demo1.Services.Interfaces;
 using demo1.Tests.Helpers;
 using FluentAssertions;
@@ -43,7 +44,14 @@ namespace demo1.Tests.UnitTests.Services
             _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
             mockClients.Setup(x => x.User(It.IsAny<string>())).Returns(mockClientProxy.Object);
 
-            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, _mockHubContext.Object);
+            var securityService = new DuAnSecurityService(_dbContext, _mockCurrentUserService.Object);
+            var nguonLinkService = new DuAnNguonLinkService(_dbContext, _mapper, securityService);
+            var budgetService = new DuAnBudgetService(_dbContext, _mapper, securityService);
+            var cascadeService = new DuAnCascadeService(_dbContext, _mockCurrentUserService.Object, nguonLinkService);
+            var auditService = new DuAnAuditService(_dbContext, securityService);
+            var notificationService = new DuAnNotificationService(_dbContext, _mockCurrentUserService.Object, _mockHubContext.Object);
+
+            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
         }
 
         [Fact]

@@ -12,7 +12,9 @@ using demo1.Mapper;
 using demo1.Middleware;
 using demo1.Providers;
 using demo1.Services.Implements;
+using demo1.Services.Implements.SubServices;
 using demo1.Services.Interfaces;
+using demo1.Services.Interfaces.SubServices;
 using demo1.Services.Workers;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -211,6 +213,13 @@ public static class ServiceConfiguration
 
         services.AddHangfireServer();
         services.AddScoped<CongViecReminderHangfireService>();
+
+        services.AddScoped<IDuAnAuditService, DuAnAuditService>();
+        services.AddScoped<IDuAnSecurityService, DuAnSecurityService>();
+        services.AddScoped<IDuAnNguonLinkService, DuAnNguonLinkService>();
+        services.AddScoped<IDuAnBudgetService, DuAnBudgetService>();
+        services.AddScoped<IDuAnCascadeService, DuAnCascadeService>();
+        services.AddScoped<IDuAnNotificationService, DuAnNotificationService>();
 
         services.AddScoped<IDuAnService, DuAnService>();
         services.AddScoped<IDoiTacService, DoiTacService>();

@@ -299,7 +299,14 @@ namespace demo1.Tests.UnitTests.Services
             var serviceProvider = services.BuildServiceProvider();
             var mapper = serviceProvider.GetRequiredService<IMapper>();
             var mockHubContext = new Mock<Microsoft.AspNetCore.SignalR.IHubContext<demo1.Hubs.NotificationHub>>();
-            var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, mockHubContext.Object);
+            var securityService = new demo1.Services.Implements.SubServices.DuAnSecurityService(context, mockUserService.Object);
+            var nguonLinkService = new demo1.Services.Implements.SubServices.DuAnNguonLinkService(context, mapper, securityService);
+            var budgetService = new demo1.Services.Implements.SubServices.DuAnBudgetService(context, mapper, securityService);
+            var cascadeService = new demo1.Services.Implements.SubServices.DuAnCascadeService(context, mockUserService.Object, nguonLinkService);
+            var auditService = new demo1.Services.Implements.SubServices.DuAnAuditService(context, securityService);
+            var notificationService = new demo1.Services.Implements.SubServices.DuAnNotificationService(context, mockUserService.Object, mockHubContext.Object);
+
+            var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
 
             // Act
             var logs = await duAnService.GetAuditLogsByProjectIdAsync(projectId);

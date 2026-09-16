@@ -9,6 +9,7 @@ using demo1.Entity;
 using demo1.Entity.DanhMuc;
 using demo1.Hubs;
 using demo1.Services.Implements;
+using demo1.Services.Implements.SubServices;
 using demo1.Services.Interfaces;
 using demo1.Tests.Helpers;
 using FluentAssertions;
@@ -36,6 +37,18 @@ namespace demo1.Tests.UnitTests.Services
 
         private readonly User _managerUser;
         private readonly User _specialistUser;
+
+        private DuAnService CreateDuAnService()
+        {
+            var securityService = new DuAnSecurityService(_dbContext, _mockCurrentUserService.Object);
+            var nguonLinkService = new DuAnNguonLinkService(_dbContext, _mapper, securityService);
+            var budgetService = new DuAnBudgetService(_dbContext, _mapper, securityService);
+            var cascadeService = new DuAnCascadeService(_dbContext, _mockCurrentUserService.Object, nguonLinkService);
+            var auditService = new DuAnAuditService(_dbContext, securityService);
+            var notificationService = new DuAnNotificationService(_dbContext, _mockCurrentUserService.Object, _mockHubContext.Object);
+
+            return new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
+        }
 
         public HierarchyDataPermissionTests()
         {
@@ -97,7 +110,7 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DuAns.Add(projectSubordinate);
             await _dbContext.SaveChangesAsync();
 
-            var duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, _mockHubContext.Object);
+            var duAnService = CreateDuAnService();
 
             // Act 1: Manager queries projects
             _mockCurrentUserService.Setup(c => c.GetUsername()).Returns(_managerUser.Username);
@@ -130,7 +143,7 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DuAns.Add(projectManager);
             await _dbContext.SaveChangesAsync();
 
-            var duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, _mockHubContext.Object);
+            var duAnService = CreateDuAnService();
 
             // Act: Specialist queries projects
             _mockCurrentUserService.Setup(c => c.GetUsername()).Returns(_specialistUser.Username);
