@@ -162,7 +162,7 @@ namespace demo1.Controllers
                         ) &&
                         up.Permission != null && validViewActions.Contains(up.Permission.Code));
 
-                if (!hasViewPermission)
+                if (!hasViewPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
                 {
                     if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
                     {
@@ -185,7 +185,7 @@ namespace demo1.Controllers
                 return;
             }
 
-            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner
+            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner OR RolePermission
             if (httpMethod == "POST")
             {
                 if (!string.IsNullOrEmpty(entityId) && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId, isReadOnlyCheck: true))
@@ -210,7 +210,7 @@ namespace demo1.Controllers
                         (!duAnId.HasValue || up.DuAnId == duAnId.Value) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
-                if (!hasPermission)
+                if (!hasPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
                     context.Result = new JsonResult(new
                     {
@@ -227,7 +227,7 @@ namespace demo1.Controllers
                 }
             }
 
-            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User (for tasks/comments)
+            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User (for tasks/comments) OR RolePermission
             if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
             {
                 if (string.IsNullOrEmpty(entityId))
@@ -255,7 +255,7 @@ namespace demo1.Controllers
                         ) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
-                if (!hasPermission)
+                if (!hasPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
                     context.Result = new JsonResult(new
                     {
@@ -517,6 +517,41 @@ namespace demo1.Controllers
                     cv => cv.Id,
                     (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
                 .AnyAsync(x => x.ChucVu != null && x.ChucVu.Level > callerLevel);
+        }
+
+        private async Task<bool> HasRolePermissionAsync(Guid userId, string featureCode, string action)
+        {
+            var userRoleIds = await _dbContext.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.UserId == userId)
+                .Select(ur => ur.RoleId)
+                .ToListAsync();
+
+            if (!userRoleIds.Any()) return false;
+
+            var validCodes = GetEquivalentFeatureCodes(featureCode)
+                .Select(c => c.ToUpper())
+                .Distinct()
+                .ToList();
+
+            var rolePerms = await _dbContext.RolePermissions
+                .AsNoTracking()
+                .Include(rp => rp.Feature)
+                .Where(rp => userRoleIds.Contains(rp.RoleId) && rp.CanAccess && rp.Feature != null && validCodes.Contains(rp.Feature.Code.ToUpper()))
+                .ToListAsync();
+
+            if (!rolePerms.Any()) return false;
+
+            if (action.Equals("VIEW", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var normAction = action.ToLower();
+            return rolePerms.Any(rp =>
+                string.IsNullOrWhiteSpace(rp.Permissions) ||
+                rp.Permissions.ToLower().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Any(p => p == normAction || (normAction == "edit" && p == "update") || (normAction == "update" && p == "edit")));
         }
     }
 }

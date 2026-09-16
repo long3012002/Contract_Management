@@ -373,67 +373,7 @@ public static class CreateFakeDataExtensions
                         context.Users.Add(anhltUser);
                         await context.SaveChangesAsync();
                     }
-
-                /*
-                // Seed 20 Dummy Users for Testing (Manager, Staff, Inactive)
-                if (await context.Users.CountAsync(u => u.Username.StartsWith("testuser")) == 0)
-                {
-                    var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Manager");
-                    var staffRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Staff");
-                    var phongBans = await context.PhongBans.ToListAsync();
-                    var chucVus = await context.ChucVus.ToListAsync();
-                    
-                    var newUsers = new List<User>();
-                    var newUserRoles = new List<UserRole>();
-                    var random = new Random();
-
-                    for (int i = 1; i <= 20; i++)
-                    {
-                        bool isManager = i <= 5; // 5 managers
-                        bool isInactive = i > 15; // 5 inactive users
-                        
-                        var roleToAssign = isManager ? managerRole : staffRole;
-                        var phongBan = phongBans.Any() ? phongBans[random.Next(phongBans.Count)] : null;
-                        var chucVu = chucVus.Any() ? chucVus[random.Next(chucVus.Count)] : null;
-
-                        var u = new User
-                        {
-                            Id = Guid.NewGuid(),
-                            Username = $"testuser{i}",
-                            FullName = $"Người dùng thử nghiệm {i} ({(isManager ? "Manager" : "Staff")})",
-                            Email = $"testuser{i}@example.com",
-                            Phone = $"0988{random.Next(100000, 999999)}",
-                            IsActive = !isInactive,
-                            IsSystemAdmin = false,
-                            IsTwoFactorEnabled = i % 4 == 0,
-                            IdPhongBan = phongBan?.Id,
-                            TenPhongBan = phongBan?.TenPhongBan,
-                            IdChucVu = chucVu?.Id,
-                            TenChucVu = chucVu?.TenChucVu,
-                            CreatedAt = DateTime.UtcNow.AddDays(-random.Next(1, 100))
-                        };
-                        newUsers.Add(u);
-
-                        if (roleToAssign != null)
-                        {
-                            newUserRoles.Add(new UserRole
-                            {
-                                UserId = u.Id,
-                                RoleId = roleToAssign.Id
-                            });
-                        }
-                    }
-
-                    await context.Users.AddRangeAsync(newUsers);
-                    await context.SaveChangesAsync();
-                    
-                    if (newUserRoles.Any())
-                    {
-                        await context.UserRoles.AddRangeAsync(newUserRoles);
-                        await context.SaveChangesAsync();
-                    }
-                }
-                */
+                await context.SaveChangesAsync();
 
                 // Seed/Sync Default ChucVus (TGD, GD, PGD, TP, PP, CV)
                 var defaultPositions = new List<(string Code, string Name, int Level)>
@@ -588,12 +528,94 @@ public static class CreateFakeDataExtensions
                 }
                 await context.SaveChangesAsync();
 
-                /*
-                if (configuration.GetValue<bool>("Database:SeedSampleData"))
+                // Seed/Sync Default DonViTinhs
+                var defaultDonViTinhs = new List<(string Code, string Name)>
                 {
-                    await DatabaseSeeder.SeedAsync(context);
+                    ("CAI", "Cái"),
+                    ("BO", "Bộ"),
+                    ("GOI", "Gói"),
+                    ("NAM", "Năm"),
+                    ("THANG", "Tháng"),
+                    ("LUOT", "Lượt"),
+                    ("HE_THONG", "Hệ thống"),
+                    ("LICENSE", "License"),
+                    ("CHIEC", "Chiếc"),
+                    ("THIET_BI", "Thiết bị")
+                };
+                foreach (var dvt in defaultDonViTinhs)
+                {
+                    if (!await context.DonViTinhs.AnyAsync(x => x.Code == dvt.Code || x.Name == dvt.Name))
+                    {
+                        context.DonViTinhs.Add(new demo1.Entity.DanhMuc.DonViTinh
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = dvt.Code,
+                            Name = dvt.Name,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
                 }
-                */
+
+                // Seed/Sync Default HangSanXuats
+                var defaultHangSanXuats = new List<(string Code, string Name)>
+                {
+                    ("MICROSOFT", "Microsoft"),
+                    ("ORACLE", "Oracle"),
+                    ("CISCO", "Cisco Systems"),
+                    ("DELL", "Dell Technologies"),
+                    ("HP", "HP Inc / HPE"),
+                    ("VMWARE", "VMware"),
+                    ("IBM", "IBM"),
+                    ("FORTINET", "Fortinet"),
+                    ("PALO_ALTO", "Palo Alto Networks"),
+                    ("APPLE", "Apple"),
+                    ("SAMSUNG", "Samsung"),
+                    ("LENOVO", "Lenovo")
+                };
+                foreach (var hsx in defaultHangSanXuats)
+                {
+                    if (!await context.HangSanXuats.AnyAsync(x => x.Code == hsx.Code || x.Name == hsx.Name))
+                    {
+                        context.HangSanXuats.Add(new demo1.Entity.DanhMuc.HangSanXuat
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = hsx.Code,
+                            Name = hsx.Name,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                // Seed/Sync Default XuatXus
+                var defaultXuatXus = new List<(string Code, string Name)>
+                {
+                    ("VN", "Việt Nam"),
+                    ("US", "Mỹ (USA)"),
+                    ("JP", "Nhật Bản"),
+                    ("KR", "Hàn Quốc"),
+                    ("DE", "Đức"),
+                    ("SG", "Singapore"),
+                    ("CN", "Trung Quốc"),
+                    ("TW", "Đài Loan")
+                };
+                foreach (var xx in defaultXuatXus)
+                {
+                    if (!await context.XuatXus.AnyAsync(x => x.Code == xx.Code || x.Name == xx.Name))
+                    {
+                        context.XuatXus.Add(new demo1.Entity.DanhMuc.XuatXu
+                        {
+                            Id = Guid.NewGuid(),
+                            Code = xx.Code,
+                            Name = xx.Name,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                await context.SaveChangesAsync();
             }
             catch (Exception ex)
             {

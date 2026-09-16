@@ -138,6 +138,134 @@ namespace demo1.Tests.UnitTests.Controllers
             context.Result.Should().BeNull();
         }
 
+        [Fact]
+        public async Task Project_GET_Should_PassThrough_When_User_Has_RolePermission_Access()
+        {
+            // Arrange
+            var otherUser = new User { Id = Guid.NewGuid(), Username = "owner", FullName = "Owner", IsActive = true };
+            var user = new User { Id = Guid.NewGuid(), Username = "role_viewer", FullName = "Role Viewer", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "Manager", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-ROLE-01",
+                Name = "Dự án xem theo Role Matrix",
+                LoaiDuAn = 1,
+                CreatedByUserId = otherUser.Id,
+                ChuDuAnId = otherUser.Id
+            };
+
+            var userRole = new UserRole { UserId = user.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "view"
+            };
+
+            _dbContext.Users.AddRange(otherUser, user);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.DuAns.Add(project);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("role_viewer", "GET", "id", project.Id.ToString());
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Should pass through because RolePermission grants CanAccess = true
+            context.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task Project_POST_Should_PassThrough_When_User_Has_RolePermission_Create()
+        {
+            // Arrange
+            var user = new User { Id = Guid.NewGuid(), Username = "role_creator", FullName = "Role Creator", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "CreatorRole", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var userRole = new UserRole { UserId = user.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "create,update"
+            };
+
+            _dbContext.Users.Add(user);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("role_creator", "POST", "", "");
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Should pass through because RolePermission grants "create"
+            context.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task Project_DELETE_Should_Return_403_When_User_RolePermission_Lacks_Delete()
+        {
+            // Arrange
+            var otherUser = new User { Id = Guid.NewGuid(), Username = "owner2", FullName = "Owner2", IsActive = true };
+            var user = new User { Id = Guid.NewGuid(), Username = "role_no_delete", FullName = "No Delete", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "EditorRole", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-NO-DEL",
+                Name = "Dự án không được xóa",
+                LoaiDuAn = 1,
+                CreatedByUserId = otherUser.Id,
+                ChuDuAnId = otherUser.Id
+            };
+
+            var userRole = new UserRole { UserId = user.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "create,update" // NO delete permission
+            };
+
+            _dbContext.Users.AddRange(otherUser, user);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.DuAns.Add(project);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("role_no_delete", "DELETE", "id", project.Id.ToString());
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Should return 403 Forbidden because RolePermission string does NOT contain "delete"
+            context.Result.Should().NotBeNull();
+            context.Result.Should().BeOfType<JsonResult>();
+            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

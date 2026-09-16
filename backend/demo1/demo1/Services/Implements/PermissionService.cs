@@ -59,7 +59,7 @@ namespace demo1.Services.Implements
                 }
 
                 var normFeatureCode = NormalizeFeatureCode(featureCode);
-                return await _context.UserPermissions
+                var hasUserPerm = await _context.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
@@ -68,6 +68,31 @@ namespace demo1.Services.Implements
                         (string.IsNullOrEmpty(entityName) || up.EntityName.ToLower() == entityName.ToLower()) &&
                         up.EntityId == entityId &&
                         up.Permission != null && up.Permission.Code == actCode);
+
+                if (hasUserPerm) return true;
+
+                var userRoleIds = await _context.UserRoles.AsNoTracking()
+                    .Where(ur => ur.UserId == userId)
+                    .Select(ur => ur.RoleId)
+                    .ToListAsync();
+
+                if (!userRoleIds.Any()) return false;
+
+                var validCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { featureCode, normFeatureCode };
+                var rolePerms = await _context.RolePermissions.AsNoTracking()
+                    .Include(rp => rp.Feature)
+                    .Where(rp => userRoleIds.Contains(rp.RoleId) && rp.CanAccess && rp.Feature != null && validCodes.Contains(rp.Feature.Code))
+                    .ToListAsync();
+
+                if (!rolePerms.Any()) return false;
+
+                if (actCode == "VIEW") return true;
+
+                var normAction = actCode.ToLower();
+                return rolePerms.Any(rp =>
+                    string.IsNullOrWhiteSpace(rp.Permissions) ||
+                    rp.Permissions.ToLower().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Any(p => p == normAction || (normAction == "edit" && p == "update") || (normAction == "update" && p == "edit")));
             }
             catch (Exception ex)
             {
