@@ -90,6 +90,35 @@ namespace demo1.Controllers
         }
 
         /// <summary>
+        /// Xóa một Vai trò (Role).
+        /// </summary>
+        /// <param name="roleId">Mã định danh Vai trò (GUID)</param>
+        /// <response code="200">Xóa vai trò thành công</response>
+        /// <response code="400">Không thể xóa vai trò (ví dụ đang có người dùng gán vai trò)</response>
+        /// <response code="404">Không tìm thấy vai trò</response>
+        [HttpDelete("{roleId:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteRole(Guid roleId)
+        {
+            if (!await IsAdminAsync()) return Forbid();
+            try
+            {
+                await adminService.DeleteRoleAsync(roleId);
+                return Ok(new { Message = "Xóa vai trò thành công." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách quyền hạn chi tiết gắn với một Vai trò (Role).
         /// </summary>
         /// <param name="roleId">Mã định danh Vai trò (GUID)</param>
