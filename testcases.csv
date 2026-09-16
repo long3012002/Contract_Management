@@ -1,0 +1,245 @@
+STT,Tiêu đề,Mô tả,Kết quả mong đợi,Phòng ban yêu cầu/test,Kiểu vấn đề,Mức ưu tiên,Bắt đầu,Hết hạn,trạng thái,Phân công,Chủ đề,Quá trình phát triển
+1,Quản lý tài khoản_check trùng user,"1. Đăng nhập hệ thống
+  2. Tạo user 1 : lưu duyệt
+  3. Tạo user 2","Check trùng mã user nên 2 user thuộc cùng 1 PGD
+  Không check trùng nếu 2 user thuộc 2 PGD khác nhau thuộc cùng 1 quỹ hoặc 1 user thuộc PGD, 1 user thuộc quỹ",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Bảo trì_Quản lý người dùng 2026,"- Tạo API/Service kiểm tra trùng mã người dùng trong UserController.
+ - Xử lý logic check trùng theo phạm vi Đơn vị/PGD và Quỹ/Chi nhánh."
+2,Quản lý tài khoản_Check trùng user khác PGD thuộc cùng Quỹ/Chi nhánh,"1. Đăng nhập hệ thống bằng tài khoản Admin.
+  2. Tạo User 1 có Mã user = NV001 thuộc PGD A.
+  3. Tạo User 2 có Mã user = NV001 thuộc PGD B (PGD A và PGD B cùng thuộc Chi nhánh X).",Hệ thống cho phép lưu thành công (phân biệt người dùng theo PGD/Chi nhánh) hoặc cảnh báo trùng mã nhân viên toàn hệ thống.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Bảo trì_Quản lý người dùng 2026,"- Tạo API/Service kiểm tra trùng mã người dùng trong UserController.
+ - Xử lý logic check trùng theo phạm vi Đơn vị/PGD và Quỹ/Chi nhánh."
+3,Quản lý tài khoản_Check trùng Email người dùng khi tạo mới,"1. Mở màn hình Thêm mới người dùng.
+  2. Nhập Email = 'an.nd@coopbank.vn' (đã tồn tại trong hệ thống).
+  3. Nhấn [Lưu].",Hệ thống thông báo lỗi: 'Email đã được sử dụng bởi tài khoản khác'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Bảo trì_Quản lý người dùng 2026,"- Tạo validation kiểm tra Email duy nhất trong UserService.
+ - Xử lý ném lỗi BadRequest khi Email đã tồn tại trong CSDL."
+4,Quản lý tài khoản_Đăng nhập tài khoản hợp lệ,"1. Mở màn hình Đăng nhập.
+  2. Nhập Email/Tên đăng nhập và Mật khẩu chính xác.
+  3. Nhấn nút [Đăng nhập].","Đăng nhập thành công, hệ thống lưu JWT Token và chuyển hướng đến trang Dashboard chính.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Xác thực hệ thống,"- Tạo AuthController với endpoint /api/auth/login.
+ - Xử lý xác thực mật khẩu (hash/salt) và sinh JWT Token chứa Claims."
+5,Quản lý tài khoản_Đăng nhập sai mật khẩu,"1. Mở màn hình Đăng nhập.
+  2. Nhập Email đúng và Mật khẩu sai.
+  3. Nhấn nút [Đăng nhập].",Hệ thống hiển thị thông báo lỗi 'Tên đăng nhập hoặc mật khẩu không đúng'. Không chuyển hướng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Xác thực hệ thống,"- Tạo logic kiểm tra mật khẩu trong AuthService.
+ - Xử lý trả mã lỗi 401 Unauthorized khi thông tin xác thực không đúng."
+6,Quản lý tài khoản_Đăng nhập Google Auth / Dev Mode Bypass,"1. Truy cập môi trường Dev/Staging (bật Bypass Google Auth).
+  2. Chọn tài khoản Google Dev / Nhấn Login Bypass.",Hệ thống xác thực và cấp quyền tự động cho tài khoản dev mà không cần qua Google OAuth production.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Xác thực hệ thống,"- Tạo DevModeBypassHandler trong AuthController.
+ - Xử lý cấp JWT Token tự động cho tài khoản dev trên môi trường thử nghiệm."
+7,Quản lý tài khoản_Đổi mật khẩu người dùng,"1. Đăng nhập hệ thống.
+  2. Vào trang Hồ sơ cá nhân -> Chọn [Đổi mật khẩu].
+  3. Nhập mật khẩu hiện tại, mật khẩu mới hợp lệ (>8 ký tự, có hoa/thường/số) và xác nhận mật khẩu mới.
+  4. Nhấn [Lưu thay đổi].",Mật khẩu đổi thành công. Lần đăng nhập sau phải dùng mật khẩu mới.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Bảo trì_Quản lý người dùng 2026,"- Tạo endpoint /api/auth/change-password trong AuthController.
+ - Xử lý xác thực mật khẩu cũ và mã hóa BCrypt/PBKDF2 cho mật khẩu mới."
+8,Quản lý tài khoản_Khóa/Mở khóa tài khoản người dùng,"1. Truy cập danh sách Người dùng với quyền Admin.
+  2. Chọn 1 user -> Bấm [Khóa tài khoản].
+  3. Thử đăng nhập bằng tài khoản bị khóa.",Đăng nhập thất bại với thông báo 'Tài khoản đã bị khóa'. Bấm mở khóa thì đăng nhập lại bình thường.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Bảo trì_Quản lý người dùng 2026,"- Tạo endpoint Lock/Unlock User trong UserController.
+ - Xử lý cập nhật trạng thái IsActive/IsLocked và chặn cấp token khi đăng nhập."
+9,Quản lý tài khoản_Tạo danh sách người dùng hàng loạt (Bulk Create),"1. Nhấn [Tạo nhiều người dùng].
+  2. Nhập danh sách 5 người dùng kèm Phòng ban & Chức vụ.
+  3. Nhấn [Lưu tất cả].",Tất cả 5 tài khoản được tạo thành công trong 1 transaction.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Bảo trì_Quản lý người dùng 2026,"- Tạo API CreateBulkUsers trong UserController.
+ - Xử lý chèn danh sách người dùng trong một DbContext Transaction."
+10,Quản lý tài khoản_Import người dùng từ file Excel hợp lệ,"1. Vào mục Quản lý người dùng -> Chọn [Import Excel].
+  2. Tải lên file Danh_Sach_Nguoi_Dung_Import.xlsx chứa thông tin danh sách nhân viên đúng định dạng.
+  3. Nhấn [Tải lên & Lưu].","Hệ thống import thành công toàn bộ danh sách người dùng, tự động gán Phòng ban và Vai trò tương ứng.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Bảo trì_Quản lý người dùng 2026,"- Tạo ImportExcelService trong UserController.
+ - Xử lý đọc file Excel bằng EPPlus/NPOI, validate dữ liệu và lưu DB hàng loạt."
+11,Quản lý tài khoản_Import Excel chứa dữ liệu sai định dạng/trùng mã,"1. Chọn [Import Excel].
+  2. Tải lên file Excel có dòng bị trống Mã user hoặc trùng Email đã tồn tại.","Hệ thống báo lỗi chi tiết số dòng bị lỗi (VD: Dòng 5 trùng email, Dòng 8 thiếu Mã user), không thêm các dòng lỗi vào CSDL.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Bảo trì_Quản lý người dùng 2026,"- Tạo ImportExcelService trong UserController.
+ - Xử lý đọc file Excel bằng EPPlus/NPOI, validate dữ liệu và lưu DB hàng loạt."
+12,Quản lý tài khoản_Tải file mẫu Import người dùng,1. Vào mục Import người dùng -> Bấm nút [Tải file mẫu].,Hệ thống tải về thành công file File_Mau_Import_Nguoi_Dung.xlsx đúng cấu trúc cột tiêu chuẩn.,KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Bảo trì_Quản lý người dùng 2026,"- Tạo ImportExcelService trong UserController.
+ - Xử lý đọc file Excel bằng EPPlus/NPOI, validate dữ liệu và lưu DB hàng loạt."
+13,Phân quyền_Kiểm tra quyền CanAccess = false (Sidebar & Route Guard),"1. Admin cấu hình Role/Phòng ban của User X có CanAccess = false cho Module 'Hợp đồng'.
+  2. User X đăng nhập vào hệ thống.
+  3. Thử truy cập trực tiếp URL `/contracts` trên trình duyệt.","Sidebar không hiển thị menu 'Hợp đồng'. Khi gõ trực tiếp URL `/contracts`, hệ thống chuyển hướng sang trang 403 Forbidden.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Phân quyền RBAC,"- Tạo FeatureAuthorizeAttribute và Policy-based Authorization Filter.
+ - Xử lý kiểm tra UserPermission từ DB và trả 403 Forbidden khi CanAccess = false."
+14,Phân quyền_Kiểm tra quyền CanAccess = true & Permissions hiển thị nút bấm,"1. Cấu hình cho User Y có CanAccess = true, chuỗi Permissions = 'Create;Update' đối với Module 'Dự án'.
+  2. User Y đăng nhập và truy cập trang Danh sách Dự án.","User Y thấy menu Dự án, hiển thị nút [Thêm mới] và [Sửa]. Nút [Xóa] và [Xuất file] bị ẩn hoàn toàn.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Phân quyền RBAC,"- Tạo API GetUserPermissions trong UserPermissionsController.
+ - Xử lý truy vấn danh sách quyền (Create, Update, Delete, Export) theo User/Role."
+15,Phân quyền_Tắt CanAccess tự động vô hiệu hóa toàn bộ checkbox hành động,"1. Admin mở Ma trận phân quyền (Permission Matrix Table).
+  2. Bật Switch CanAccess của dòng 'Gói thầu' -> các checkbox Create/Update/Delete sáng lên.
+  3. Tắt Switch CanAccess của dòng 'Gói thầu'.",Tất cả checkbox Create/Update/Delete/Export tự động uncheck và bị vô hiệu hóa (disabled).,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Phân quyền RBAC,"- Tạo API UpdateRolePermissions trong AdminController.
+ - Xử lý xóa/vô hiệu hóa các quyền thao tác tương ứng khi CanAccess = false."
+16,Phân quyền_Phân quyền riêng theo từng Dự án cụ thể (Project-level Permissions),"1. Gán cho User K quyền xem và chỉnh sửa duy nhất trên Dự án DA001.
+  2. User K đăng nhập và xem danh sách dự án.","User K chỉ nhìn thấy và thao tác được trên Dự án DA001, các dự án khác bị ẩn hoặc không thể mở chi tiết.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Phân quyền RBAC,"- Tạo bảng và Entity UserProjectPermission.
+ - Xử lý query DB lọc danh sách dự án dựa trên IdUser và IdDuAn được gán."
+17,Phân quyền_Gửi yêu cầu xin cấp quyền (Permission Request),"1. User Z (không có quyền Xóa dự án) nhấn gửi Yêu cầu xin bổ sung quyền Delete cho module Dự án.
+  2. Nhập lý do xin cấp quyền và nhấn [Gửi yêu cầu].",Tạo bản ghi PermissionRequest ở trạng thái Chờ duyệt (Pending). Thông báo được gửi đến Admin.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Phân quyền RBAC,"- Tạo PermissionRequestsController với endpoint POST /create.
+ - Xử lý tạo bản ghi yêu cầu cấp quyền ở trạng thái Pending."
+18,Phân quyền_Admin Phê duyệt/Từ chối Yêu cầu xin cấp quyền,"1. Admin xem danh sách Permission Requests.
+  2. Chọn yêu cầu của User Z -> Nhấn [Phê duyệt] (hoặc [Từ chối]).","Trạng thái chuyển thành Approved/Rejected. Nếu Phê duyệt, hệ thống tự động bổ sung quyền tương ứng vào bảng UserPermission của User Z.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Phân quyền RBAC,"- Tạo endpoint Approve/Reject trong PermissionRequestsController.
+ - Xử lý cập nhật trạng thái yêu cầu và tự động ghi bản ghi vào UserPermission."
+19,Quản lý Phòng ban_Tạo mới Phòng ban / Chi nhánh / PGD,"1. Vào Quản lý Phòng ban -> Chọn [Thêm mới].
+  2. Nhập Mã phòng ban (PGD_CAUGIAY), Tên phòng ban = 'PGD Cầu Giấy', Chọn Đơn vị cấp trên.
+  3. Nhấn [Lưu].",Phòng ban được lưu thành công vào cây sơ đồ tổ chức.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Sơ đồ tổ chức,"- Tạo PhongBansController và PhongBanService.
+ - Xử lý truy vấn/lưu cấu trúc cây phòng ban (Chi nhánh/PGD) với IdParent."
+20,Quản lý Phòng ban_Thêm hàng loạt phòng ban (Bulk Create),"1. Chọn [Thêm danh sách phòng ban].
+  2. Nhập danh sách 3 PGD mới.
+  3. Nhấn [Lưu].",Lưu thành công cả 3 phòng ban.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Sơ đồ tổ chức,"- Tạo PhongBansController và PhongBanService.
+ - Xử lý truy vấn/lưu cấu trúc cây phòng ban (Chi nhánh/PGD) với IdParent."
+21,Quản lý Chức vụ_Tạo mới và Cập nhật Chức vụ,"1. Vào Quản lý Chức vụ -> Thêm mới 'Trưởng phòng CNTT'.
+  2. Sửa tên thành 'Trưởng phòng Trung tâm CNTT'.","Chức vụ cập nhật thành công, thông tin trên các tài khoản nhân viên tương ứng tự động cập nhật.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Quản lý Sơ đồ tổ chức,"- Tạo ChucVusController và ChucVuService.
+ - Xử lý lưu danh mục chức vụ và liên kết với tài khoản người dùng."
+22,Quản lý Dự án_Tạo mới dự án hợp lệ,"1. Vào trang Quản lý Dự án -> Chọn [Tạo mới Dự án].
+  2. Nhập đầy đủ thông tin: Mã dự án (DA2026_01), Tên dự án, Dự toán phê duyệt (5.000.000.000 VNĐ), Chủ đầu tư, Ngày bắt đầu, Ngày kết thúc.
+  3. Chọn Nhóm dự án và Phân loại dự án.
+  4. Nhấn [Lưu].",Dự án tạo thành công ở trạng thái 'Bản nháp' (Trạng thái 1). Trả về thông báo thành công.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Dự án,"- Tạo DuAnsController với endpoint POST /create.
+ - Xử lý validate DTO, sinh mã dự án và lưu bản ghi vào CSDL."
+23,Quản lý Dự án_Tạo dự án thiếu thông tin bắt buộc,"1. Chọn [Tạo mới Dự án].
+  2. Để trống Tên dự án hoặc Dự toán phê duyệt.
+  3. Nhấn [Lưu].",Giao diện hiển thị lỗi validation đỏ tại các trường bị thiếu. Không gửi dữ liệu lên server.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Dự án,"- Tạo FluentValidation / DataAnnotations validator cho CreateDuAnDto.
+ - Xử lý kiểm tra ràng buộc dữ liệu đầu vào và trả về lỗi 400 Validation Error."
+24,Quản lý Dự án_Tạo dự án có Dự toán <= 0,"1. Chọn [Tạo mới Dự án].
+  2. Nhập Dự toán phê duyệt = 0 hoặc số âm (-100.000.000).
+  3. Nhấn [Lưu].",Hệ thống báo lỗi 'Dự toán phê duyệt phải lớn hơn 0'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Dự án,"- Tạo FluentValidation / DataAnnotations validator cho CreateDuAnDto.
+ - Xử lý kiểm tra ràng buộc dữ liệu đầu vào và trả về lỗi 400 Validation Error."
+25,Quản lý Dự án_Tạo dự án có Ngày kết thúc trước Ngày bắt đầu,"1. Nhập Ngày bắt đầu = 01/06/2026, Ngày kết thúc = 01/01/2026.
+  2. Nhấn [Lưu].",Hệ thống báo lỗi 'Ngày kết thúc không được nhỏ hơn ngày bắt đầu'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Dự án,"- Tạo FluentValidation / DataAnnotations validator cho CreateDuAnDto.
+ - Xử lý kiểm tra ràng buộc dữ liệu đầu vào và trả về lỗi 400 Validation Error."
+26,Quản lý Dự án_Tìm kiếm & Lọc danh sách Dự án,"1. Tại trang Danh sách Dự án, nhập từ khóa 'Máy chủ' vào ô Tìm kiếm.
+  2. Lọc theo Nhóm dự án = 'Công nghệ thông tin' và Trạng thái = 'Đang triển khai'.",Hệ thống trả về danh sách dự án khớp chính xác với tất cả các điều kiện lọc.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Dự án,"- Tạo GetPagedDuAnsQuery handler trong DuAnsController.
+ - Xử lý IQueryable LINQ filtering, sorting và phân trang (Skip/Take)."
+27,Quản lý Dự án_Phân trang danh sách Dự án (Pagination),"1. Xem danh sách Dự án có > 50 bản ghi.
+  2. Chuyển sang Trang 2, thay đổi số bản ghi/trang từ 10 thành 20.","Danh sách tải lại mượt mà, hiển thị đúng 20 bản ghi của Trang 2.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Dự án,"- Tạo GetPagedDuAnsQuery handler trong DuAnsController.
+ - Xử lý IQueryable LINQ filtering, sorting và phân trang (Skip/Take)."
+28,Quản lý Dự án_Chuyển trạng thái dự án theo luồng (Advance Status),"1. Mở chi tiết dự án ở trạng thái 'Bản nháp' (1).
+  2. Nhấn nút [Chuyển sang Đã trình] -> Trạng thái đổi thành 'Đã trình' (2).
+  3. Lần lượt bấm chuyển tiếp: Đã trình -> Đã duyệt -> Đang triển khai -> Nghiệm thu -> Thanh toán -> Quyết toán.",Dự án chuyển trạng thái tuần tự chính xác theo từng bước của vòng đời nghiệp vụ.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Dự án,"- Tạo endpoint AdvanceStatus trong DuAnsController.
+ - Xử lý kiểm tra điều kiện chuyển bước quy trình dự án."
+29,Quản lý Dự án_Đóng dự án khi đã ở trạng thái Quyết toán,"1. Mở dự án ở trạng thái Quyết toán (7).
+  2. Nhấn nút [Đóng dự án] (API `/api/du-an/{id}/close`).",Trạng thái dự án chuyển thành 'Hoàn thành' (8) và đánh dấu trường `DaKetThuc = true`. Không cho phép chỉnh sửa thông tin dự án đã đóng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Dự án,"- Tạo logic CloseProject trong DuAnService.
+ - Xử lý kiểm tra trạng thái Quyết toán trước khi chuyển dự án sang Đã đóng."
+30,Quản lý Dự án_Không cho đóng dự án khi chưa đạt trạng thái Quyết toán,"1. Mở dự án đang ở trạng thái 'Đang triển khai' (4).
+  2. Thử gọi API Đóng dự án.",Hệ thống từ chối đóng dự án và hiển thị thông báo lỗi.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Dự án,"- Tạo logic CloseProject trong DuAnService.
+ - Xử lý kiểm tra trạng thái Quyết toán trước khi chuyển dự án sang Đã đóng."
+31,Quản lý Dự án_Điều chỉnh dự toán vốn (Tăng/Giảm hạn mức),"1. Mở Tab 'Điều chỉnh vốn' tại Chi tiết dự án.
+  2. Nhấn [Tạo mới đợt điều chỉnh] -> Nhập số tiền điều chỉnh (+1.000.000.000 VNĐ), Số quyết định điều chỉnh.
+  3. Nhấn [Lưu].",Hạn mức ngân sách khả dụng của dự án tự động tăng từ 5 tỷ lên 6 tỷ. Lưu bản ghi Lịch sử điều chỉnh vốn.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Dự án,"- Tạo DieuChinhDuAn entity và endpoint POST /adjust-budget.
+ - Xử lý cộng/trừ tổng hạn mức dự toán và lưu lịch sử điều chỉnh."
+32,Quản lý Dự án_Xem Audit Log (Nhật ký thay đổi),"1. Mở Tab 'Nhật ký thay đổi' (Audit Logs) của Dự án.
+  2. Thực hiện thêm gói thầu, sửa hợp đồng liên quan.","Audit Log hiển thị dạng Timeline đầy đủ thông tin: Người thực hiện, Thao tác (Create/Update/Delete), Bảng tác động (DuAns/GoiThaus/HopDongs), và thời gian.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Quản lý Dự án,"- Tạo AuditLogDbContextInterceptor / AuditLogService.
+ - Xử lý tự động ghi lại lịch sử thay đổi dữ liệu (Before/After values)."
+33,Nhóm & Phân loại Dự án_Thêm/Sửa/Xóa Nhóm Dự án,"1. Vào Quản lý Nhóm Dự án -> Thêm 'Nhóm A - CNTT'.
+  2. Sửa tên và Thử xóa nhóm chưa có dự án gắn kèm.",Thao tác thành công. Khi nhóm đã có dự án gắn kèm thì ngăn không cho xóa.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Cấu hình Danh mục,"- Tạo NhomDuAnsController và PhanLoaiDuAnsController.
+ - Xử lý lưu danh mục nhóm dự án và phân loại dự án."
+,Quản lý Gói thầu_Tạo gói thầu hợp lệ thuộc Dự án,"1. Vào Tab 'Gói thầu' trong màn hình Chi tiết Dự án X (Dự toán 6 tỷ).
+  2. Nhấn [Tạo mới Gói thầu].
+  3. Nhập Tên gói thầu = 'Gói thầu Mua sắm máy chủ', Giá gói thầu = 2.000.000.000 VNĐ, Hình thức LCNT = Đấu thầu rộng rãi.
+  4. Nhấn [Lưu].","Gói thầu được tạo thành công, gắn đúng `duAnId` của Dự án X.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Gói thầu,"- Tạo GoiThausController và GoiThauService.
+ - Xử lý lưu gói thầu thuộc Dự án và khởi tạo trạng thái quy trình."
+35,Quản lý Gói thầu_Kiểm tra Ràng buộc Vượt Dự toán Dự án,"1. Dự án Y có Dự toán khả dụng = 3 tỷ. Đã có Gói 1 = 2 tỷ.
+  2. Tạo mới Gói 2 có Giá gói thầu = 1.5 tỷ (Tổng 3.5 tỷ > 3 tỷ).
+  3. Nhấn [Lưu].",API trả về lỗi HTTP 400. Giao diện hiển thị thông báo: 'Tổng giá trị các gói thầu vượt quá ngân sách phê duyệt của dự án'. Không cho lưu.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Gói thầu,"- Tạo CheckBudgetLimit logic trong GoiThausController.
+ - Xử lý tính tổng giá trị các gói thầu và ném lỗi khi vượt dự toán dự án."
+36,Quản lý Gói thầu_Cấu hình Liên danh nhà thầu hợp lệ,"1. Mở Gói thầu Z -> Chọn mục 'Liên danh nhà thầu'.
+  2. Chọn Nhà thầu chính A (tỷ lệ 60%) và Nhà thầu phụ B (tỷ lệ 40%).
+  3. Nhấn [Lưu liên danh].","Hệ thống lưu thành công thông tin Liên danh, tổng tỷ lệ tham gia = 100%.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Gói thầu,"- Tạo LienDanhNhaThau entity và DTO.
+ - Xử lý kiểm tra tổng tỷ lệ tham gia của các nhà thầu liên danh đủ 100%."
+37,Quản lý Gói thầu_Kiểm tra Tổng tỷ lệ Liên danh nhà thầu != 100%,"1. Nhập tỷ lệ Nhà thầu A = 70%, Nhà thầu B = 40% (Tổng = 110%).
+  2. Nhấn [Lưu liên danh].",Hệ thống thông báo lỗi: 'Tổng tỷ lệ tham gia của các nhà thầu liên danh phải đúng bằng 100%'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Gói thầu,"- Tạo LienDanhNhaThau entity và DTO.
+ - Xử lý kiểm tra tổng tỷ lệ tham gia của các nhà thầu liên danh đủ 100%."
+38,Quản lý Gói thầu_Chuyển trạng thái quy trình đấu thầu,"1. Chọn Gói thầu đang ở bước 'Lập HSYC/HSMT'.
+  2. Chuyển trạng thái lần lượt: Phê duyệt HSYC -> Phát hành HSYC -> Mở thầu -> Đánh giá HSDT -> Phê duyệt KQLCNT.",Trạng thái gói thầu cập nhật chính xác. Hiển thị đúng nhãn trạng thái và ngày hoàn thành tương ứng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Gói thầu,"- Tạo UpdateProgressState trong GoiThauService.
+ - Xử lý cập nhật tiến độ và trạng thái hồ sơ mời thầu/chấm thầu."
+39,Quản lý Gói thầu_Xóa gói thầu đã có hợp đồng liên kết,"1. Chọn Gói thầu đã được ký Hợp đồng.
+  2. Bấm nút [Xóa gói thầu].",Hệ thống chặn không cho xóa và hiển thị thông báo: 'Không thể xóa gói thầu đã có hợp đồng liên kết'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Gói thầu,"- Tạo DeleteGoiThauGuard trong GoiThauService.
+ - Xử lý kiểm tra khóa ngoại HopDong và chặn xóa khi gói thầu đã có hợp đồng."
+40,Quản lý Công việc_Tạo mới công việc cho Gói thầu,"1. Mở Gói thầu -> Thẻ 'Công việc' -> Chọn [Thêm công việc].
+  2. Nhập Tiêu đề = 'Soạn thảo HSMT', Người thực hiện = Nguyễn Văn A, Người liên quan = Tran Van B, Ngày bắt đầu, Hạn hoàn thành.
+  3. Nhấn [Lưu].",Công việc tạo thành công ở trạng thái 'Chưa bắt đầu'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Công việc & Tiến độ Gói thầu,"- Tạo CongViecGoiThausController và CongViecGoiThauService.
+ - Xử lý lưu công việc gắn liền với gói thầu và phân công người thực hiện."
+41,Quản lý Công việc_Thông báo SignalR & Notification record khi được phân công,"1. User Admin tạo/cập nhật công việc và gán Người thực hiện = User A, Người liên quan = User B.
+  2. Kiểm tra màn hình của User A và User B.",Hệ thống tự động tạo bản ghi Notification trong CSDL và phát sự kiện SignalR `ReceiveNotification` để popup thông báo thời gian thực trên màn hình User A và User B.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Công việc & Tiến độ Gói thầu,"- Tạo NotificationHub (SignalR) và NotificationService.
+ - Xử lý gửi thông báo thời gian thực và ghi bản ghi Notification vào CSDL."
+42,Quản lý Công việc_Cập nhật trạng thái và Xác nhận hoàn thành,"1. Người thực hiện mở công việc -> Đổi trạng thái từ 'Đang thực hiện' -> 'Hoàn thành'.
+  2. Bấm nút [Xác nhận hoàn thành].","Trạng thái công việc chuyển sang 'Hoàn thành', ghi nhận thời gian hoàn thành thực tế.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Công việc & Tiến độ Gói thầu,"- Tạo API UpdateTaskStatus trong CongViecGoiThausController.
+ - Xử lý ghi nhận tiến độ và xác nhận hoàn thành công việc."
+43,Quản lý Công việc_Lọc danh sách công việc theo Trạng thái & Mức ưu tiên,"1. Mở danh sách Công việc gói thầu.
+  2. Chọn lọc: Mức ưu tiên = 'Cao', Trạng thái = 'Quá hạn'.",Hiển thị đúng danh sách công việc ưu tiên cao đang bị trễ hạn.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Công việc & Tiến độ Gói thầu,"- Tạo API GetFilteredTasks trong CongViecGoiThausController.
+ - Xử lý query LINQ lọc công việc theo Status, Priority, Assignee."
+44,Quản lý Công việc_Thêm Bình luận & Mention người dùng (@user),"1. Mở Chi tiết công việc -> Ô Bình luận.
+  2. Nhập nội dung '@LeDucAnh xin vui lòng kiểm tra lại điều khoản HSMT'.
+  3. Nhấn [Gửi].",Bình luận hiển thị trong danh sách. User được mention (Lê Đức Anh) nhận được thông báo nhắc đến.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Công việc & Tiến độ Gói thầu,"- Tạo CommentCongViecGoiThausController.
+ - Xử lý lưu bình luận, parse tag @user để tạo thông báo nhắc tên."
+45,Quản lý Công việc_Chỉnh sửa và Xóa bình luận,"1. Chọn bình luận của chính mình -> Bấm nút [Sửa] -> Cập nhật nội dung.
+  2. Thử xóa bình luận.",Nội dung bình luận được cập nhật thành công (có nhãn 'Đã chỉnh sửa'). Xóa bình luận biến mất khỏi danh sách.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Công việc & Tiến độ Gói thầu,"- Tạo CommentCongViecGoiThausController.
+ - Xử lý lưu bình luận, parse tag @user để tạo thông báo nhắc tên."
+46,Quản lý Hợp đồng_Tạo mới hợp đồng hợp lệ (Quan hệ 1-1 với Gói thầu),"1. Vào Tab 'Hợp đồng' trong Dự án X.
+  2. Bấm [Thêm Hợp đồng].
+  3. Chọn Gói thầu A (chưa có hợp đồng nào).
+  4. Nhập Số hợp đồng (HD2026/01), Tên hợp đồng, Giá trị hợp đồng (1.800.000.000 VNĐ), Nhà thầu trúng thầu.
+  5. Nhấn [Lưu].","Hợp đồng được tạo thành công, liên kết 1-1 với Gói thầu A và Dự án X.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo HopDongsController và HopDongService.
+ - Xử lý lưu thông tin hợp đồng và thiết lập liên kết với gói thầu."
+47,Quản lý Hợp đồng_Chặn tạo 2 Hợp đồng cho cùng 1 Gói thầu,"1. Bấm [Thêm Hợp đồng].
+  2. Chọn Gói thầu A (đã được liên kết với Hợp đồng HD2026/01 ở testcase trước).
+  3. Nhấn [Lưu].",Hệ thống báo lỗi HTTP 400: 'Gói thầu này đã được ký kết với một hợp đồng khác'. Không cho tạo trùng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo CheckExistingContract guard trong HopDongService.
+ - Xử lý kiểm tra quan hệ 1-1 với gói thầu và chặn tạo hợp đồng trùng."
+48,Quản lý Hợp đồng_Tạo Phụ lục hợp đồng (Điều chỉnh giá/thời gian),"1. Mở Hợp đồng HD2026/01 -> Chọn Tab 'Phụ lục hợp đồng'.
+  2. Nhấn [Thêm Phụ lục].
+  3. Nhập Tên phụ lục = 'Phụ lục 01 - Bổ sung thiết bị', Số tiền tăng = +200.000.000 VNĐ, Gia hạn ngày hết hạn.
+  4. Nhấn [Lưu].",Tổng giá trị hợp đồng tự động cập nhật lên 2.000.000.000 VNĐ. Lưu chi tiết lịch sử phụ lục.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo PhuLucHopDong entity và controller.
+ - Xử lý cộng dồn giá trị điều chỉnh và cập nhật thời gian hiệu lực hợp đồng."
+49,Quản lý Hợp đồng_Quản lý Đợt thanh toán & Xác nhận Thanh toán,"1. Mở Hợp đồng -> Tab 'Tiến độ thanh toán'.
+  2. Tạo Đợt 1: Tạm ứng 30% (600.000.000 VNĐ).
+  3. Nhấn nút [Xác nhận thanh toán] (API `/pay`).","Trạng thái Đợt 1 chuyển sang 'Đã thanh toán'. Giá trị lũy kế thanh toán cập nhật 600 triệu, số tiền còn lại phải trả cập nhật chính xác.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Hợp đồng,"- Tạo DotThanhToan entity và endpoint PayDotThanhToan.
+ - Xử lý ghi nhận giải ngân, tính lũy kế thanh toán và số dư còn lại."
+50,Quản lý Hợp đồng_Kiểm tra Thanh toán vượt giá trị Hợp đồng,"1. Hợp đồng có giá trị 2 tỷ, đã thanh toán 1.8 tỷ.
+  2. Tạo đợt thanh toán mới 500 triệu (Tổng 2.3 tỷ > 2 tỷ).
+  3. Nhấn xác nhận thanh toán.",Hệ thống báo lỗi: 'Tổng số tiền thanh toán không được vượt quá giá trị hợp đồng'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo PaymentLimitValidator trong HopDongService.
+ - Xử lý so sánh tổng lũy kế thanh toán với giá trị hợp đồng trước khi lưu."
+51,Quản lý Hợp đồng_Phê duyệt Hợp đồng (Approve Workflow),"1. User có quyền Approve mở Hợp đồng ở trạng thái 'Bản nháp'.
+  2. Nhấn nút [Phê duyệt Hợp đồng].",Trạng thái hợp đồng chuyển thành 'Đã phê duyệt' (Approved). Hợp đồng chính thức có hiệu lực.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo ApproveHopDong command và FeatureAuthorize check.
+ - Xử lý kiểm tra quyền phê duyệt và chuyển trạng thái hợp đồng sang Approved."
+52,Quản lý Hợp đồng_Người dùng không có quyền Approve phê duyệt Hợp đồng,"1. User không có quyền Approve (chỉ có quyền Create;Update) mở Hợp đồng.
+  2. Quan sát nút Phê duyệt trên giao diện.",Nút [Phê duyệt] bị ẩn hoặc mờ (disabled). Nếu gửi API thủ công sẽ nhận lỗi 403 Forbidden.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Hợp đồng,"- Tạo ApproveHopDong command và FeatureAuthorize check.
+ - Xử lý kiểm tra quyền phê duyệt và chuyển trạng thái hợp đồng sang Approved."
+53,Quản lý Hợp đồng_Quản lý Bảo lãnh hợp đồng & Cảnh báo hết hạn,"1. Nhập thông tin Thư bảo lãnh thực hiện hợp đồng: Số thư bảo lãnh, Ngân hàng phát hành, Ngày hết hạn = 30 ngày tới.
+  2. Truy cập API/Màn hình Cảnh báo bảo lãnh.","Thư bảo lãnh hiển thị trong danh sách theo dõi. Khi sắp hết hạn, hệ thống đưa vào danh sách Cảnh báo bảo lãnh.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo BaoLanhHopDong entity và service.
+ - Xử lý lưu thông tin thư bảo lãnh và lọc bảo lãnh hết hạn."
+54,Quản lý Hợp đồng_Nhập dữ liệu Hợp đồng kỳ trước chuyển sang,"1. Vào chức năng Nhập hợp đồng kỳ trước chuyển sang.
+  2. Nhập thông tin hợp đồng đã ký từ năm trước: Số hợp đồng, Giá trị ban đầu, Giá trị đã giải ngân kỳ trước, Số dư chuyển sang kỳ này.","Hệ thống lưu trữ chính xác số dư chuyển sang, phục vụ lập Báo cáo đầu tư và Báo cáo thanh toán kỳ này.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Hợp đồng,"- Tạo Migration/Import Contract service.
+ - Xử lý lưu giá trị ban đầu, lũy kế giải ngân và số dư chuyển kỳ."
+55,Quản lý Đối tác_Tạo mới thông tin Nhà thầu/Đối tác,"1. Vào mục Quản lý Đối tác -> Chọn [Thêm mới].
+  2. Nhập Mã số thuế (0101234567), Tên công ty = 'Công ty TNHH Giải pháp CNTT Coop', Địa chỉ, Số điện thoại, Email.
+  3. Nhấn [Lưu].","Đối tác được tạo mới thành công, hiển thị trong danh sách lựa chọn khi lập Gói thầu/Hợp đồng.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Đối tác,"- Tạo DoiTacsController và DoiTacService.
+ - Xử lý validate mã số thuế duy nhất và tổng hợp lịch sử hợp đồng của đối tác."
+56,Quản lý Đối tác_Check trùng Mã số thuế Đối tác,"1. Chọn [Thêm mới Đối tác].
+  2. Nhập Mã số thuế đã tồn tại trong hệ thống (0101234567).
+  3. Nhấn [Lưu].",Hệ thống hiển thị cảnh báo: 'Mã số thuế này đã tồn tại trên hệ thống'.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Đối tác,"- Tạo DoiTacsController và DoiTacService.
+ - Xử lý validate mã số thuế duy nhất và tổng hợp lịch sử hợp đồng của đối tác."
+57,Quản lý Đối tác_Xem lịch sử trúng thầu & thực hiện hợp đồng của Đối tác,"1. Mở màn hình Chi tiết Đối tác A.
+  2. Chuyển sang tab 'Lịch sử Hợp đồng'.",Hiển thị toàn bộ danh sách các gói thầu và hợp đồng mà Đối tác A đã/đang thực hiện trong ngân hàng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Đối tác,"- Tạo DoiTacsController và DoiTacService.
+ - Xử lý validate mã số thuế duy nhất và tổng hợp lịch sử hợp đồng của đối tác."
+58,Quản lý Nghị quyết_Tạo mới Nghị quyết và Tải lên file đính kèm,"1. Vào mục Nghị quyết / Quyết định -> Chọn [Tạo mới].
+  2. Nhập Số quyết định (123/QĐ-CoopBank), Trích yếu nội dung, Ngày ban hành.
+  3. Tải lên file đính kèm dạng PDF/DOCX.
+  4. Chọn liên kết với Dự án X.
+  5. Nhấn [Lưu].","Nghị quyết tạo thành công, file được lưu trữ và có thể bấm tải về / xem trước trực tiếp trên web.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Quản lý Nghị quyết & Quyết định,"- Tạo ResolutionsController và FileStorageService.
+ - Xử lý upload/lưu file đính kèm nghị quyết và validate định dạng file an toàn."
+59,Quản lý Nghị quyết_Tải file đính kèm sai định dạng không cho phép,"1. Chọn tải lên file đuôi `.exe` hoặc `.bat`.
+  2. Bấm [Lưu].",Hệ thống từ chối tải file và báo lỗi định dạng file không an toàn.,KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Quản lý Nghị quyết & Quyết định,"- Tạo ResolutionsController và FileStorageService.
+ - Xử lý upload/lưu file đính kèm nghị quyết và validate định dạng file an toàn."
+60,Quản lý Giấy phép_Tạo mới License bản quyền thuộc Dự án,"1. Vào mục Quản lý Bản quyền -> Chọn [Thêm License].
+  2. Nhập Tên bản quyền (Oracle Database Enterprise Edition), Số lượng = 10, Ngày mua, Ngày hết hạn = 31/12/2026, Gắn với Dự án X.
+  3. Nhấn [Lưu].",Bản ghi License được khởi tạo thành công.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Bản quyền Phần mềm,"- Tạo LicensesController và ExpiringLicenseService.
+ - Xử lý lưu license bản quyền và query danh sách license sắp hết hạn theo số ngày."
+61,Quản lý Giấy phép_Cảnh báo Giấy phép sắp hết hạn (Expiring Threshold),"1. Truy cập trang Cảnh báo bản quyền (API `/api/licenses/expiring?daysThreshold=30`).
+  2. Kiểm tra danh sách bản quyền có Ngày hết hạn nằm trong vòng 30 ngày tới.",Hệ thống lọc và hiển thị chính xác các License sắp hết hạn để bộ phận CNTT kịp thời gia hạn.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Quản lý Bản quyền Phần mềm,"- Tạo LicensesController và ExpiringLicenseService.
+ - Xử lý lưu license bản quyền và query danh sách license sắp hết hạn theo số ngày."
+62,Hệ thống Cảnh báo_Cảnh báo Hợp đồng sắp hết hạn,1. Truy cập menu Cảnh báo -> Chọn 'Hợp đồng sắp hết hạn' (API `/api/warnings/contracts-expiring-soon`).,Hiển thị danh sách tất cả hợp đồng có Ngày hết hạn nằm trong khoảng thời gian cảnh báo cấu hình.,KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Hệ thống Cảnh báo & Thông báo,"- Tạo WarningsController và BackgroundJob/Hangfire service.
+ - Xử lý quét dữ liệu định kỳ và tạo danh sách cảnh báo hợp đồng/dự toán."
+63,Hệ thống Cảnh báo_Cảnh báo Hợp đồng vượt dự toán,1. Truy cập menu Cảnh báo -> Chọn 'Hợp đồng vượt dự toán' (API `/api/warnings/over-budget-contracts`).,Hiển thị các hợp đồng có tổng giá trị (bao gồm phụ lục) vượt quá giá trị gói thầu hoặc dự toán phê duyệt.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Hệ thống Cảnh báo & Thông báo,"- Tạo WarningsController và BackgroundJob/Hangfire service.
+ - Xử lý quét dữ liệu định kỳ và tạo danh sách cảnh báo hợp đồng/dự toán."
+64,Thông báo_Đánh dấu đã đọc Thông báo (Read / Read All),"1. Click Icon Chuông thông báo trên Header.
+  2. Bấm chọn 1 thông báo chưa đọc -> Kiểm tra trạng thái đổi thành Đã đọc.
+  3. Bấm nút [Đánh dấu tất cả đã đọc] (API `/read-all`).","Toàn bộ thông báo được cập nhật trạng thái đã đọc, Badge số lượng thông báo chưa đọc về 0.",KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Anh,Hệ thống Cảnh báo & Thông báo,"- Tạo NotificationController và SignalR NotificationHub.
+ - Xử lý cập nhật trạng thái IsRead và duy trì kết nối realtime WebSocket."
+65,Thông báo_Mất kết nối và Tự động Reconnect SignalR,"1. Đang mở ứng dụng web, thực hiện ngắt kết nối mạng 5 giây rồi bật lại.","Frontend hiển thị trạng thái 'Đang kết nối lại...', tự động reconnect SignalR Hub và không làm gián đoạn phiên làm việc.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Hệ thống Cảnh báo & Thông báo,"- Tạo NotificationController và SignalR NotificationHub.
+ - Xử lý cập nhật trạng thái IsRead và duy trì kết nối realtime WebSocket."
+66,Báo cáo Thống kê_Báo cáo Đầu tư theo Năm/Kỳ,"1. Vào mục Báo cáo -> Chọn 'Báo cáo Đầu tư'.
+  2. Chọn Năm báo cáo = 2026, Kỳ = 1.
+  3. Nhấn [Xem báo cáo].","Hệ thống tính toán và hiển thị bảng dữ liệu tổng hợp: Dự toán phê duyệt, Giá trị gói thầu, Giá trị hợp đồng, Số tiền đã giải ngân và Tỷ lệ giải ngân.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Báo cáo Thống kê,"- Tạo ReportsController và ExcelExportService.
+ - Xử lý query dữ liệu tổng hợp đầu tư/tiến độ/thanh toán và xuất file Excel (.xlsx)."
+67,Báo cáo Thống kê_Xuất Báo cáo Đầu tư ra file Excel (.xlsx),1. Tại trang Báo cáo Đầu tư -> Nhấn nút [Xuất Excel] (API `/api/report/investment/export?format=xlsx`).,Hệ thống xuất và tải xuống file Excel chứa đầy đủ dữ liệu báo cáo được định dạng bảng đẹp mắt.,KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Báo cáo Thống kê,"- Tạo ReportsController và ExcelExportService.
+ - Xử lý query dữ liệu tổng hợp đầu tư/tiến độ/thanh toán và xuất file Excel (.xlsx)."
+68,Báo cáo Thống kê_Xuất Báo cáo Tiến độ Công việc Gói thầu,"1. Chọn Báo cáo Công việc Gói thầu X.
+  2. Nhấn nút [Xuất báo cáo].","Tải về file báo cáo thể hiện danh sách công việc, người phụ trách, tiến độ % và các công việc trễ hạn.",KT4_TTCNTT,Test Case,Nomal,,,Open,Hoàng Long,Báo cáo Thống kê,"- Tạo ReportsController và ExcelExportService.
+ - Xử lý query dữ liệu tổng hợp đầu tư/tiến độ/thanh toán và xuất file Excel (.xlsx)."
+69,Báo cáo Thống kê_Báo cáo Thanh toán Hợp đồng & Xuất file,1. Vào Báo cáo Thanh toán Hợp đồng -> Chọn khoảng thời gian -> Nhấn Xuất Excel.,Tải về file Excel chứa bảng tổng hợp chi tiết các đợt thanh toán của tất cả hợp đồng.,KT4_TTCNTT,Test Case,Nomal,,,Open,Đức Quang,Báo cáo Thống kê,"- Tạo ReportsController và ExcelExportService.
+ - Xử lý query dữ liệu tổng hợp đầu tư/tiến độ/thanh toán và xuất file Excel (.xlsx)."

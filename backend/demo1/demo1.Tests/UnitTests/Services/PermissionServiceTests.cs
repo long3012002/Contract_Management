@@ -379,6 +379,51 @@ namespace demo1.Tests.UnitTests.Services
             goiThauList.First().DuAnId.Should().Be(project.Id);
         }
 
+        [Fact]
+        public async Task GrantSourceProjectPermission_ShouldNotSynthesizeChildFeatures()
+        {
+            // Arrange
+            var admin = new User { Id = Guid.NewGuid(), Username = "admin_user_src", IsActive = true };
+            var targetUser = new User { Id = Guid.NewGuid(), Username = "target_user_src", IsActive = true };
+            _dbContext.Users.AddRange(admin, targetUser);
+
+            // Source Project: LoaiDuAn = 1
+            var sourceProject = new DuAn { Id = Guid.NewGuid(), Code = "DA-SRC-01", Name = "Dự án Nguồn 1", LoaiDuAn = 1 };
+            _dbContext.DuAns.Add(sourceProject);
+
+            var viewPerm = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Code == "VIEW")
+                           ?? new Permission { Id = Guid.NewGuid(), Code = "VIEW", Name = "View" };
+            if (viewPerm.Id != Guid.Empty && !_dbContext.Permissions.Any(p => p.Id == viewPerm.Id))
+            {
+                _dbContext.Permissions.Add(viewPerm);
+            }
+            await _dbContext.SaveChangesAsync();
+
+            var grantDto = new CreateUserPermissionDto
+            {
+                UserId = targetUser.Id,
+                PermissionId = viewPerm.Id,
+                FeatureCode = "DU_AN",
+                EntityName = "DuAn",
+                EntityId = sourceProject.Id.ToString(),
+                DuAnId = sourceProject.Id
+            };
+
+            // Act 1: Grant permission for Source Project (LoaiDuAn = 1)
+            await _permissionService.GrantUserPermissionAsync(admin.Id, grantDto);
+
+            // Act 2: Query user permissions with includeChildren = true
+            _mockCurrentUserService.Setup(c => c.GetUsername()).Returns("target_user_src");
+            var result = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "DU_AN", true);
+            var list = result.ToList();
+
+            // Assert: Only DU_AN permission returned, no synthesized GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC for Source Project
+            list.Count(p => p.FeatureCode == "DU_AN").Should().Be(1);
+            list.Count(p => p.FeatureCode == "GOI_THAU").Should().Be(0);
+            list.Count(p => p.FeatureCode == "QUAN_LY_HOP_DONG").Should().Be(0);
+            list.Count(p => p.FeatureCode == "CONG_VIEC").Should().Be(0);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

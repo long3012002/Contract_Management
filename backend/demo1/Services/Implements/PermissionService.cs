@@ -630,7 +630,12 @@ namespace demo1.Services.Implements
             var items = await query.OrderByDescending(up => up.GrantedAt).ToListAsync();
             var resultList = items.Select(up => MapToUserPermissionDto(up, up.User, up.Permission, up.GrantedByUser?.Username)).ToList();
 
-            // Synthesize child permissions (GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC) for any explicit DU_AN project permission
+            // Fetch project types map to distinguish Source Projects (LoaiDuAn = 1) from Deployment Projects (LoaiDuAn = 2)
+            var projectTypesMap = await _context.DuAns.AsNoTracking()
+                .Select(da => new { da.Id, da.LoaiDuAn })
+                .ToDictionaryAsync(da => da.Id, da => da.LoaiDuAn);
+
+            // Synthesize child permissions (GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC) ONLY for Deployment Projects (LoaiDuAn = 2)
             var explicitProjectPerms = resultList.Where(p => NormalizeFeatureCode(p.FeatureCode) == "DU_AN").ToList();
             if (explicitProjectPerms.Any())
             {
@@ -673,6 +678,12 @@ namespace demo1.Services.Implements
 
                     if (projId.HasValue)
                     {
+                        // Source Project (LoaiDuAn = 1) does not have packages/contracts/tasks; do not synthesize child features
+                        if (projectTypesMap.TryGetValue(projId.Value, out var projLoai) && projLoai == 1)
+                        {
+                            continue;
+                        }
+
                         foreach (var child in childFeaturesToSynth)
                         {
                             bool exists = resultList.Any(r => r.UserId == parentPerm.UserId && r.FeatureCode == child.FeatureCode && (r.DuAnId == projId || r.EntityId == projId.Value.ToString()) && r.PermissionCode == parentPerm.PermissionCode);
@@ -739,8 +750,16 @@ namespace demo1.Services.Implements
                         var permissionsCatalog = await _context.Permissions.AsNoTracking().ToListAsync();
                         foreach (var projId in ownedDuAnIds)
                         {
+                            var isSourceProj = projectTypesMap.TryGetValue(projId, out var pLoai) && pLoai == 1;
+
                             foreach (var feat in featuresToGrant)
                             {
+                                // For Source Projects (LoaiDuAn = 1), only grant DU_AN feature
+                                if (isSourceProj && feat != "DU_AN")
+                                {
+                                    continue;
+                                }
+
                                 if (!string.IsNullOrWhiteSpace(rawFeatureCode) && !IsFeatureMatch(feat, normalizedFeatureCode, rawFeatureCode, includeChildren))
                                 {
                                     continue;
@@ -782,8 +801,15 @@ namespace demo1.Services.Implements
                         {
                             foreach (var projId in uniqueRelatedDuAnIds)
                             {
+                                var isSourceProj = projectTypesMap.TryGetValue(projId, out var pLoai) && pLoai == 1;
+
                                 foreach (var feat in featuresToGrant)
                                 {
+                                    if (isSourceProj && feat != "DU_AN")
+                                    {
+                                        continue;
+                                    }
+
                                     if (!string.IsNullOrWhiteSpace(rawFeatureCode) && !IsFeatureMatch(feat, normalizedFeatureCode, rawFeatureCode, includeChildren))
                                     {
                                         continue;
