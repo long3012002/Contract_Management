@@ -49,9 +49,21 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
             if (currentUser != null && !currentUser.IsSystemAdmin)
             {
-                query = query.Where(gt => (gt.DuAn != null && gt.DuAn.CreatedByUserId == currentUser.Id) 
+                int? callerLevel = null;
+                if (currentUser.IdChucVu.HasValue)
+                {
+                    var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                    callerLevel = callerCv?.Level;
+                }
+
+                query = query.Where(gt => (gt.DuAn != null && (gt.DuAn.CreatedByUserId == currentUser.Id || gt.DuAn.ChuDuAnId == currentUser.Id)) 
                     || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId)
-                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThauId == gt.Id));
+                    || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThauId == gt.Id)
+                    || (callerLevel.HasValue && gt.DuAn != null && (
+                        (gt.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
+                        (gt.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                    ))
+                );
             }
 
             if (!string.IsNullOrWhiteSpace(filter.Search))

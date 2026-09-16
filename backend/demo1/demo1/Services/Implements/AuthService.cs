@@ -71,6 +71,9 @@ namespace demo1.Services.Implements
                     string.Equals(request.Username, "quangmd", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "anhlt", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "dungpt", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "cuongph", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "chipt", StringComparison.OrdinalIgnoreCase) ||
                     (request.Username?.StartsWith("testuser", StringComparison.OrdinalIgnoreCase) ?? false)
                 );
 

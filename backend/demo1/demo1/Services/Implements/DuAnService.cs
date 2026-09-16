@@ -60,9 +60,21 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
+            int? callerLevel = null;
+            if (currentUser.IdChucVu.HasValue)
+            {
+                var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                callerLevel = callerCv?.Level;
+            }
+
             query = query.Where(da => da.CreatedByUserId == currentUser.Id 
                 || da.ChuDuAnId == currentUser.Id
-                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id));
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
+                || (callerLevel.HasValue && (
+                    (da.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == da.CreatedByUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
+                    (da.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == da.ChuDuAnId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                ))
+            );
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))

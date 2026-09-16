@@ -71,7 +71,31 @@ public class CongViecGoiThauService
             {
                 var isCreator = entity.CreateUserId == currentUser.Id;
                 var isTagged = entity.NguoiLienQuans.Any(n => n.UserId == currentUser.Id);
-                if (!isCreator && !isTagged)
+                var isLowerOrEqualLevel = false;
+
+                if (currentUser.IdChucVu.HasValue)
+                {
+                    var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                    if (callerCv != null)
+                    {
+                        var callerLevel = callerCv.Level;
+                        var targetUserIds = entity.NguoiLienQuans.Select(n => n.UserId).ToList();
+                        if (entity.CreateUserId.HasValue) targetUserIds.Add(entity.CreateUserId.Value);
+
+                        if (targetUserIds.Any())
+                        {
+                            isLowerOrEqualLevel = await DbContext.Users.AsNoTracking()
+                                .Where(u => targetUserIds.Contains(u.Id) && !u.IsSystemAdmin)
+                                .GroupJoin(DbContext.ChucVus.AsNoTracking(),
+                                    u => u.IdChucVu,
+                                    cv => cv.Id,
+                                    (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
+                                .AnyAsync(x => (x.ChucVu == null ? 999 : x.ChucVu.Level) >= callerLevel);
+                        }
+                    }
+                }
+
+                if (!isCreator && !isTagged && !isLowerOrEqualLevel)
                 {
                     return null;
                 }
@@ -128,7 +152,20 @@ public class CongViecGoiThauService
 
             if (!isProjectOwner && !hasExplicitPermission)
             {
-                query = query.Where(e => e.CreateUserId == currentUser.Id || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id));
+                int? callerLevel = null;
+                if (currentUser.IdChucVu.HasValue)
+                {
+                    var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                    callerLevel = callerCv?.Level;
+                }
+
+                query = query.Where(e => e.CreateUserId == currentUser.Id 
+                    || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id)
+                    || (callerLevel.HasValue && (
+                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
+                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                    ))
+                );
             }
         }
 
@@ -166,7 +203,20 @@ public class CongViecGoiThauService
 
             if (!isProjectOwner && !hasExplicitPermission)
             {
-                query = query.Where(e => e.CreateUserId == currentUser.Id || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id));
+                int? callerLevel = null;
+                if (currentUser.IdChucVu.HasValue)
+                {
+                    var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                    callerLevel = callerCv?.Level;
+                }
+
+                query = query.Where(e => e.CreateUserId == currentUser.Id 
+                    || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id)
+                    || (callerLevel.HasValue && (
+                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
+                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                    ))
+                );
             }
         }
 

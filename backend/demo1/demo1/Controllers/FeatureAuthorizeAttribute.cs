@@ -8,6 +8,7 @@ using demo1.Data;
 using Microsoft.AspNetCore.Http;
 
 using demo1.Services.Implements;
+using demo1.Entity;
 
 namespace demo1.Controllers
 {
@@ -163,6 +164,11 @@ namespace demo1.Controllers
 
                 if (!hasViewPermission)
                 {
+                    if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
+                    {
+                        return;
+                    }
+
                     context.Result = new JsonResult(new
                     {
                         Message = "Bạn không có quyền xem bản ghi này. Vui lòng liên hệ chủ dự án hoặc quản trị viên.",
@@ -435,6 +441,82 @@ namespace demo1.Controllers
             }
 
             return false;
+        }
+
+        private async Task<bool> IsCreatedByLowerOrEqualPositionUserAsync(User currentUser, string entityIdStr)
+        {
+            if (!currentUser.IdChucVu.HasValue || !Guid.TryParse(entityIdStr, out var entityId))
+            {
+                return false;
+            }
+
+            var callerChucVu = await _dbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+            if (callerChucVu == null) return false;
+            var callerLevel = callerChucVu.Level;
+
+            Guid? creatorId = null;
+            Guid? ownerId = null;
+
+            if (_featureCode == "DU_AN")
+            {
+                var da = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                creatorId = da?.CreatedByUserId;
+                ownerId = da?.ChuDuAnId;
+            }
+            else if (_featureCode == "GOI_THAU")
+            {
+                var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                if (gt?.DuAnId != null)
+                {
+                    var da = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == gt.DuAnId.Value);
+                    creatorId = da?.CreatedByUserId;
+                    ownerId = da?.ChuDuAnId;
+                }
+            }
+            else if (_featureCode == "QUAN_LY_HOP_DONG")
+            {
+                var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                var targetDuAnId = hd?.DuAnId;
+                if (!targetDuAnId.HasValue && hd?.GoiThauId.HasValue == true)
+                {
+                    var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == hd.GoiThauId.Value);
+                    targetDuAnId = gt?.DuAnId;
+                }
+                if (targetDuAnId.HasValue)
+                {
+                    var da = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == targetDuAnId.Value);
+                    creatorId = da?.CreatedByUserId;
+                    ownerId = da?.ChuDuAnId;
+                }
+            }
+            else if (_featureCode == "CONG_VIEC")
+            {
+                var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                creatorId = cv?.CreateUserId;
+            }
+            else if (_featureCode == "LICENSE")
+            {
+                var lic = await _dbContext.Licenses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                if (lic != null)
+                {
+                    var da = await _dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(x => x.Id == lic.DuAnId);
+                    creatorId = da?.CreatedByUserId;
+                    ownerId = da?.ChuDuAnId;
+                }
+            }
+
+            var targetUserIds = new List<Guid>();
+            if (creatorId.HasValue) targetUserIds.Add(creatorId.Value);
+            if (ownerId.HasValue) targetUserIds.Add(ownerId.Value);
+            if (!targetUserIds.Any()) return false;
+
+            return await _dbContext.Users.AsNoTracking()
+                .Where(u => targetUserIds.Contains(u.Id) && !u.IsSystemAdmin)
+                .GroupJoin(_dbContext.ChucVus.AsNoTracking(),
+                    u => u.IdChucVu,
+                    cv => cv.Id,
+                    (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
+                .AnyAsync(x => (x.ChucVu == null ? 999 : x.ChucVu.Level) >= callerLevel);
         }
     }
 }
