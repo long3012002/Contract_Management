@@ -14,6 +14,9 @@ public class DuAnFilterDto
     public int? Nam { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
 
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+
     public string? Status { get; set; }
     public Guid? AllocatedProjectId { get; set; }
 }

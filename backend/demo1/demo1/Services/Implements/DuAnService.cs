@@ -129,6 +129,18 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             query = query.Where(item => item.PhanLoaiDuAnId == filter.PhanLoaiDuAnId.Value);
         }
 
+        if (filter.StartDate.HasValue)
+        {
+            var start = filter.StartDate.Value.Date;
+            query = query.Where(item => (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date >= start) || (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date >= start));
+        }
+
+        if (filter.EndDate.HasValue)
+        {
+            var end = filter.EndDate.Value.Date;
+            query = query.Where(item => (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end) || (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date <= end));
+        }
+
         var totalItems = await query.CountAsync();
 
         List<DuAn> items;
