@@ -132,13 +132,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (filter.StartDate.HasValue)
         {
             var start = filter.StartDate.Value.Date;
-            query = query.Where(item => (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date >= start) || (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date >= start));
+            query = query.Where(item => item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date >= start);
         }
 
         if (filter.EndDate.HasValue)
         {
             var end = filter.EndDate.Value.Date;
-            query = query.Where(item => (item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end) || (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Date <= end));
+            query = query.Where(item => 
+                (item.NgayKetThucThucTe.HasValue && item.NgayKetThucThucTe.Value.Date <= end) ||
+                (!item.NgayKetThucThucTe.HasValue && item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end));
         }
 
         var totalItems = await query.CountAsync();
