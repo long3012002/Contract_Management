@@ -48,6 +48,7 @@ namespace demo1.Data
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserRole> UserRoles { get; set; } = null!;
+        public DbSet<RolePermission> RolePermissions { get; set; } = null!;
         public DbSet<Feature> Features { get; set; } = null!;
         public DbSet<PhongBan> PhongBans { get; set; } = null!;
         public DbSet<ToNhom> ToNhoms { get; set; } = null!;
@@ -171,6 +172,21 @@ namespace demo1.Data
             ConfigureBaseEntity(modelBuilder.Entity<CongViecGoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<License>());
             ConfigureBaseEntity(modelBuilder.Entity<CongViecLichSuChuyenTiep>());
+            modelBuilder.Entity<RolePermission>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.RoleId, e.FeatureId }).IsUnique();
+
+                entity.HasOne(rp => rp.Role)
+                    .WithMany()
+                    .HasForeignKey(rp => rp.RoleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(rp => rp.Feature)
+                    .WithMany()
+                    .HasForeignKey(rp => rp.FeatureId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
             modelBuilder.Entity<CongViecNguoiLienQuan>(entity =>
             {
                 entity.HasKey(e => e.Id);

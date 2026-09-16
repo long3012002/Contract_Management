@@ -13,6 +13,7 @@ namespace demo1.Services.Interfaces
         Task<IEnumerable<Role>> GetRolesAsync();
         Task<Role> CreateRoleAsync(CreateRoleDto dto);
         Task<Role> UpdateRoleAsync(Guid roleId, UpdateRoleDto dto);
+        Task DeleteRoleAsync(Guid roleId);
         Task<IEnumerable<Feature>> GetFeaturesAsync();
         Task<Feature> CreateFeatureAsync(CreateFeatureDto dto);
         Task<Feature> UpdateFeatureAsync(Guid featureId, UpdateFeatureDto dto);
