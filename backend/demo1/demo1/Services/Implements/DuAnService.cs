@@ -107,6 +107,16 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             query = query.Where(item => item.TrangThai == filter.TrangThai.Value);
         }
 
+        if (filter.Nam.HasValue && filter.Nam.Value > 0)
+        {
+            query = query.Where(item => item.NamBatDau == filter.Nam.Value || (item.NgayBatDau.HasValue && item.NgayBatDau.Value.Year == filter.Nam.Value));
+        }
+
+        if (filter.PhanLoaiDuAnId.HasValue && filter.PhanLoaiDuAnId.Value != Guid.Empty)
+        {
+            query = query.Where(item => item.PhanLoaiDuAnId == filter.PhanLoaiDuAnId.Value);
+        }
+
         var totalItems = await query.CountAsync();
 
         List<DuAn> items;
