@@ -516,7 +516,7 @@ namespace demo1.Controllers
                     u => u.IdChucVu,
                     cv => cv.Id,
                     (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
-                .AnyAsync(x => (x.ChucVu == null ? 999 : x.ChucVu.Level) >= callerLevel);
+                .AnyAsync(x => x.ChucVu != null && x.ChucVu.Level > callerLevel);
         }
     }
 }

@@ -190,7 +190,7 @@ namespace demo1.Services.Implements
                         join u in _context.Users on r.UserId equals u.Id
                         join cv in _context.ChucVus on u.IdChucVu equals cv.Id into ucv
                         from cv in ucv.DefaultIfEmpty()
-                        where r.UserId == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                        where r.UserId == currentUser.Id || (u.IsSystemAdmin == false && cv != null && cv.Level > callerLevel)
                         select r;
             }
 
@@ -593,7 +593,7 @@ namespace demo1.Services.Implements
                         join u in _context.Users on up.UserId equals u.Id
                         join cv in _context.ChucVus on u.IdChucVu equals cv.Id into ucv
                         from cv in ucv.DefaultIfEmpty()
-                        where up.UserId == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                        where up.UserId == currentUser.Id || (u.IsSystemAdmin == false && cv != null && cv.Level > callerLevel)
                         select up;
             }
 

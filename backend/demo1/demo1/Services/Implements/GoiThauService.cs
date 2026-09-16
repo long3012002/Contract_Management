@@ -60,8 +60,8 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                     || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == gt.DuAnId)
                     || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThauId == gt.Id)
                     || (callerLevel.HasValue && gt.DuAn != null && (
-                        (gt.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
-                        (gt.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                        (gt.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                        (gt.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == gt.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
                     ))
                 );
             }

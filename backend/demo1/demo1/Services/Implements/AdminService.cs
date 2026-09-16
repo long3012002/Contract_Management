@@ -312,7 +312,7 @@ namespace demo1.Services.Implements
                     query = from u in query
                             join cv in _dbContext.ChucVus on u.IdChucVu equals cv.Id into ucv
                             from cv in ucv.DefaultIfEmpty()
-                            where u.Id == currentUser.Id || (u.IsSystemAdmin == false && (u.IdChucVu == null || cv.Level >= callerLevel))
+                            where u.Id == currentUser.Id || (u.IsSystemAdmin == false && cv != null && cv.Level > callerLevel)
                             select u;
                 }
 

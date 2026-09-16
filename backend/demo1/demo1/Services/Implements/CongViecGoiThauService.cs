@@ -90,7 +90,7 @@ public class CongViecGoiThauService
                                     u => u.IdChucVu,
                                     cv => cv.Id,
                                     (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
-                                .AnyAsync(x => (x.ChucVu == null ? 999 : x.ChucVu.Level) >= callerLevel);
+                                .AnyAsync(x => x.ChucVu != null && x.ChucVu.Level > callerLevel);
                         }
                     }
                 }
@@ -162,8 +162,8 @@ public class CongViecGoiThauService
                 query = query.Where(e => e.CreateUserId == currentUser.Id 
                     || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id)
                     || (callerLevel.HasValue && (
-                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
-                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
                     ))
                 );
             }
@@ -213,8 +213,8 @@ public class CongViecGoiThauService
                 query = query.Where(e => e.CreateUserId == currentUser.Id 
                     || e.NguoiLienQuans.Any(n => n.UserId == currentUser.Id)
                     || (callerLevel.HasValue && (
-                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
-                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                        (e.CreateUserId.HasValue && DbContext.Users.Any(u => u.Id == e.CreateUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                        e.NguoiLienQuans.Any(n => DbContext.Users.Any(u => u.Id == n.UserId && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
                     ))
                 );
             }

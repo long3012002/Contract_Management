@@ -70,8 +70,8 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value)
                 || (currentUser.CanViewHopDong && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01")
                 || (callerLevel.HasValue && h.DuAn != null && (
-                    (h.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value)))) ||
-                    (h.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && (u.IdChucVu == null || DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level >= callerLevel.Value))))
+                    (h.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                    (h.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
                 ))
             );
         }
@@ -212,9 +212,22 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 .ThenInclude(nt => nt.NhaThau);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
-            query = query.Where(h => (h.DuAn != null && h.DuAn.CreatedByUserId == currentUser.Id) 
+            int? callerLevel = null;
+            if (currentUser.IdChucVu.HasValue)
+            {
+                var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                callerLevel = callerCv?.Level;
+            }
+
+            query = query.Where(h => (h.DuAn != null && (h.DuAn.CreatedByUserId == currentUser.Id || h.DuAn.ChuDuAnId == currentUser.Id)) 
                 || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == h.DuAnId)
-                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value))));
+                || DbContext.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && ((h.GoiThauId.HasValue && nlq.CongViecGoiThau.GoiThauId == h.GoiThauId.Value) || (h.DuAnId.HasValue && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == h.DuAnId.Value)))
+                || (currentUser.CanViewHopDong && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01")
+                || (callerLevel.HasValue && h.DuAn != null && (
+                    (h.DuAn.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.CreatedByUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                    (h.DuAn.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == h.DuAn.ChuDuAnId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
+                ))
+            );
         }
         var items = await query.ToListAsync();
         var dtos = Mapper.Map<List<HopDongDto>>(items);

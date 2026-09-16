@@ -57,9 +57,21 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
         if (currentUser != null && !currentUser.IsSystemAdmin)
         {
+            int? callerLevel = null;
+            if (currentUser.IdChucVu.HasValue)
+            {
+                var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                callerLevel = callerCv?.Level;
+            }
+
             query = query.Where(da => da.CreatedByUserId == currentUser.Id 
                 || da.ChuDuAnId == currentUser.Id
-                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id));
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
+                || (callerLevel.HasValue && (
+                    (da.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == da.CreatedByUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                    (da.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == da.ChuDuAnId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
+                ))
+            );
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -156,14 +168,36 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public override async Task<IReadOnlyList<DuAnDto>> GetAllItemsAsync()
     {
-        var items = await DbSet
+        IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.ChuDuAn)
-            .ToListAsync();
+            .Include(da => da.ChuDuAn);
+
+        var currentUsername = _currentUserService.GetUsername();
+        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+        if (currentUser != null && !currentUser.IsSystemAdmin)
+        {
+            int? callerLevel = null;
+            if (currentUser.IdChucVu.HasValue)
+            {
+                var callerCv = await DbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
+                callerLevel = callerCv?.Level;
+            }
+
+            query = query.Where(da => da.CreatedByUserId == currentUser.Id 
+                || da.ChuDuAnId == currentUser.Id
+                || DbContext.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
+                || (callerLevel.HasValue && (
+                    (da.CreatedByUserId.HasValue && DbContext.Users.Any(u => u.Id == da.CreatedByUserId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value))) ||
+                    (da.ChuDuAnId.HasValue && DbContext.Users.Any(u => u.Id == da.ChuDuAnId.Value && !u.IsSystemAdmin && DbContext.ChucVus.Any(cv => cv.Id == u.IdChucVu && cv.Level > callerLevel.Value)))
+                ))
+            );
+        }
+
+        var items = await query.ToListAsync();
         var dtos = Mapper.Map<List<DuAnDto>>(items);
         await PopulateSourceProjectsAsync(dtos);
         return dtos;
