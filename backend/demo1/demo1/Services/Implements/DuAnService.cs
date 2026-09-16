@@ -103,14 +103,23 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     }
                 }
 
-                if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                if (filter.Status.Equals("Draft", StringComparison.OrdinalIgnoreCase))
                 {
-                    query = query.Where(da => da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id));
+                    query = query.Where(da => da.TrangThai == (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
+                }
+                else if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => (da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id)) && da.TrangThai != (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
                 }
                 else if (filter.Status.Equals("Allocated", StringComparison.OrdinalIgnoreCase))
                 {
-                    query = query.Where(da => da.DaTrienKhai == true);
+                    query = query.Where(da => da.DaTrienKhai == true && da.DaKetThuc != true);
                 }
+                else if (filter.Status.Equals("Closed", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(da => da.DaKetThuc == true);
+                }
+
             }
         }
 

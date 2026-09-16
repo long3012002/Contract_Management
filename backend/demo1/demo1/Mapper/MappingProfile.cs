@@ -59,7 +59,7 @@ namespace demo1.Mapper
                     src.DaKetThuc || src.TrangThai == 2 ? "Đã hoàn thành" :
                     src.DaTrienKhai == true || src.TrangThai == 1 ? "Đang triển khai" : "Chuẩn bị đầu tư"))
                 .ForMember(dest => dest.ThoiGianConLaiNgay, opt => opt.MapFrom(src => 
-                    src.NgayKetThuc.HasValue ? (int?)(src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days : null))
+                    src.NgayKetThuc.HasValue ? (int?)Math.Max(0, (src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days) : null))
                 .ForMember(dest => dest.TienDo, opt => opt.MapFrom(src => 
                     src.DaKetThuc || src.TrangThai == 2 ? 1.0 :
                     (!src.NgayBatDau.HasValue || !src.NgayKetThuc.HasValue) ? (double?)null :
