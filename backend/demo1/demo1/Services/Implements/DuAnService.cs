@@ -749,9 +749,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 if (entity.LoaiDuAn == 1)
                 {
                     bool isStatusChanged = dto.TrangThai != entity.TrangThai;
-                    bool isNotDeployedYet = !entity.DaTrienKhai;
+                    bool isNotDeployedYet = entity.DaTrienKhai != true;
 
                     if (!isStatusChanged && !isNotDeployedYet)
+
                     {
                         throw new InvalidOperationException("Dự án nguồn đã triển khai không thể sửa đổi dự toán phê duyệt trực tiếp nếu không chuyển trạng thái. Vui lòng sử dụng chức năng điều chỉnh dự án.");
                     }

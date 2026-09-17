@@ -1904,18 +1904,9 @@ public class ReportService : IReportService
                         : "🟢 Đang thực hiện bình thường"));
 
             string? nguoiDaiDienVaSdt = null;
-            if (contract.NhaThau != null)
+            if (contract.NhaThau != null && !string.IsNullOrWhiteSpace(contract.NhaThau.Representative))
             {
-                if (!string.IsNullOrWhiteSpace(contract.NhaThau.Representative))
-                {
-                    nguoiDaiDienVaSdt = !string.IsNullOrWhiteSpace(contract.NhaThau.Phone)
-                        ? $"{contract.NhaThau.Representative} ({contract.NhaThau.Phone})"
-                        : contract.NhaThau.Representative;
-                }
-                else
-                {
-                    nguoiDaiDienVaSdt = contract.NhaThau.Phone;
-                }
+                nguoiDaiDienVaSdt = contract.NhaThau.Representative;
             }
 
             rows.Add(new TheoDoiHopDongReportRowDto
@@ -3957,7 +3948,7 @@ public class ReportService : IReportService
         string[] headers = [
             "STT", "Mã dự án", "Mã gói thầu", "Tên gói thầu", $"Giá trị dự toán ({report.Unit})",
             "Hình thức LCNT", "Phương thức LCNT", $"Tổng giá trị HĐ đã ký ({report.Unit})",
-            $"Giá trị tiết kiệm ({report.Unit})", "Tỷ lệ sử dụng dự toán (%)", "Tên nhà thầu trúng thầu", "Trạng thái gói thầu"
+            $"Giá trị tiết kiệm ({report.Unit})", "Tỷ lệ sử dụng dự toán (%)", "Tên nhà Thầu", "Trạng thái gói thầu"
         ];
 
         for (int i = 0; i < headers.Length; i++)
@@ -4051,20 +4042,21 @@ public class ReportService : IReportService
         worksheet.Cell("B2").Style.Font.FontSize = 14;
         worksheet.Cell("B2").Style.Font.FontColor = XLColor.FromHtml("#1F4E78");
         worksheet.Cell("B2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("B2:M2").Merge();
+        worksheet.Range("B2:N2").Merge();
 
         // Subtitle Row 3
         worksheet.Cell("B3").Value = $"(Đơn vị tính: {report.Unit})";
         worksheet.Cell("B3").Style.Font.Italic = true;
         worksheet.Cell("B3").Style.Font.FontSize = 10;
         worksheet.Cell("B3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("B3:M3").Merge();
+        worksheet.Range("B3:N3").Merge();
 
         // Header Row 4
         string[] headers = [
             "STT", "Số / Mã HĐ", "Tên Hợp đồng kinh tế", "Dự án triển khai liên kết",
-            "Nhà thầu (Bên B)", "Người đại diện / SĐT", $"Giá trị HĐ ({report.Unit})",
-            "Ngày ký", "Ngày hết hạn", "Số ngày còn lại", "Trạng thái thực hiện", "Cảnh báo hành động"
+            "Nhà thầu", "Người đại diện", $"Giá trị HĐ ({report.Unit})",
+            $"Giá trị đã thanh toán lũy kế ({report.Unit})", $"Giá trị còn lại chưa thanh toán ({report.Unit})",
+            "Ngày ký", "Ngày hết hạn", "Số ngày còn lại", "Trạng thái thực hiện"
         ];
 
         for (int i = 0; i < headers.Length; i++)
@@ -4108,46 +4100,51 @@ public class ReportService : IReportService
             worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
             worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
+            worksheet.Cell(currentRow, 9).Value = row.GiaTriDaThanhToan;
+            worksheet.Cell(currentRow, 9).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 10).Value = row.GiaTriConLai;
+            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
             if (row.NgayKyHopDong.HasValue)
             {
-                worksheet.Cell(currentRow, 9).Value = row.NgayKyHopDong.Value;
-                worksheet.Cell(currentRow, 9).Style.DateFormat.Format = "dd/MM/yyyy";
-                worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 11).Value = row.NgayKyHopDong.Value;
+                worksheet.Cell(currentRow, 11).Style.DateFormat.Format = "dd/MM/yyyy";
+                worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             }
             else
             {
-                worksheet.Cell(currentRow, 9).Value = string.Empty;
+                worksheet.Cell(currentRow, 11).Value = string.Empty;
             }
 
             if (row.NgayKetThucDuKien.HasValue)
             {
-                worksheet.Cell(currentRow, 10).Value = row.NgayKetThucDuKien.Value;
-                worksheet.Cell(currentRow, 10).Style.DateFormat.Format = "dd/MM/yyyy";
-                worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 12).Value = row.NgayKetThucDuKien.Value;
+                worksheet.Cell(currentRow, 12).Style.DateFormat.Format = "dd/MM/yyyy";
+                worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             }
             else
             {
-                worksheet.Cell(currentRow, 10).Value = string.Empty;
+                worksheet.Cell(currentRow, 12).Value = string.Empty;
             }
 
-            worksheet.Cell(currentRow, 11).Value = row.SoNgayConLai;
-            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
-            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 13).Value = row.SoNgayConLai;
+            worksheet.Cell(currentRow, 13).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 12).Value = row.TrangThaiThucHienText;
-            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Cell(currentRow, 14).Value = row.TrangThaiThucHienText;
+            worksheet.Cell(currentRow, 14).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 13).Value = row.CanhBaoHanhDong;
-            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-            var rowRange = worksheet.Range(currentRow, 2, currentRow, 13);
+            var rowRange = worksheet.Range(currentRow, 2, currentRow, 14);
             rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
             currentRow++;
         }
 
-        worksheet.Columns(2, 13).AdjustToContents(10.0, 50.0);
+        worksheet.Columns(2, 14).AdjustToContents(10.0, 50.0);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
@@ -4172,18 +4169,18 @@ public class ReportService : IReportService
         worksheet.Cell("B1").Style.Font.FontSize = 14;
         worksheet.Cell("B1").Style.Font.FontColor = XLColor.FromHtml("#1F4E78");
         worksheet.Cell("B1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("B1:L1").Merge();
+        worksheet.Range("B1:K1").Merge();
 
         // Subtitle Row 2
         worksheet.Cell("B2").Value = $"(Năm {year} - Đơn vị tính: {report.Unit})";
         worksheet.Cell("B2").Style.Font.Italic = true;
         worksheet.Cell("B2").Style.Font.FontSize = 10;
         worksheet.Cell("B2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("B2:L2").Merge();
+        worksheet.Range("B2:K2").Merge();
 
         // Header Row 3
         string[] headers = [
-            "STT", "Tên đợt thanh toán", "Điều kiện thanh toán ", "Hợp đồng",
+            "STT", "Tên đợt thanh toán", "Điều kiện thanh toán ",
             "Dự án / Gói thầu", "Tỷ lệ (%)", $"Giá trị thanh toán ({report.Unit})",
             "Hạn thanh toán", "Tình trạng hồ sơ nghiệm thu", "Trạng thái thanh toán", $"Giá trị HĐ còn lại chưa trả ({report.Unit})"
         ];
@@ -4218,43 +4215,40 @@ public class ReportService : IReportService
                 worksheet.Cell(currentRow, 4).Value = ms.DieuKienThanhToan ?? string.Empty;
                 worksheet.Cell(currentRow, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                worksheet.Cell(currentRow, 5).Value = ms.MaHopDong;
-                worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 5).Value = ms.DuAnGoiThau ?? string.Empty;
+                worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-                worksheet.Cell(currentRow, 6).Value = ms.DuAnGoiThau ?? string.Empty;
-                worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                worksheet.Cell(currentRow, 6).Value = ms.TyLeThanhToan / 100.0m;
+                worksheet.Cell(currentRow, 6).Style.NumberFormat.Format = "0.0%";
+                worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-                worksheet.Cell(currentRow, 7).Value = ms.TyLeThanhToan / 100.0m;
-                worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "0.0%";
+                worksheet.Cell(currentRow, 7).Value = ms.GiaTriThanhToan;
+                worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
                 worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-
-                worksheet.Cell(currentRow, 8).Value = ms.GiaTriThanhToan;
-                worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
-                worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
                 DateTime? hanTt = ms.NgayThanhToanThucTe ?? ms.HanThanhToan;
                 if (hanTt.HasValue)
                 {
-                    worksheet.Cell(currentRow, 9).Value = hanTt.Value;
-                    worksheet.Cell(currentRow, 9).Style.DateFormat.Format = "dd/MM/yyyy";
-                    worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Cell(currentRow, 8).Value = hanTt.Value;
+                    worksheet.Cell(currentRow, 8).Style.DateFormat.Format = "dd/MM/yyyy";
+                    worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 }
                 else
                 {
-                    worksheet.Cell(currentRow, 9).Value = string.Empty;
+                    worksheet.Cell(currentRow, 8).Value = string.Empty;
                 }
 
-                worksheet.Cell(currentRow, 10).Value = ms.TinhTrangHoSoNghiemThu ?? string.Empty;
+                worksheet.Cell(currentRow, 9).Value = ms.TinhTrangHoSoNghiemThu ?? string.Empty;
+                worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                worksheet.Cell(currentRow, 10).Value = ms.TrangThaiThanhToan;
                 worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-                worksheet.Cell(currentRow, 11).Value = ms.TrangThaiThanhToan;
-                worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                worksheet.Cell(currentRow, 11).Value = ms.GiaTriHopDongConLaiChuaTra;
+                worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
+                worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-                worksheet.Cell(currentRow, 12).Value = ms.GiaTriHopDongConLaiChuaTra;
-                worksheet.Cell(currentRow, 12).Style.NumberFormat.Format = "#,##0";
-                worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-
-                var rowRange = worksheet.Range(currentRow, 2, currentRow, 12);
+                var rowRange = worksheet.Range(currentRow, 2, currentRow, 11);
                 rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
@@ -4262,7 +4256,7 @@ public class ReportService : IReportService
             }
         }
 
-        worksheet.Columns(2, 12).AdjustToContents(10.0, 50.0);
+        worksheet.Columns(2, 11).AdjustToContents(10.0, 50.0);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
