@@ -4381,12 +4381,20 @@ public class ReportService : IReportService
 
         int maxLanCount = rows.Any() ? Math.Max(3, rows.Max(r => r.CacLanThanhToan.Count)) : 3;
 
+        var tongCacLanThanhToan = new List<decimal>();
+        for (int i = 0; i < maxLanCount; i++)
+        {
+            decimal sumLan = rows.Sum(r => i < r.CacLanThanhToan.Count ? r.CacLanThanhToan[i] : 0m);
+            tongCacLanThanhToan.Add(sumLan);
+        }
+
         var summary = new TienDoThanhToanDuAnThauReportSummaryDto
         {
             TongSoHopDong = rows.Count,
             TongGiaTriHopDong = rows.Sum(r => r.GiaTriHopDong),
             TongTamUng = rows.Sum(r => r.TamUng),
-            TongDaThanhToan = rows.Sum(r => r.TamUng + r.CacLanThanhToan.Sum())
+            TongDaThanhToan = rows.Sum(r => r.TamUng + r.CacLanThanhToan.Sum()),
+            TongCacLanThanhToan = tongCacLanThanhToan
         };
 
         return new TienDoThanhToanDuAnThauReportResponseDto
@@ -4397,6 +4405,22 @@ public class ReportService : IReportService
             Summary = summary,
             Rows = rows
         };
+    }
+
+    public async Task<IReadOnlyList<DuAnLookupDto>> GetTienDoThanhToanFilterOptionsAsync()
+    {
+        // Trả về danh sách dự án thu gọn dành riêng cho bộ lọc Báo cáo
+        return await _context.DuAns.AsNoTracking()
+            .Where(d => d.IsActive && !d.IsDeleted)
+            .OrderBy(d => d.Code)
+            .ThenBy(d => d.Name)
+            .Select(d => new DuAnLookupDto
+            {
+                Id = d.Id,
+                Code = d.Code,
+                Name = d.Name
+            })
+            .ToListAsync();
     }
 
     public async Task<byte[]> ExportTienDoThanhToanDuAnThauReportExcelAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null)

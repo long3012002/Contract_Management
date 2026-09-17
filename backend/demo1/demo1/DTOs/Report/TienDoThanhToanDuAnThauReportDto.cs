@@ -45,6 +45,16 @@ public class TienDoThanhToanDuAnThauReportSummaryDto
     public decimal TongGiaTriHopDong { get; set; }
     public decimal TongTamUng { get; set; }
     public decimal TongDaThanhToan { get; set; }
+
+    /// <summary>
+    /// Tổng giá trị cho từng đợt thanh toán (Lần 1, Lần 2, Lần 3...) dùng hiển thị Footer
+    /// </summary>
+    public List<decimal> TongCacLanThanhToan { get; set; } = new();
+
+    /// <summary>
+    /// Alias field sumCacLanThanhToan cho FE
+    /// </summary>
+    public List<decimal> SumCacLanThanhToan => TongCacLanThanhToan;
 }
 
 /// <summary>

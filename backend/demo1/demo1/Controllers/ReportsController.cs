@@ -853,6 +853,26 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     }
 
     /// <summary>
+    /// Lấy danh sách tùy chọn bộ lọc dự án (Dropdown filter options) cho Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu.
+    /// </summary>
+    [HttpGet("tien-do-thanh-toan-du-an-thau/filter-options")]
+    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/filter-options")]
+    [ProducesResponseType(typeof(IReadOnlyList<DuAnLookupDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetTienDoThanhToanFilterOptions()
+    {
+        try
+        {
+            var options = await reportService.GetTienDoThanhToanFilterOptionsAsync();
+            return Ok(options);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi API Reports filter-options: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy tùy chọn bộ lọc dự án.", detail = env.IsDevelopment() ? ex.Message : null });
+        }
+    }
+
+    /// <summary>
     /// Xuất file Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu ra Excel / CSV / HTML / Base64.
     /// </summary>
     [HttpGet("tien-do-thanh-toan-du-an-thau/export")]

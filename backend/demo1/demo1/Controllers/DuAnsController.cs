@@ -52,6 +52,20 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     }
 
     /// <summary>
+    /// Lấy danh sách dự án thu gọn (Id, Code, Name) phục vụ Dropdown / Bộ lọc.
+    /// </summary>
+    /// <param name="loaiDuAn">Loại dự án (1: Nguồn, 2: Triển khai)</param>
+    /// <returns>Danh sách dự án thu gọn</returns>
+    /// <response code="200">Lấy danh sách thành công</response>
+    [HttpGet("lookup")]
+    [ProducesResponseType(typeof(IReadOnlyList<DuAnLookupDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetLookup([FromQuery] int? loaiDuAn)
+    {
+        var result = await _duAnService.GetLookupAsync(loaiDuAn);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Lấy danh sách dự án với bộ lọc nâng cao (Loại dự án, Từ khóa...).
     /// </summary>
     /// <param name="filter">Bộ lọc danh sách dự án</param>

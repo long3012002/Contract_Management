@@ -992,4 +992,26 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
         return _cascadeService.RestoreAsync(ids);
     }
+
+    public async Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync(int? loaiDuAn = null)
+    {
+        var query = DbSet.AsNoTracking()
+            .Where(d => d.IsActive && !d.IsDeleted);
+
+        if (loaiDuAn.HasValue)
+        {
+            query = query.Where(d => d.LoaiDuAn == loaiDuAn.Value);
+        }
+
+        return await query
+            .OrderBy(d => d.Code)
+            .ThenBy(d => d.Name)
+            .Select(d => new DuAnLookupDto
+            {
+                Id = d.Id,
+                Code = d.Code,
+                Name = d.Name
+            })
+            .ToListAsync();
+    }
 }
