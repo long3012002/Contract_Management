@@ -4266,6 +4266,8 @@ public class ReportService : IReportService
 
     public async Task<TienDoThanhToanDuAnThauReportResponseDto> GetTienDoThanhToanDuAnThauReportAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null)
     {
+        var (conversionFactor, unitName) = ParseUnit(donViTinh);
+
         IQueryable<HopDong> query = _context.HopDongs.AsNoTracking()
             .Include(h => h.DuAn)
                 .ThenInclude(d => d!.DanhSachNguonVon)
@@ -4338,7 +4340,7 @@ public class ReportService : IReportService
                 .OrderBy(d => d.NgayThanhToan ?? d.CreatedAt)
                 .ToList();
 
-            decimal tamUng = 0;
+            decimal tamUngRaw = 0;
             var cacLanThanhToan = new List<decimal>();
 
             foreach (var dot in dotThanhToans)
@@ -4346,13 +4348,17 @@ public class ReportService : IReportService
                 var nameLower = dot.TenDot.ToLower();
                 if (nameLower.Contains("tạm ứng") || nameLower.Contains("tam ung") || nameLower.Contains("advance"))
                 {
-                    tamUng += dot.GiaTriThanhToan;
+                    tamUngRaw += dot.GiaTriThanhToan;
                 }
                 else
                 {
-                    cacLanThanhToan.Add(dot.GiaTriThanhToan);
+                    decimal valConverted = conversionFactor > 1m ? Math.Round(dot.GiaTriThanhToan / conversionFactor, 2) : dot.GiaTriThanhToan;
+                    cacLanThanhToan.Add(valConverted);
                 }
             }
+
+            decimal giaTriHopDongConverted = conversionFactor > 1m ? Math.Round(hd.GiaTriHopDong / conversionFactor, 2) : hd.GiaTriHopDong;
+            decimal tamUngConverted = conversionFactor > 1m ? Math.Round(tamUngRaw / conversionFactor, 2) : tamUngRaw;
 
             rows.Add(new TienDoThanhToanDuAnThauReportRowDto
             {
@@ -4369,8 +4375,8 @@ public class ReportService : IReportService
                 SoHopDong = hd.Code,
                 NgayKy = hd.NgayKy ?? hd.NgayHieuLuc,
                 ThoiGianThucHien = hd.ThoiHanThucHien,
-                GiaTriHopDong = hd.GiaTriHopDong,
-                TamUng = tamUng,
+                GiaTriHopDong = giaTriHopDongConverted,
+                TamUng = tamUngConverted,
                 CacLanThanhToan = cacLanThanhToan,
                 GhiChu = hd.Description,
                 HopDongId = hd.Id,
@@ -4400,7 +4406,7 @@ public class ReportService : IReportService
         return new TienDoThanhToanDuAnThauReportResponseDto
         {
             Title = "BÁO CÁO THEO DÕI TIẾN ĐỘ THANH TOÁN CÁC DỰ ÁN THẦU",
-            Unit = "Đồng",
+            Unit = unitName,
             MaxDotThanhToanCount = maxLanCount,
             Summary = summary,
             Rows = rows
