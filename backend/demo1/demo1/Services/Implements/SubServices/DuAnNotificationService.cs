@@ -64,13 +64,17 @@ public class DuAnNotificationService : IDuAnNotificationService
         {
             Title = "Được phân công làm Chủ dự án",
             Content = $"Bạn đã được phân công làm Chủ dự án cho dự án: {project.Name}",
-            Link = $"/du-an/{project.Id}",
+            Link = $"/projects/{project.Id}",
             FeatureCode = "DU_AN",
             EntityName = "DuAn",
             EntityId = project.Id.ToString(),
             UserId = newOwnerId,
             IsRead = false,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            ActionBadgeText = "Bổ nhiệm",
+            ActionBadgeVariant = "info",
+            Message = "Bạn được phân công làm Chủ dự án của",
+            TargetName = project.Name
         };
         _dbContext.Notifications.Add(newOwnerNotification);
         await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerNotification);
@@ -85,13 +89,17 @@ public class DuAnNotificationService : IDuAnNotificationService
                 {
                     Title = "Thôi chức vụ Chủ dự án",
                     Content = $"Bạn đã thôi giữ chức vụ Chủ dự án cho dự án: {project.Name}",
-                    Link = $"/du-an/{project.Id}",
+                    Link = $"/projects/{project.Id}",
                     FeatureCode = "DU_AN",
                     EntityName = "DuAn",
                     EntityId = project.Id.ToString(),
                     UserId = oldOwnerId.Value,
                     IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ActionBadgeText = "Bàn giao",
+                    ActionBadgeVariant = "destructive",
+                    Message = "Bạn thôi làm Chủ dự án của",
+                    TargetName = project.Name
                 };
                 _dbContext.Notifications.Add(oldOwnerNotification);
                 await _hubContext.Clients.User(oldOwner.Username).SendAsync("ReceiveNotification", oldOwnerNotification);

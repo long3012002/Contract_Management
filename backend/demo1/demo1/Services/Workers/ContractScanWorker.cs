@@ -172,7 +172,27 @@ namespace demo1.Services.Workers
                             continue;
                         }
 
-                        _logger.LogInformation("[ContractScan] Đang tạo thông báo hệ thống cho user {Username} về hợp đồng {Code}", user.Username, contract.Code);
+                        string? actionBadge = null;
+                        string? actionBadgeVariant = null;
+                        string message;
+
+                        if (daysRemaining < 0)
+                        {
+                            actionBadge = "Đã quá hạn";
+                            actionBadgeVariant = "destructive";
+                            message = $"{Math.Abs(daysRemaining)} ngày";
+                        }
+                        else if (daysRemaining == 0)
+                        {
+                            actionBadge = "Hôm nay";
+                            actionBadgeVariant = "warning";
+                            message = "hết hạn hôm nay";
+                        }
+                        else
+                        {
+                            actionBadge = null;
+                            message = $"còn {daysRemaining} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy})";
+                        }
 
                         var notification = new Notification
                         {
@@ -185,7 +205,11 @@ namespace demo1.Services.Workers
                             EntityId = contract.Id.ToString(),
                             UserId = user.Id,
                             IsRead = false,
-                            CreatedAt = DateTime.UtcNow
+                            CreatedAt = DateTime.UtcNow,
+                            ActionBadgeText = actionBadge,
+                            ActionBadgeVariant = actionBadgeVariant,
+                            Message = message,
+                            TargetName = contract.Name
                         };
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));

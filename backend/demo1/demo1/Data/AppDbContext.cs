@@ -643,6 +643,11 @@ namespace demo1.Data
                 entity.Property(e => e.FeatureCode).HasMaxLength(100).HasDefaultValue(string.Empty);
                 entity.Property(e => e.EntityName).HasMaxLength(100);
                 entity.Property(e => e.EntityId).HasMaxLength(255);
+                entity.Property(e => e.ActorName).HasMaxLength(255);
+                entity.Property(e => e.ActionBadgeText).HasMaxLength(100);
+                entity.Property(e => e.ActionBadgeVariant).HasMaxLength(50);
+                entity.Property(e => e.Message).HasMaxLength(1000);
+                entity.Property(e => e.TargetName).HasMaxLength(500);
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)

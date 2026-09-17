@@ -702,7 +702,12 @@ public class CongViecGoiThauService
                     EntityId = task.Id.ToString(),
                     UserId = targetUser.Id,
                     IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ActionBadgeText = "Xác nhận",
+                    ActionBadgeVariant = "success",
+                    ActorName = record.User?.FullName ?? record.User?.Username ?? "Thành viên",
+                    Message = "đã xác nhận công việc",
+                    TargetName = task.TenTaiLieu
                 };
 
                 DbContext.Notifications.Add(notification);

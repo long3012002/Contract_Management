@@ -133,13 +133,18 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     Id = Guid.NewGuid(),
                     Title = "Bình luận: Được nhắc tên",
                     Content = $"{user.FullName} đã nhắc đến bạn trong '{congViec.TenTaiLieu}'",
-                    Link = $"/goi-thau/cong-viec/{congViec.Id}",
+                    Link = $"/bid-packages/{congViec.GoiThauId}?taskId={congViec.Id}",
                     FeatureCode = "CONG_VIEC",
                     EntityName = "CongViecGoiThau",
                     EntityId = congViec.Id.ToString(),
                     UserId = mUser.Id,
                     IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ActionBadgeText = "Nhắc tên",
+                    ActionBadgeVariant = "info",
+                    ActorName = user.FullName ?? user.Username,
+                    Message = "đã nhắc đến bạn trong",
+                    TargetName = congViec.TenTaiLieu
                 };
 
                 _context.Notifications.Add(notification);
@@ -161,13 +166,18 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     Id = Guid.NewGuid(),
                     Title = "Bình luận: Phản hồi mới",
                     Content = $"{user.FullName} đã trả lời bình luận của bạn trong '{congViec.TenTaiLieu}'",
-                    Link = $"/goi-thau/cong-viec/{congViec.Id}",
+                    Link = $"/bid-packages/{congViec.GoiThauId}?taskId={congViec.Id}",
                     FeatureCode = "CONG_VIEC",
                     EntityName = "CongViecGoiThau",
                     EntityId = congViec.Id.ToString(),
                     UserId = parentComment.UserId,
                     IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ActionBadgeText = "Phản hồi",
+                    ActionBadgeVariant = "info",
+                    ActorName = user.FullName ?? user.Username,
+                    Message = "đã trả lời bình luận của bạn trong",
+                    TargetName = congViec.TenTaiLieu
                 };
 
                 _context.Notifications.Add(notification);

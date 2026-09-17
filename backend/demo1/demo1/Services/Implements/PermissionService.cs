@@ -397,11 +397,16 @@ namespace demo1.Services.Implements
                 UserId = dto.UserId,
                 Title = "Phân quyền: Cấp quyền truy cập",
                 Content = $"Bạn đã được cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' bởi '{admin?.Username ?? "Hệ thống"}'.",
+                Link = $"/projects/{project?.Id ?? duAnId}",
                 FeatureCode = "USER_PERMISSION",
                 EntityName = "UserPermission",
                 EntityId = permIdToNotify.ToString(),
                 IsRead = false,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                ActionBadgeText = permCatalog.Name,
+                ActionBadgeVariant = "info",
+                Message = "Bạn được cấp quyền tại",
+                TargetName = project?.Name ?? "dự án"
             };
             _context.Notifications.Add(userNoti);
             await SendSignalRNotificationAsync(user?.Username, userNoti);
@@ -414,11 +419,17 @@ namespace demo1.Services.Implements
                     UserId = adminId,
                     Title = "Phân quyền: Cấp quyền thành công",
                     Content = $"Đã cấp quyền '{permCatalog.Name}' cho người dùng '{user.Username}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}'.",
+                    Link = $"/projects/{project?.Id ?? duAnId}",
                     FeatureCode = "USER_PERMISSION",
                     EntityName = "UserPermission",
                     EntityId = permIdToNotify.ToString(),
                     IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    ActionBadgeText = permCatalog.Name,
+                    ActionBadgeVariant = "info",
+                    ActorName = user.FullName ?? user.Username,
+                    Message = "đã được cấp quyền tại",
+                    TargetName = project?.Name ?? "dự án"
                 };
                 _context.Notifications.Add(adminNoti);
                 await SendSignalRNotificationAsync(admin.Username, adminNoti);

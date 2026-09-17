@@ -122,28 +122,15 @@ namespace demo1.Controllers
             var totalItems = await query.CountAsync();
 
             // Bước 7: Phân trang và lấy danh sách kết quả DTO
-            var items = await query
+            var notifications = await query
                 .OrderByDescending(n => n.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(n => new NotificationDto
-                {
-                    Id = n.Id,
-                    Title = n.Title,
-                    Content = n.Content,
-                    Link = n.Link,
-                    FeatureCode = n.FeatureCode,
-                    EntityName = n.EntityName,
-                    EntityId = n.EntityId,
-                    IsRead = n.IsRead,
-                    CreatedAt = n.CreatedAt
-                })
                 .ToListAsync();
 
-            foreach (var item in items)
-            {
-                item.Content = CleanNotificationContent(item.Content);
-            }
+            var items = notifications
+                .Select(demo1.Services.Helpers.NotificationMapper.MapToDto)
+                .ToList();
 
             var result = new PagedResult<NotificationDto>
             {
