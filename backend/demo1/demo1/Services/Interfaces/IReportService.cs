@@ -43,6 +43,11 @@ public interface IReportService
 
     Task<GoiThauLcntReportResponseDto> GetGoiThauLcntReportAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
     Task<byte[]> ExportGoiThauLcntReportExcelAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null, int version = 2);
+
+    Task<TienDoThanhToanDuAnThauReportResponseDto> GetTienDoThanhToanDuAnThauReportAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportTienDoThanhToanDuAnThauReportExcelAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportTienDoThanhToanDuAnThauReportCsvAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
+    Task<byte[]> ExportTienDoThanhToanDuAnThauReportHtmlAsync(int? year = null, Guid? duAnId = null, string? search = null, string? donViTinh = null);
 }
 
 

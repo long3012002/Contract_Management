@@ -13,4 +13,10 @@ public class NotificationDto
     public string? EntityId { get; set; }
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // UI Structured Metadata
+    public string? ActorName { get; set; }
+    public string? ActionBadgeText { get; set; }
+    public string? ActionBadgeVariant { get; set; }
+    public string? TargetName { get; set; }
 }

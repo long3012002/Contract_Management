@@ -50,6 +50,7 @@ public class UpdateDuAnDto
     public bool DaKetThuc { get; set; }
 
     public string? SoQuyetDinh { get; set; }
+    public string? SoQuyetDinhPheDuyetDuToan { get; set; }
     
     public Guid? ChuDuAnId { get; set; }
 

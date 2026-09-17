@@ -9,6 +9,7 @@ using Hangfire;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using demo1.Services.Helpers;
 
 using Microsoft.Extensions.Configuration;
 
@@ -146,35 +147,21 @@ namespace demo1.Services.Implements
                 var taskTitle = record.CongViecGoiThau?.TenTaiLieu ?? "Công việc gói thầu";
                 var link = $"/goi-thau/cong-viec/{record.CongViecGoiThauId}";
 
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Nhắc nhở: Công việc",
-                    Content = $"{customMessage} trong '{taskTitle}'.",
-                    Link = link,
-                    FeatureCode = "CONG_VIEC",
-                    EntityName = "CongViecGoiThau",
-                    EntityId = record.CongViecGoiThauId.ToString(),
-                    UserId = record.UserId,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var notification = NotificationBuilder.Create()
+                    .WithTitle("Nhắc nhở: Công việc")
+                    .WithContent($"{customMessage} trong '{taskTitle}'.")
+                    .WithLink(link)
+                    .WithFeatureCode("CONG_VIEC")
+                    .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                    .ForUser(record.UserId)
+                    .WithTarget(taskTitle)
+                    .WithBadge("Nhắc nhở", "warning")
+                    .Build();
 
                 _db.Notifications.Add(notification);
                 await _db.SaveChangesAsync();
 
-                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", new
-                {
-                    id = notification.Id,
-                    title = notification.Title,
-                    content = notification.Content,
-                    link = notification.Link,
-                    featureCode = notification.FeatureCode,
-                    entityName = notification.EntityName,
-                    entityId = notification.EntityId,
-                    isRead = notification.IsRead,
-                    createdAt = notification.CreatedAt
-                });
+                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", notification);
 
                 _logger.LogInformation("Sent reminder job for record {RecordId} to user {Username}", recordId, record.User.Username);
             }
@@ -204,33 +191,19 @@ namespace demo1.Services.Implements
                 var (deadline, isMinutes) = GetDeadlineConfig();
                 var formattedDeadline = FormatDuration(deadline, isMinutes);
 
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Cảnh báo: Quá hạn công việc",
-                    Content = $"Công việc '{taskTitle}' đã quá hạn ({formattedDeadline}).",
-                    Link = link,
-                    FeatureCode = "CONG_VIEC",
-                    EntityName = "CongViecGoiThau",
-                    EntityId = record.CongViecGoiThauId.ToString(),
-                    UserId = record.UserId,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var notification = NotificationBuilder.Create()
+                    .WithTitle("Cảnh báo: Quá hạn công việc")
+                    .WithContent($"Công việc '{taskTitle}' đã quá hạn ({formattedDeadline}).")
+                    .WithLink(link)
+                    .WithFeatureCode("CONG_VIEC")
+                    .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                    .ForUser(record.UserId)
+                    .WithTarget(taskTitle)
+                    .WithBadge("Đã quá hạn", "destructive")
+                    .Build();
 
                 _db.Notifications.Add(notification);
-                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", new
-                {
-                    id = notification.Id,
-                    title = notification.Title,
-                    content = notification.Content,
-                    link = notification.Link,
-                    featureCode = notification.FeatureCode,
-                    entityName = notification.EntityName,
-                    entityId = notification.EntityId,
-                    isRead = notification.IsRead,
-                    createdAt = notification.CreatedAt
-                });
+                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", notification);
 
                 // Notify CreateUser and ModifiedUser
                 var task = await _db.CongViecGoiThaus
@@ -250,31 +223,22 @@ namespace demo1.Services.Implements
                         usersToNotify.Add(task.ModifiedUser);
                     }
 
+                    var memberName = record.User.FullName ?? record.User.Username;
                     foreach (var targetUser in usersToNotify)
                     {
-                        var overdueNotification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = "Quá hạn: Người liên quan",
-                            Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
-                            Link = link,
-                            FeatureCode = "CONG_VIEC",
-                            EntityName = "CongViecGoiThau",
-                            EntityId = record.CongViecGoiThauId.ToString(),
-                            UserId = targetUser.Id,
-                            IsRead = false,
-                            CreatedAt = DateTime.UtcNow
-                        };
+                        var overdueNotification = NotificationBuilder.Create()
+                            .WithTitle("Quá hạn: Người liên quan")
+                            .WithContent($"Thành viên {memberName} đã quá hạn xác nhận '{taskTitle}'.")
+                            .WithLink(link)
+                            .WithFeatureCode("CONG_VIEC")
+                            .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                            .ForUser(targetUser.Id)
+                            .WithActor(memberName)
+                            .WithTarget(taskTitle)
+                            .WithBadge("Đã quá hạn", "destructive")
+                            .Build();
                         _db.Notifications.Add(overdueNotification);
-                        await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", new
-                        {
-                            id = overdueNotification.Id,
-                            title = overdueNotification.Title,
-                            content = overdueNotification.Content,
-                            link = overdueNotification.Link,
-                            isRead = overdueNotification.IsRead,
-                            createdAt = overdueNotification.CreatedAt
-                        });
+                        await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", overdueNotification);
                     }
                 }
 

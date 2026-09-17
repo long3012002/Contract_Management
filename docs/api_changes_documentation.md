@@ -100,3 +100,29 @@ Tài liệu này mô tả các thay đổi trong các đầu ra/đầu vào API 
 ### 2.4 API Lấy Danh Sách Hợp Đồng (Ảnh Hưởng Phân Quyền)
 - **Endpoint**: `GET /api/HopDong`
 - **Mô tả**: Hành vi thay đổi. Nếu User đang đăng nhập có cờ `canViewHopDong` là `true`, dữ liệu trả về sẽ là **toàn bộ hợp đồng trên hệ thống**, bỏ qua các lớp filter giới hạn thuộc tính dự án hay quyền phân công trước đó. Quyền này cũng áp dụng cho `GET /api/HopDong/{id}` (xem chi tiết hợp đồng).
+
+---
+
+## 3. Tính năng Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu (Mẫu Excel)
+
+### 3.1. Bổ sung Trường dữ liệu CSDL & DTOs
+- **Gói thầu (`GoiThau` & `GoiThauDto`)**: Bổ sung `soQuyetDinhKQLCNT` (Số QĐ phê duyệt kết quả lựa chọn nhà thầu) và `ngayPheDuyetKQLCNT` (Ngày phê duyệt KQLCNT).
+- **Hợp đồng (`HopDong` & `HopDongDto`)**: Bổ sung `ngayKy` (Ngày ký hợp đồng).
+- **Dự án (`DuAn` & `DuAnDto`)**: Bổ sung `soQuyetDinhPheDuyetDuToan` (Số QĐ phê duyệt dự toán).
+
+### 3.2. API Lấy Dữ liệu Báo cáo Tiến độ Thanh toán các Dự án Thầu
+- **Endpoint**: `GET /api/NghiepVu/reports/tien-do-thanh-toan-du-an-thau` (Alias: `/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau`)
+- **Query Parameters**:
+  - `year` (int?): Năm ký/hiệu lực hợp đồng
+  - `duAnId` (Guid?): Mã Dự án cần lọc
+  - `search` (string?): Từ khóa tìm kiếm (Dự án, Gói thầu, Nhà thầu, Hợp đồng)
+  - `donViTinh` (string?): Đơn vị tính (Đồng, Triệu đồng...)
+- **Response Model**: `TienDoThanhToanDuAnThauReportResponseDto` (trả về 18 cột thông tin chuẩn khớp file mẫu Excel `Mẫu_Báo_cáo_theo_dõi_tiến_độ_thanh_toán_các_dự_án_thầu.xlsx`).
+
+### 3.3. API Xuất File Báo cáo Tiến độ Thanh toán các Dự án Thầu
+- **Endpoint**: `GET /api/NghiepVu/reports/tien-do-thanh-toan-du-an-thau/export` (Alias: `/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/export`)
+- **Query Parameters**:
+  - `year` (int?), `duAnId` (Guid?), `search` (string?), `donViTinh` (string?)
+  - `format` (string): Định dạng file xuất (`xlsx`, `csv`, `html` - mặc định: `xlsx`).
+  - `base64` (bool): `true` để trả về JSON Base64 string, `false` để tải trực tiếp file binary.
+

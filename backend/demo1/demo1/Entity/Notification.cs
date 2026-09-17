@@ -15,5 +15,11 @@ namespace demo1.Entity
         public Guid? UserId { get; set; }
         public virtual User? User { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // UI Structured Metadata
+        public string? ActorName { get; set; }
+        public string? ActionBadgeText { get; set; }
+        public string? ActionBadgeVariant { get; set; }
+        public string? TargetName { get; set; }
     }
 }

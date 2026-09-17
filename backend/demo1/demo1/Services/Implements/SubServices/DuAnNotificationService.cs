@@ -8,6 +8,7 @@ using demo1.Services.Interfaces;
 using demo1.Services.Interfaces.SubServices;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using demo1.Services.Helpers;
 
 namespace demo1.Services.Implements.SubServices;
 
@@ -59,19 +60,20 @@ public class DuAnNotificationService : IDuAnNotificationService
 
         await _dbContext.SaveChangesAsync();
 
+        var actorName = currentUser.FullName ?? currentUser.Username;
+
         // 1. Gửi thông báo cho Chủ dự án mới
-        var newOwnerNotification = new Notification
-        {
-            Title = "Được phân công làm Chủ dự án",
-            Content = $"Bạn đã được phân công làm Chủ dự án cho dự án: {project.Name}",
-            Link = $"/du-an/{project.Id}",
-            FeatureCode = "DU_AN",
-            EntityName = "DuAn",
-            EntityId = project.Id.ToString(),
-            UserId = newOwnerId,
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        };
+        var newOwnerNotification = NotificationBuilder.Create()
+            .WithTitle("Được phân công làm Chủ dự án")
+            .WithContent($"Bạn đã được phân công làm Chủ dự án cho dự án: {project.Name}")
+            .WithLink($"/du-an/{project.Id}")
+            .WithFeatureCode("DU_AN")
+            .WithEntity("DuAn", project.Id.ToString())
+            .ForUser(newOwnerId)
+            .WithActor(actorName)
+            .WithTarget(project.Name)
+            .WithBadge("Phân công", "info")
+            .Build();
         _dbContext.Notifications.Add(newOwnerNotification);
         await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerNotification);
 
@@ -81,18 +83,17 @@ public class DuAnNotificationService : IDuAnNotificationService
             var oldOwner = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == oldOwnerId.Value);
             if (oldOwner != null)
             {
-                var oldOwnerNotification = new Notification
-                {
-                    Title = "Thôi chức vụ Chủ dự án",
-                    Content = $"Bạn đã thôi giữ chức vụ Chủ dự án cho dự án: {project.Name}",
-                    Link = $"/du-an/{project.Id}",
-                    FeatureCode = "DU_AN",
-                    EntityName = "DuAn",
-                    EntityId = project.Id.ToString(),
-                    UserId = oldOwnerId.Value,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var oldOwnerNotification = NotificationBuilder.Create()
+                    .WithTitle("Thôi chức vụ Chủ dự án")
+                    .WithContent($"Bạn đã thôi giữ chức vụ Chủ dự án cho dự án: {project.Name}")
+                    .WithLink($"/du-an/{project.Id}")
+                    .WithFeatureCode("DU_AN")
+                    .WithEntity("DuAn", project.Id.ToString())
+                    .ForUser(oldOwnerId.Value)
+                    .WithActor(actorName)
+                    .WithTarget(project.Name)
+                    .WithBadge("Thay đổi", "secondary")
+                    .Build();
                 _dbContext.Notifications.Add(oldOwnerNotification);
                 await _hubContext.Clients.User(oldOwner.Username).SendAsync("ReceiveNotification", oldOwnerNotification);
             }

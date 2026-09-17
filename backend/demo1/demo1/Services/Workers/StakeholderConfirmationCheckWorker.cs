@@ -12,6 +12,7 @@ using demo1.Data;
 using demo1.Entity;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
+using demo1.Services.Helpers;
 
 namespace demo1.Services.Workers
 {
@@ -142,19 +143,16 @@ namespace demo1.Services.Workers
 
                     if (!alreadyNotified && record.User != null)
                     {
-                        var notification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = "Cảnh báo: Quá hạn công việc",
-                            Content = $"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.",
-                            Link = link,
-                            FeatureCode = "CONG_VIEC",
-                            EntityName = "CongViecGoiThau",
-                            EntityId = record.CongViecGoiThauId.ToString(),
-                            UserId = record.UserId,
-                            IsRead = false,
-                            CreatedAt = now
-                        };
+                        var notification = NotificationBuilder.Create()
+                            .WithTitle("Cảnh báo: Quá hạn công việc")
+                            .WithContent($"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.")
+                            .WithLink(link)
+                            .WithFeatureCode("CONG_VIEC")
+                            .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                            .ForUser(record.UserId)
+                            .WithTarget(taskTitle)
+                            .WithBadge("Đã quá hạn", "destructive")
+                            .Build();
 
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((record.User.Username, notification));
@@ -173,21 +171,20 @@ namespace demo1.Services.Workers
                             usersToNotify.Add(task.ModifiedUser);
                         }
 
+                        var memberName = record.User.FullName ?? record.User.Username;
                         foreach (var targetUser in usersToNotify)
                         {
-                            var overdueNotification = new Notification
-                            {
-                                Id = Guid.NewGuid(),
-                                Title = "Quá hạn: Người liên quan",
-                                Content = $"Thành viên {record.User.FullName ?? record.User.Username} đã quá hạn xác nhận '{taskTitle}'.",
-                                Link = link,
-                                FeatureCode = "CONG_VIEC",
-                                EntityName = "CongViecGoiThau",
-                                EntityId = record.CongViecGoiThauId.ToString(),
-                                UserId = targetUser.Id,
-                                IsRead = false,
-                                CreatedAt = now
-                            };
+                            var overdueNotification = NotificationBuilder.Create()
+                                .WithTitle("Quá hạn: Người liên quan")
+                                .WithContent($"Thành viên {memberName} đã quá hạn xác nhận '{taskTitle}'.")
+                                .WithLink(link)
+                                .WithFeatureCode("CONG_VIEC")
+                                .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                                .ForUser(targetUser.Id)
+                                .WithActor(memberName)
+                                .WithTarget(taskTitle)
+                                .WithBadge("Đã quá hạn", "destructive")
+                                .Build();
                             dbContext.Notifications.Add(overdueNotification);
                             notificationsToPush.Add((targetUser.Username, overdueNotification));
                         }
@@ -227,19 +224,16 @@ namespace demo1.Services.Workers
 
                     if (!alreadyNotified && record.User != null)
                     {
-                        var notification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = "Nhắc nhở: Sắp hết hạn",
-                            Content = $"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).",
-                            Link = link,
-                            FeatureCode = "CONG_VIEC",
-                            EntityName = "CongViecGoiThau",
-                            EntityId = record.CongViecGoiThauId.ToString(),
-                            UserId = record.UserId,
-                            IsRead = false,
-                            CreatedAt = now
-                        };
+                        var notification = NotificationBuilder.Create()
+                            .WithTitle("Nhắc nhở: Sắp hết hạn")
+                            .WithContent($"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).")
+                            .WithLink(link)
+                            .WithFeatureCode("CONG_VIEC")
+                            .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
+                            .ForUser(record.UserId)
+                            .WithTarget(taskTitle)
+                            .WithBadge("Sắp hết hạn", "warning")
+                            .Build();
 
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((record.User.Username, notification));

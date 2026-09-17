@@ -12,6 +12,7 @@ using demo1.Data;
 using demo1.Entity;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
+using demo1.Services.Helpers;
 
 namespace demo1.Services.Workers
 {
@@ -176,19 +177,21 @@ namespace demo1.Services.Workers
 
                     _logger.LogInformation("[DotThanhToanScan] Tạo thông báo cho user {Username} về đợt thanh toán {TenDot} - Hợp đồng {ContractCode}", user.Username, phase.TenDot, phase.HopDong.Code);
 
-                    var notification = new Notification
-                    {
-                        Id = Guid.NewGuid(),
-                        Title = title,
-                        Content = content,
-                        Link = link,
-                        FeatureCode = "QUAN_LY_HOP_DONG",
-                        EntityName = "DotThanhToan",
-                        EntityId = phase.Id.ToString(),
-                        UserId = user.Id,
-                        IsRead = false,
-                        CreatedAt = DateTime.UtcNow
-                    };
+                    var isOverdue = daysRemaining < 0;
+                    var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
+                    var badgeVariant = isOverdue ? "destructive" : "warning";
+                    var targetName = string.IsNullOrWhiteSpace(phase.TenDot) ? phase.HopDong.Name : $"{phase.TenDot} ({phase.HopDong.Name})";
+
+                    var notification = NotificationBuilder.Create()
+                        .WithTitle(title)
+                        .WithContent(content)
+                        .WithLink(link)
+                        .WithFeatureCode("QUAN_LY_HOP_DONG")
+                        .WithEntity("DotThanhToan", phase.Id.ToString())
+                        .ForUser(user.Id)
+                        .WithTarget(targetName)
+                        .WithBadge(badgeText, badgeVariant)
+                        .Build();
 
                     dbContext.Notifications.Add(notification);
                     notificationsToPush.Add((user.Username, notification));

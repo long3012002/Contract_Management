@@ -90,6 +90,11 @@ public class CreateHopDongDto
     public DateTime? NgayHieuLuc { get; set; }
 
     /// <summary>
+    /// Ngày ký hợp đồng
+    /// </summary>
+    public DateTime? NgayKy { get; set; }
+
+    /// <summary>
     /// Ngày hợp đồng hết hạn
     /// </summary>
     public DateTime? ExpiredDate { get; set; }

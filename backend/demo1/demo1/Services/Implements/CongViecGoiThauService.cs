@@ -10,6 +10,7 @@ using demo1.Hubs;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using demo1.Services.Helpers;
 
 using Microsoft.Extensions.Configuration;
 
@@ -689,21 +690,20 @@ public class CongViecGoiThauService
                 usersToNotify.Add(task.ModifiedUser);
             }
 
+            var actorName = record.User?.FullName ?? record.User?.Username ?? "Ẩn danh";
             foreach (var targetUser in usersToNotify)
             {
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Xác nhận: Công việc",
-                    Content = $"Thành viên {record.User?.FullName ?? record.User?.Username ?? "Ẩn danh"} đã xác nhận công việc '{task.TenTaiLieu}'.",
-                    Link = $"/bid-packages/{task.GoiThauId}",
-                    FeatureCode = "CONG_VIEC",
-                    EntityName = "CongViecGoiThau",
-                    EntityId = task.Id.ToString(),
-                    UserId = targetUser.Id,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var notification = NotificationBuilder.Create()
+                    .WithTitle("Xác nhận: Công việc")
+                    .WithContent($"Thành viên {actorName} đã xác nhận công việc '{task.TenTaiLieu}'.")
+                    .WithLink($"/bid-packages/{task.GoiThauId}")
+                    .WithFeatureCode("CONG_VIEC")
+                    .WithEntity("CongViecGoiThau", task.Id.ToString())
+                    .ForUser(targetUser.Id)
+                    .WithActor(actorName)
+                    .WithTarget(task.TenTaiLieu)
+                    .WithBadge("Xác nhận", "success")
+                    .Build();
 
                 DbContext.Notifications.Add(notification);
                 await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
@@ -812,19 +812,16 @@ public class CongViecGoiThauService
             {
                 if (usersDict.TryGetValue(userId, out var targetUser))
                 {
-                    var notification = new Notification
-                    {
-                        Id = Guid.NewGuid(),
-                        Title = "Công việc: Giao việc mới",
-                        Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
-                        Link = $"/bid-packages/{task.GoiThauId}",
-                        FeatureCode = "CONG_VIEC",
-                        EntityName = "CongViecGoiThau",
-                        EntityId = task.Id.ToString(),
-                        UserId = targetUser.Id,
-                        IsRead = false,
-                        CreatedAt = DateTime.UtcNow
-                    };
+                    var notification = NotificationBuilder.Create()
+                        .WithTitle("Công việc: Giao việc mới")
+                        .WithContent($"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
+                        .WithLink($"/bid-packages/{task.GoiThauId}")
+                        .WithFeatureCode("CONG_VIEC")
+                        .WithEntity("CongViecGoiThau", task.Id.ToString())
+                        .ForUser(targetUser.Id)
+                        .WithTarget(task.TenTaiLieu)
+                        .WithBadge("Gán công việc", "info")
+                        .Build();
 
                     DbContext.Notifications.Add(notification);
                     notificationsToSend.Add((notification, targetUser.Username));
@@ -849,19 +846,16 @@ public class CongViecGoiThauService
 
         foreach (var targetUser in targetUsers)
         {
-            var notification = new Notification
-            {
-                Id = Guid.NewGuid(),
-                Title = "Công việc: Giao việc mới",
-                Content = $"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).",
-                Link = $"/bid-packages/{task.GoiThauId}",
-                FeatureCode = "CONG_VIEC",
-                EntityName = "CongViecGoiThau",
-                EntityId = task.Id.ToString(),
-                UserId = targetUser.Id,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
+            var notification = NotificationBuilder.Create()
+                .WithTitle("Công việc: Giao việc mới")
+                .WithContent($"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
+                .WithLink($"/bid-packages/{task.GoiThauId}")
+                .WithFeatureCode("CONG_VIEC")
+                .WithEntity("CongViecGoiThau", task.Id.ToString())
+                .ForUser(targetUser.Id)
+                .WithTarget(task.TenTaiLieu)
+                .WithBadge("Gán công việc", "info")
+                .Build();
 
             DbContext.Notifications.Add(notification);
             await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
@@ -875,19 +869,16 @@ public class CongViecGoiThauService
 
         foreach (var targetUser in targetUsers)
         {
-            var notification = new Notification
-            {
-                Id = Guid.NewGuid(),
-                Title = "Công việc: Loại bỏ người liên quan",
-                Content = $"Bạn đã bị gỡ bỏ khỏi danh sách người liên quan của công việc '{task.TenTaiLieu}'.",
-                Link = $"/bid-packages/{task.GoiThauId}",
-                FeatureCode = "CONG_VIEC",
-                EntityName = "CongViecGoiThau",
-                EntityId = task.Id.ToString(),
-                UserId = targetUser.Id,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
+            var notification = NotificationBuilder.Create()
+                .WithTitle("Công việc: Loại bỏ người liên quan")
+                .WithContent($"Bạn đã bị gỡ bỏ khỏi danh sách người liên quan của công việc '{task.TenTaiLieu}'.")
+                .WithLink($"/bid-packages/{task.GoiThauId}")
+                .WithFeatureCode("CONG_VIEC")
+                .WithEntity("CongViecGoiThau", task.Id.ToString())
+                .ForUser(targetUser.Id)
+                .WithTarget(task.TenTaiLieu)
+                .WithBadge("Thay đổi", "secondary")
+                .Build();
 
             DbContext.Notifications.Add(notification);
             await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);

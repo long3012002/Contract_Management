@@ -13,6 +13,7 @@ using demo1.Entity;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
+using demo1.Services.Helpers;
 
 namespace demo1.Services.Workers
 {
@@ -174,19 +175,21 @@ namespace demo1.Services.Workers
 
                         _logger.LogInformation("[ContractScan] Đang tạo thông báo hệ thống cho user {Username} về hợp đồng {Code}", user.Username, contract.Code);
 
-                        var notification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = title,
-                            Content = content,
-                            Link = link,
-                            FeatureCode = "QUAN_LY_HOP_DONG",
-                            EntityName = "HopDong",
-                            EntityId = contract.Id.ToString(),
-                            UserId = user.Id,
-                            IsRead = false,
-                            CreatedAt = DateTime.UtcNow
-                        };
+                        var isOverdue = daysRemaining < 0;
+                        var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
+                        var badgeVariant = isOverdue ? "destructive" : "warning";
+                        var targetName = string.IsNullOrWhiteSpace(contract.Name) ? contract.Code : contract.Name;
+
+                        var notification = NotificationBuilder.Create()
+                            .WithTitle(title)
+                            .WithContent(content)
+                            .WithLink(link)
+                            .WithFeatureCode("QUAN_LY_HOP_DONG")
+                            .WithEntity("HopDong", contract.Id.ToString())
+                            .ForUser(user.Id)
+                            .WithTarget(targetName)
+                            .WithBadge(badgeText, badgeVariant)
+                            .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));
                     }
@@ -247,19 +250,21 @@ namespace demo1.Services.Workers
 
                         if (alreadyNotified) continue;
 
-                        var notification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = title,
-                            Content = content,
-                            Link = link,
-                            FeatureCode = "LICENSE",
-                            EntityName = "License",
-                            EntityId = license.Id.ToString(),
-                            UserId = user.Id,
-                            IsRead = false,
-                            CreatedAt = DateTime.UtcNow
-                        };
+                        var isOverdue = daysRemaining < 0;
+                        var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
+                        var badgeVariant = isOverdue ? "destructive" : "warning";
+                        var targetName = string.IsNullOrWhiteSpace(license.Name) ? license.Code : license.Name;
+
+                        var notification = NotificationBuilder.Create()
+                            .WithTitle(title)
+                            .WithContent(content)
+                            .WithLink(link)
+                            .WithFeatureCode("LICENSE")
+                            .WithEntity("License", license.Id.ToString())
+                            .ForUser(user.Id)
+                            .WithTarget(targetName)
+                            .WithBadge(badgeText, badgeVariant)
+                            .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));
                     }
@@ -352,19 +357,20 @@ namespace demo1.Services.Workers
 
                         if (alreadyNotified) continue;
 
-                        var notification = new Notification
-                        {
-                            Id = Guid.NewGuid(),
-                            Title = title,
-                            Content = content,
-                            Link = link,
-                            FeatureCode = "QUAN_LY_HOP_DONG",
-                            EntityName = "HangHoaDichVu",
-                            EntityId = hhh.Id.ToString(),
-                            UserId = user.Id,
-                            IsRead = false,
-                            CreatedAt = DateTime.UtcNow
-                        };
+                        var isOverdue = daysRemaining < 0;
+                        var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
+                        var badgeVariant = isOverdue ? "destructive" : "warning";
+
+                        var notification = NotificationBuilder.Create()
+                            .WithTitle(title)
+                            .WithContent(content)
+                            .WithLink(link)
+                            .WithFeatureCode("QUAN_LY_HOP_DONG")
+                            .WithEntity("HangHoaDichVu", hhh.Id.ToString())
+                            .ForUser(user.Id)
+                            .WithTarget(licenseName)
+                            .WithBadge(badgeText, badgeVariant)
+                            .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));
                     }

@@ -53,6 +53,7 @@ public class CreateDuAnDto
     public bool DaKetThuc { get; set; } = false;
 
     public string? SoQuyetDinh { get; set; }
+    public string? SoQuyetDinhPheDuyetDuToan { get; set; }
     
     public Guid? ChuDuAnId { get; set; }
 

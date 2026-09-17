@@ -10,6 +10,7 @@ using demo1.Hubs;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using demo1.Services.Helpers;
 
 using Microsoft.Extensions.Logging;
 
@@ -128,19 +129,18 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                 });
 
                 // Tạo thông báo cho người dùng được tag
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Bình luận: Được nhắc tên",
-                    Content = $"{user.FullName} đã nhắc đến bạn trong '{congViec.TenTaiLieu}'",
-                    Link = $"/goi-thau/cong-viec/{congViec.Id}",
-                    FeatureCode = "CONG_VIEC",
-                    EntityName = "CongViecGoiThau",
-                    EntityId = congViec.Id.ToString(),
-                    UserId = mUser.Id,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var actorName = user.FullName ?? user.Username;
+                var notification = NotificationBuilder.Create()
+                    .WithTitle("Bình luận: Được nhắc tên")
+                    .WithContent($"{actorName} đã nhắc đến bạn trong '{congViec.TenTaiLieu}'")
+                    .WithLink($"/goi-thau/cong-viec/{congViec.Id}")
+                    .WithFeatureCode("CONG_VIEC")
+                    .WithEntity("CongViecGoiThau", congViec.Id.ToString())
+                    .ForUser(mUser.Id)
+                    .WithActor(actorName)
+                    .WithTarget(congViec.TenTaiLieu)
+                    .WithBadge("Nhắc tên", "info")
+                    .Build();
 
                 _context.Notifications.Add(notification);
                 notificationsToPush.Add((mUser.Username, notification));
@@ -156,19 +156,18 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
 
             if (parentComment != null && parentComment.UserId != user.Id && !notificationsToPush.Any(n => n.TargetUsername == parentComment.User.Username))
             {
-                var notification = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    Title = "Bình luận: Phản hồi mới",
-                    Content = $"{user.FullName} đã trả lời bình luận của bạn trong '{congViec.TenTaiLieu}'",
-                    Link = $"/goi-thau/cong-viec/{congViec.Id}",
-                    FeatureCode = "CONG_VIEC",
-                    EntityName = "CongViecGoiThau",
-                    EntityId = congViec.Id.ToString(),
-                    UserId = parentComment.UserId,
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                };
+                var actorName = user.FullName ?? user.Username;
+                var notification = NotificationBuilder.Create()
+                    .WithTitle("Bình luận: Phản hồi mới")
+                    .WithContent($"{actorName} đã trả lời bình luận của bạn trong '{congViec.TenTaiLieu}'")
+                    .WithLink($"/goi-thau/cong-viec/{congViec.Id}")
+                    .WithFeatureCode("CONG_VIEC")
+                    .WithEntity("CongViecGoiThau", congViec.Id.ToString())
+                    .ForUser(parentComment.UserId)
+                    .WithActor(actorName)
+                    .WithTarget(congViec.TenTaiLieu)
+                    .WithBadge("Trả lời", "info")
+                    .Build();
 
                 _context.Notifications.Add(notification);
                 notificationsToPush.Add((parentComment.User.Username, notification));

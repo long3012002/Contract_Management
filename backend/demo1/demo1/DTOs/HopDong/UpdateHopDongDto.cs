@@ -40,6 +40,7 @@ public class UpdateHopDongDto
     public int HinhThucThanhToan { get; set; } // 1. Tiền mặt / 2. Chuyển khoản
 
     public DateTime? NgayHieuLuc { get; set; }
+    public DateTime? NgayKy { get; set; }
 
     public DateTime? ExpiredDate { get; set; }
     public DateTime? NgayKetThucThucTe { get; set; }

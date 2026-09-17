@@ -27,6 +27,7 @@ public class HopDong : BaseEntity
     public decimal GiaTriHopDong { get; set; }
     public int HinhThucThanhToan { get; set; } // 1. Tiền mặt / 2. Chuyển khoản
     public DateTime? NgayHieuLuc { get; set; }
+    public DateTime? NgayKy { get; set; }
     
     // Auxiliary fields to support contract warning services
     public DateTime? ExpiredDate { get; set; }

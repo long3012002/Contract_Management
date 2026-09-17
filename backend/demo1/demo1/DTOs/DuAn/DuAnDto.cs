@@ -210,6 +210,11 @@ public class DuAnDto : IHasId
     /// Số quyết định phê duyệt dự án
     /// </summary>
     public string? SoQuyetDinh { get; set; }
+
+    /// <summary>
+    /// Số quyết định phê duyệt dự toán
+    /// </summary>
+    public string? SoQuyetDinhPheDuyetDuToan { get; set; }
     
     /// <summary>
     /// Trạng thái hoạt động (true: Đang hoạt động, false: Đã xóa/khóa)

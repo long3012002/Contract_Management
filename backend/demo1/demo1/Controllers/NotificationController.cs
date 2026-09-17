@@ -136,7 +136,11 @@ namespace demo1.Controllers
                     EntityName = n.EntityName,
                     EntityId = n.EntityId,
                     IsRead = n.IsRead,
-                    CreatedAt = n.CreatedAt
+                    CreatedAt = n.CreatedAt,
+                    ActorName = n.ActorName,
+                    ActionBadgeText = n.ActionBadgeText,
+                    ActionBadgeVariant = n.ActionBadgeVariant,
+                    TargetName = n.TargetName
                 })
                 .ToListAsync();
 

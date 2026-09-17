@@ -36,6 +36,7 @@ public class HopDongDto : IHasId
     public decimal TongGiaTriHienTai { get; set; }
     public int HinhThucThanhToan { get; set; }
     public DateTime? NgayHieuLuc { get; set; }
+    public DateTime? NgayKy { get; set; }
 
     public DateTime? ExpiredDate { get; set; }
     public DateTime? ExpiredDateHienTai { get; set; }

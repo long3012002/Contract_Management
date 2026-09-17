@@ -822,6 +822,96 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     }
 
 
+    #region 9. Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu (Mẫu Excel)
+
+    /// <summary>
+    /// Lấy dữ liệu Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu.
+    /// </summary>
+    /// <param name="year">Năm ký / hiệu lực hợp đồng</param>
+    /// <param name="duAnId">Mã Dự án cần lọc (nếu có)</param>
+    /// <param name="search">Từ khóa tìm kiếm (Dự án, Gói thầu, Nhà thầu, Hợp đồng)</param>
+    /// <param name="donViTinh">Đơn vị tính (đồng, triệu...)</param>
+    [HttpGet("tien-do-thanh-toan-du-an-thau")]
+    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau")]
+    [ProducesResponseType(typeof(TienDoThanhToanDuAnThauReportResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<TienDoThanhToanDuAnThauReportResponseDto>> GetTienDoThanhToanDuAnThauReport(
+        [FromQuery] int? year,
+        [FromQuery] Guid? duAnId,
+        [FromQuery] string? search,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            var report = await reportService.GetTienDoThanhToanDuAnThauReportAsync(year, duAnId, search, donViTinh);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy báo cáo tiến độ thanh toán dự án thầu.", detail = env.IsDevelopment() ? ex.Message : null });
+        }
+    }
+
+    /// <summary>
+    /// Xuất file Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu ra Excel / CSV / HTML / Base64.
+    /// </summary>
+    [HttpGet("tien-do-thanh-toan-du-an-thau/export")]
+    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportTienDoThanhToanDuAnThauReport(
+        [FromQuery] int? year,
+        [FromQuery] Guid? duAnId,
+        [FromQuery] string? search,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] string? donViTinh = null)
+    {
+        try
+        {
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await reportService.ExportTienDoThanhToanDuAnThauReportCsvAsync(year, duAnId, search, donViTinh);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await reportService.ExportTienDoThanhToanDuAnThauReportHtmlAsync(year, duAnId, search, donViTinh);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await reportService.ExportTienDoThanhToanDuAnThauReportExcelAsync(year, duAnId, search, donViTinh);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string fileName = $"BaoCao_TienDoThanhToan_DuAnThau_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new { fileName, contentType, base64Data });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi API Reports: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất báo cáo tiến độ thanh toán dự án thầu.", detail = env.IsDevelopment() ? ex.Message : null });
+        }
+    }
+
+    #endregion
+
     private static bool IsValidPeriod(int period, bool hasCustomDates)
     {
         if (hasCustomDates || period == 0) return true;
