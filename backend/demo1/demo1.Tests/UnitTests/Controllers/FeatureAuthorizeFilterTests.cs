@@ -266,6 +266,162 @@ namespace demo1.Tests.UnitTests.Controllers
             ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
         }
 
+        [Fact]
+        public async Task Project_POST_Should_Return_403_When_User_Is_Owner_Of_Old_Project_But_Role_Lacks_Create()
+        {
+            // Arrange: User owns an old project, but current Role does NOT have CREATE permission
+            var ownerUser = new User { Id = Guid.NewGuid(), Username = "old_owner", FullName = "Old Owner", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "ViewerRole", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var oldProject = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-OLD",
+                Name = "Dự án cũ do user sở hữu",
+                LoaiDuAn = 1,
+                CreatedByUserId = ownerUser.Id,
+                ChuDuAnId = ownerUser.Id
+            };
+
+            var userRole = new UserRole { UserId = ownerUser.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "view" // LACKS create permission
+            };
+
+            _dbContext.Users.Add(ownerUser);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.DuAns.Add(oldProject);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("old_owner", "POST", "", "");
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Must return 403 Forbidden because POST creates a NEW project and role lacks CREATE permission, even though user owns an old project!
+            context.Result.Should().NotBeNull();
+            context.Result.Should().BeOfType<JsonResult>();
+            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        }
+
+        [Fact]
+        public async Task Project_PUT_Should_Return_403_When_UserPermission_Is_View_Only_Even_If_Role_Has_Edit()
+        {
+            // Arrange: Role has EDIT permission, BUT user has explicit entity-level UserPermission with VIEW only
+            var creator = new User { Id = Guid.NewGuid(), Username = "creator_user", FullName = "Creator", IsActive = true };
+            var userX = new User { Id = Guid.NewGuid(), Username = "user_x", FullName = "User X", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "GlobalEditorRole", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var projectA = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-SCOPED-01",
+                Name = "Dự án A bị giới hạn VIEW",
+                LoaiDuAn = 1,
+                CreatedByUserId = creator.Id,
+                ChuDuAnId = creator.Id
+            };
+
+            var userRole = new UserRole { UserId = userX.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "view,update" // Global role has EDIT
+            };
+
+            var viewPermCatalog = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(_dbContext.Permissions, p => p.Code == "VIEW");
+
+            // Explicit scoped restriction on Project A: VIEW only
+            var scopedUserPerm = new UserPermission
+            {
+                Id = Guid.NewGuid(),
+                UserId = userX.Id,
+                DuAnId = projectA.Id,
+                EntityId = projectA.Id.ToString(),
+                FeatureCode = "DU_AN",
+                PermissionId = viewPermCatalog.Id,
+                Permission = viewPermCatalog
+            };
+
+            _dbContext.Users.AddRange(creator, userX);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.DuAns.Add(projectA);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            _dbContext.UserPermissions.Add(scopedUserPerm);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("user_x", "PUT", "id", projectA.Id.ToString());
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Must return 403 Forbidden because Scoped UserPermission (VIEW only) overrides Global Role EDIT permission!
+            context.Result.Should().NotBeNull();
+            context.Result.Should().BeOfType<JsonResult>();
+            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        }
+
+        [Fact]
+        public async Task Project_PUT_Should_PassThrough_When_User_Has_No_UserPermission_And_Role_Has_Edit()
+        {
+            // Arrange: User has NO specific UserPermission on Project B, so global Role EDIT permission applies
+            var creator = new User { Id = Guid.NewGuid(), Username = "creator_b", FullName = "Creator B", IsActive = true };
+            var userY = new User { Id = Guid.NewGuid(), Username = "user_y", FullName = "User Y", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "GlobalEditorRole2", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var projectB = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-UNSCOPED-02",
+                Name = "Dự án B không bị giới hạn riêng",
+                LoaiDuAn = 1,
+                CreatedByUserId = creator.Id,
+                ChuDuAnId = creator.Id
+            };
+
+            var userRole = new UserRole { UserId = userY.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "view,update"
+            };
+
+            _dbContext.Users.AddRange(creator, userY);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.DuAns.Add(projectB);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("user_y", "PUT", "id", projectB.Id.ToString());
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Should pass through because user has no specific UserPermission override, so Role EDIT permission is used
+            context.Result.Should().BeNull();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

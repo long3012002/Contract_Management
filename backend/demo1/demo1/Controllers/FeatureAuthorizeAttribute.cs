@@ -60,12 +60,6 @@ namespace demo1.Controllers
             {
                 return;
             }
-            // Project Owner anywhere has full operational access to business features
-            var isProjectOwnerAnywhere = await IsProjectOwnerAnywhereAsync(dbUser.Id);
-            if (isProjectOwnerAnywhere && (_featureCode == "DU_AN" || _featureCode == "GOI_THAU" || _featureCode == "QUAN_LY_HOP_DONG" || _featureCode == "CONG_VIEC" || _featureCode == "DOI_TAC" || _featureCode == "BAO_CAO"))
-            {
-                return;
-            }
 
             var httpMethod = context.HttpContext.Request.Method.ToUpper();
 
@@ -147,22 +141,60 @@ namespace demo1.Controllers
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
                 var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
 
-                var hasViewPermission = await _dbContext.UserPermissions
+                // Check if user has specific entity-level UserPermissions assigned for this project/entity
+                var hasEntitySpecificUserPermissions = await _dbContext.UserPermissions
                     .AsNoTracking()
-                    .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
-                            validCodes.Contains(up.FeatureCode) ||
-                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ) &&
-                        (
                             up.EntityId == entityId ||
                             (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ) &&
-                        up.Permission != null && validViewActions.Contains(up.Permission.Code));
+                        ));
 
-                if (!hasViewPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
+                if (hasEntitySpecificUserPermissions)
+                {
+                    // SCOPED OVERRIDE: User has specific entity-level UserPermissions (e.g. Tab Thành viên Dự án).
+                    // Must evaluate ONLY based on these entity-level UserPermissions. Do NOT check RolePermissions.
+                    var hasViewPermission = await _dbContext.UserPermissions
+                        .AsNoTracking()
+                        .Include(up => up.Permission)
+                        .AnyAsync(up =>
+                            up.UserId == dbUser.Id &&
+                            (
+                                validCodes.Contains(up.FeatureCode) ||
+                                (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                            ) &&
+                            (
+                                up.EntityId == entityId ||
+                                (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                            ) &&
+                            up.Permission != null && validViewActions.Contains(up.Permission.Code));
+
+                    if (!hasViewPermission)
+                    {
+                        if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
+                        {
+                            return;
+                        }
+
+                        context.Result = new JsonResult(new
+                        {
+                            Message = "Bạn không có quyền xem bản ghi này. Vui lòng liên hệ chủ dự án hoặc quản trị viên.",
+                            RequiresPermissionRequest = true,
+                            FeatureCode = _featureCode,
+                            EntityId = entityId,
+                            RequiredPermissionCode = "VIEW"
+                        })
+                        {
+                            StatusCode = StatusCodes.Status403Forbidden
+                        };
+                        return;
+                    }
+                    return;
+                }
+
+                // Fallback to RolePermission if user does NOT have specific UserPermissions for this entity
+                if (!await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
                 {
                     if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
                     {
@@ -243,19 +275,51 @@ namespace demo1.Controllers
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
-                // High-performance Composite Index Lookup on UserPermissions + Permission Catalog Code
-                var hasPermission = await _dbContext.UserPermissions
+                // Check if user has specific entity-level UserPermissions assigned for this project/entity
+                var hasEntitySpecificUserPermissions = await _dbContext.UserPermissions
                     .AsNoTracking()
-                    .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
-                            (validCodes.Contains(up.FeatureCode) && up.EntityId == entityId) ||
-                            (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
-                        ) &&
-                        up.Permission != null && up.Permission.Code == requiredPermCode);
+                            up.EntityId == entityId ||
+                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                        ));
 
-                if (!hasPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
+                if (hasEntitySpecificUserPermissions)
+                {
+                    // SCOPED OVERRIDE: User has specific entity-level UserPermissions.
+                    // Must evaluate ONLY based on their entity-level UserPermissions. Do NOT fallback to RolePermissions!
+                    var hasPermission = await _dbContext.UserPermissions
+                        .AsNoTracking()
+                        .Include(up => up.Permission)
+                        .AnyAsync(up =>
+                            up.UserId == dbUser.Id &&
+                            (
+                                (validCodes.Contains(up.FeatureCode) && up.EntityId == entityId) ||
+                                (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
+                            ) &&
+                            up.Permission != null && up.Permission.Code == requiredPermCode);
+
+                    if (!hasPermission)
+                    {
+                        context.Result = new JsonResult(new
+                        {
+                            Message = $"Bạn chưa có quyền { (requiredPermCode == "DELETE" ? "xóa" : "chỉnh sửa") } trên bản ghi này. Vui lòng gửi yêu cầu cấp quyền.",
+                            RequiresPermissionRequest = true,
+                            FeatureCode = _featureCode,
+                            EntityId = entityId,
+                            RequiredPermissionCode = requiredPermCode
+                        })
+                        {
+                            StatusCode = StatusCodes.Status403Forbidden
+                        };
+                        return;
+                    }
+                    return;
+                }
+
+                // Fallback to RolePermission if user does NOT have specific UserPermissions for this entity
+                if (!await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
                     context.Result = new JsonResult(new
                     {
@@ -549,7 +613,7 @@ namespace demo1.Controllers
 
             var normAction = action.ToLower();
             return rolePerms.Any(rp =>
-                string.IsNullOrWhiteSpace(rp.Permissions) ||
+                !string.IsNullOrWhiteSpace(rp.Permissions) &&
                 rp.Permissions.ToLower().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Any(p => p == normAction || (normAction == "edit" && p == "update") || (normAction == "update" && p == "edit")));
         }
