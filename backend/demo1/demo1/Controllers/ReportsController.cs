@@ -16,6 +16,7 @@ namespace demo1.Controllers;
 /// Quy hoạch toàn bộ các API báo cáo dưới Base Route /api/NghiepVu/reports với hỗ trợ đầy đủ Legacy Route Aliases.
 /// </summary>
 [Authorize]
+[FeatureAuthorize("BAO_CAO")]
 [ApiController]
 [Route("api/NghiepVu/reports")]
 public class ReportsController(IReportService reportService, IWebHostEnvironment env, ILogger<ReportsController> logger) : ControllerBase
@@ -31,6 +32,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <returns>Bảng tổng hợp kinh phí đầu tư và danh sách chi tiết các dự án</returns>
     [HttpGet("dau-tu")]
     [HttpGet("/api/NghiepVu/report/investment")]
+    [FeatureAuthorize("BAO_CAO_DAU_TU")]
     [ProducesResponseType(typeof(ReportResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<ReportResponseDto>> GetInvestmentReport(
@@ -82,6 +84,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="toAlt">Đến ngày (tùy chọn 3)</param>
     [HttpGet("dau-tu/export")]
     [HttpGet("/api/NghiepVu/report/investment/export")]
+    [FeatureAuthorize("BAO_CAO_DAU_TU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportInvestmentReport(
         [FromQuery] int? year,
@@ -172,6 +175,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     [HttpGet("thanh-toan-hop-dong")]
     [HttpGet("/api/NghiepVu/report/contract-payments")]
+    [FeatureAuthorize("BAO_CAO_THANH_TOAN")]
     [ProducesResponseType(typeof(ContractPaymentReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
         [FromQuery] int? year,
@@ -206,6 +210,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
     [HttpGet("thanh-toan-hop-dong/export")]
     [HttpGet("/api/NghiepVu/report/contract-payments/export")]
+    [FeatureAuthorize("BAO_CAO_THANH_TOAN")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportContractPaymentReport(
         [FromQuery] int? year,
@@ -285,6 +290,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     [HttpGet("theo-doi-hop-dong")]
     [HttpGet("/api/NghiepVu/report/theo-doi-hop-dong")]
     [HttpGet("/api/NghiepVu/reportTheoDoiHopDong")]
+    [FeatureAuthorize("BAO_CAO_HOP_DONG")]
     [ProducesResponseType(typeof(TheoDoiHopDongReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TheoDoiHopDongReportResponseDto>> GetTheoDoiHopDongReport(
         [FromQuery] int? year,
@@ -318,6 +324,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     [HttpGet("theo-doi-hop-dong/export")]
     [HttpGet("/api/NghiepVu/report/theo-doi-hop-dong/export")]
     [HttpGet("/api/NghiepVu/reportTheoDoiHopDong/export")]
+    [FeatureAuthorize("BAO_CAO_HOP_DONG")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportTheoDoiHopDongReport(
         [FromQuery] int? year,
@@ -392,6 +399,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}")]
     [HttpGet("/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau:guid}")]
+    [FeatureAuthorize("BAO_CAO_TIEN_DO")]
     [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CongViecGoiThauReportDto>> GetCongViecGoiThauReport(Guid idGoiThau, [FromQuery] string? donViTinh = null)
@@ -421,6 +429,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}/export")]
     [HttpGet("/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau:guid}/export")]
+    [FeatureAuthorize("BAO_CAO_TIEN_DO")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ExportCongViecGoiThauReport(
@@ -492,6 +501,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Lấy dữ liệu Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Theo mẫu Phụ lục 01-05 &amp; Phụ biểu 01).
     /// </summary>
     [HttpGet("ke-hoach-von")]
+    [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(typeof(KeHoachVonReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<KeHoachVonReportResponseDto>> GetKeHoachVonReport(
         [FromQuery] int? year,
@@ -514,6 +524,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Xuất file Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Excel, CSV, HTML).
     /// </summary>
     [HttpGet("ke-hoach-von/export")]
+    [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportKeHoachVonReport(
         [FromQuery] int? year,
@@ -575,6 +586,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Lấy Báo cáo Tổng hợp &amp; Phân kỳ Kế hoạch vốn CNTT Giai đoạn.
     /// </summary>
     [HttpGet("ke-hoach-von-cntt")]
+    [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(typeof(KeHoachVonCnttReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<KeHoachVonCnttReportResponseDto>> GetKeHoachVonCnttReport(
         [FromQuery] int? fromYear,
@@ -600,6 +612,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Xuất file Báo cáo Kế hoạch vốn CNTT Giai đoạn (Excel, CSV, HTML).
     /// </summary>
     [HttpGet("ke-hoach-von-cntt/export")]
+    [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportKeHoachVonCnttReport(
         [FromQuery] int? fromYear,
@@ -673,6 +686,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     [HttpGet("han-license-bao-tri")]
     [HttpGet("/api/NghiepVu/report/license-sla")]
     [HttpGet("/api/NghiepVu/report/han-license-bao-tri")]
+    [FeatureAuthorize("BAO_CAO_PHE_DUYET")]
     [ProducesResponseType(typeof(LicenseSlaReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<LicenseSlaReportResponseDto>> GetLicenseSlaReport(
         [FromQuery] int? statusFilter,
@@ -698,6 +712,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     [HttpGet("han-license-bao-tri/export")]
     [HttpGet("/api/NghiepVu/report/license-sla/export")]
     [HttpGet("/api/NghiepVu/report/han-license-bao-tri/export")]
+    [FeatureAuthorize("BAO_CAO_PHE_DUYET")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportLicenseSlaReport(
         [FromQuery] int? statusFilter,
@@ -763,6 +778,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     [HttpGet("goi-thau-lcnt")]
     [HttpGet("/api/NghiepVu/report/goi-thau-lcnt")]
+    [FeatureAuthorize("BAO_CAO_DAU_THAU")]
     [ProducesResponseType(typeof(GoiThauLcntReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<GoiThauLcntReportResponseDto>> GetGoiThauLcntReport(
         [FromQuery] int? year,
@@ -787,6 +803,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// </summary>
     [HttpGet("goi-thau-lcnt/export")]
     [HttpGet("/api/NghiepVu/report/goi-thau-lcnt/export")]
+    [FeatureAuthorize("BAO_CAO_DAU_THAU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportGoiThauLcntReport(
         [FromQuery] int? year,
@@ -833,6 +850,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="donViTinh">Đơn vị tính (đồng, triệu...)</param>
     [HttpGet("tien-do-thanh-toan-du-an-thau")]
     [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau")]
+    [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(typeof(TienDoThanhToanDuAnThauReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TienDoThanhToanDuAnThauReportResponseDto>> GetTienDoThanhToanDuAnThauReport(
         [FromQuery] int? year,
@@ -857,6 +875,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// </summary>
     [HttpGet("tien-do-thanh-toan-du-an-thau/filter-options")]
     [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/filter-options")]
+    [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(typeof(IReadOnlyList<DuAnLookupDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetTienDoThanhToanFilterOptions()
     {
@@ -877,6 +896,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// </summary>
     [HttpGet("tien-do-thanh-toan-du-an-thau/export")]
     [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/export")]
+    [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportTienDoThanhToanDuAnThauReport(
         [FromQuery] int? year,

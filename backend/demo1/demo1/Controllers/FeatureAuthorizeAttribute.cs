@@ -382,11 +382,26 @@ namespace demo1.Controllers
                     codes.Add("REPORT");
                     codes.Add("REPORTS");
                     break;
+                case "DANH_MUC":
+                case "CATEGORY":
+                    codes.Add("DANH_MUC");
+                    codes.Add("DANHMUC");
+                    codes.Add("CATEGORY");
+                    codes.Add("CATEGORIES");
+                    break;
                 case "LICENSE":
                     codes.Add("LICENSE");
                     codes.Add("LICENSES");
                     codes.Add("BANQUYEN");
                     break;
+            }
+
+            if (norm.StartsWith("BAO_CAO_"))
+            {
+                codes.Add("BAO_CAO");
+                codes.Add("BAOCAO");
+                codes.Add("REPORT");
+                codes.Add("REPORTS");
             }
 
             // Always include project codes as project-level permissions can grant access

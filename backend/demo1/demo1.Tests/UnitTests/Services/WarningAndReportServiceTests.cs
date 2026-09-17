@@ -984,7 +984,7 @@ namespace demo1.Tests.UnitTests.Services
                 var ws = wbB4.Worksheet("Quản lý Hợp đồng");
                 ws.Cell("B4").GetString().Should().Be("STT");
                 ws.Cell("C4").GetString().Should().Be("Số / Mã HĐ");
-                ws.Cell("M4").GetString().Should().Be("Cảnh báo hành động");
+                ws.Cell("M4").GetString().Should().Be("Số ngày còn lại");
             }
 
             // 5. Test Báo cáo 5: Đợt thanh toán (V1 vs V2)

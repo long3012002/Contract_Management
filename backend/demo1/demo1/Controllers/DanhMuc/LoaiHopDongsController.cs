@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Danh mục Loại hợp đồng.
 /// </summary>
 [Route("api/DanhMuc/loai-hop-dong")]
-[FeatureAuthorize("HOP_DONG")]
+[FeatureAuthorize("DANH_MUC")]
 public class LoaiHopDongsController : CrudControllerBase<LoaiHopDongDto, CreateLoaiHopDongDto, UpdateLoaiHopDongDto>
 {
     public LoaiHopDongsController(ILoaiHopDongService service) : base(service)

@@ -43,11 +43,15 @@ namespace demo1.Controllers
             var features = await adminService.GetFeaturesAsync();
             var activeFeatures = features
                 .Where(f => f.IsActive)
+                .OrderBy(f => f.SortOrder)
+                .ThenBy(f => f.Name)
                 .Select(f => new 
                 { 
                     f.Code, 
                     f.Name,
-                    f.Description
+                    f.Description,
+                    f.ParentCode,
+                    f.SortOrder
                 });
             return Ok(activeFeatures);
         }

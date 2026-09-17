@@ -16,6 +16,8 @@ namespace demo1.DTOs.Permission
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? ParentCode { get; set; }
+        public int SortOrder { get; set; }
         public List<string> Aliases { get; set; } = new List<string>();
     }
 

@@ -8,7 +8,7 @@ namespace demo1.Controllers;
 /// API Quản lý Danh mục Nguồn vốn (vd: Chi phí của NHHT, Chi phí tại chi nhánh, Nguồn khác, Quỹ phúc lợi...).
 /// </summary>
 [Route("api/DanhMuc/nguon-von")]
-[FeatureAuthorize("DU_AN")]
+[FeatureAuthorize("DANH_MUC")]
 public class NguonVonsController : CrudControllerBase<NguonVonDto, CreateNguonVonDto, UpdateNguonVonDto>
 {
     public NguonVonsController(INguonVonService service) : base(service)

@@ -169,7 +169,7 @@ namespace demo1.Services.Implements
         {
             try
             {
-                return await _dbContext.Features.OrderBy(f => f.Name).ToListAsync();
+                return await _dbContext.Features.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
             }
             catch (Exception ex)
             {
@@ -202,6 +202,8 @@ namespace demo1.Services.Implements
                     Code = dto.Code.Trim(),
                     Name = dto.Name.Trim(),
                     Description = dto.Description,
+                    ParentCode = dto.ParentCode?.Trim(),
+                    SortOrder = dto.SortOrder,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -245,6 +247,8 @@ namespace demo1.Services.Implements
                 feature.Code = dto.Code.Trim();
                 feature.Name = dto.Name.Trim();
                 feature.Description = dto.Description;
+                feature.ParentCode = dto.ParentCode?.Trim();
+                feature.SortOrder = dto.SortOrder;
                 feature.IsActive = dto.IsActive;
 
                 await _dbContext.SaveChangesAsync();
@@ -287,7 +291,7 @@ namespace demo1.Services.Implements
                     throw new KeyNotFoundException("Không tìm thấy vai trò.");
                 }
 
-                var features = await _dbContext.Features.Where(f => f.IsActive).ToListAsync();
+                var features = await _dbContext.Features.Where(f => f.IsActive).OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
                 var savedRolePermissions = await _dbContext.RolePermissions
                     .Where(rp => rp.RoleId == roleId)
                     .ToListAsync();
@@ -302,6 +306,8 @@ namespace demo1.Services.Implements
                             FeatureId = f.Id,
                             FeatureCode = f.Code,
                             FeatureName = f.Name,
+                            ParentCode = f.ParentCode,
+                            SortOrder = f.SortOrder,
                             CanAccess = savedPerm.CanAccess,
                             Permissions = savedPerm.Permissions
                         };
@@ -312,6 +318,8 @@ namespace demo1.Services.Implements
                         FeatureId = f.Id,
                         FeatureCode = f.Code,
                         FeatureName = f.Name,
+                        ParentCode = f.ParentCode,
+                        SortOrder = f.SortOrder,
                         CanAccess = false,
                         Permissions = string.Empty
                     };

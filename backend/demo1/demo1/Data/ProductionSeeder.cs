@@ -300,15 +300,22 @@ public static class ProductionSeeder
     /// </summary>
     public static async Task SeedSystemCatalogAsync(AppDbContext context, ILogger? logger = null)
     {
-        var defaultFeatures = new List<(string Code, string Name, string Description)>
+        var defaultFeatures = new List<(string Code, string Name, string Description, string? ParentCode, int SortOrder)>
         {
-            ("DU_AN", "Quản lý dự án", "Chức năng xem, thêm, sửa, xoá dự án"),
-            ("GOI_THAU", "Quản lý gói thầu", "Chức năng xem, thêm, sửa, xoá gói thầu"),
-            ("QUAN_LY_HOP_DONG", "Quản lý hợp đồng", "Chức năng xem, thêm, sửa, xoá hợp đồng"),
-            ("HOP_DONG", "Quản lý loại hợp đồng", "Chức năng quản lý loại/danh mục hợp đồng"),
-            ("DOI_TAC", "Quản lý đối tác", "Chức năng xem, thêm, sửa, xoá đối tác"),
-            ("NGHI_QUYET", "Quản lý nghị quyết/văn bản", "Chức năng xem, thêm, sửa, xoá nghị quyết"),
-            ("BAO_CAO", "Báo cáo & Thống kê", "Chức năng xem và xuất báo cáo thống kê")
+            ("DU_AN", "Quản lý dự án", "Chức năng xem, thêm, sửa, xoá dự án", null, 10),
+            ("GOI_THAU", "Quản lý gói thầu", "Chức năng xem, thêm, sửa, xoá gói thầu", null, 20),
+            ("QUAN_LY_HOP_DONG", "Quản lý hợp đồng", "Chức năng xem, thêm, sửa, xoá hợp đồng", null, 30),
+            ("DOI_TAC", "Quản lý đối tác", "Chức năng xem, thêm, sửa, xoá đối tác", null, 40),
+            ("DANH_MUC", "Quản lý Danh mục dữ liệu", "Quản lý các loại dự án, nguồn vốn, loại hợp đồng, nhóm dự án", null, 50),
+            ("BAO_CAO", "Báo cáo & Thống kê", "Nhóm chức năng báo cáo tổng hợp & chi tiết", null, 60),
+            ("BAO_CAO_TIEN_DO", "Báo cáo 1: Tiến độ Dự án", "Báo cáo trình tự thực hiện các công việc thuộc gói thầu và dự án", "BAO_CAO", 61),
+            ("BAO_CAO_VON", "Báo cáo 2: Phân bổ & Vốn", "Báo cáo kế hoạch vốn đầu tư, mua sắm và phân kỳ vốn CNTT", "BAO_CAO", 62),
+            ("BAO_CAO_DAU_THAU", "Báo cáo 3: Nhà thầu (LCNT)", "Báo cáo kế hoạch và kết quả lựa chọn nhà thầu", "BAO_CAO", 63),
+            ("BAO_CAO_HOP_DONG", "Báo cáo 4: Quản lý Hợp đồng", "Báo cáo theo dõi chi tiết tình hình thực hiện hợp đồng", "BAO_CAO", 64),
+            ("BAO_CAO_THANH_TOAN", "Báo cáo 5: Đợt thanh toán", "Báo cáo theo dõi giải ngân và các đợt thanh toán hợp đồng", "BAO_CAO", 65),
+            ("BAO_CAO_DU_AN_THAU", "Báo cáo 6: TT Dự án thầu", "Báo cáo tiến độ thanh toán tổng hợp các dự án thầu", "BAO_CAO", 66),
+            ("BAO_CAO_DAU_TU", "Báo cáo Tổng hợp Đầu tư", "Báo cáo tổng hợp tình hình thực hiện kinh phí đầu tư", "BAO_CAO", 67),
+            ("BAO_CAO_PHE_DUYET", "Danh mục Dự án phê duyệt", "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", "BAO_CAO", 68)
         };
 
         foreach (var f in defaultFeatures)
@@ -321,8 +328,17 @@ public static class ProductionSeeder
                     Code = f.Code,
                     Name = f.Name,
                     Description = f.Description,
+                    ParentCode = f.ParentCode,
+                    SortOrder = f.SortOrder,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            else
+            {
+                existing.Name = f.Name;
+                existing.Description = f.Description;
+                existing.ParentCode = f.ParentCode;
+                existing.SortOrder = f.SortOrder;
             }
         }
 
