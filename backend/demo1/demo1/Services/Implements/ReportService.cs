@@ -4379,7 +4379,7 @@ public class ReportService : IReportService
             });
         }
 
-        int maxLanCount = rows.Any() ? Math.Max(3, rows.Max(r => r.CacLanThanhToan.Count)) : 3;
+        int maxLanCount = rows.Any() ? rows.Max(r => r.CacLanThanhToan.Count) : 0;
 
         var tongCacLanThanhToan = new List<decimal>();
         for (int i = 0; i < maxLanCount; i++)
@@ -4571,6 +4571,18 @@ public class ReportService : IReportService
         sumTamUngCell.Style.Font.Bold = true;
         sumTamUngCell.Style.NumberFormat.Format = "#,#0";
         sumTamUngCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+        for (int i = 0; i < maxLan; i++)
+        {
+            var sumLanCell = worksheet.Cell(currentRow, 15 + i);
+            if (i < reportData.Summary.TongCacLanThanhToan.Count)
+            {
+                sumLanCell.Value = reportData.Summary.TongCacLanThanhToan[i];
+                sumLanCell.Style.Font.Bold = true;
+                sumLanCell.Style.NumberFormat.Format = "#,#0";
+                sumLanCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            }
+        }
 
         for (int col = 1; col <= totalCols; col++)
         {
