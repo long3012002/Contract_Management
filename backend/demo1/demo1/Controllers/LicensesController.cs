@@ -147,4 +147,37 @@ public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDt
         var result = await _licenseService.GetLicenseSummaryAsync(duAnId);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Đồng bộ / Upsert trọn gói danh sách License theo Hợp đồng (Tự động thêm, sửa, xóa trong 1 DB Transaction).
+    /// </summary>
+    /// <param name="hopDongId">Mã định danh Hợp đồng (GUID)</param>
+    /// <param name="dto">Danh sách License cần đồng bộ</param>
+    /// <returns>Kết quả đồng bộ và danh sách License mới nhất</returns>
+    /// <response code="200">Đồng bộ thành công</response>
+    /// <response code="400">Dữ liệu không hợp lệ</response>
+    /// <response code="404">Không tìm thấy Hợp đồng</response>
+    [HttpPost("sync/{hopDongId:guid}")]
+    [ProducesResponseType(typeof(SyncContractLicensesResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<SyncContractLicensesResultDto>> SyncContractLicenses(
+        Guid hopDongId,
+        [FromBody] SyncContractLicensesDto dto)
+    {
+        try
+        {
+            var result = await _licenseService.SyncContractLicensesAsync(hopDongId, dto);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }
+

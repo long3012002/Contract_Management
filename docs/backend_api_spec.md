@@ -118,17 +118,55 @@ GET /api/NghiepVu/licenses?page=1&pageSize=1000
 GET /api/NghiepVu/licenses?hopDongId={guid}&page=1&pageSize=50
 ```
 
+#### Endpoint Batch Sync / Upsert mới bổ sung ✅
+
+```http
+POST /api/NghiepVu/licenses/sync/{hopDongId}
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "id": "guid-hien-co-de-update-hoac-null-neu-tao-moi",
+      "code": "LIC-001",
+      "name": "Bản quyền Oracle Enterprise",
+      "duAnId": "du-an-guid",
+      "nhaCungCapId": "nha-thau-guid",
+      "loaiLicense": 1,
+      "soLuong": 10,
+      "ngayBatDau": "2026-01-01T00:00:00Z",
+      "thoiHan": "12 tháng",
+      "canhBaoTruocNgay": 30,
+      "trangThai": 1
+    }
+  ]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "hopDongId": "hop-dong-guid",
+  "createdCount": 1,
+  "updatedCount": 0,
+  "deletedCount": 1,
+  "items": [ /* Danh sách license cập nhật sau sync */ ]
+}
+```
+
 #### Thay đổi cần thực hiện
 
-Thêm query parameter `hopDongId` (optional) vào endpoint `GET /api/licenses`. Khi được truyền vào, filter kết quả theo `WHERE hopDongId = @hopDongId` trước khi phân trang.
-
-Tương tự cho `GET /api/NghiepVu/licenses?duAnId={guid}` (đã có thể hoạt động nhưng cần xác nhận lại).
+1. Thêm query parameter `hopDongId` (optional) vào endpoint `GET /api/NghiepVu/licenses`. When specified, filter by `hopDongId`.
+2. Sử dụng endpoint `POST /api/NghiepVu/licenses/sync/{hopDongId}` để đồng bộ danh sách hàng hóa/license trọn gói cho Hợp đồng trong 1 Database Transaction duy nhất (thay thế cho việc FE phải tự diff và loop nhiều API request).
 
 #### Tác động sau khi fix
 
-Xóa được 3 lần gọi `pageSize: 1000` trong `contractItemsService.js` và logic filter client-side.
+- Eliminates frontend manual diffing and serial `delete`, `create`, `update` API loops.
+- Guarantee database transaction atomicity during contract saves.
+- Remove client-side filtering workarounds.
 
 ---
+
 
 ## 🟠 VẤN ĐỀ 3 — HIGH
 

@@ -44,7 +44,23 @@ public class HopDongDto : IHasId
     public DateTime? RenewalReminderDate { get; set; }
     public bool IsRenewalRequired { get; set; }
 
+    /// <summary>
+    /// Chuỗi tên liên danh nhà thầu đã được nối sẵn (ví dụ: "Liên danh Công ty A - Công ty B")
+    /// </summary>
+    public string? TenLienDanhNhaThau { get; set; }
+
+    /// <summary>
+    /// Số ngày thực hiện hợp đồng được tính toán sẵn từ NgayHieuLuc đến ExpiredDateHienTai
+    /// </summary>
+    public int? SoNgayThucHien { get; set; }
+
+    /// <summary>
+    /// Trạng thái chuẩn hóa được tính toán ở Backend (Đang hiệu lực / Hết hạn / Đã nghiệm thu thanh lý / Dự thảo)
+    /// </summary>
+    public string TrangThaiCalculatedText { get; set; } = "Đang hiệu lực";
+
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
+
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
     public List<HangHoaDichVuDto> HangHoaDichVus { get; set; } = new();
     public List<PhuLucHopDongDto> PhuLucHopDongs { get; set; } = new();

@@ -24,11 +24,22 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (FormatException ex)
+        {
+            _logger.LogWarning(ex, $"Định dạng dữ liệu không hợp lệ: {ex.Message}");
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Tham số truyền vào không đúng định dạng GUID hợp lệ.", ex.Message);
+        }
+        catch (BadHttpRequestException ex)
+        {
+            _logger.LogWarning(ex, $"Bad HttpRequest: {ex.Message}");
+            await WriteErrorAsync(context, HttpStatusCode.BadRequest, "Yêu cầu không hợp lệ hoặc dữ liệu sai định dạng.", ex.Message);
+        }
         catch (ArgumentException ex)
         {
             _logger.LogWarning(ex, $"Yêu cầu không hợp lệ: {ex.Message}");
             await WriteErrorAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
+
         catch (UnauthorizedAccessException ex)
         {
             _logger.LogWarning(ex, $"Không có quyền truy cập: {ex.Message}");

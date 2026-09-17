@@ -57,7 +57,10 @@ public static class ServiceConfiguration
         {
             options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
             options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.Converters.Add(new demo1.Converters.UtcDateTimeJsonConverter());
+            options.JsonSerializerOptions.Converters.Add(new demo1.Converters.NullableUtcDateTimeJsonConverter());
         });
+
 
         services.Configure<ApiBehaviorOptions>(options =>
         {

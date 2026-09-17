@@ -105,15 +105,31 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             query = query.Where(item => item.NhaThauId == filter.NhaThauId.Value || item.NhaThauGoiThaus.Any(nt => nt.NhaThauId == filter.NhaThauId.Value));
         }
 
-        if (filter.LoaiHopDong.HasValue)
+        if (!string.IsNullOrWhiteSpace(filter.ContractTypeId))
         {
-            query = query.Where(item => item.LoaiHopDong == filter.LoaiHopDong.Value);
+            var typeStr = filter.ContractTypeId.Trim();
+            if (int.TryParse(typeStr, out var typeInt))
+            {
+                query = query.Where(item => item.LoaiHopDong == typeInt);
+            }
+            else if (Guid.TryParse(typeStr, out var typeGuid))
+            {
+                query = query.Where(item => item.LoaiHopDongId == typeGuid);
+            }
+        }
+        else
+        {
+            if (filter.LoaiHopDong.HasValue)
+            {
+                query = query.Where(item => item.LoaiHopDong == filter.LoaiHopDong.Value);
+            }
+
+            if (filter.LoaiHopDongId.HasValue)
+            {
+                query = query.Where(item => item.LoaiHopDongId == filter.LoaiHopDongId.Value);
+            }
         }
 
-        if (filter.LoaiHopDongId.HasValue)
-        {
-            query = query.Where(item => item.LoaiHopDongId == filter.LoaiHopDongId.Value);
-        }
 
         if (filter.HinhThucThanhToan.HasValue)
         {
@@ -367,9 +383,12 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         }
 
         var entity = Mapper.Map<HopDong>(dto);
+        if (entity.LoaiHopDong <= 0) entity.LoaiHopDong = 1;
+        if (entity.HinhThucThanhToan <= 0) entity.HinhThucThanhToan = 1;
         entity.NhaThauId = dto.NhaThauId;
         entity.Id = Guid.NewGuid();
         entity.CreatedAt = DateTime.UtcNow;
+
 
         if (dto.NhaThauGoiThaus != null)
         {
@@ -1003,8 +1022,66 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 .Where(p => p.ExpiredDateMoi.HasValue)
                 .OrderByDescending(p => p.NgayKy)
                 .FirstOrDefault()?.ExpiredDateMoi ?? dto.ExpiredDate;
+
+            // 1. Nối tên Liên danh Nhà thầu ("Liên danh Công ty A - Công ty B")
+            var contractorNames = new List<string>();
+            if (!string.IsNullOrWhiteSpace(dto.NhaThauName))
+            {
+                contractorNames.Add(dto.NhaThauName.Trim());
+            }
+            if (dto.NhaThauGoiThaus != null)
+            {
+                foreach (var item in dto.NhaThauGoiThaus)
+                {
+                    var name = item.NhaThauName;
+                    if (!string.IsNullOrWhiteSpace(name) && !contractorNames.Contains(name.Trim(), StringComparer.OrdinalIgnoreCase))
+                    {
+                        contractorNames.Add(name.Trim());
+                    }
+                }
+
+            }
+
+            if (contractorNames.Count > 1)
+            {
+                dto.TenLienDanhNhaThau = "Liên danh " + string.Join(" - ", contractorNames);
+            }
+            else if (contractorNames.Count == 1)
+            {
+                dto.TenLienDanhNhaThau = contractorNames[0];
+            }
+
+            // 2. Tính số ngày thực hiện hợp đồng (SoNgayThucHien)
+            if (dto.NgayHieuLuc.HasValue)
+            {
+                var endDate = dto.ExpiredDateHienTai ?? dto.ExpiredDate;
+                if (endDate.HasValue && endDate.Value >= dto.NgayHieuLuc.Value)
+                {
+                    dto.SoNgayThucHien = (endDate.Value.Date - dto.NgayHieuLuc.Value.Date).Days;
+                }
+            }
+
+            // 3. Chuẩn hóa trạng thái hợp đồng (TrangThaiCalculatedText)
+            var effEnd = dto.ExpiredDateHienTai ?? dto.ExpiredDate;
+            if (dto.DaKetThuc)
+            {
+                dto.TrangThaiCalculatedText = "Đã kết thúc / Thanh lý";
+            }
+            else if (effEnd.HasValue && effEnd.Value.Date < DateTime.Today)
+            {
+                dto.TrangThaiCalculatedText = "Đã hết hạn";
+            }
+            else if (dto.NgayHieuLuc.HasValue && dto.NgayHieuLuc.Value.Date > DateTime.Today)
+            {
+                dto.TrangThaiCalculatedText = "Dự thảo / Chưa hiệu lực";
+            }
+            else
+            {
+                dto.TrangThaiCalculatedText = "Đang hiệu lực";
+            }
         }
     }
+
 
     public override Task<bool> SoftDeleteAsync(Guid id)
     {

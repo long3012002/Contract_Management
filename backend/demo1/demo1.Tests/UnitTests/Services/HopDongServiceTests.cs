@@ -338,9 +338,82 @@ namespace demo1.Tests.UnitTests.Services
             dot.IsPaid.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task GetAllAsync_Should_Filter_By_ContractTypeId_And_Compute_Properties()
+        {
+            // Arrange
+            var contractor1 = new DoiTac { Id = Guid.NewGuid(), Code = "DT-COMPUTED-A", Name = "Công ty A" };
+            var contractor2 = new DoiTac { Id = Guid.NewGuid(), Code = "DT-COMPUTED-B", Name = "Công ty B" };
+            _dbContext.DoiTacs.AddRange(contractor1, contractor2);
+
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-COMPUTED", Name = "Dự án Computed" };
+            var goiThau1 = new GoiThau { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "GT-COMPUTED-1", Name = "Gói thầu Computed 1" };
+            var goiThau2 = new GoiThau { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "GT-COMPUTED-2", Name = "Gói thầu Computed 2" };
+            _dbContext.DuAns.Add(project);
+            _dbContext.GoiThaus.AddRange(goiThau1, goiThau2);
+
+            var dynamicContractType = Guid.NewGuid();
+            var loaiHopDongEntity = new demo1.Entity.DanhMuc.LoaiHopDong { Id = dynamicContractType, Code = "LHD-DYN", Name = "Loại HĐ Động" };
+            _dbContext.LoaiHopDongs.Add(loaiHopDongEntity);
+
+            var contract1 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-COMPUTED-1",
+                Name = "Hợp đồng thử nghiệm 1",
+                GoiThauId = goiThau1.Id,
+                NhaThauId = contractor1.Id,
+                NhaThau = contractor1,
+                LoaiHopDong = 1,
+                NgayHieuLuc = new DateTime(2026, 1, 1),
+                ExpiredDate = new DateTime(2026, 12, 31),
+                DaKetThuc = false
+            };
+
+            var contract2 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-COMPUTED-2",
+                Name = "Hợp đồng thử nghiệm 2",
+                GoiThauId = goiThau2.Id,
+                LoaiHopDongId = dynamicContractType,
+                NgayHieuLuc = new DateTime(2026, 5, 1),
+                ExpiredDate = new DateTime(2026, 5, 10),
+                DaKetThuc = true
+            };
+
+            contract2.NhaThauGoiThaus.Add(new NhaThauGoiThau { Id = Guid.NewGuid(), HopDongId = contract2.Id, NhaThauId = contractor1.Id, NhaThau = contractor1 });
+            contract2.NhaThauGoiThaus.Add(new NhaThauGoiThau { Id = Guid.NewGuid(), HopDongId = contract2.Id, NhaThauId = contractor2.Id, NhaThau = contractor2 });
+
+
+
+            _dbContext.HopDongs.AddRange(contract1, contract2);
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Filter by string enum "1"
+            var filterEnumResult = await _hopDongService.GetAllAsync(new HopDongFilterDto { ContractTypeId = "1" });
+            
+            // Assert 1
+            filterEnumResult.Items.Should().Contain(h => h.Id == contract1.Id);
+            var item1 = filterEnumResult.Items.First(h => h.Id == contract1.Id);
+            item1.SoNgayThucHien.Should().Be(364);
+            item1.TenLienDanhNhaThau.Should().Be("Công ty A");
+
+            // Act 2: Filter by Guid string
+            var filterGuidResult = await _hopDongService.GetAllAsync(new HopDongFilterDto { ContractTypeId = dynamicContractType.ToString() });
+
+            // Assert 2
+            filterGuidResult.Items.Should().Contain(h => h.Id == contract2.Id);
+            var item2 = filterGuidResult.Items.First(h => h.Id == contract2.Id);
+            item2.TenLienDanhNhaThau.Should().StartWith("Liên danh");
+            item2.TrangThaiCalculatedText.Should().Be("Đã kết thúc / Thanh lý");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
         }
     }
 }
+

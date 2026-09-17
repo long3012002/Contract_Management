@@ -369,7 +369,13 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             entity.Id = Guid.NewGuid();
             entity.CreatedAt = DateTime.UtcNow;
 
+            if (entity.CanhBaoTruocNgay <= 0)
+            {
+                entity.CanhBaoTruocNgay = 30;
+            }
+
             if (string.IsNullOrWhiteSpace(entity.Code))
+
             {
                 entity.Code = $"LIC-{DateTime.Now:yyyyMMdd}-{entity.Id.ToString().Substring(0, 4).ToUpper()}";
             }
@@ -496,4 +502,139 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
 
         return null;
     }
+
+    public async Task<SyncContractLicensesResultDto> SyncContractLicensesAsync(Guid hopDongId, SyncContractLicensesDto dto)
+    {
+        var hopDong = await DbContext.HopDongs.FirstOrDefaultAsync(h => h.Id == hopDongId);
+        if (hopDong == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Hợp đồng với ID '{hopDongId}'.");
+        }
+
+        using var transaction = await DbContext.Database.BeginTransactionAsync();
+        try
+        {
+            // 1. Fetch existing active licenses associated with this contract
+            var existingLicenses = await DbSet
+                .Where(l => l.HopDongId == hopDongId && l.IsActive)
+                .ToListAsync();
+
+            var incomingItems = dto.Items ?? new List<SyncLicenseItemDto>();
+            var incomingIds = incomingItems
+                .Where(i => i.Id.HasValue && i.Id.Value != Guid.Empty)
+                .Select(i => i.Id!.Value)
+                .ToHashSet();
+
+            int createdCount = 0;
+            int updatedCount = 0;
+            int deletedCount = 0;
+
+            // 2. Mark missing items as soft-deleted (IsActive = false)
+            foreach (var existing in existingLicenses)
+            {
+                if (!incomingIds.Contains(existing.Id))
+                {
+                    existing.IsActive = false;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    deletedCount++;
+                }
+            }
+
+            // 3. Update existing or Create new items
+            foreach (var item in incomingItems)
+            {
+                if (item.Id.HasValue && item.Id.Value != Guid.Empty)
+                {
+                    var existing = existingLicenses.FirstOrDefault(l => l.Id == item.Id.Value);
+                    if (existing != null)
+                    {
+                        existing.Code = item.Code;
+                        existing.Name = item.Name;
+                        existing.Description = item.Description;
+                        existing.DuAnId = item.DuAnId != Guid.Empty ? item.DuAnId : (hopDong.DuAnId ?? Guid.Empty);
+                        existing.HopDongId = hopDongId;
+                        existing.NhaCungCapId = item.NhaCungCapId ?? hopDong.NhaThauId;
+                        existing.LoaiLicense = item.LoaiLicense;
+                        existing.SoLuong = item.SoLuong;
+                        existing.ThongTinThietBi = item.ThongTinThietBi;
+                        existing.NgayBatDau = item.NgayBatDau;
+                        existing.ThoiHan = item.ThoiHan;
+                        existing.NgayKetThuc = item.NgayKetThuc;
+                        existing.CanhBaoTruocNgay = item.CanhBaoTruocNgay;
+                        existing.TrangThai = item.TrangThai;
+                        existing.IsActive = item.IsActive;
+                        existing.GhiChu = item.GhiChu;
+                        existing.UpdatedAt = DateTime.UtcNow;
+
+                        CalculateEndAndDuration(existing);
+                        existing.TrangThai = RecalculateStatus(existing);
+                        updatedCount++;
+                    }
+                }
+                else
+                {
+                    var newLicense = new License
+                    {
+                        Id = Guid.NewGuid(),
+                        Code = string.IsNullOrWhiteSpace(item.Code) ? $"LIC-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..4]}" : item.Code,
+                        Name = item.Name,
+                        Description = item.Description,
+                        DuAnId = item.DuAnId != Guid.Empty ? item.DuAnId : (hopDong.DuAnId ?? Guid.Empty),
+
+                        HopDongId = hopDongId,
+                        NhaCungCapId = item.NhaCungCapId ?? hopDong.NhaThauId,
+                        LoaiLicense = item.LoaiLicense,
+                        SoLuong = item.SoLuong,
+                        ThongTinThietBi = item.ThongTinThietBi,
+                        NgayBatDau = item.NgayBatDau,
+                        ThoiHan = item.ThoiHan,
+                        NgayKetThuc = item.NgayKetThuc,
+                        CanhBaoTruocNgay = item.CanhBaoTruocNgay > 0 ? item.CanhBaoTruocNgay : 30,
+                        TrangThai = item.TrangThai,
+                        IsActive = true,
+                        GhiChu = item.GhiChu,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    CalculateEndAndDuration(newLicense);
+                    newLicense.TrangThai = RecalculateStatus(newLicense);
+
+                    await DbSet.AddAsync(newLicense);
+                    createdCount++;
+                }
+            }
+
+            await DbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // 4. Fetch refreshed list and return
+            var updatedLicenses = await DbSet
+                .Include(l => l.DuAn)
+                .Include(l => l.HopDong)
+                .Include(l => l.NhaCungCap)
+                .Where(l => l.HopDongId == hopDongId && l.IsActive)
+                .AsNoTracking()
+                .ToListAsync();
+
+            var resultDtos = updatedLicenses
+                .Select(l => EnrichDtoStatus(Mapper.Map<LicenseDto>(l), l))
+                .ToList();
+
+            return new SyncContractLicensesResultDto
+            {
+                HopDongId = hopDongId,
+                CreatedCount = createdCount,
+                UpdatedCount = updatedCount,
+                DeletedCount = deletedCount,
+                Items = resultDtos
+            };
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Lỗi khi sync danh sách License cho Hợp đồng {HopDongId}", hopDongId);
+            throw;
+        }
+    }
 }
+

@@ -16,13 +16,20 @@ namespace demo1.Services.Implements
         private readonly AppDbContext _dbContext;
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<AdminService> _logger;
+        private readonly IEntityNameCacheService? _entityNameCacheService;
 
-        public AdminService(AppDbContext dbContext, ICurrentUserService currentUserService, ILogger<AdminService> logger)
+        public AdminService(
+            AppDbContext dbContext,
+            ICurrentUserService currentUserService,
+            ILogger<AdminService> logger,
+            IEntityNameCacheService? entityNameCacheService = null)
         {
             _dbContext = dbContext;
             _currentUserService = currentUserService;
             _logger = logger;
+            _entityNameCacheService = entityNameCacheService;
         }
+
 
         public async Task<bool> IsSystemAdminAsync(string username)
         {
@@ -586,6 +593,8 @@ namespace demo1.Services.Implements
                     .Take(pageSize)
                     .ToListAsync();
 
+                await EnrichAuditLogsAsync(items);
+
                 return new PagedResult<AuditLog>
                 {
                     Items = items,
@@ -600,5 +609,50 @@ namespace demo1.Services.Implements
                 throw;
             }
         }
+
+        private static readonly System.Text.RegularExpressions.Regex AuditGuidRegex = new(
+            @"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private async Task EnrichAuditLogsAsync(List<AuditLog> items)
+        {
+            if (_entityNameCacheService == null || !items.Any()) return;
+
+            var guidStrings = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                if (!string.IsNullOrEmpty(item.OldValues))
+                {
+                    foreach (System.Text.RegularExpressions.Match m in AuditGuidRegex.Matches(item.OldValues)) guidStrings.Add(m.Value);
+                }
+                if (!string.IsNullOrEmpty(item.NewValues))
+                {
+                    foreach (System.Text.RegularExpressions.Match m in AuditGuidRegex.Matches(item.NewValues)) guidStrings.Add(m.Value);
+                }
+                if (!string.IsNullOrEmpty(item.EntityId)) guidStrings.Add(item.EntityId);
+            }
+
+            var guids = guidStrings.Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+                .Where(g => g != Guid.Empty).ToList();
+            if (!guids.Any()) return;
+
+            var nameMap = await _entityNameCacheService.GetEntityNamesAsync(guids, _dbContext);
+            if (!nameMap.Any()) return;
+
+            foreach (var item in items)
+            {
+                if (!string.IsNullOrEmpty(item.OldValues))
+                {
+                    item.OldValues = AuditGuidRegex.Replace(item.OldValues, m => nameMap.TryGetValue(m.Value, out var n) ? n : m.Value);
+                }
+                if (!string.IsNullOrEmpty(item.NewValues))
+                {
+                    item.NewValues = AuditGuidRegex.Replace(item.NewValues, m => nameMap.TryGetValue(m.Value, out var n) ? n : m.Value);
+                }
+            }
+
+        }
     }
 }
+
+

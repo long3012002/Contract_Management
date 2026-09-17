@@ -125,3 +125,43 @@ public class LicenseSummaryDto
     public int HardwareBasedCount { get; set; }
     public int PerUserCount { get; set; }
 }
+
+public class SyncLicenseItemDto
+{
+    public Guid? Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    public Guid DuAnId { get; set; }
+    public Guid? HopDongId { get; set; }
+    public Guid? NhaCungCapId { get; set; }
+
+    public int LoaiLicense { get; set; } = 1;
+    public int? SoLuong { get; set; }
+    public string? ThongTinThietBi { get; set; }
+
+    public DateTime? NgayBatDau { get; set; }
+    public string? ThoiHan { get; set; }
+    public DateTime? NgayKetThuc { get; set; }
+
+    public int CanhBaoTruocNgay { get; set; } = 30;
+    public int TrangThai { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
+    public string? GhiChu { get; set; }
+}
+
+public class SyncContractLicensesDto
+{
+    public List<SyncLicenseItemDto> Items { get; set; } = new();
+}
+
+public class SyncContractLicensesResultDto
+{
+    public Guid HopDongId { get; set; }
+    public int CreatedCount { get; set; }
+    public int UpdatedCount { get; set; }
+    public int DeletedCount { get; set; }
+    public List<LicenseDto> Items { get; set; } = new();
+}
+

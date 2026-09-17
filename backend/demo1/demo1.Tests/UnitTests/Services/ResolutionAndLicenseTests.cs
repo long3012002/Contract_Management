@@ -107,9 +107,87 @@ namespace demo1.Tests.UnitTests.Services
             expiringLicenses[0].Name.Should().Be("Oracle Database Enterprise");
         }
 
+        [Fact]
+        public async Task SyncContractLicensesAsync_Should_Perform_Upsert_And_Soft_Delete_Correctly()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<LicenseService>.Instance;
+            var licenseService = new LicenseService(_dbContext, _mapper, logger);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-SYNC", Name = "Dự án Sync" };
+            var contract = new HopDong { Id = Guid.NewGuid(), DuAnId = project.Id, GiaTriHopDong = 1000000 };
+            _dbContext.DuAns.Add(project);
+            _dbContext.HopDongs.Add(contract);
+
+            var existingItem1 = new License
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = contract.Id,
+                DuAnId = project.Id,
+                Code = "LIC-UPDATE",
+                Name = "License Update Test",
+                IsActive = true
+            };
+            var existingItem2ToDelete = new License
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = contract.Id,
+                DuAnId = project.Id,
+                Code = "LIC-DELETE",
+                Name = "License Delete Test",
+                IsActive = true
+            };
+            _dbContext.Licenses.AddRange(existingItem1, existingItem2ToDelete);
+            await _dbContext.SaveChangesAsync();
+
+            var syncDto = new SyncContractLicensesDto
+            {
+                Items = new List<SyncLicenseItemDto>
+                {
+                    // 1. Update existingItem1
+                    new SyncLicenseItemDto
+                    {
+                        Id = existingItem1.Id,
+                        Code = "LIC-UPDATED-NEW",
+                        Name = "License Updated Success",
+                        DuAnId = project.Id
+                    },
+                    // 2. Insert new item (no ID)
+                    new SyncLicenseItemDto
+                    {
+                        Code = "LIC-NEW",
+                        Name = "License New Inserted",
+                        DuAnId = project.Id
+                    }
+                }
+            };
+
+            // Act
+            var syncResult = await licenseService.SyncContractLicensesAsync(contract.Id, syncDto);
+
+            // Assert
+            syncResult.Should().NotBeNull();
+            syncResult.HopDongId.Should().Be(contract.Id);
+            syncResult.CreatedCount.Should().Be(1);
+            syncResult.UpdatedCount.Should().Be(1);
+            syncResult.DeletedCount.Should().Be(1);
+            syncResult.Items.Should().HaveCount(2);
+
+            // Verify DB state
+            var deletedInDb = await _dbContext.Licenses.FindAsync(existingItem2ToDelete.Id);
+            deletedInDb.Should().NotBeNull();
+            deletedInDb!.IsActive.Should().BeFalse();
+
+            var updatedInDb = await _dbContext.Licenses.FindAsync(existingItem1.Id);
+            updatedInDb.Should().NotBeNull();
+            updatedInDb!.Name.Should().Be("License Updated Success");
+            updatedInDb.Code.Should().Be("LIC-UPDATED-NEW");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
         }
     }
 }
+
