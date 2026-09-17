@@ -72,7 +72,8 @@ public class DuAnNotificationService : IDuAnNotificationService
             .ForUser(newOwnerId)
             .WithActor(actorName)
             .WithTarget(project.Name)
-            .WithBadge("Phân công", "info")
+            .WithBadge("Bổ nhiệm", "info")
+            .WithMessage("Bạn được phân công làm Chủ dự án của")
             .Build();
         _dbContext.Notifications.Add(newOwnerNotification);
         await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerNotification);
@@ -92,7 +93,8 @@ public class DuAnNotificationService : IDuAnNotificationService
                     .ForUser(oldOwnerId.Value)
                     .WithActor(actorName)
                     .WithTarget(project.Name)
-                    .WithBadge("Thay đổi", "secondary")
+                    .WithBadge("Bàn giao", "destructive")
+                    .WithMessage("Bạn thôi làm Chủ dự án của")
                     .Build();
                 _dbContext.Notifications.Add(oldOwnerNotification);
                 await _hubContext.Clients.User(oldOwner.Username).SendAsync("ReceiveNotification", oldOwnerNotification);

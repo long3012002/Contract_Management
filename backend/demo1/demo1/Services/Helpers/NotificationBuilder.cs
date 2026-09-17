@@ -65,6 +65,12 @@ namespace demo1.Services.Helpers
             return this;
         }
 
+        public NotificationBuilder WithMessage(string? message)
+        {
+            _notification.Message = message;
+            return this;
+        }
+
         public Notification Build()
         {
             return _notification;

@@ -14,9 +14,11 @@ public class NotificationDto
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    // UI Structured Metadata
+    // Structured UI Metadata (Hỗ trợ Frontend hiển thị phẳng)
+    public string? Category { get; set; }
     public string? ActorName { get; set; }
     public string? ActionBadgeText { get; set; }
     public string? ActionBadgeVariant { get; set; }
+    public string? Message { get; set; }
     public string? TargetName { get; set; }
 }

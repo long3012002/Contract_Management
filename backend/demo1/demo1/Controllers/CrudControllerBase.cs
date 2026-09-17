@@ -43,7 +43,9 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         [FromQuery] int pageSize = 20,
         [FromQuery] string? cursor = null)
     {
-        var result = await _service.GetAllAsync(search, page, pageSize, cursor);
+        var safePageSize = Math.Clamp(pageSize, 1, 200);
+        var safePage = Math.Max(1, page);
+        var result = await _service.GetAllAsync(search, safePage, safePageSize, cursor);
         return Ok(result);
     }
 

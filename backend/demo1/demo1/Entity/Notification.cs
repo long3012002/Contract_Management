@@ -16,10 +16,11 @@ namespace demo1.Entity
         public virtual User? User { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // UI Structured Metadata
+        // Structured UI Metadata (Chuẩn hóa để Frontend không cần regex)
         public string? ActorName { get; set; }
         public string? ActionBadgeText { get; set; }
         public string? ActionBadgeVariant { get; set; }
+        public string? Message { get; set; }
         public string? TargetName { get; set; }
     }
 }

@@ -173,7 +173,27 @@ namespace demo1.Services.Workers
                             continue;
                         }
 
-                        _logger.LogInformation("[ContractScan] Đang tạo thông báo hệ thống cho user {Username} về hợp đồng {Code}", user.Username, contract.Code);
+                        string? actionBadge = null;
+                        string? actionBadgeVariant = null;
+                        string message;
+
+                        if (daysRemaining < 0)
+                        {
+                            actionBadge = "Đã quá hạn";
+                            actionBadgeVariant = "destructive";
+                            message = $"{Math.Abs(daysRemaining)} ngày";
+                        }
+                        else if (daysRemaining == 0)
+                        {
+                            actionBadge = "Hôm nay";
+                            actionBadgeVariant = "warning";
+                            message = "hết hạn hôm nay";
+                        }
+                        else
+                        {
+                            actionBadge = null;
+                            message = $"còn {daysRemaining} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy})";
+                        }
 
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
