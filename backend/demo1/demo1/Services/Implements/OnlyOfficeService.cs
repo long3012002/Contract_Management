@@ -57,8 +57,8 @@ namespace demo1.Services.Implements
 
             var ooSettings = configuration.GetSection("OnlyOfficeSettings");
             _jwtSecret = ooSettings["JwtSecret"] ?? "OnlyOffice_Secret_Key_For_Contract_Management_2026";
-            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "http://10.225.11.201:64950").TrimEnd('/');
-            _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://localhost:8080").TrimEnd('/');
+            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "https://hopdong.co-opbank.vn/onlyoffice-api").TrimEnd('/');
+            _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://10.224.0.26:8080").TrimEnd('/');
         }
 
         private string GetPublicBaseUrl()
@@ -72,7 +72,7 @@ namespace demo1.Services.Implements
                 if (hostStr.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || hostStr.StartsWith("127.0.0.1"))
                 {
                     var portSuffix = request.Host.Port.HasValue ? $":{request.Host.Port.Value}" : "";
-                    return $"{scheme}://10.225.11.201{portSuffix}";
+                    return $"{scheme}://10.224.2.77{portSuffix}";
                 }
 
                 return $"{scheme}://{hostStr}";
