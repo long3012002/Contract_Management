@@ -596,7 +596,7 @@ namespace demo1.Services.Implements
             var rolePerms = await _dbContext.RolePermissions
                 .AsNoTracking()
                 .Include(rp => rp.Feature)
-                .Where(rp => roleIds.Contains(rp.RoleId) && rp.Feature != null && rp.Feature.IsActive)
+                .Where(rp => roleIds.Contains(rp.RoleId) && rp.Feature != null)
                 .ToListAsync();
 
             // Merge theo FeatureId: CanAccess = OR giữa các roles, Permissions = UNION
