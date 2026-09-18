@@ -61,7 +61,7 @@ namespace demo1.Tests.UnitTests.Services
             {
                 DuAnId = project.Id,
                 GoiThauId = goiThau.Id,
-                Code = "HD2026/01",
+                Code = "CTR-HD2026/01",
                 Name = "Hợp đồng Mua sắm máy chủ",
                 GiaTriHopDong = 1800000000
             };
@@ -263,7 +263,7 @@ namespace demo1.Tests.UnitTests.Services
             // Arrange
             var createDto = new CreateHopDongDto
             {
-                Code = "HD-INLINE-CONTRACTOR",
+                Code = "CTR-HD-INLINE-CONTRACTOR",
                 Name = "Hợp đồng tạo kèm nhà thầu inline",
                 GiaTriHopDong = 500000000,
                 NewNhaThau = new CreateDoiTacDto
@@ -310,14 +310,14 @@ namespace demo1.Tests.UnitTests.Services
             var actualDate = new DateTime(2026, 8, 15, 0, 0, 0, DateTimeKind.Utc);
             var createDto = new CreateHopDongDto
             {
-                Code = "HD-PAY-ACTUAL-CREATE",
+                Code = "CTR-HD-PAY-ACTUAL-CREATE",
                 Name = "Hợp đồng có ngày thanh toán thực tế khi tạo",
                 GiaTriHopDong = 1000000000,
                 DotThanhToans = new List<CreateDotThanhToanDto>
                 {
                     new CreateDotThanhToanDto
                     {
-                        TenDot = "Đợt 1",
+                        TenDot = "PAY-Đợt 1",
                         GiaTriThanhToan = 500000000,
                         NgayThanhToan = plannedDate,
                         NgayThanhToanThucTe = actualDate

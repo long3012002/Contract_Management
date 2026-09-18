@@ -57,7 +57,7 @@ namespace demo1.Tests.UnitTests.Services
             var createDto = new CreateGoiThauDto
             {
                 DuAnId = project.Id,
-                Code = "GT-SERVER-01",
+                Code = "PKG-SERVER-01",
                 Name = "Gói thầu Mua sắm máy chủ",
                 GiaTriGoiThau = 2000000000
             };

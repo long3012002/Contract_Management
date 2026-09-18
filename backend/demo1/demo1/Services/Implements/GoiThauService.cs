@@ -252,6 +252,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         HashSet<Guid>? allowedProjectIds = null,
         HashSet<string>? existingCodesInDb = null)
     {
+        dto.Code = CodePrefixValidator.FormatGoiThauCode(dto.Code);
         GoiThauValidator.EnsureValid(dto.GiaTriGoiThau);
 
         if (dto.DuAnId.HasValue)
@@ -507,6 +508,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 return false;
             }
 
+            dto.Code = CodePrefixValidator.FormatGoiThauCode(dto.Code);
             GoiThauValidator.EnsureValid(dto.GiaTriGoiThau);
 
             if (dto.DuAnId.HasValue)

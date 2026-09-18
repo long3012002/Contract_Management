@@ -237,6 +237,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
+            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
             DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
 
             var entity = Mapper.Map<DuAn>(dto);
@@ -422,6 +423,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         foreach (var dto in dtoList)
         {
+            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
             DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
         }
 
@@ -625,6 +627,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             {
                 return false;
             }
+
+            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, entity.LoaiDuAn);
 
             if (entity.LoaiDuAn == 2)
             {

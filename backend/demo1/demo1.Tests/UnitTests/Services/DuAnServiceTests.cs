@@ -59,7 +59,7 @@ namespace demo1.Tests.UnitTests.Services
         {
             var createDto = new CreateDuAnDto
             {
-                Code = "DA-TEST-001",
+                Code = "PRJ_SRC-DA-TEST-001",
                 Name = "Dự án Thử nghiệm tự động",
                 LoaiDuAn = 1,
                 Description = "Mô tả dự án kiểm thử"
@@ -72,12 +72,12 @@ namespace demo1.Tests.UnitTests.Services
             var result = await _duAnService.CreateAsync(createDto);
 
             result.Should().NotBeNull();
-            result.Code.Should().Be("DA-TEST-001");
+            result.Code.Should().Be("PRJ_SRC-DA-TEST-001");
             result.Name.Should().Be("Dự án Thử nghiệm tự động");
 
             var dbProject = await _dbContext.DuAns.FindAsync(result.Id);
             dbProject.Should().NotBeNull();
-            dbProject!.Code.Should().Be("DA-TEST-001");
+            dbProject!.Code.Should().Be("PRJ_SRC-DA-TEST-001");
         }
 
         [Fact]
@@ -136,7 +136,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var createDto = new CreateDuAnDto
             {
-                Code = "DA-PHANKY-001",
+                Code = "PRJ_SRC-DA-PHANKY-001",
                 Name = "Dự án có phân kỳ vốn",
                 DuToanPheDuyet = 1000000000m,
                 PhanKyVons = new List<CreateDuAnPhanKyVonDto>
@@ -168,7 +168,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var createDto = new CreateDuAnDto
             {
-                Code = "DA-PHANKY-002",
+                Code = "PRJ_SRC-DA-PHANKY-002",
                 Name = "Dự án phân kỳ vốn update",
                 DuToanPheDuyet = 1000000000m,
                 PhanKyVons = new List<CreateDuAnPhanKyVonDto>
@@ -181,7 +181,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var updateDto = new UpdateDuAnDto
             {
-                Code = "DA-PHANKY-002",
+                Code = "PRJ_SRC-DA-PHANKY-002",
                 Name = "Dự án phân kỳ vốn update (đã sửa)",
                 DuToanPheDuyet = 1000000000m,
                 PhanKyVons = new List<CreateDuAnPhanKyVonDto>
@@ -221,7 +221,7 @@ namespace demo1.Tests.UnitTests.Services
             // Project 1: Single funding source
             var createDto1 = new CreateDuAnDto
             {
-                Code = "DA-NV-001",
+                Code = "PRJ_SRC-DA-NV-001",
                 Name = "Dự án Nguồn Vốn Đơn",
                 LoaiDuAn = 1,
                 DuToanPheDuyet = 500000000m,
@@ -235,7 +235,7 @@ namespace demo1.Tests.UnitTests.Services
             // Project 2: Multiple funding sources
             var createDto2 = new CreateDuAnDto
             {
-                Code = "DA-NV-002",
+                Code = "PRJ_SRC-DA-NV-002",
                 Name = "Dự án Nguồn Vốn Đa Nguồn",
                 LoaiDuAn = 1,
                 DuToanPheDuyet = 1000000000m,
@@ -297,7 +297,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var createDto = new CreateDuAnDto
             {
-                Code = "TK-001",
+                Code = "PRJ_SUB-TK-001",
                 Name = "Triển khai 1",
                 LoaiDuAn = 2,
                 SourceProjectIds = new List<Guid> { sp.Id, sp.Id }
@@ -324,7 +324,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var newTkDto = new CreateDuAnDto
             {
-                Code = "TK-NEW",
+                Code = "PRJ_SUB-TK-NEW",
                 Name = "Triển khai mới",
                 LoaiDuAn = 2,
                 SourceProjectIds = new List<Guid> { sp.Id }
@@ -344,7 +344,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var createDto = new CreateDuAnDto
             {
-                Code = "SP-INVALID",
+                Code = "PRJ_SRC-SP-INVALID",
                 Name = "Dự án nguồn có liên kết",
                 LoaiDuAn = 1,
                 SourceProjectIds = new List<Guid> { Guid.NewGuid() }
@@ -363,8 +363,8 @@ namespace demo1.Tests.UnitTests.Services
 
             var sp1 = new DuAn { Id = Guid.NewGuid(), Code = "SP-01", Name = "Nguồn 1", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
             var sp2 = new DuAn { Id = Guid.NewGuid(), Code = "SP-02", Name = "Nguồn 2", LoaiDuAn = 1, DuToanPheDuyet = 2000000m, DaTrienKhai = true };
-            var tk1 = new DuAn { Id = Guid.NewGuid(), Code = "TK-01", Name = "Triển khai 1", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var tk2 = new DuAn { Id = Guid.NewGuid(), Code = "TK-02", Name = "Triển khai 2", LoaiDuAn = 2, DuToanPheDuyet = 2000000m, DaTrienKhai = true };
+            var tk1 = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-01", Name = "Triển khai 1", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
+            var tk2 = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-02", Name = "Triển khai 2", LoaiDuAn = 2, DuToanPheDuyet = 2000000m, DaTrienKhai = true };
 
             var link1 = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk1.Id, NguonProjectId = sp1.Id.ToString() };
             var link2 = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk2.Id, NguonProjectId = sp2.Id.ToString() };
@@ -392,8 +392,8 @@ namespace demo1.Tests.UnitTests.Services
             var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
             _dbContext.Users.Add(user);
 
-            var sp = new DuAn { Id = Guid.NewGuid(), Code = "SP-OWN", Name = "Nguồn sở hữu", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var tk = new DuAn { Id = Guid.NewGuid(), Code = "TK-OWN", Name = "Triển khai sở hữu", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
+            var sp = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SRC-SP-OWN", Name = "Nguồn sở hữu", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
+            var tk = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-OWN", Name = "Triển khai sở hữu", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
             var link = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk.Id, NguonProjectId = sp.Id.ToString() };
 
             _dbContext.DuAns.AddRange(sp, tk);
@@ -426,8 +426,8 @@ namespace demo1.Tests.UnitTests.Services
 
             var dtos = new List<CreateDuAnDto>
             {
-                new CreateDuAnDto { Code = "TK-B1", Name = "TK Batch 1", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } },
-                new CreateDuAnDto { Code = "TK-B2", Name = "TK Batch 2", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } }
+                new CreateDuAnDto { Code = "PRJ_SUB-TK-B1", Name = "TK Batch 1", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } },
+                new CreateDuAnDto { Code = "PRJ_SUB-TK-B2", Name = "TK Batch 2", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } }
             };
 
             Func<Task> act = async () => await _duAnService.CreateRangeAsync(dtos);
@@ -605,7 +605,7 @@ namespace demo1.Tests.UnitTests.Services
 
             var createDto = new CreateDuAnDto
             {
-                Code = "DA-TK-DATE",
+                Code = "PRJ_SUB-DA-TK-DATE",
                 Name = "Dự án Triển khai Kế thừa Ngày",
                 LoaiDuAn = 2,
                 SourceProjectIds = new List<Guid> { sourceProj.Id },

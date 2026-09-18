@@ -282,6 +282,14 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public override async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
     {
+        dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+        if (dto.DotThanhToans != null)
+        {
+            foreach (var d in dto.DotThanhToans)
+            {
+                d.TenDot = CodePrefixValidator.FormatDotThanhToanTen(d.TenDot);
+            }
+        }
         HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
 
         // Check NhaThauGoiThaus existence and validate
@@ -482,6 +490,14 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         // 1. Xác thực các hợp đồng locally
         foreach (var dto in dtoList)
         {
+            dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+            if (dto.DotThanhToans != null)
+            {
+                foreach (var d in dto.DotThanhToans)
+                {
+                    d.TenDot = CodePrefixValidator.FormatDotThanhToanTen(d.TenDot);
+                }
+            }
             HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
         }
 
@@ -683,6 +699,14 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 return false;
             }
 
+            dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+            if (dto.DotThanhToans != null)
+            {
+                foreach (var d in dto.DotThanhToans)
+                {
+                    d.TenDot = CodePrefixValidator.FormatDotThanhToanTen(d.TenDot);
+                }
+            }
             HopDongValidator.EnsureValid(dto.GiaTriHopDong, dto.DotThanhToans);
 
             if (dto.DotThanhToans != null && dto.DotThanhToans.Any())
