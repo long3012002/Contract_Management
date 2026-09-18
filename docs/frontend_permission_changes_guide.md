@@ -1,46 +1,112 @@
 # Hướng Dẫn Cập Nhật Phân Quyền Phân Cấp (Hierarchical Permission) Cho Frontend
 
-Tài liệu này tổng hợp chi tiết tất cả các thay đổi từ Backend (.NET 8) về cấu trúc dữ liệu, mã tính năng (Feature Code), API và hướng dẫn sửa đổi code trên **Frontend (React 19)**.
+Tài liệu này tổng hợp chi tiết tất cả các nâng cấp Backend (.NET 8) vừa thực hiện để **giải quyết triệt để cả 5 bất cập** mà Frontend team đã phản hồi.
 
 ---
 
-## 1. Thay Đổi Cấu Trúc API & Dữ Liệu Trao Đổi
+## 1. Giải Quyết 5 Bất Cập Của Frontend (Backend Enhancements)
 
-Backend đã cập nhật các API quản lý tính năng và ma trận vai trò, bổ sung 2 trường dữ liệu mới:
-- `parentCode` (`string | null`): Mã tính năng cha (`"BAO_CAO"`, hoặc `null` nếu là tính năng cấp cao nhất).
-- `sortOrder` (`number`): Thứ tự sắp xếp hiển thị.
+| STT | Vấn đề FE phản hồi | Giải pháp Backend đã nâng cấp | Kết quả cho FE |
+| :--- | :--- | :--- | :--- |
+| **1** | **Bị thiếu Feature Code (chỉ có 7 mã cũ):** FE phải gánh tự merge mock catalog. | Backend đã sửa `CreateFakeData.cs` đồng bộ tự động `ProductionSeeder` mỗi khi khởi chạy. API trả về đủ 15 tính năng bao gồm `DANH_MUC` và 8 báo cáo con. | **FE không cần mock catalog hay gán mảng cứng nữa.** API trả về đúng 100% dữ liệu chuẩn. |
+| **2** | **Phải tự suy đoán tiền tố & dựng cây:** FE phải viết logic `code.startsWith('BAO_CAO_')` và `buildTreeFeatures`. | Backend bổ sung API `GET /api/HeThong/admin/features/tree` và tham số `GET /api/HeThong/admin/features/catalog?tree=true` trả về sẵn danh mục phân cấp cấu trúc Cây (`children: []`). | **FE gọi API lấy luôn danh sách Tree Data sẵn**, không cần tự phân cấp lùi lề. |
+| **3** | **Schema không đồng nhất:** Lúc trả `code`/`featureCode`, `id`/`featureId`, `name`/`featureName`. | Backend đã quy chuẩn 100% các DTOs trả về song song các thuộc tính chuẩn hóa camelCase: `featureId` (`id`), `featureCode` (`code`), `featureName` (`name`), `parentCode`, `sortOrder`, `children`. | **FE không lo bị undefined hay crash.** |
+| **4** | **Phải tự parse/join chuỗi Ma trận quyền:** FE phải tự `split(';')` / `join(';')`. | Backend đã bổ sung sẵn 4 cờ boolean trực tiếp trong DTO: `canAccess`, `canView`, `canCreate`, `canEdit`, `canDelete`. | **FE binding trực tiếp vào Checkbox UI** mà không cần split/join chuỗi. API `PUT` chấp nhận cả cờ boolean lẫn chuỗi. |
+| **5** | **Ràng buộc logic hành động:** FE phải tự hủy/tick Xem khi chọn Thêm/Sửa/Xóa. | Backend đã tự động validate và áp dụng ràng buộc logic phân quyền trực tiếp khi tiếp nhận payload `PUT`. | Nếu tick Thêm/Sửa/Xóa, BE tự động bật Xem. Ngược lại nếu tắt Xem, BE tự động bỏ Thêm/Sửa/Xóa. |
 
-### Danh sách API bị ảnh hưởng:
-1. `GET /api/HeThong/admin/features/catalog`
-2. `GET /api/HeThong/admin/features`
-3. `GET /api/HeThong/admin/roles/{roleId}/permissions`
+---
 
-### Cấu trúc Schema Feature / RolePermission mới:
+## 2. Chi Tiết API Nâng Cấp Chi Trực Tiếp Dành Cho Frontend
+
+### 2.1. API Lấy Danh Mục Cây (Tree Data API)
+- **Endpoint:** `GET /api/HeThong/admin/features/tree` hoặc `GET /api/HeThong/admin/features/catalog?tree=true`
+- **Response sample:**
 ```json
-{
-  "featureId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "featureCode": "BAO_CAO_TIEN_DO",
-  "featureName": "Báo cáo 1: Tiến độ Dự án",
-  "parentCode": "BAO_CAO",
-  "sortOrder": 61,
-  "canAccess": true,
-  "permissions": "VIEW"
-}
+[
+  {
+    "featureId": "11111111-1111-1111-1111-111111111111",
+    "featureCode": "DANH_MUC",
+    "featureName": "Quản lý Danh mục dữ liệu",
+    "description": "Quản lý các loại dự án, nguồn vốn, loại hợp đồng, nhóm dự án",
+    "parentCode": null,
+    "sortOrder": 50,
+    "children": []
+  },
+  {
+    "featureId": "22222222-2222-2222-2222-222222222222",
+    "featureCode": "BAO_CAO",
+    "featureName": "Báo cáo & Thống kê",
+    "description": "Nhóm chức năng báo cáo tổng hợp & chi tiết",
+    "parentCode": null,
+    "sortOrder": 60,
+    "children": [
+      {
+        "featureId": "33333333-3333-3333-3333-333333333333",
+        "featureCode": "BAO_CAO_TIEN_DO",
+        "featureName": "Báo cáo 1: Tiến độ Dự án",
+        "description": "Báo cáo trình tự thực hiện các công việc thuộc gói thầu và dự án",
+        "parentCode": "BAO_CAO",
+        "sortOrder": 61,
+        "children": []
+      }
+    ]
+  }
+]
 ```
 
 ---
 
-## 2. Danh Mục Mã Tính Năng (Feature Codes) Mới
+### 2.2. API Lấy Ma Trận Phân Quyền Vai Trò (Role Permissions)
+- **Endpoint:** `GET /api/HeThong/admin/roles/{roleId}/permissions`
+- **Response sample (Đã có sẵn 4 cờ Boolean):**
+```json
+[
+  {
+    "featureId": "33333333-3333-3333-3333-333333333333",
+    "featureCode": "BAO_CAO_TIEN_DO",
+    "featureName": "Báo cáo 1: Tiến độ Dự án",
+    "parentCode": "BAO_CAO",
+    "sortOrder": 61,
+    "canAccess": true,
+    "canView": true,
+    "canCreate": false,
+    "canEdit": false,
+    "canDelete": false,
+    "permissions": "VIEW"
+  }
+]
+```
 
-### 2.1. Nhóm Danh Mục Dữ Liệu Độc Lập
-| Feature Code | Feature Name | ParentCode | Ghi chú |
-| :--- | :--- | :--- | :--- |
-| `DANH_MUC` | Quản lý Danh mục dữ liệu | `null` | Phân quyền cho Loại dự án, Nguồn vốn, Loại hợp đồng, Nhóm dự án |
+---
 
-### 2.2. Nhóm Báo Cáo & Thống Kê (Cấu trúc Cây / Tree)
-| Feature Code | Feature Name | ParentCode | Route Frontend Tương Ứng |
+### 2.3. API Cập Nhật Ma Trận Phân Quyền (Update Role Permissions)
+- **Endpoint:** `PUT /api/HeThong/admin/roles/{roleId}/permissions`
+- **Payload FE gửi lên vô cùng đơn giản:**
+```json
+[
+  {
+    "featureId": "33333333-3333-3333-3333-333333333333",
+    "canAccess": true,
+    "canView": true,
+    "canCreate": true,
+    "canEdit": false,
+    "canDelete": false
+  }
+]
+```
+
+---
+
+## 3. Danh Mục Mã Feature Code Hoàn Chỉnh
+
+| Feature Code | Feature Name | ParentCode | Route FE Tương Ứng |
 | :--- | :--- | :--- | :--- |
-| `BAO_CAO` | **Báo cáo & Thống kê (Nhóm cha)** | `null` | Menu cha trên Sidebar |
+| `DU_AN` | Quản lý dự án | `null` | `/projects` |
+| `GOI_THAU` | Quản lý gói thầu | `null` | `/packages` |
+| `QUAN_LY_HOP_DONG` | Quản lý hợp đồng | `null` | `/contracts` |
+| `DOI_TAC` | Quản lý đối tác | `null` | `/partners` |
+| `DANH_MUC` | Quản lý Danh mục dữ liệu | `null` | `/project-types`, `/capital-sources`, `/contract-types`, `/project-groups` |
+| `BAO_CAO` | **Báo cáo & Thống kê (Cha)** | `null` | Menu cha trên Sidebar |
 | `BAO_CAO_TIEN_DO` | Báo cáo 1: Tiến độ Dự án | `BAO_CAO` | `/reports?tab=progress` |
 | `BAO_CAO_VON` | Báo cáo 2: Phân bổ & Vốn | `BAO_CAO` | `/reports?tab=capital` |
 | `BAO_CAO_DAU_THAU` | Báo cáo 3: Nhà thầu (LCNT) | `BAO_CAO` | `/reports?tab=bidding` |
@@ -48,65 +114,4 @@ Backend đã cập nhật các API quản lý tính năng và ma trận vai trò
 | `BAO_CAO_THANH_TOAN` | Báo cáo 5: Đợt thanh toán | `BAO_CAO` | `/reports?tab=payments` |
 | `BAO_CAO_DU_AN_THAU` | Báo cáo 6: TT Dự án thầu | `BAO_CAO` | `/reports?tab=bidding-payments` |
 | `BAO_CAO_DAU_TU` | Báo cáo Tổng hợp Đầu tư | `BAO_CAO` | `/reports/investment` |
-| `BAO_CAO_PHE_DUYET` | Danh mục Dự án phê duyệt | `BAO_CAO` | `/reports/approved-projects` (hoặc Hạn License/SLA) |
-
-> [!NOTE]
-> **Cơ chế kế thừa từ Backend:** Nếu người dùng có quyền `BAO_CAO` (quyền cha), Backend sẽ tự động cấp quyền xem cho tất cả 8 báo cáo con. Ngược lại, Admin có thể tích chọn từng báo cáo con cụ thể.
-
----
-
-## 3. Các Nhiệm Vụ Cụ Thể Cần Sửa Trên Frontend
-
-### Task 1: Cập nhật Ma Trận Phân Quyền (`PermissionMatrix.jsx`)
-- **Chuyển đổi dữ liệu dạng Cây (Tree Transformation):**
-  - Nhóm các tính năng có `parentCode === "BAO_CAO"` lùi vào trong làm con của dòng `BAO_CAO`.
-  - Nhóm `DANH_MUC` hiển thị thành 1 dòng riêng độc lập với 4 checkbox View, Create, Edit, Delete.
-- **Giao diện Accordion / Mở sổ dòng (Collapsible Sub-tree):**
-  - Dòng cha **Báo cáo & Thống kê** có nút mũi tên (Chevron) để mở rộng/thu gọn 8 báo cáo con.
-  - Tích chọn nút xem trên từng báo cáo con để lưu quyền chi tiết.
-
-### Task 2: Cập nhật Constants Phân Quyền (`permissions.js`)
-Thêm các hằng số mã tính năng mới vào file constants:
-```javascript
-export const PERMISSIONS = {
-  // ... các quyền hiện có
-  CATEGORY: 'DANH_MUC',
-  REPORT: 'BAO_CAO',
-  REPORT_PROGRESS: 'BAO_CAO_TIEN_DO',
-  REPORT_CAPITAL: 'BAO_CAO_VON',
-  REPORT_BIDDING: 'BAO_CAO_DAU_THAU',
-  REPORT_CONTRACT: 'BAO_CAO_HOP_DONG',
-  REPORT_PAYMENT: 'BAO_CAO_THANH_TOAN',
-  REPORT_BIDDING_PAYMENT: 'BAO_CAO_DU_AN_THAU',
-  REPORT_INVESTMENT: 'BAO_CAO_DAU_TU',
-  REPORT_APPROVED: 'BAO_CAO_PHE_DUYET',
-};
-```
-
-### Task 3: Cập nhật Sidebar Navigation (`navigationConfig.js` & `navigationUtils.js`)
-- Đổi cấu hình menu **Danh mục dữ liệu** sử dụng `feature: PERMISSIONS.CATEGORY`.
-- Cập nhật hàm lọc menu `filterNavigationGroupsByPermission`:
-  - Mục menu cha **Báo cáo** sẽ hiển thị nếu người dùng có quyền ở `BAO_CAO` **hoặc bất kỳ 1 trong 8 báo cáo con** (`BAO_CAO_*`).
-  - Các mục menu con/tab trong trang Báo cáo chỉ hiển thị đúng những báo cáo mà tài khoản được cấp quyền.
-
-### Task 4: Cập nhật Route Guards (`App.jsx`)
-- Khóa các trang danh mục bằng `<PermissionGuard feature={PERMISSIONS.CATEGORY} />`:
-  - Route `/project-types` (Loại dự án)
-  - Route `/capital-sources` (Nguồn vốn)
-  - Route `/contract-types` (Loại hợp đồng)
-  - Route `/project-groups` (Nhóm dự án)
-- Khóa các trang/tab báo cáo bằng mã tương ứng (`feature={PERMISSIONS.REPORT_INVESTMENT}`, `feature={PERMISSIONS.REPORT_PROGRESS}`, v.v.).
-
-### Task 5: Cập nhật Bộ Tab Báo Cáo (`ReportsHubPage.jsx`)
-- Trong `ReportsHubPage.jsx`, kiểm tra quyền người dùng đối với từng tab báo cáo (`BAO_CAO_TIEN_DO`, `BAO_CAO_VON`...).
-- Tự động ẩn các Tab mà người dùng không được cấp quyền. Nếu truy cập đường dẫn trực tiếp tab không có quyền -> hiển thị thông báo hoặc điều hướng về Tab đầu tiên có quyền.
-
----
-
-## 4. Tóm Tắt Quy Trình Kiểm Thử Cho FE (Test Cases)
-
-1. **Test Admin:** Đăng nhập tài khoản Admin -> Xem đầy đủ menu Danh mục dữ liệu & tất cả các Báo cáo.
-2. **Test Nhân viên thường (Không có quyền Danh mục):** Không nhìn thấy mục Danh mục dữ liệu trên Sidebar; truy cập URL `/project-types` bị đẩy về `/forbidden`.
-3. **Test Phân rã Báo cáo con:**
-   - Vào Ma trận phân quyền, chỉ tick chọn **Báo cáo 1: Tiến độ** và **Báo cáo 2: Vốn** cho 1 Role.
-   - Đăng nhập tài khoản thuộc Role đó -> Trên Sidebar và trang `/reports` chỉ thấy 2 Tab Báo cáo 1 và Báo cáo 2, các tab báo cáo khác bị ẩn.
+| `BAO_CAO_PHE_DUYET` | Danh mục Dự án phê duyệt | `BAO_CAO` | `/reports/approved-projects` |
