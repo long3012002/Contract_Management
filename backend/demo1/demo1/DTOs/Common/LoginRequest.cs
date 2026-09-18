@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using demo1.DTOs;
 
 namespace demo1.DTOs
 {
@@ -70,6 +72,13 @@ namespace demo1.DTOs
         /// Đường dẫn ảnh QR Code để quét cài đặt Google Authenticator
         /// </summary>
         public string? QrCodeUrl { get; set; }
+
+        /// <summary>
+        /// Danh sách quyền hạn theo vai trò của người dùng (tổng hợp từ tất cả roles đã gán).
+        /// Chỉ được điền khi đăng nhập thành công hoàn toàn hoặc gọi /me.
+        /// Null khi đang ở bước xác thực 2FA.
+        /// </summary>
+        public List<RolePermissionDto>? Permissions { get; set; }
     }
 
     /// <summary>

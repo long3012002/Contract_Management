@@ -201,7 +201,8 @@ namespace demo1.Services.Implements
                         FullName = dbUser.FullName,
                         IsSystemAdmin = dbUser.IsSystemAdmin,
                         AccessToken = accessToken,
-                        RefreshToken = refreshToken
+                        RefreshToken = refreshToken,
+                        Permissions = await GetEffectivePermissionsAsync(dbUser.Id)
                     });
 #else
                 // Môi trường Product (RELEASE): Bắt buộc xác thực qua Google Authenticator 2FA
@@ -226,7 +227,8 @@ namespace demo1.Services.Implements
                         FullName = dbUser.FullName,
                         IsSystemAdmin = dbUser.IsSystemAdmin,
                         AccessToken = accessToken,
-                        RefreshToken = refreshToken
+                        RefreshToken = refreshToken,
+                        Permissions = await GetEffectivePermissionsAsync(dbUser.Id)
                     });
                 }
 
@@ -429,7 +431,8 @@ namespace demo1.Services.Implements
                     UserId = dbUser.Id,
                     FullName = dbUser.FullName,
                     IsSystemAdmin = dbUser.IsSystemAdmin,
-                    Username = dbUser.Username
+                    Username = dbUser.Username,
+                    Permissions = await GetEffectivePermissionsAsync(dbUser.Id)
                 });
             }
             catch (Exception ex)
@@ -492,7 +495,8 @@ namespace demo1.Services.Implements
                     UserId = dbUser.Id,
                     FullName = dbUser.FullName,
                     IsSystemAdmin = dbUser.IsSystemAdmin,
-                    Username = dbUser.Username
+                    Username = dbUser.Username,
+                    Permissions = await GetEffectivePermissionsAsync(dbUser.Id)
                 });
             }
             catch (Exception ex)
@@ -519,13 +523,17 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(401, "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa.");
                 }
 
+                // Lấy quyền hạn theo role của user hiện tại (tổng hợp từ tất cả roles đã gán)
+                var permissions = await GetEffectivePermissionsAsync(dbUser.Id);
+
                 return AuthResult.Success(new LoginResponse
                 {
                     Message = "OK",
                     UserId = dbUser.Id,
                     Username = dbUser.Username,
                     FullName = dbUser.FullName,
-                    IsSystemAdmin = dbUser.IsSystemAdmin
+                    IsSystemAdmin = dbUser.IsSystemAdmin,
+                    Permissions = permissions
                 });
             }
             catch (Exception ex)
@@ -566,6 +574,59 @@ namespace demo1.Services.Implements
                 _logger.LogError(ex, "Lỗi xảy ra trong LogoutAsync cho Username {Username}.", username);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Lấy danh sách quyền hạn hiệu lực của user (tổng hợp từ tất cả Roles đã được gán).
+        /// Mỗi Feature chỉ xuất hiện một lần (merge CanAccess = OR, Permissions = UNION).
+        /// </summary>
+        private async Task<List<RolePermissionDto>> GetEffectivePermissionsAsync(Guid userId)
+        {
+            // Lấy tất cả RoleId của user
+            var roleIds = await _dbContext.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.UserId == userId)
+                .Select(ur => ur.RoleId)
+                .ToListAsync();
+
+            if (roleIds.Count == 0)
+                return new List<RolePermissionDto>();
+
+            // Lấy tất cả RolePermissions của các roles đó
+            var rolePerms = await _dbContext.RolePermissions
+                .AsNoTracking()
+                .Include(rp => rp.Feature)
+                .Where(rp => roleIds.Contains(rp.RoleId) && rp.Feature != null && rp.Feature.IsActive)
+                .ToListAsync();
+
+            // Merge theo FeatureId: CanAccess = OR giữa các roles, Permissions = UNION
+            var merged = rolePerms
+                .GroupBy(rp => rp.FeatureId)
+                .Select(g =>
+                {
+                    var feature = g.First().Feature!;
+                    var canAccess = g.Any(rp => rp.CanAccess);
+                    var allPerms = g
+                        .Where(rp => !string.IsNullOrWhiteSpace(rp.Permissions))
+                        .SelectMany(rp => rp.Permissions.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries))
+                        .Select(p => p.ToUpper())
+                        .Distinct()
+                        .ToList();
+
+                    return new RolePermissionDto
+                    {
+                        FeatureId = feature.Id,
+                        FeatureCode = feature.Code,
+                        FeatureName = feature.Name,
+                        CanAccess = canAccess,
+                        Permissions = string.Join(',', allPerms)
+                    };
+                })
+                .Where(dto => dto.CanAccess) // Chỉ trả về features user thực sự có quyền truy cập
+                .OrderBy(dto => dto.FeatureCode)
+                .ToList();
+
+            return merged;
         }
 
         private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false, Guid? userId = null)
