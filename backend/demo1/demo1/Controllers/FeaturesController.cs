@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using demo1.DTOs;
+using demo1.DTOs.Permission;
 using demo1.Entity;
 using demo1.Services.Interfaces;
 
@@ -33,27 +34,83 @@ namespace demo1.Controllers
 
         /// <summary>
         /// Lấy danh mục các mã tính năng (Feature Codes) đang hoạt động phục vụ phân quyền frontend.
+        /// Hỗ trợ cả định dạng mảng phẳng (flat array) và cây phân cấp (tree) bằng tham số ?tree=true.
         /// </summary>
-        /// <returns>Danh sách mã và tên tính năng</returns>
+        /// <param name="tree">Bật true nếu muốn nhận trực tiếp danh sách dạng Cây phân cấp (nested children)</param>
+        /// <returns>Danh sách tính năng chuẩn hóa</returns>
         /// <response code="200">Lấy danh sách mã tính năng thành công</response>
         [HttpGet("catalog")]
-        [ProducesResponseType(typeof(IEnumerable<object>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetFeatureCatalog()
+        [ProducesResponseType(typeof(IEnumerable<FeatureCatalogDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetFeatureCatalog([FromQuery] bool tree = false)
         {
             var features = await adminService.GetFeaturesAsync();
             var activeFeatures = features
                 .Where(f => f.IsActive)
                 .OrderBy(f => f.SortOrder)
                 .ThenBy(f => f.Name)
-                .Select(f => new 
+                .Select(f => new FeatureCatalogDto
                 { 
-                    f.Code, 
-                    f.Name,
-                    f.Description,
-                    f.ParentCode,
-                    f.SortOrder
-                });
-            return Ok(activeFeatures);
+                    FeatureId = f.Id,
+                    FeatureCode = f.Code, 
+                    FeatureName = f.Name,
+                    Description = f.Description,
+                    ParentCode = f.ParentCode,
+                    SortOrder = f.SortOrder
+                })
+                .ToList();
+
+            if (!tree)
+            {
+                return Ok(activeFeatures);
+            }
+
+            return Ok(BuildFeatureTree(activeFeatures));
+        }
+
+        /// <summary>
+        /// API trả về trực tiếp danh mục tính năng dạng Cây (Hierarchical Tree Data) với các nút con `children: []`.
+        /// </summary>
+        [HttpGet("tree")]
+        [ProducesResponseType(typeof(IEnumerable<FeatureCatalogDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetFeatureTree()
+        {
+            var features = await adminService.GetFeaturesAsync();
+            var activeFeatures = features
+                .Where(f => f.IsActive)
+                .OrderBy(f => f.SortOrder)
+                .ThenBy(f => f.Name)
+                .Select(f => new FeatureCatalogDto
+                { 
+                    FeatureId = f.Id,
+                    FeatureCode = f.Code, 
+                    FeatureName = f.Name,
+                    Description = f.Description,
+                    ParentCode = f.ParentCode,
+                    SortOrder = f.SortOrder
+                })
+                .ToList();
+
+            return Ok(BuildFeatureTree(activeFeatures));
+        }
+
+        private static List<FeatureCatalogDto> BuildFeatureTree(List<FeatureCatalogDto> flatFeatures)
+        {
+            var featureMap = flatFeatures.ToDictionary(f => f.FeatureCode, StringComparer.OrdinalIgnoreCase);
+            var rootNodes = new List<FeatureCatalogDto>();
+
+            foreach (var item in flatFeatures)
+            {
+                if (!string.IsNullOrEmpty(item.ParentCode) && featureMap.TryGetValue(item.ParentCode, out var parent))
+                {
+                    parent.Children.Add(item);
+                }
+                else
+                {
+                    rootNodes.Add(item);
+                }
+            }
+
+            return rootNodes;
         }
 
         /// <summary>

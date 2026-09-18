@@ -197,38 +197,8 @@ public static class CreateFakeDataExtensions
                     }
                 }
 
-                // 1. Seed/Sync Features
-                var defaultFeatures = new List<(string Code, string Name, string Description)>
-                {
-                    ("DU_AN", "Quản lý dự án", "Chức năng xem, thêm, sửa, xoá dự án"),
-                    ("GOI_THAU", "Quản lý gói thầu", "Chức năng xem, thêm, sửa, xoá gói thầu"),
-                    ("QUAN_LY_HOP_DONG", "Quản lý hợp đồng", "Chức năng xem, thêm, sửa, xoá hợp đồng"),
-                    ("HOP_DONG", "Quản lý loại hợp đồng", "Chức năng quản lý loại/danh mục hợp đồng"),
-                    ("DOI_TAC", "Quản lý đối tác", "Chức năng xem, thêm, sửa, xoá đối tác"),
-                    ("NGHI_QUYET", "Quản lý nghị quyết/văn bản", "Chức năng xem, thêm, sửa, xoá nghị quyết"),
-                    ("BAO_CAO", "Báo cáo & Thống kê", "Chức năng xem và xuất báo cáo thống kê")
-                };
-
-                foreach (var f in defaultFeatures)
-                {
-                    var existing = await context.Features.FirstOrDefaultAsync(x => x.Code == f.Code);
-                    if (existing == null)
-                    {
-                        context.Features.Add(new Feature
-                        {
-                            Code = f.Code,
-                            Name = f.Name,
-                            Description = f.Description,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-                    else
-                    {
-                        existing.Name = f.Name;
-                        existing.Description = f.Description;
-                    }
-                }
-                await context.SaveChangesAsync();
+                // 1. Seed/Sync Features & Catalog
+                await ProductionSeeder.SeedSystemCatalogAsync(context, logger);
 
                 // 2. Seed/Sync Default Roles
                 var defaultRoles = new List<(string Name, string Description)>

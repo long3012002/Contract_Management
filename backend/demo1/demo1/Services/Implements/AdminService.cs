@@ -353,14 +353,46 @@ namespace demo1.Services.Implements
 
                 if (permissions != null && permissions.Any())
                 {
-                    var newRolePermissions = permissions.Select(dto => new RolePermission
+                    var newRolePermissions = permissions.Select(dto =>
                     {
-                        Id = Guid.NewGuid(),
-                        RoleId = roleId,
-                        FeatureId = dto.FeatureId,
-                        CanAccess = dto.CanAccess,
-                        Permissions = dto.Permissions ?? string.Empty,
-                        CreatedAt = DateTime.UtcNow
+                        var actionsList = new List<string>();
+
+                        if (!string.IsNullOrWhiteSpace(dto.Permissions))
+                        {
+                            foreach (var p in dto.Permissions.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            {
+                                if (!actionsList.Contains(p, StringComparer.OrdinalIgnoreCase))
+                                {
+                                    actionsList.Add(p);
+                                }
+                            }
+                        }
+
+                        if (dto.CanView == true && !actionsList.Contains("VIEW", StringComparer.OrdinalIgnoreCase)) actionsList.Add("VIEW");
+                        if (dto.CanCreate == true && !actionsList.Contains("CREATE", StringComparer.OrdinalIgnoreCase)) actionsList.Add("CREATE");
+                        if (dto.CanEdit == true && !actionsList.Contains("EDIT", StringComparer.OrdinalIgnoreCase)) actionsList.Add("EDIT");
+                        if (dto.CanDelete == true && !actionsList.Contains("DELETE", StringComparer.OrdinalIgnoreCase)) actionsList.Add("DELETE");
+
+                        bool canAccess = dto.CanAccess || (dto.CanView ?? false) || actionsList.Any();
+
+                        if (!canAccess && (dto.CanView == null || dto.CanView == false) && dto.CanCreate != true && dto.CanEdit != true && dto.CanDelete != true)
+                        {
+                            if (dto.CanAccess == false)
+                            {
+                                canAccess = false;
+                                actionsList.Clear();
+                            }
+                        }
+
+                        return new RolePermission
+                        {
+                            Id = Guid.NewGuid(),
+                            RoleId = roleId,
+                            FeatureId = dto.FeatureId,
+                            CanAccess = canAccess,
+                            Permissions = string.Join(",", actionsList),
+                            CreatedAt = DateTime.UtcNow
+                        };
                     }).ToList();
 
                     await _dbContext.RolePermissions.AddRangeAsync(newRolePermissions);

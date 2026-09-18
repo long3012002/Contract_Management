@@ -13,12 +13,25 @@ namespace demo1.DTOs.Permission
 
     public class FeatureCatalogDto
     {
-        public string Code { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
+        public Guid FeatureId { get; set; }
+        public Guid Id => FeatureId;
+        public string FeatureCode { get; set; } = string.Empty;
+        public string Code
+        {
+            get => FeatureCode;
+            set => FeatureCode = value;
+        }
+        public string FeatureName { get; set; } = string.Empty;
+        public string Name
+        {
+            get => FeatureName;
+            set => FeatureName = value;
+        }
         public string? Description { get; set; }
         public string? ParentCode { get; set; }
         public int SortOrder { get; set; }
         public List<string> Aliases { get; set; } = new List<string>();
+        public List<FeatureCatalogDto> Children { get; set; } = new List<FeatureCatalogDto>();
     }
 
     public class GroupedUserPermissionDto
