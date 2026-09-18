@@ -51,7 +51,8 @@ namespace demo1.Tests.UnitTests.Services
             var auditService = new DuAnAuditService(_dbContext, securityService);
             var notificationService = new DuAnNotificationService(_dbContext, _mockCurrentUserService.Object, _mockHubContext.Object);
 
-            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
+            var codeGeneratorService = new CodeGeneratorService(_dbContext);
+            _duAnService = new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService, codeGeneratorService);
         }
 
         [Fact]

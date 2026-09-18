@@ -11,6 +11,9 @@ public class CreateDotThanhToanDto
     [StringLength(255)]
     public string TenDot { get; set; } = string.Empty;
 
+    [StringLength(100)]
+    public string? Code { get; set; }
+
     [Range(0, 100)]
     public decimal TyLeThanhToan { get; set; }
 

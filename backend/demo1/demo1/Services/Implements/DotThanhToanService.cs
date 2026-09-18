@@ -75,6 +75,7 @@ public class DotThanhToanService(AppDbContext context) : IDotThanhToanService
             {
                 Id = d.Id,
                 TenDot = d.TenDot,
+                Code = d.Code,
                 TyLeThanhToan = d.TyLeThanhToan,
                 GiaTriThanhToan = d.GiaTriThanhToan,
                 NgayThanhToan = d.NgayThanhToan,

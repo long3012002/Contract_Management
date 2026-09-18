@@ -6,6 +6,7 @@ public class DotThanhToanReportDto
 {
     public Guid Id { get; set; }
     public string TenDot { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
     public decimal TyLeThanhToan { get; set; }
     public decimal GiaTriThanhToan { get; set; }
     public DateTime? NgayThanhToan { get; set; }

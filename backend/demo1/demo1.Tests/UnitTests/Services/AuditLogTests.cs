@@ -306,7 +306,8 @@ namespace demo1.Tests.UnitTests.Services
             var auditService = new demo1.Services.Implements.SubServices.DuAnAuditService(context, securityService);
             var notificationService = new demo1.Services.Implements.SubServices.DuAnNotificationService(context, mockUserService.Object, mockHubContext.Object);
 
-            var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
+            var codeGeneratorService = new demo1.Services.Implements.CodeGeneratorService(context);
+            var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService, codeGeneratorService);
 
             // Act
             var logs = await duAnService.GetAuditLogsByProjectIdAsync(projectId);

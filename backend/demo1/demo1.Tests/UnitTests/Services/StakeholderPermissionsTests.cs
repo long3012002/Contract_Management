@@ -65,8 +65,9 @@ namespace demo1.Tests.UnitTests.Services
                 _mockCurrentUserService.Object
             );
 
-            _goiThauService = new GoiThauService(_dbContext, _mapper, mockGoiThauLogger.Object, _mockCurrentUserService.Object);
-            _hopDongService = new HopDongService(_dbContext, _mapper, mockHopDongLogger.Object, _mockCurrentUserService.Object);
+            var codeGeneratorService = new CodeGeneratorService(_dbContext);
+            _goiThauService = new GoiThauService(_dbContext, _mapper, mockGoiThauLogger.Object, _mockCurrentUserService.Object, codeGeneratorService);
+            _hopDongService = new HopDongService(_dbContext, _mapper, mockHopDongLogger.Object, _mockCurrentUserService.Object, codeGeneratorService);
         }
 
         [Fact]

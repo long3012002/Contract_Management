@@ -18,11 +18,13 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 {
     private readonly ILogger<HopDongService> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICodeGeneratorService _codeGeneratorService;
 
-    public HopDongService(AppDbContext dbContext, IMapper mapper, ILogger<HopDongService> logger, ICurrentUserService currentUserService) : base(dbContext, mapper)
+    public HopDongService(AppDbContext dbContext, IMapper mapper, ILogger<HopDongService> logger, ICurrentUserService currentUserService, ICodeGeneratorService codeGeneratorService) : base(dbContext, mapper)
     {
         _logger = logger;
         _currentUserService = currentUserService;
+        _codeGeneratorService = codeGeneratorService;
     }
 
     public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -282,7 +284,14 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
     public override async Task<HopDongDto> CreateAsync(CreateHopDongDto dto)
     {
-        dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+        if (string.IsNullOrWhiteSpace(dto.Code))
+        {
+            dto.Code = await _codeGeneratorService.GenerateHopDongCodeAsync();
+        }
+        else
+        {
+            dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+        }
         if (dto.DotThanhToans != null)
         {
             foreach (var d in dto.DotThanhToans)
@@ -425,6 +434,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 var dot = Mapper.Map<DotThanhToan>(dotDto);
                 dot.Id = Guid.NewGuid();
                 dot.HopDongId = entity.Id;
+                if (string.IsNullOrWhiteSpace(dot.Code))
+                {
+                    dot.Code = await _codeGeneratorService.GenerateDotThanhToanCodeAsync(entity.Id, entity.CreatedAt.Year);
+                }
                 // Use user-provided payment value if set, otherwise calculate based on percentage
                 dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                 dot.NgayThanhToan = dotDto.NgayThanhToan;
@@ -622,6 +635,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                     var dot = Mapper.Map<DotThanhToan>(dotDto);
                     dot.Id = Guid.NewGuid();
                     dot.HopDongId = entity.Id;
+                    if (string.IsNullOrWhiteSpace(dot.Code))
+                    {
+                        dot.Code = await _codeGeneratorService.GenerateDotThanhToanCodeAsync(entity.Id, entity.CreatedAt.Year);
+                    }
                     dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                     dot.NgayThanhToan = dotDto.NgayThanhToan;
                     dot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;

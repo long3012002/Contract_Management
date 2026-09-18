@@ -7,76 +7,57 @@ namespace demo1.Tests.UnitTests.Validators;
 public class CodePrefixValidatorTests
 {
     [Theory]
-    [InlineData("PRJ_SRC-001", 1)]
-    [InlineData("prj_src-abc", 1)]
-    [InlineData("PRJ_SUB-002", 2)]
-    [InlineData("prj_sub-xyz", 2)]
-    public void ValidateDuAnCode_ValidCodes_DoesNotThrow(string inputCode, int loaiDuAn)
+    [InlineData("001/2026/DAN", 1)]
+    [InlineData("002/2026/DATK", 2)]
+    [InlineData("CUSTOM_CODE_123", 1)]
+    public void ValidateDuAnCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode, int loaiDuAn)
     {
         var exception = Record.Exception(() => CodePrefixValidator.ValidateDuAnCode(inputCode, loaiDuAn));
         Assert.Null(exception);
     }
 
     [Theory]
-    [InlineData("001", 1)]
-    [InlineData("DA-001", 1)]
-    [InlineData("PRJ_SUB-123", 1)]
-    [InlineData("002", 2)]
-    [InlineData("DA-002", 2)]
-    [InlineData("PRJ_SRC-123", 2)]
-    public void ValidateDuAnCode_InvalidCodes_ThrowsArgumentException(string inputCode, int loaiDuAn)
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void ValidateDuAnCode_EmptyOrNullCode_ThrowsArgumentException(string? inputCode)
     {
-        Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateDuAnCode(inputCode, loaiDuAn));
+        Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateDuAnCode(inputCode, 1));
     }
 
     [Theory]
-    [InlineData("PKG-001")]
-    [InlineData("pkg-test")]
-    public void ValidateGoiThauCode_ValidCodes_DoesNotThrow(string inputCode)
+    [InlineData("002/2026/GT")]
+    [InlineData("CUSTOM_GT")]
+    public void ValidateGoiThauCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode)
     {
         var exception = Record.Exception(() => CodePrefixValidator.ValidateGoiThauCode(inputCode));
         Assert.Null(exception);
     }
 
     [Theory]
-    [InlineData("001")]
-    [InlineData("GT-001")]
-    public void ValidateGoiThauCode_InvalidCodes_ThrowsArgumentException(string inputCode)
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void ValidateGoiThauCode_EmptyOrNullCode_ThrowsArgumentException(string? inputCode)
     {
         Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateGoiThauCode(inputCode));
     }
 
     [Theory]
-    [InlineData("CTR-001")]
-    [InlineData("ctr-contract")]
-    public void ValidateHopDongCode_ValidCodes_DoesNotThrow(string inputCode)
+    [InlineData("017/2026/HĐ")]
+    [InlineData("CUSTOM_HD")]
+    public void ValidateHopDongCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode)
     {
         var exception = Record.Exception(() => CodePrefixValidator.ValidateHopDongCode(inputCode));
         Assert.Null(exception);
     }
 
     [Theory]
-    [InlineData("001")]
-    [InlineData("HD-001")]
-    public void ValidateHopDongCode_InvalidCodes_ThrowsArgumentException(string inputCode)
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void ValidateHopDongCode_EmptyOrNullCode_ThrowsArgumentException(string? inputCode)
     {
         Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateHopDongCode(inputCode));
-    }
-
-    [Theory]
-    [InlineData("PAY-Đợt 1")]
-    [InlineData("pay-01")]
-    public void ValidateDotThanhToanTen_ValidNames_DoesNotThrow(string inputTen)
-    {
-        var exception = Record.Exception(() => CodePrefixValidator.ValidateDotThanhToanTen(inputTen));
-        Assert.Null(exception);
-    }
-
-    [Theory]
-    [InlineData("Đợt 1")]
-    [InlineData("01")]
-    public void ValidateDotThanhToanTen_InvalidNames_ThrowsArgumentException(string inputTen)
-    {
-        Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateDotThanhToanTen(inputTen));
     }
 }

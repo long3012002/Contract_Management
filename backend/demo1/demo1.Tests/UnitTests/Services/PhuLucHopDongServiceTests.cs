@@ -42,8 +42,9 @@ public class PhuLucHopDongServiceTests : IDisposable
         _dbContext.Users.Add(adminUser);
         _dbContext.SaveChanges();
 
+        var codeGeneratorService = new CodeGeneratorService(_dbContext);
         _phuLucService = new PhuLucHopDongService(_dbContext);
-        _hopDongService = new HopDongService(_dbContext, _mapper, mockLogger.Object, mockCurrentUserService.Object);
+        _hopDongService = new HopDongService(_dbContext, _mapper, mockLogger.Object, mockCurrentUserService.Object, codeGeneratorService);
     }
 
     [Fact]

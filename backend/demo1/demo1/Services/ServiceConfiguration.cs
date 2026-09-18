@@ -224,6 +224,7 @@ public static class ServiceConfiguration
         services.AddScoped<IDuAnCascadeService, DuAnCascadeService>();
         services.AddScoped<IDuAnNotificationService, DuAnNotificationService>();
 
+        services.AddScoped<ICodeGeneratorService, CodeGeneratorService>();
         services.AddScoped<IDuAnService, DuAnService>();
         services.AddScoped<IDoiTacService, DoiTacService>();
         services.AddScoped<IGoiThauService, GoiThauService>();

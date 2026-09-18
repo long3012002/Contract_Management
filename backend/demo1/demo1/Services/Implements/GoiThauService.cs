@@ -17,11 +17,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 {
     private readonly ILogger<GoiThauService> _logger;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICodeGeneratorService _codeGeneratorService;
 
-    public GoiThauService(AppDbContext dbContext, IMapper mapper, ILogger<GoiThauService> logger, ICurrentUserService currentUserService) : base(dbContext, mapper)
+    public GoiThauService(AppDbContext dbContext, IMapper mapper, ILogger<GoiThauService> logger, ICurrentUserService currentUserService, ICodeGeneratorService codeGeneratorService) : base(dbContext, mapper)
     {
         _logger = logger;
         _currentUserService = currentUserService;
+        _codeGeneratorService = codeGeneratorService;
     }
 
     public override Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -252,7 +254,14 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         HashSet<Guid>? allowedProjectIds = null,
         HashSet<string>? existingCodesInDb = null)
     {
-        dto.Code = CodePrefixValidator.FormatGoiThauCode(dto.Code);
+        if (string.IsNullOrWhiteSpace(dto.Code))
+        {
+            dto.Code = await _codeGeneratorService.GenerateGoiThauCodeAsync();
+        }
+        else
+        {
+            dto.Code = CodePrefixValidator.FormatGoiThauCode(dto.Code);
+        }
         GoiThauValidator.EnsureValid(dto.GiaTriGoiThau);
 
         if (dto.DuAnId.HasValue)

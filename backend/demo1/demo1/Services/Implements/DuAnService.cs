@@ -26,6 +26,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     private readonly IDuAnCascadeService _cascadeService;
     private readonly IDuAnAuditService _auditService;
     private readonly IDuAnNotificationService _notificationService;
+    private readonly ICodeGeneratorService _codeGeneratorService;
 
     public DuAnService(
         AppDbContext dbContext,
@@ -36,7 +37,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         IDuAnBudgetService budgetService,
         IDuAnCascadeService cascadeService,
         IDuAnAuditService auditService,
-        IDuAnNotificationService notificationService) : base(dbContext, mapper)
+        IDuAnNotificationService notificationService,
+        ICodeGeneratorService codeGeneratorService) : base(dbContext, mapper)
     {
         _currentUserService = currentUserService;
         _securityService = securityService;
@@ -45,6 +47,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         _cascadeService = cascadeService;
         _auditService = auditService;
         _notificationService = notificationService;
+        _codeGeneratorService = codeGeneratorService;
     }
 
     public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
@@ -237,7 +240,14 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
-            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
+            if (string.IsNullOrWhiteSpace(dto.Code))
+            {
+                dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync(dto.LoaiDuAn);
+            }
+            else
+            {
+                dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
+            }
             DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
 
             var entity = Mapper.Map<DuAn>(dto);

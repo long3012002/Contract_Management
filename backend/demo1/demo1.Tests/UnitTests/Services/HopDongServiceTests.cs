@@ -44,7 +44,8 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.Users.Add(adminUser);
             _dbContext.SaveChanges();
 
-            _hopDongService = new HopDongService(_dbContext, _mapper, _mockLogger.Object, _mockCurrentUserService.Object);
+            var codeGeneratorService = new CodeGeneratorService(_dbContext);
+            _hopDongService = new HopDongService(_dbContext, _mapper, _mockLogger.Object, _mockCurrentUserService.Object, codeGeneratorService);
         }
 
         [Fact]

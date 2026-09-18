@@ -47,7 +47,8 @@ namespace demo1.Tests.UnitTests.Services
             var auditService = new DuAnAuditService(_dbContext, securityService);
             var notificationService = new DuAnNotificationService(_dbContext, _mockCurrentUserService.Object, _mockHubContext.Object);
 
-            return new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService);
+            var codeGeneratorService = new CodeGeneratorService(_dbContext);
+            return new DuAnService(_dbContext, _mapper, _mockCurrentUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService, codeGeneratorService);
         }
 
         public HierarchyDataPermissionTests()
@@ -183,8 +184,9 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.HopDongs.Add(hopDong);
             await _dbContext.SaveChangesAsync();
 
-            var goiThauService = new GoiThauService(_dbContext, _mapper, _mockGoiThauLogger.Object, _mockCurrentUserService.Object);
-            var hopDongService = new HopDongService(_dbContext, _mapper, _mockHopDongLogger.Object, _mockCurrentUserService.Object);
+            var codeGeneratorService = new CodeGeneratorService(_dbContext);
+            var goiThauService = new GoiThauService(_dbContext, _mapper, _mockGoiThauLogger.Object, _mockCurrentUserService.Object, codeGeneratorService);
+            var hopDongService = new HopDongService(_dbContext, _mapper, _mockHopDongLogger.Object, _mockCurrentUserService.Object, codeGeneratorService);
 
             // Act
             _mockCurrentUserService.Setup(c => c.GetUsername()).Returns(_managerUser.Username);
