@@ -40,21 +40,26 @@ public class DuAnDto : IHasId
     public decimal TongDuToanHienTai { get; set; }
     
     /// <summary>
-    /// Trạng thái thực hiện dự án (1: Đang triển khai, 2: Đã hoàn thành)
+    /// Trạng thái thực hiện dự án
     /// </summary>
     public int TrangThai { get; set; }
 
     /// <summary>
-    /// Phân loại/Loại hình dự án (1: Dự án nguồn, 2: Dự án triển khai)
-    /// </summary>
-    public int LoaiDuAn { get; set; }
-
-    /// <summary>
-    /// Tên loại dự án dạng văn bản (lấy theo Phân loại hoặc Loại hình nguồn/triển khai)
+    /// Tên loại dự án dạng văn bản (lấy theo Phân loại dự án)
     /// </summary>
     public string LoaiDuAnText => !string.IsNullOrWhiteSpace(PhanLoaiDuAnName) 
         ? PhanLoaiDuAnName 
-        : (LoaiDuAn == 1 ? "Dự án nguồn" : "Dự án triển khai");
+        : "Dự án";
+
+    /// <summary>
+    /// Danh sách các dự án đã gộp vào dự án này (nếu là dự án nhận gộp)
+    /// </summary>
+    public List<DuAnGopLinkDto> DanhSachDuAnDaGop { get; set; } = new();
+
+    /// <summary>
+    /// Thông tin dự án bị gộp vào dự án khác (nếu TrangThai == Merged)
+    /// </summary>
+    public DuAnGopLinkDto? ThongTinGopVao { get; set; }
 
     /// <summary>
     /// ID Nhóm dự án thuộc danh mục

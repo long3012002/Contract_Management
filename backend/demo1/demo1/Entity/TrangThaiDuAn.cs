@@ -11,6 +11,8 @@ public enum TrangThaiDuAn
     Payment = 6,           // Thanh toán
     Settlement = 7,        // Quyết toán
     Completed = 8,         // Hoàn thành
+    Suspended = 9,         // Tạm dừng
+    Merged = 10,           // Đã gộp
 
     // Aliases hỗ trợ tương thích ngược
     DangTrienKhai = 4,
@@ -32,6 +34,8 @@ public static class TrangThaiDuAnExtensions
             TrangThaiDuAn.Payment => "Thanh toán",
             TrangThaiDuAn.Settlement => "Quyết toán",
             TrangThaiDuAn.Completed => "Hoàn thành",
+            TrangThaiDuAn.Suspended => "Tạm dừng",
+            TrangThaiDuAn.Merged => "Đã gộp",
             _ => "Không xác định"
         };
     }

@@ -22,13 +22,8 @@ public class CreateDuAnDto
 
     public int TrangThai { get; set; } = 1;
 
-    [Range(1, 2)]
-    public int LoaiDuAn { get; set; } = 1; // 1 = Nguon, 2 = Trien khai
-
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
-
-    public List<Guid>? SourceProjectIds { get; set; }
 
     [StringLength(255)]
     public string? ChuDauTu { get; set; }

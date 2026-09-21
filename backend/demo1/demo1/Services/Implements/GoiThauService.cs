@@ -256,7 +256,9 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            dto.Code = await _codeGeneratorService.GenerateGoiThauCodeAsync();
+            // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
+            // dto.Code = await _codeGeneratorService.GenerateGoiThauCodeAsync();
+            throw new ArgumentException("Vui lòng nhập Mã gói thầu.");
         }
         else
         {
@@ -274,7 +276,8 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             }
             else
             {
-                project = await DbContext.DuAns.Include(da => da.DieuChinhs)
+                project = await DbContext.DuAns.Include(da => da.KeHoachVonDuAns)
+                                                     .ThenInclude(kd => kd.KeHoachVon)
                                                  .Include(da => da.GoiThaus)
                                                  .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
             }
@@ -320,7 +323,8 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                     throw new UnauthorizedAccessException("Bạn không có quyền tạo gói thầu trong dự án này.");
                 }
             }
-            var projectBudget = project.DuToanPheDuyet + (project.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0);
+            var approvedCap = project.KeHoachVonDuAns?.Where(k => k.KeHoachVon != null).Sum(k => k.SoTienDuocDuyet > 0 ? k.SoTienDuocDuyet : k.SoTienDeNghi) ?? 0;
+            var projectBudget = approvedCap > 0 ? approvedCap : project.DuToanPheDuyet;
             var existingPackagesSum = project.GoiThaus?.Sum(gt => gt.GiaTriGoiThau) ?? 0;
 
             decimal batchSumForProject = 0;
@@ -430,7 +434,8 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             if (projectIds.Any())
             {
                 var projectList = await DbContext.DuAns
-                    .Include(da => da.DieuChinhs)
+                    .Include(da => da.KeHoachVonDuAns)
+                        .ThenInclude(kd => kd.KeHoachVon)
                     .Include(da => da.GoiThaus)
                     .Where(da => projectIds.Contains(da.Id))
                     .ToListAsync();
@@ -522,15 +527,17 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             if (dto.DuAnId.HasValue)
             {
-                var project = await DbContext.DuAns.Include(da => da.DieuChinhs)
-                                                 .Include(da => da.GoiThaus)
-                                                 .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+                var project = await DbContext.DuAns.Include(da => da.KeHoachVonDuAns)
+                                                    .ThenInclude(kd => kd.KeHoachVon)
+                                                .Include(da => da.GoiThaus)
+                                                .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
                 if (project == null)
                 {
                     throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
                 }
 
-                var projectBudget = project.DuToanPheDuyet + (project.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0);
+                var approvedCap = project.KeHoachVonDuAns?.Where(k => k.KeHoachVon != null).Sum(k => k.SoTienDuocDuyet > 0 ? k.SoTienDuocDuyet : k.SoTienDeNghi) ?? 0;
+                var projectBudget = approvedCap > 0 ? approvedCap : project.DuToanPheDuyet;
                 var existingPackagesSum = project.GoiThaus?.Where(gt => gt.Id != id).Sum(gt => gt.GiaTriGoiThau) ?? 0;
 
                 if (existingPackagesSum + dto.GiaTriGoiThau > projectBudget)

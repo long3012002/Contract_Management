@@ -8,9 +8,6 @@ public class DuAn : BaseEntity
 {
     public decimal DuToanPheDuyet { get; set; }
     public int TrangThai { get; set; } = 1;
-    
-    // 1 = Du An Nguon, 2 = Du An Trien Khai
-    public int LoaiDuAn { get; set; }
 
     public Guid? NhomDuAnId { get; set; }
     public virtual NhomDuAn? NhomDuAn { get; set; }
@@ -18,9 +15,6 @@ public class DuAn : BaseEntity
     public Guid? PhanLoaiDuAnId { get; set; }
     public virtual PhanLoaiDuAn? PhanLoaiDuAn { get; set; }
 
-    // Navigation Properties cho quan hệ giữa Dự án Triển khai và Dự án Nguồn
-    public virtual ICollection<DuAnNguonTrienKhai> NguonDuAns { get; set; } = new List<DuAnNguonTrienKhai>();
-    
     public string? ChuDauTu { get; set; }
     public string? DiaDiemThucHien { get; set; }
     public string? ThoiGianThucHien { get; set; }
@@ -45,7 +39,11 @@ public class DuAn : BaseEntity
     public Guid? ChuDuAnId { get; set; }
     public virtual User? ChuDuAn { get; set; }
 
-    public virtual ICollection<DieuChinhDuAn> DieuChinhs { get; set; } = new List<DieuChinhDuAn>();
+    // Navigation properties cho Kế hoạch vốn và Gộp dự án
+    public virtual ICollection<KeHoachVonDuAn> KeHoachVonDuAns { get; set; } = new List<KeHoachVonDuAn>();
+    public virtual ICollection<DuAnGopLink> MergedFromGopLinks { get; set; } = new List<DuAnGopLink>();
+    public virtual DuAnGopLink? MergedToGopLink { get; set; }
+
     public virtual ICollection<GoiThau> GoiThaus { get; set; } = new List<GoiThau>();
     public virtual ICollection<License> Licenses { get; set; } = new List<License>();
     public virtual ICollection<DuAnPhanKyVon> PhanKyVons { get; set; } = new List<DuAnPhanKyVon>();

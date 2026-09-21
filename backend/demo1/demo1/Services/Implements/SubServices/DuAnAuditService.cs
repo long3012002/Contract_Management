@@ -49,13 +49,13 @@ public class DuAnAuditService : IDuAnAuditService
         var projectIdStrLower = projectIdStr.ToLower();
 
         var duAnTableNames = new[] { "duans", "duan", "dự án" };
-        var dieuChinhTableNames = new[] { "dieuchinhduans", "dieuchinhduan", "điều chỉnh dự án" };
+        var dieuChinhTableNames = new[] { "kehoachvons", "kehoachvon", "kế hoạch vốn" };
         var goiThauTableNames = new[] { "goithaus", "goithau", "gói thầu" };
         var hopDongTableNames = new[] { "hopdongs", "hopdong", "hợp đồng" };
 
-        var dieuChinhIds = await _dbContext.DieuChinhDuAns
+        var dieuChinhIds = await _dbContext.KeHoachVonDuAns
             .Where(dc => dc.DuAnId == id)
-            .Select(dc => dc.Id.ToString())
+            .Select(dc => dc.KeHoachVonId.ToString())
             .ToListAsync();
 
         var goiThauIds = await _dbContext.GoiThaus
@@ -148,13 +148,13 @@ public class DuAnAuditService : IDuAnAuditService
                         entityNameMap[hd.Id.ToString()] = hd.Name;
                     }
 
-                    var dbDieuChinhs = await _dbContext.DieuChinhDuAns
+                    var dbKeHoachVons = await _dbContext.KeHoachVons
                         .Where(dc => guidList.Contains(dc.Id))
-                        .Select(dc => new { dc.Id, Name = dc.Name, LyDoDieuChinh = dc.LyDoDieuChinh })
+                        .Select(dc => new { dc.Id, Name = dc.SoQuyetDinh })
                         .ToListAsync();
-                    foreach (var dc in dbDieuChinhs)
+                    foreach (var dc in dbKeHoachVons)
                     {
-                        entityNameMap[dc.Id.ToString()] = !string.IsNullOrEmpty(dc.Name) ? dc.Name : dc.LyDoDieuChinh;
+                        entityNameMap[dc.Id.ToString()] = !string.IsNullOrEmpty(dc.Name) ? dc.Name : "Kế hoạch vốn";
                     }
 
                     var dbDoiTacs = await _dbContext.DoiTacs

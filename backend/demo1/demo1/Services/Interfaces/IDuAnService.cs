@@ -9,15 +9,12 @@ namespace demo1.Services.Interfaces;
 public interface IDuAnService : ICrudService<DuAnDto, CreateDuAnDto, UpdateDuAnDto>
 {
     Task<PagedResult<DuAnDto>> GetAllAsync(DuAnFilterDto filter);
-    Task<DieuChinhDuAnDto> AdjustBudgetAsync(Guid id, CreateDieuChinhDuAnDto dto);
-    Task<IReadOnlyList<DieuChinhDuAnDto>> GetAdjustmentsAsync(Guid id);
     Task<DuAnDto> AdvanceStatusAsync(Guid id);
     Task<DuAnDto> CloseProjectAsync(Guid id);
-    Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id);
+    Task<DuAnDto> GopDuAnAsync(Guid sourceId, GopDuAnDto dto, Guid currentUserId);
     Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id);
     Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id);
     Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id);
     Task<bool> ChangeOwnerAsync(Guid projectId, Guid newOwnerId);
-    Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync(int? loaiDuAn = null);
+    Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync();
 }
-

@@ -52,23 +52,7 @@ public class DuAnCascadeService : IDuAnCascadeService
             _dbContext.GoiThaus.RemoveRange(goiThaus);
         }
 
-        if (entity.LoaiDuAn == 2)
-        {
-            var link = await _dbContext.DuAnNguonTrienKhais
-                .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == id);
-            var sourceIds = link?.NguonProjectId?
-                .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Select(Guid.Parse)
-                .ToList() ?? new List<Guid>();
-            if (sourceIds.Any())
-            {
-                var sourceProjects = await _dbContext.DuAns.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
-                foreach (var sp in sourceProjects)
-                {
-                    sp.DaTrienKhai = false;
-                }
-            }
-        }
+
 
         _dbContext.DuAns.Remove(entity);
         await _dbContext.SaveChangesAsync();
@@ -171,15 +155,13 @@ public class DuAnCascadeService : IDuAnCascadeService
             }
         }
 
-        // Cascade Soft Delete cho Điều chỉnh dự án
-        var dieuChinhs = await _dbContext.DieuChinhDuAns
-            .Where(dc => idList.Contains(dc.DuAnId))
+        // Cascade Delete cho Kế hoạch vốn dự án
+        var keHoachVonLinks = await _dbContext.KeHoachVonDuAns
+            .Where(kd => idList.Contains(kd.DuAnId))
             .ToListAsync();
-        foreach (var dc in dieuChinhs)
+        if (keHoachVonLinks.Any())
         {
-            dc.IsDeleted = true;
-            dc.DeletedAt = now;
-            dc.DeletedByUserId = userId;
+            _dbContext.KeHoachVonDuAns.RemoveRange(keHoachVonLinks);
         }
 
         // Cascade Soft Delete cho License / Bản quyền
@@ -204,28 +186,6 @@ public class DuAnCascadeService : IDuAnCascadeService
                 h.IsDeleted = true;
                 h.DeletedAt = now;
                 h.DeletedByUserId = userId;
-            }
-        }
-
-        // Hủy trạng thái đã triển khai dự án nguồn nếu có
-        foreach (var entity in entities)
-        {
-            if (entity.LoaiDuAn == 2)
-            {
-                var link = await _dbContext.DuAnNguonTrienKhais
-                    .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == entity.Id);
-                var sourceIds = link?.NguonProjectId?
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Guid.Parse)
-                    .ToList() ?? new List<Guid>();
-                if (sourceIds.Any())
-                {
-                    var sourceProjects = await _dbContext.DuAns.Where(da => sourceIds.Contains(da.Id)).ToListAsync();
-                    foreach (var sp in sourceProjects)
-                    {
-                        sp.DaTrienKhai = false;
-                    }
-                }
             }
         }
 
@@ -325,16 +285,6 @@ public class DuAnCascadeService : IDuAnCascadeService
             }
         }
 
-        var dieuChinhs = await _dbContext.DieuChinhDuAns.IgnoreQueryFilters()
-            .Where(dc => idList.Contains(dc.DuAnId) && dc.IsDeleted)
-            .ToListAsync();
-        foreach (var dc in dieuChinhs)
-        {
-            dc.IsDeleted = false;
-            dc.DeletedAt = null;
-            dc.DeletedByUserId = null;
-        }
-
         var licenses = await _dbContext.Licenses.IgnoreQueryFilters()
             .Where(l => (idList.Contains(l.DuAnId) || (l.HopDongId.HasValue && hopDongIds.Contains(l.HopDongId.Value))) && l.IsDeleted)
             .ToListAsync();
@@ -355,37 +305,6 @@ public class DuAnCascadeService : IDuAnCascadeService
                 h.IsDeleted = false;
                 h.DeletedAt = null;
                 h.DeletedByUserId = null;
-            }
-        }
-
-        // Đánh dấu lại trạng thái đã triển khai dự án nguồn nếu cần
-        foreach (var entity in entities)
-        {
-            if (entity.LoaiDuAn == 2)
-            {
-                var link = await _dbContext.DuAnNguonTrienKhais
-                    .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == entity.Id);
-                var sourceIds = link?.NguonProjectId?
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Guid.Parse)
-                    .ToList() ?? new List<Guid>();
-                if (sourceIds.Any())
-                {
-                    var otherLinkedSourceIds = await _nguonLinkService.GetLinkedSourceProjectIdsAsync(excludeTrienKhaiProjectId: entity.Id);
-                    var conflictedId = sourceIds.FirstOrDefault(id => otherLinkedSourceIds.Contains(id));
-                    if (conflictedId != Guid.Empty)
-                    {
-                        var conflictedProj = await _dbContext.DuAns.IgnoreQueryFilters().FirstOrDefaultAsync(da => da.Id == conflictedId);
-                        var projName = conflictedProj?.Name ?? conflictedId.ToString();
-                        throw new InvalidOperationException($"Không thể khôi phục dự án '{entity.Name}'. Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
-                    }
-
-                    var sourceProjects = await _dbContext.DuAns.IgnoreQueryFilters().Where(da => sourceIds.Contains(da.Id)).ToListAsync();
-                    foreach (var sp in sourceProjects)
-                    {
-                        sp.DaTrienKhai = true;
-                    }
-                }
             }
         }
 

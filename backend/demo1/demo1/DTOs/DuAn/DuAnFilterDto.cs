@@ -9,7 +9,6 @@ public class DuAnFilterDto
     public int PageSize { get; set; } = 20;
     public string? Cursor { get; set; }
 
-    public int? LoaiDuAn { get; set; }
     public int? TrangThai { get; set; }
     public int? Nam { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }

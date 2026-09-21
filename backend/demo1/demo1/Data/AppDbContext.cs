@@ -33,13 +33,14 @@ namespace demo1.Data
 
         public DbSet<AuditLog> AuditLogs { get; set; } = null!;
         public DbSet<DuAn> DuAns { get; set; } = null!;
-        public DbSet<DuAnNguonTrienKhai> DuAnNguonTrienKhais { get; set; } = null!;
+        public DbSet<KeHoachVon> KeHoachVons { get; set; } = null!;
+        public DbSet<KeHoachVonDuAn> KeHoachVonDuAns { get; set; } = null!;
+        public DbSet<DuAnGopLink> DuAnGopLinks { get; set; } = null!;
         public DbSet<NhomDuAn> NhomDuAns { get; set; } = null!;
         public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
         public DbSet<NguonVon> NguonVons { get; set; } = null!;
         public DbSet<LoaiHopDong> LoaiHopDongs { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
-        public DbSet<DieuChinhDuAn> DieuChinhDuAns { get; set; } = null!;
         public DbSet<HopDong> HopDongs { get; set; } = null!;
         public DbSet<PhuLucHopDong> PhuLucHopDongs { get; set; } = null!;
         public DbSet<DoiTac> DoiTacs { get; set; } = null!;
@@ -159,7 +160,8 @@ namespace demo1.Data
                     }
                 );
             });
-            ConfigureBaseEntity(modelBuilder.Entity<DieuChinhDuAn>());
+            ConfigureBaseEntity(modelBuilder.Entity<KeHoachVon>());
+            ConfigureBaseEntity(modelBuilder.Entity<DuAnGopLink>());
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<PhuLucHopDong>());
@@ -279,18 +281,57 @@ namespace demo1.Data
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.ThoiGianThucHien)
                 .HasMaxLength(255);
-            modelBuilder.Entity<DuAnNguonTrienKhai>(entity =>
+            modelBuilder.Entity<KeHoachVon>(entity =>
             {
-                entity.HasKey(e => e.TrienKhaiProjectId);
-                entity.HasIndex(e => e.TrienKhaiProjectId).IsUnique();
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TongMucDeNghi).HasPrecision(18, 2);
+                entity.Property(e => e.TongMucDuocDuyet).HasPrecision(18, 2);
+                entity.Property(e => e.SoQuyetDinh).HasMaxLength(255);
+                entity.Property(e => e.GhiChu).HasMaxLength(1000);
+            });
 
-                entity.Property(e => e.NguonProjectId)
-                      .HasMaxLength(2000);
+            modelBuilder.Entity<KeHoachVonDuAn>(entity =>
+            {
+                entity.HasKey(e => new { e.KeHoachVonId, e.DuAnId });
+                entity.Property(e => e.SoTienDeNghi).HasPrecision(18, 2);
+                entity.Property(e => e.SoTienDuocDuyet).HasPrecision(18, 2);
+                entity.Property(e => e.VonDieuLe).HasPrecision(18, 2);
+                entity.Property(e => e.QuyDauTuPhatTrien).HasPrecision(18, 2);
+                entity.Property(e => e.GhiChu).HasMaxLength(1000);
 
-                entity.HasOne(e => e.TrienKhaiProject)
-                      .WithMany(p => p.NguonDuAns)
-                      .HasForeignKey(e => e.TrienKhaiProjectId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.KeHoachVon)
+                    .WithMany(k => k.KeHoachVonDuAns)
+                    .HasForeignKey(e => e.KeHoachVonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.DuAn)
+                    .WithMany(d => d.KeHoachVonDuAns)
+                    .HasForeignKey(e => e.DuAnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DuAnGopLink>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.DuToanLucGop).HasPrecision(18, 2);
+                entity.Property(e => e.GhiChu).HasMaxLength(1000);
+
+                entity.HasIndex(e => e.SourceDuAnId).IsUnique();
+
+                entity.HasOne(e => e.SourceDuAn)
+                    .WithOne(d => d.MergedToGopLink)
+                    .HasForeignKey<DuAnGopLink>(e => e.SourceDuAnId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.TargetDuAn)
+                    .WithMany(d => d.MergedFromGopLinks)
+                    .HasForeignKey(e => e.TargetDuAnId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.NguoiThucHien)
+                    .WithMany()
+                    .HasForeignKey(e => e.NguoiThucHienId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
             modelBuilder.Entity<DuAn>()
                 .Property(da => da.NoiDung)
@@ -331,17 +372,7 @@ namespace demo1.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            modelBuilder.Entity<DieuChinhDuAn>()
-                .Property(dc => dc.GiaTriDieuChinh)
-                .HasPrecision(18, 2);
-            modelBuilder.Entity<DieuChinhDuAn>()
-                .Property(dc => dc.LyDoDieuChinh)
-                .HasMaxLength(1000);
-            modelBuilder.Entity<DieuChinhDuAn>()
-                .HasOne(dc => dc.DuAn)
-                .WithMany(da => da.DieuChinhs)
-                .HasForeignKey(dc => dc.DuAnId)
-                .OnDelete(DeleteBehavior.Cascade);
+
 
             modelBuilder.Entity<GoiThau>()
                 .Property(gt => gt.GiaTriGoiThau)

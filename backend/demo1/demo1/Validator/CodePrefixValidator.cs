@@ -4,7 +4,7 @@ namespace demo1.Validator;
 
 public static class CodePrefixValidator
 {
-    public static void ValidateDuAnCode(string? code, int loaiDuAn)
+    public static void ValidateDuAnCode(string? code)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -36,9 +36,9 @@ public static class CodePrefixValidator
         }
     }
 
-    public static string FormatDuAnCode(string? code, int loaiDuAn)
+    public static string FormatDuAnCode(string? code)
     {
-        ValidateDuAnCode(code, loaiDuAn);
+        ValidateDuAnCode(code);
         return code!.Trim();
     }
 

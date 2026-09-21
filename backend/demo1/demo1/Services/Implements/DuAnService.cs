@@ -67,7 +67,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var pageSize = Math.Clamp(filter.PageSize, 1, 1000);
 
         IQueryable<DuAn> query = DbSet.AsNoTracking()
-            .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
@@ -80,45 +79,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         {
             var keyword = filter.Search.Trim();
             query = ApplySearchFilter(query, keyword);
-        }
-
-        if (filter.LoaiDuAn.HasValue)
-        {
-            query = query.Where(item => item.LoaiDuAn == filter.LoaiDuAn.Value);
-
-            if (filter.LoaiDuAn.Value == 1 && !string.IsNullOrWhiteSpace(filter.Status))
-            {
-                var allowedSourceIds = new List<Guid>();
-                if (filter.AllocatedProjectId.HasValue)
-                {
-                    var link = await DbContext.DuAnNguonTrienKhais
-                        .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == filter.AllocatedProjectId.Value);
-                    if (link?.NguonProjectId != null)
-                    {
-                        allowedSourceIds = link.NguonProjectId
-                            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(Guid.Parse)
-                            .ToList();
-                    }
-                }
-
-                if (filter.Status.Equals("Draft", StringComparison.OrdinalIgnoreCase))
-                {
-                    query = query.Where(da => da.TrangThai == (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
-                }
-                else if (filter.Status.Equals("Available", StringComparison.OrdinalIgnoreCase))
-                {
-                    query = query.Where(da => (da.DaTrienKhai != true || allowedSourceIds.Contains(da.Id)) && da.TrangThai != (int)TrangThaiDuAn.Draft && da.DaKetThuc != true);
-                }
-                else if (filter.Status.Equals("Allocated", StringComparison.OrdinalIgnoreCase))
-                {
-                    query = query.Where(da => da.DaTrienKhai == true && da.DaKetThuc != true);
-                }
-                else if (filter.Status.Equals("Closed", StringComparison.OrdinalIgnoreCase))
-                {
-                    query = query.Where(da => da.DaKetThuc == true);
-                }
-            }
         }
 
         if (filter.TrangThai.HasValue && filter.TrangThai.Value > 0)
@@ -203,7 +163,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     public override async Task<IReadOnlyList<DuAnDto>> GetAllItemsAsync()
     {
         IQueryable<DuAn> query = DbSet.AsNoTracking()
-            .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
@@ -221,7 +180,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     public override async Task<DuAnDto?> GetByIdAsync(Guid id)
     {
         var entity = await DbSet
-            .Include(da => da.DieuChinhs)
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.NhomDuAn)
@@ -242,11 +200,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         {
             if (string.IsNullOrWhiteSpace(dto.Code))
             {
-                dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync(dto.LoaiDuAn);
+                // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
+                // dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync();
+                throw new ArgumentException("Vui lòng nhập Mã dự án.");
             }
             else
             {
-                dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
+                dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code);
             }
             DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
 
@@ -267,100 +227,6 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 {
                     entity.ChuDuAnId = currentUser.Id;
                 }
-            }
-
-            if (dto.LoaiDuAn == 2) // Du an trien khai
-            {
-                if (dto.SourceProjectIds == null || !dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
-                }
-
-                if (dto.SourceProjectIds.Count != dto.SourceProjectIds.Distinct().Count())
-                {
-                    throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
-                }
-
-                var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
-                                                .Where(da => dto.SourceProjectIds.Contains(da.Id))
-                                                .ToListAsync();
-
-                if (sourceProjects.Count != dto.SourceProjectIds.Count)
-                {
-                    throw new ArgumentException("Một số dự án nguồn được chọn không tồn tại.");
-                }
-
-                if (sourceProjects.Any(da => da.LoaiDuAn != 1))
-                {
-                    throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
-                }
-
-                var linkedSourceIds = await _nguonLinkService.GetLinkedSourceProjectIdsAsync();
-                var alreadyLinkedId = dto.SourceProjectIds.FirstOrDefault(id => linkedSourceIds.Contains(id));
-                if (alreadyLinkedId != Guid.Empty)
-                {
-                    var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
-                    var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
-                    throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
-                }
-
-                var alreadyDeployedProj = sourceProjects.FirstOrDefault(da => da.DaTrienKhai == true);
-                if (alreadyDeployedProj != null)
-                {
-                    throw new InvalidOperationException($"Dự án nguồn '{alreadyDeployedProj.Name}' đã thuộc về một dự án triển khai khác.");
-                }
-
-                foreach (var sp in sourceProjects)
-                {
-                    sp.DaTrienKhai = true;
-                    DbSet.Update(sp);
-                }
-
-                entity.DaTrienKhai = true;
-
-                entity.NguonDuAns.Add(new DuAnNguonTrienKhai
-                {
-                    TrienKhaiProjectId = entity.Id,
-                    NguonProjectId = string.Join(";", dto.SourceProjectIds),
-                    CreatedAt = DateTime.UtcNow
-                });
-
-                decimal totalAggregatedBudget = 0;
-                foreach (var sp in sourceProjects)
-                {
-                    var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                    totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
-                }
-
-                entity.DuToanPheDuyet = totalAggregatedBudget;
-
-                if (!entity.NgayBatDau.HasValue)
-                {
-                    var sourceDates = sourceProjects
-                        .Where(sp => sp.NgayBatDau.HasValue)
-                        .Select(sp => sp.NgayBatDau!.Value)
-                        .OrderBy(d => d)
-                        .ToList();
-
-                    if (sourceDates.Any())
-                    {
-                        entity.NgayBatDau = sourceDates.First();
-                        if (!entity.NamBatDau.HasValue)
-                        {
-                            entity.NamBatDau = entity.NgayBatDau.Value.Year;
-                        }
-                    }
-                }
-            }
-            else // Du an nguon
-            {
-                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
-                }
-
-                entity.LoaiDuAn = 1;
-                entity.DaTrienKhai = false;
             }
 
             var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == entity.Code.ToLower());
@@ -433,7 +299,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         foreach (var dto in dtoList)
         {
-            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, dto.LoaiDuAn);
+            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code);
             DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc);
         }
 
@@ -448,431 +314,132 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             throw new InvalidOperationException($"Các mã dự án sau đã tồn tại: {string.Join(", ", existingCodes)}");
         }
 
-        foreach (var dto in dtoList.Where(d => d.LoaiDuAn == 2 && d.SourceProjectIds != null))
-        {
-            if (dto.SourceProjectIds!.Count != dto.SourceProjectIds!.Distinct().Count())
-            {
-                throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
-            }
-        }
-
-        var allRawSourceProjectIds = dtoList
-            .Where(d => d.LoaiDuAn == 2 && d.SourceProjectIds != null)
-            .SelectMany(d => d.SourceProjectIds!)
-            .ToList();
-
-        var allSourceProjectIds = allRawSourceProjectIds
-            .Distinct()
-            .ToList();
-
-        List<DuAn> sourceProjects = new List<DuAn>();
-        if (allSourceProjectIds.Any())
-        {
-            sourceProjects = await DbSet.Include(da => da.DieuChinhs)
-                .Where(da => allSourceProjectIds.Contains(da.Id))
-                .ToListAsync();
-
-            if (sourceProjects.Count != allSourceProjectIds.Count)
-            {
-                throw new ArgumentException("Một số dự án nguồn được chọn không tồn tại.");
-            }
-
-            if (sourceProjects.Any(da => da.LoaiDuAn != 1))
-            {
-                throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
-            }
-
-            var duplicateAcrossBatch = allRawSourceProjectIds
-                .GroupBy(x => x)
-                .FirstOrDefault(g => g.Count() > 1);
-
-            if (duplicateAcrossBatch != null)
-            {
-                var duplicateProj = sourceProjects.FirstOrDefault(sp => sp.Id == duplicateAcrossBatch.Key);
-                var projName = duplicateProj?.Name ?? duplicateAcrossBatch.Key.ToString();
-                throw new InvalidOperationException($"Dự án nguồn '{projName}' được liên kết nhiều hơn một lần trong danh sách tạo.");
-            }
-
-            var linkedSourceIds = await _nguonLinkService.GetLinkedSourceProjectIdsAsync();
-            var alreadyLinkedId = allSourceProjectIds.FirstOrDefault(id => linkedSourceIds.Contains(id));
-            if (alreadyLinkedId != Guid.Empty)
-            {
-                var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
-                var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
-                throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
-            }
-
-            var alreadyDeployedProj = sourceProjects.FirstOrDefault(da => da.DaTrienKhai == true);
-            if (alreadyDeployedProj != null)
-            {
-                throw new InvalidOperationException($"Dự án nguồn '{alreadyDeployedProj.Name}' đã thuộc về một dự án triển khai khác.");
-            }
-
-            foreach (var sp in sourceProjects)
-            {
-                sp.DaTrienKhai = true;
-                DbSet.Update(sp);
-            }
-        }
-
-        var entities = new List<DuAn>();
-        var now = DateTime.UtcNow;
-
-        var currentUsername = _currentUserService.GetUsername();
-        var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
-
+        var results = new List<DuAnDto>();
         foreach (var dto in dtoList)
         {
-            var entity = Mapper.Map<DuAn>(dto);
-            entity.Id = Guid.NewGuid();
-            entity.CreatedAt = now;
-
-            if (currentUser != null)
-            {
-                entity.CreatedByUserId = currentUser.Id;
-                if (currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
-                {
-                    entity.ChuDuAnId = dto.ChuDuAnId;
-                }
-                else
-                {
-                    entity.ChuDuAnId = currentUser.Id;
-                }
-            }
-
-            if (dto.LoaiDuAn == 2)
-            {
-                if (dto.SourceProjectIds == null || !dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
-                }
-
-                entity.DaTrienKhai = true;
-                entity.NguonDuAns.Add(new DuAnNguonTrienKhai
-                {
-                    TrienKhaiProjectId = entity.Id,
-                    NguonProjectId = string.Join(";", dto.SourceProjectIds),
-                    CreatedAt = now
-                });
-
-                var projectSources = sourceProjects.Where(sp => dto.SourceProjectIds.Contains(sp.Id)).ToList();
-                decimal totalAggregatedBudget = 0;
-                foreach (var sp in projectSources)
-                {
-                    var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                    totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
-                }
-                entity.DuToanPheDuyet = totalAggregatedBudget;
-            }
-            else
-            {
-                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
-                }
-
-                entity.LoaiDuAn = 1;
-                entity.DaTrienKhai = false;
-            }
-
-            if (dto.PhanKyVons != null && dto.PhanKyVons.Any())
-            {
-                var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-                if (duplicateYears.Any())
-                {
-                    throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
-                }
-
-                foreach (var pkDto in dto.PhanKyVons)
-                {
-                    var percent = pkDto.TyLePercent;
-                    if (!percent.HasValue || percent == 0)
-                    {
-                        percent = entity.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / entity.DuToanPheDuyet) * 100, 2) : 0;
-                    }
-
-                    entity.PhanKyVons.Add(new DuAnPhanKyVon
-                    {
-                        Id = Guid.NewGuid(),
-                        DuAnId = entity.Id,
-                        Nam = pkDto.Nam,
-                        SoTienPhanKy = pkDto.SoTienPhanKy,
-                        TyLePercent = percent,
-                        GhiChu = pkDto.GhiChu
-                    });
-                }
-            }
-
-            entities.Add(entity);
+            var created = await CreateAsync(dto);
+            results.Add(created);
         }
-
-        await DbSet.AddRangeAsync(entities);
-        await DbContext.SaveChangesAsync();
-
-        var createdIds = entities.Select(e => e.Id).ToList();
-        var reloadedEntities = await DbSet.AsNoTracking()
-            .Include(da => da.DieuChinhs)
-            .Include(da => da.PhanKyVons)
-            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
-            .Include(da => da.NhomDuAn)
-            .Include(da => da.PhanLoaiDuAn)
-            .Include(da => da.ChuDuAn)
-            .Where(da => createdIds.Contains(da.Id))
-            .ToListAsync();
-        var resultDtos = Mapper.Map<List<DuAnDto>>(reloadedEntities);
-        await _nguonLinkService.PopulateSourceProjectsAsync(resultDtos);
-        return resultDtos;
+        return results;
     }
 
-    public override async Task<bool> UpdateAsync(Guid id, UpdateDuAnDto dto)
+    public async Task<DuAnDto> AdvanceStatusAsync(Guid id)
     {
+        var entity = await DbSet.FirstOrDefaultAsync(d => d.Id == id);
+        if (entity == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Dự án với ID [{id}].");
+        }
+
+        await _securityService.EnsureUserHasProjectAccessAsync(entity, "UPDATE");
+
+        if (entity.TrangThai == (int)TrangThaiDuAn.Completed || entity.TrangThai == (int)TrangThaiDuAn.Merged)
+        {
+            throw new InvalidOperationException($"Dự án [{entity.Code}] đã ở trạng thái kết thúc, không thể chuyển tiếp.");
+        }
+
+        entity.TrangThai += 1;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await DbContext.SaveChangesAsync();
+        return (await GetByIdAsync(id))!;
+    }
+
+    public async Task<DuAnDto> CloseProjectAsync(Guid id)
+    {
+        var entity = await DbSet.FirstOrDefaultAsync(d => d.Id == id);
+        if (entity == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Dự án với ID [{id}].");
+        }
+
+        await _securityService.EnsureUserHasProjectAccessAsync(entity, "UPDATE");
+
+        entity.TrangThai = (int)TrangThaiDuAn.Completed;
+        entity.DaKetThuc = true;
+        entity.NgayKetThucThucTe = DateTime.UtcNow;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await DbContext.SaveChangesAsync();
+        return (await GetByIdAsync(id))!;
+    }
+
+    public async Task<DuAnDto> GopDuAnAsync(Guid sourceId, GopDuAnDto dto, Guid currentUserId)
+    {
+        if (sourceId == dto.TargetDuAnId)
+        {
+            throw new ArgumentException("Dự án nguồn và Dự án đích nhận gộp không được trùng nhau.");
+        }
+
+        var sourceProject = await DbSet.FirstOrDefaultAsync(d => d.Id == sourceId);
+        if (sourceProject == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Dự án nguồn với ID [{sourceId}].");
+        }
+
+        if (sourceProject.TrangThai == (int)TrangThaiDuAn.Merged)
+        {
+            throw new InvalidOperationException($"Dự án [{sourceProject.Code}] đã ở trạng thái Đã gộp (Merged), không thể thực hiện gộp tiếp.");
+        }
+
+        var targetProject = await DbSet.FirstOrDefaultAsync(d => d.Id == dto.TargetDuAnId);
+        if (targetProject == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Dự án đích nhận gộp với ID [{dto.TargetDuAnId}].");
+        }
+
+        if (targetProject.TrangThai == (int)TrangThaiDuAn.Merged)
+        {
+            throw new InvalidOperationException($"Dự án đích [{targetProject.Code}] đã ở trạng thái Đã gộp (Merged), không thể nhận gộp.");
+        }
+
+        await _securityService.EnsureUserHasProjectAccessAsync(sourceProject, "UPDATE");
+        await _securityService.EnsureUserHasProjectAccessAsync(targetProject, "UPDATE");
+
         using var transaction = await DbContext.Database.BeginTransactionAsync();
         try
         {
-            var entity = await DbSet
-                .Include(da => da.DieuChinhs)
-                .Include(da => da.PhanKyVons)
-                .FirstOrDefaultAsync(da => da.Id == id);
-            if (entity is null)
+            // 1. Tạo bản ghi tham chiếu liên kết gộp DuAnGopLink
+            var gopLink = new DuAnGopLink
             {
-                return false;
+                Id = Guid.NewGuid(),
+                SourceDuAnId = sourceId,
+                TargetDuAnId = dto.TargetDuAnId,
+                NgayGop = DateTime.UtcNow,
+                NguoiThucHienId = currentUserId,
+                DuToanLucGop = sourceProject.DuToanPheDuyet,
+                GhiChu = dto.GhiChu ?? $"Gộp từ dự án {sourceProject.Code} sang dự án {targetProject.Code}"
+            };
+
+            DbContext.DuAnGopLinks.Add(gopLink);
+
+            // 2. Cập nhật trạng thái dự án nguồn sang Merged (10)
+            sourceProject.TrangThai = (int)TrangThaiDuAn.Merged;
+            sourceProject.UpdatedAt = DateTime.UtcNow;
+
+            // 3. Chuyển quyền sở hữu / tham chiếu tất cả Gói thầu, Hợp đồng, License sang dự án đích
+            var goiThaus = await DbContext.GoiThaus.Where(g => g.DuAnId == sourceId).ToListAsync();
+            foreach (var gt in goiThaus)
+            {
+                gt.DuAnId = dto.TargetDuAnId;
             }
 
-            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code, entity.LoaiDuAn);
-
-            if (entity.LoaiDuAn == 2)
+            var hopDongs = await DbContext.HopDongs.Where(h => h.DuAnId == sourceId).ToListAsync();
+            foreach (var hd in hopDongs)
             {
-                if (dto.SourceProjectIds == null || !dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án triển khai bắt buộc phải có ít nhất một dự án nguồn liên kết.");
-                }
-
-                if (dto.SourceProjectIds.Count != dto.SourceProjectIds.Distinct().Count())
-                {
-                    throw new InvalidOperationException("Danh sách dự án nguồn liên kết chứa mã dự án trùng lặp.");
-                }
-
-                var sourceProjects = await DbSet.Include(da => da.DieuChinhs)
-                                                .Where(da => dto.SourceProjectIds.Contains(da.Id))
-                                                .ToListAsync();
-
-                if (sourceProjects.Count != dto.SourceProjectIds.Count)
-                {
-                    throw new ArgumentException("Một số dự án nguồn được chọn không tồn tại.");
-                }
-
-                if (sourceProjects.Any(da => da.LoaiDuAn != 1))
-                {
-                    throw new ArgumentException("Chỉ được liên kết đến các dự án nguồn (loại dự án nguồn).");
-                }
-
-                var otherLinkedSourceIds = await _nguonLinkService.GetLinkedSourceProjectIdsAsync(excludeTrienKhaiProjectId: id);
-                var alreadyLinkedId = dto.SourceProjectIds.FirstOrDefault(spId => otherLinkedSourceIds.Contains(spId));
-                if (alreadyLinkedId != Guid.Empty)
-                {
-                    var conflictedProj = sourceProjects.FirstOrDefault(sp => sp.Id == alreadyLinkedId);
-                    var projName = conflictedProj?.Name ?? alreadyLinkedId.ToString();
-                    throw new InvalidOperationException($"Dự án nguồn '{projName}' đã thuộc về một dự án triển khai khác.");
-                }
-
-                var currentLink = await DbContext.DuAnNguonTrienKhais
-                    .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == id);
-
-                var oldSourceIds = currentLink?.NguonProjectId?
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Guid.Parse)
-                    .ToList() ?? new List<Guid>();
-
-                var addedIds = dto.SourceProjectIds.Except(oldSourceIds).ToList();
-                var removedIds = oldSourceIds.Except(dto.SourceProjectIds).ToList();
-
-                var newlyLinkedAlreadyDeployed = sourceProjects
-                    .Where(da => addedIds.Contains(da.Id) && da.DaTrienKhai == true)
-                    .ToList();
-
-                if (newlyLinkedAlreadyDeployed.Any())
-                {
-                    var deployedProj = newlyLinkedAlreadyDeployed.First();
-                    throw new InvalidOperationException($"Dự án nguồn '{deployedProj.Name}' đã thuộc về một dự án triển khai khác.");
-                }
-
-                foreach (var sp in sourceProjects.Where(da => addedIds.Contains(da.Id)))
-                {
-                    sp.DaTrienKhai = true;
-                    DbSet.Update(sp);
-                }
-
-                if (removedIds.Any())
-                {
-                    var removedProjects = await DbSet.Where(da => removedIds.Contains(da.Id)).ToListAsync();
-                    foreach (var rp in removedProjects)
-                    {
-                        rp.DaTrienKhai = false;
-                        DbSet.Update(rp);
-                    }
-                }
-
-                string newNguonProjectIdString = string.Join(";", dto.SourceProjectIds);
-                if (currentLink != null)
-                {
-                    currentLink.NguonProjectId = newNguonProjectIdString;
-                    DbContext.DuAnNguonTrienKhais.Update(currentLink);
-                }
-                else
-                {
-                    DbContext.DuAnNguonTrienKhais.Add(new DuAnNguonTrienKhai
-                    {
-                        TrienKhaiProjectId = id,
-                        NguonProjectId = newNguonProjectIdString,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-
-                entity.DaTrienKhai = true;
-
-                decimal totalAggregatedBudget = 0;
-                foreach (var sp in sourceProjects)
-                {
-                    var adjustmentsSum = sp.DieuChinhs?.Sum(dc => dc.GiaTriDieuChinh) ?? 0;
-                    totalAggregatedBudget += (sp.DuToanPheDuyet + adjustmentsSum);
-                }
-
-                entity.DuToanPheDuyet = totalAggregatedBudget;
-                dto.DuToanPheDuyet = totalAggregatedBudget;
-
-                var goiThauBudgetsSum = await DbContext.GoiThaus
-                    .Where(gt => gt.DuAnId == id)
-                    .SumAsync(gt => gt.GiaTriGoiThau);
-                if (totalAggregatedBudget < goiThauBudgetsSum)
-                {
-                    throw new InvalidOperationException($"Tổng ngân sách dự án nguồn mới ({totalAggregatedBudget:N0} VNĐ) không đủ bao phủ tổng giá trị dự toán các gói thầu đã lập ({goiThauBudgetsSum:N0} VNĐ).");
-                }
-            }
-            else
-            {
-                if (dto.SourceProjectIds != null && dto.SourceProjectIds.Any())
-                {
-                    throw new ArgumentException("Dự án nguồn không thể liên kết đến dự án nguồn khác.");
-                }
+                hd.DuAnId = dto.TargetDuAnId;
             }
 
-            DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
-
-            if (dto.DuToanPheDuyet != entity.DuToanPheDuyet)
+            var licenses = await DbContext.Licenses.Where(l => l.DuAnId == sourceId).ToListAsync();
+            foreach (var lc in licenses)
             {
-                if (entity.LoaiDuAn == 1)
-                {
-                    bool isStatusChanged = dto.TrangThai != entity.TrangThai;
-                    bool isNotDeployedYet = entity.DaTrienKhai != true;
-
-                    if (!isStatusChanged && !isNotDeployedYet)
-
-                    {
-                        throw new InvalidOperationException("Dự án nguồn đã triển khai không thể sửa đổi dự toán phê duyệt trực tiếp nếu không chuyển trạng thái. Vui lòng sử dụng chức năng điều chỉnh dự án.");
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException("Dự án triển khai không thể sửa đổi dự toán trực tiếp vì nó được tổng hợp tự động từ các dự án nguồn.");
-                }
-            }
-
-            var currentUsername = _currentUserService.GetUsername();
-            var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
-            if (currentUser != null && currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
-            {
-                entity.ChuDuAnId = dto.ChuDuAnId;
-            }
-
-            Mapper.Map(dto, entity);
-            entity.UpdatedAt = DateTime.UtcNow;
-
-            if (dto.PhanKyVons != null)
-            {
-                var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
-                if (duplicateYears.Any())
-                {
-                    throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
-                }
-
-                var existingPhanKys = await DbContext.DuAnPhanKyVons.Where(p => p.DuAnId == id).ToListAsync();
-                var updatedYears = dto.PhanKyVons.Select(x => x.Nam).ToList();
-                var toRemove = existingPhanKys.Where(x => !updatedYears.Contains(x.Nam)).ToList();
-                if (toRemove.Any())
-                {
-                    DbContext.DuAnPhanKyVons.RemoveRange(toRemove);
-                }
-
-                foreach (var pkDto in dto.PhanKyVons)
-                {
-                    var existing = existingPhanKys.FirstOrDefault(x => x.Nam == pkDto.Nam);
-                    var percent = pkDto.TyLePercent;
-                    if (!percent.HasValue || percent == 0)
-                    {
-                        percent = entity.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / entity.DuToanPheDuyet) * 100, 2) : 0;
-                    }
-
-                    if (existing != null && !toRemove.Contains(existing))
-                    {
-                        existing.SoTienPhanKy = pkDto.SoTienPhanKy;
-                        existing.TyLePercent = percent;
-                        existing.GhiChu = pkDto.GhiChu;
-                        existing.UpdatedAt = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        await DbContext.DuAnPhanKyVons.AddAsync(new DuAnPhanKyVon
-                        {
-                            Id = Guid.NewGuid(),
-                            DuAnId = entity.Id,
-                            Nam = pkDto.Nam,
-                            SoTienPhanKy = pkDto.SoTienPhanKy,
-                            TyLePercent = percent,
-                            GhiChu = pkDto.GhiChu,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-                }
-            }
-
-            if (dto.DanhSachNguonVon != null)
-            {
-                var existingNguonVons = await DbContext.DuAnNguonVons.Where(p => p.DuAnId == id).ToListAsync();
-                var updatedNguonVonIds = dto.DanhSachNguonVon.Select(x => x.NguonVonId).ToList();
-                var toRemoveNv = existingNguonVons.Where(x => !updatedNguonVonIds.Contains(x.NguonVonId)).ToList();
-                if (toRemoveNv.Any())
-                {
-                    DbContext.DuAnNguonVons.RemoveRange(toRemoveNv);
-                }
-
-                foreach (var nvDto in dto.DanhSachNguonVon)
-                {
-                    var existingNv = existingNguonVons.FirstOrDefault(x => x.NguonVonId == nvDto.NguonVonId);
-                    if (existingNv != null && !toRemoveNv.Contains(existingNv))
-                    {
-                        existingNv.SoTien = nvDto.SoTien;
-                        existingNv.GhiChu = nvDto.GhiChu;
-                        existingNv.UpdatedAt = DateTime.UtcNow;
-                    }
-                    else
-                    {
-                        await DbContext.DuAnNguonVons.AddAsync(new DuAnNguonVon
-                        {
-                            Id = Guid.NewGuid(),
-                            DuAnId = entity.Id,
-                            NguonVonId = nvDto.NguonVonId,
-                            SoTien = nvDto.SoTien,
-                            GhiChu = nvDto.GhiChu,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
-                }
+                lc.DuAnId = dto.TargetDuAnId;
             }
 
             await DbContext.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return true;
+            return (await GetByIdAsync(targetProject.Id))!;
         }
         catch
         {
@@ -881,151 +448,87 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         }
     }
 
-    public Task<DieuChinhDuAnDto> AdjustBudgetAsync(Guid id, CreateDieuChinhDuAnDto dto)
-    {
-        return _budgetService.AdjustBudgetAsync(id, dto);
-    }
-
-    public Task<IReadOnlyList<DieuChinhDuAnDto>> GetAdjustmentsAsync(Guid id)
-    {
-        return _budgetService.GetAdjustmentsAsync(id);
-    }
-
-    public async Task<DuAnDto> AdvanceStatusAsync(Guid id)
-    {
-        var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);
-        if (entity is null)
-        {
-            throw new KeyNotFoundException("Không tìm thấy dự án.");
-        }
-
-        await _securityService.EnsureUserHasProjectAccessAsync(entity, "EDIT");
-
-        if (entity.TrangThai >= (int)TrangThaiDuAn.HoanThanh)
-        {
-            throw new InvalidOperationException("Dự án đã ở trạng thái hoàn thành, không thể chuyển tiếp.");
-        }
-
-        entity.TrangThai = (int)TrangThaiDuAn.HoanThanh;
-        entity.DaKetThuc = true;
-        entity.UpdatedAt = DateTime.UtcNow;
-
-        await DbContext.SaveChangesAsync();
-
-        return (await GetByIdAsync(entity.Id))!;
-    }
-
-    public async Task<DuAnDto> CloseProjectAsync(Guid id)
-    {
-        var entity = await DbSet.Include(da => da.DieuChinhs).FirstOrDefaultAsync(da => da.Id == id);
-        if (entity is null)
-        {
-            throw new KeyNotFoundException("Không tìm thấy dự án.");
-        }
-
-        await _securityService.EnsureUserHasProjectAccessAsync(entity, "EDIT");
-
-        entity.TrangThai = (int)TrangThaiDuAn.HoanThanh;
-        entity.DaKetThuc = true;
-        entity.UpdatedAt = DateTime.UtcNow;
-
-        await DbContext.SaveChangesAsync();
-
-        return (await GetByIdAsync(entity.Id))!;
-    }
-
-    public Task<IReadOnlyList<DuAnNguonSummaryDto>> GetSourceProjectsByProjectIdAsync(Guid id)
-    {
-        return _nguonLinkService.GetSourceProjectsByProjectIdAsync(id);
-    }
-
     public async Task<IReadOnlyList<GoiThauDto>> GetGoiThausByProjectIdAsync(Guid id)
     {
-        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
-        if (entity is null)
-        {
-            throw new KeyNotFoundException("Không tìm thấy dự án.");
-        }
-
-        await _securityService.EnsureUserHasProjectAccessAsync(entity, "VIEW");
-
-        var items = await DbContext.GoiThaus
-                                   .Where(gt => gt.DuAnId == id)
-                                   .ToListAsync();
-        return Mapper.Map<List<GoiThauDto>>(items);
+        var entities = await DbContext.GoiThaus
+            .AsNoTracking()
+            .Where(g => g.DuAnId == id)
+            .ToListAsync();
+        return Mapper.Map<List<GoiThauDto>>(entities);
     }
 
     public async Task<IReadOnlyList<HopDongDto>> GetHopDongsByProjectIdAsync(Guid id)
     {
-        var entity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == id);
-        if (entity is null)
-        {
-            throw new KeyNotFoundException("Không tìm thấy dự án.");
-        }
-
-        await _securityService.EnsureUserHasProjectAccessAsync(entity, "VIEW");
-
-        var items = await DbContext.HopDongs
-                                   .Include(hd => hd.GoiThau)
-                                   .Where(hd => hd.GoiThau != null && hd.GoiThau.DuAnId == id)
-                                   .ToListAsync();
-        return Mapper.Map<List<HopDongDto>>(items);
+        var entities = await DbContext.HopDongs
+            .AsNoTracking()
+            .Where(h => h.DuAnId == id)
+            .ToListAsync();
+        return Mapper.Map<List<HopDongDto>>(entities);
     }
 
-    public Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
+    public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
     {
-        return _auditService.GetAuditLogsByProjectIdAsync(id);
+        return await _auditService.GetAuditLogsByProjectIdAsync(id);
     }
 
-    public Task<bool> ChangeOwnerAsync(Guid projectId, Guid newOwnerId)
+    public async Task<bool> ChangeOwnerAsync(Guid projectId, Guid newOwnerId)
     {
-        return _notificationService.ChangeOwnerAsync(projectId, newOwnerId);
+        var duAn = await DbContext.DuAns.FindAsync(projectId);
+        if (duAn == null) return false;
+        duAn.CreatedByUserId = newOwnerId;
+        await DbContext.SaveChangesAsync();
+        return true;
     }
 
-    public override Task<bool> DeleteAsync(Guid id)
+    public async Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync()
     {
-        return _cascadeService.DeleteAsync(id);
-    }
-
-    public override Task<bool> SoftDeleteAsync(Guid id)
-    {
-        return _cascadeService.SoftDeleteAsync(id);
-    }
-
-    public override Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
-    {
-        return _cascadeService.SoftDeleteAsync(ids);
-    }
-
-    public override Task<bool> RestoreAsync(Guid id)
-    {
-        return _cascadeService.RestoreAsync(id);
-    }
-
-    public override Task<bool> RestoreAsync(IEnumerable<Guid> ids)
-    {
-        return _cascadeService.RestoreAsync(ids);
-    }
-
-    public async Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync(int? loaiDuAn = null)
-    {
-        var query = DbSet.AsNoTracking()
-            .Where(d => d.IsActive && !d.IsDeleted);
-
-        if (loaiDuAn.HasValue)
-        {
-            query = query.Where(d => d.LoaiDuAn == loaiDuAn.Value);
-        }
-
-        return await query
-            .OrderBy(d => d.Code)
-            .ThenBy(d => d.Name)
-            .Select(d => new DuAnLookupDto
+        var items = await DbSet
+            .AsNoTracking()
+            .Where(da => da.TrangThai != (int)TrangThaiDuAn.Merged)
+            .OrderBy(da => da.Code)
+            .Select(da => new DuAnLookupDto
             {
-                Id = d.Id,
-                Code = d.Code,
-                Name = d.Name
+                Id = da.Id,
+                Code = da.Code,
+                Name = da.Name
             })
             .ToListAsync();
+
+        return items;
+    }
+
+    private static IQueryable<DuAn> ApplySearchFilter(IQueryable<DuAn> query, string keyword)
+    {
+        return query.Where(item =>
+            item.Code.ToLower().Contains(keyword.ToLower()) ||
+            item.Name.ToLower().Contains(keyword.ToLower()) ||
+            (item.ChuDauTu != null && item.ChuDauTu.ToLower().Contains(keyword.ToLower())) ||
+            (item.NoiDung != null && item.NoiDung.ToLower().Contains(keyword.ToLower())));
+    }
+
+    private static bool TryParseCursor(string? cursor, out DateTime createdAt, out Guid id)
+    {
+        createdAt = DateTime.MinValue;
+        id = Guid.Empty;
+        if (string.IsNullOrWhiteSpace(cursor)) return false;
+
+        try
+        {
+            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var parts = decoded.Split('|');
+            if (parts.Length == 2 && DateTime.TryParse(parts[0], out createdAt) && Guid.TryParse(parts[1], out id))
+            {
+                return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
+    private static string EncodeCursor(DateTime createdAt, Guid id)
+    {
+        var raw = $"{createdAt:o}|{id}";
+        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw));
     }
 }

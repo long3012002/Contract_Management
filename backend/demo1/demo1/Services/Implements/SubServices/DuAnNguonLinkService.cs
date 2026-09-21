@@ -34,105 +34,84 @@ public class DuAnNguonLinkService : IDuAnNguonLinkService
 
         await _securityService.EnsureUserHasProjectAccessAsync(entity, "VIEW");
 
-        var link = await _dbContext.DuAnNguonTrienKhais
+        var gopLinks = await _dbContext.DuAnGopLinks
+            .Include(g => g.SourceDuAn)
             .AsNoTracking()
-            .FirstOrDefaultAsync(nk => nk.TrienKhaiProjectId == id);
-
-        if (link?.NguonProjectId == null || string.IsNullOrWhiteSpace(link.NguonProjectId))
-            return new List<DuAnNguonSummaryDto>();
-
-        var sourceGuids = link.NguonProjectId
-            .Split(';', StringSplitOptions.RemoveEmptyEntries)
-            .Select(Guid.Parse)
-            .ToList();
-
-        var sourceEntities = await _dbContext.DuAns
-            .AsNoTracking()
-            .Where(da => sourceGuids.Contains(da.Id))
-            .Include(da => da.DieuChinhs)
-            .Include(da => da.NhomDuAn)
-            .Include(da => da.PhanLoaiDuAn)
+            .Where(g => g.TargetDuAnId == id)
             .ToListAsync();
 
+        var sourceEntities = gopLinks.Select(g => g.SourceDuAn).Where(s => s != null).ToList();
         return _mapper.Map<List<DuAnNguonSummaryDto>>(sourceEntities);
     }
 
     public async Task PopulateSourceProjectsAsync(List<DuAnDto> dtos)
     {
-        var implProjectIds = dtos.Where(d => d.LoaiDuAn == 2).Select(d => d.Id).ToList();
-        if (!implProjectIds.Any())
-            return;
+        if (dtos == null || !dtos.Any()) return;
 
-        var links = await _dbContext.DuAnNguonTrienKhais
+        var projectIds = dtos.Select(d => d.Id).ToList();
+
+        var gopLinks = await _dbContext.DuAnGopLinks
+            .Include(g => g.SourceDuAn)
+            .Include(g => g.TargetDuAn)
+            .Include(g => g.NguoiThucHien)
             .AsNoTracking()
-            .Where(nk => implProjectIds.Contains(nk.TrienKhaiProjectId) && !string.IsNullOrWhiteSpace(nk.NguonProjectId))
+            .Where(g => projectIds.Contains(g.TargetDuAnId) || projectIds.Contains(g.SourceDuAnId))
             .ToListAsync();
 
-        var allSourceGuids = links
-            .SelectMany(nk => nk.NguonProjectId!.Split(';', StringSplitOptions.RemoveEmptyEntries))
-            .Select(Guid.Parse)
-            .Distinct()
-            .ToList();
-
-        var sourceEntitiesDict = new Dictionary<Guid, DuAn>();
-        if (allSourceGuids.Any())
-        {
-            var sourceEntities = await _dbContext.DuAns
-                .AsNoTracking()
-                .Where(da => allSourceGuids.Contains(da.Id))
-                .Include(da => da.DieuChinhs)
-                .Include(da => da.NhomDuAn)
-                .Include(da => da.PhanLoaiDuAn)
-                .ToListAsync();
-            sourceEntitiesDict = sourceEntities.ToDictionary(s => s.Id, s => s);
-        }
-
-        var linksDict = links.ToDictionary(l => l.TrienKhaiProjectId, l => l.NguonProjectId);
+        var linksByTarget = gopLinks.GroupBy(g => g.TargetDuAnId).ToDictionary(g => g.Key, g => g.ToList());
+        var linksBySource = gopLinks.ToDictionary(g => g.SourceDuAnId, g => g);
 
         foreach (var dto in dtos)
         {
-            if (dto.LoaiDuAn == 2 && linksDict.TryGetValue(dto.Id, out var nguonIdStr) && !string.IsNullOrWhiteSpace(nguonIdStr))
+            if (linksByTarget.TryGetValue(dto.Id, out var targetLinks))
             {
-                var sGuids = nguonIdStr.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse);
-                var matchedSources = sGuids.Where(g => sourceEntitiesDict.ContainsKey(g)).Select(g => sourceEntitiesDict[g]).ToList();
-                dto.SourceProjects = _mapper.Map<List<DuAnNguonSummaryDto>>(matchedSources);
+                dto.DanhSachDuAnDaGop = targetLinks.Select(l => new DuAnGopLinkDto
+                {
+                    Id = l.Id,
+                    SourceDuAnId = l.SourceDuAnId,
+                    SourceMaDuAn = l.SourceDuAn?.Code ?? "",
+                    SourceTenDuAn = l.SourceDuAn?.Name ?? "",
+                    TargetDuAnId = l.TargetDuAnId,
+                    TargetMaDuAn = l.TargetDuAn?.Code ?? "",
+                    TargetTenDuAn = l.TargetDuAn?.Name ?? "",
+                    NgayGop = l.NgayGop,
+                    NguoiThucHienId = l.NguoiThucHienId,
+                    NguoiThucHienName = l.NguoiThucHien?.FullName ?? "",
+                    DuToanLucGop = l.DuToanLucGop,
+                    GhiChu = l.GhiChu
+                }).ToList();
             }
-            else
+
+            if (linksBySource.TryGetValue(dto.Id, out var sourceLink))
             {
-                dto.SourceProjects = new List<DuAnNguonSummaryDto>();
+                dto.ThongTinGopVao = new DuAnGopLinkDto
+                {
+                    Id = sourceLink.Id,
+                    SourceDuAnId = sourceLink.SourceDuAnId,
+                    SourceMaDuAn = sourceLink.SourceDuAn?.Code ?? "",
+                    SourceTenDuAn = sourceLink.SourceDuAn?.Name ?? "",
+                    TargetDuAnId = sourceLink.TargetDuAnId,
+                    TargetMaDuAn = sourceLink.TargetDuAn?.Code ?? "",
+                    TargetTenDuAn = sourceLink.TargetDuAn?.Name ?? "",
+                    NgayGop = sourceLink.NgayGop,
+                    NguoiThucHienId = sourceLink.NguoiThucHienId,
+                    NguoiThucHienName = sourceLink.NguoiThucHien?.FullName ?? "",
+                    DuToanLucGop = sourceLink.DuToanLucGop,
+                    GhiChu = sourceLink.GhiChu
+                };
             }
         }
     }
 
     public async Task<HashSet<Guid>> GetLinkedSourceProjectIdsAsync(Guid? excludeTrienKhaiProjectId = null)
     {
-        var activeTrienKhaiQuery = _dbContext.DuAns.Where(da => !da.IsDeleted && da.LoaiDuAn == 2);
+        var query = _dbContext.DuAnGopLinks.AsQueryable();
         if (excludeTrienKhaiProjectId.HasValue)
         {
-            activeTrienKhaiQuery = activeTrienKhaiQuery.Where(da => da.Id != excludeTrienKhaiProjectId.Value);
+            query = query.Where(g => g.TargetDuAnId != excludeTrienKhaiProjectId.Value);
         }
 
-        var activeTrienKhaiIds = activeTrienKhaiQuery.Select(da => da.Id);
-
-        var links = await _dbContext.DuAnNguonTrienKhais
-            .Where(nk => activeTrienKhaiIds.Contains(nk.TrienKhaiProjectId) && !string.IsNullOrWhiteSpace(nk.NguonProjectId))
-            .Select(nk => nk.NguonProjectId)
-            .ToListAsync();
-
-        var result = new HashSet<Guid>();
-        foreach (var nguonStr in links)
-        {
-            if (string.IsNullOrWhiteSpace(nguonStr)) continue;
-            var parts = nguonStr.Split(';', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var part in parts)
-            {
-                if (Guid.TryParse(part.Trim(), out var parsedId))
-                {
-                    result.Add(parsedId);
-                }
-            }
-        }
-
-        return result;
+        var sourceIds = await query.Select(g => g.SourceDuAnId).ToListAsync();
+        return sourceIds.ToHashSet();
     }
 }

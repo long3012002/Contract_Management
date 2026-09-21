@@ -286,7 +286,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     {
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            dto.Code = await _codeGeneratorService.GenerateHopDongCodeAsync();
+            // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
+            // dto.Code = await _codeGeneratorService.GenerateHopDongCodeAsync();
+            throw new ArgumentException("Vui lòng nhập Số/Mã hợp đồng.");
         }
         else
         {

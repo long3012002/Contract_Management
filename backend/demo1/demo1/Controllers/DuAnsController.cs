@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using demo1.DTOs;
 using demo1.Entity;
@@ -38,30 +39,22 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
             .Select(g => g.First())
             .Select(e => new { Value = (int)e, Code = e.ToString(), Label = e.GetDisplayName() });
 
-        var loaiDuAnOptions = new[]
-        {
-            new { Value = 1, Code = "Nguon", Label = "Dự án nguồn" },
-            new { Value = 2, Code = "TrienKhai", Label = "Dự án triển khai" }
-        };
-
         return Ok(new
         {
-            TrangThaiOptions = trangThaiOptions,
-            LoaiDuAnOptions = loaiDuAnOptions
+            TrangThaiOptions = trangThaiOptions
         });
     }
 
     /// <summary>
     /// Lấy danh sách dự án thu gọn (Id, Code, Name) phục vụ Dropdown / Bộ lọc.
     /// </summary>
-    /// <param name="loaiDuAn">Loại dự án (1: Nguồn, 2: Triển khai)</param>
     /// <returns>Danh sách dự án thu gọn</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("lookup")]
     [ProducesResponseType(typeof(IReadOnlyList<DuAnLookupDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetLookup([FromQuery] int? loaiDuAn)
+    public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetLookup()
     {
-        var result = await _duAnService.GetLookupAsync(loaiDuAn);
+        var result = await _duAnService.GetLookupAsync();
         return Ok(result);
     }
 
@@ -89,73 +82,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         return base.GetAll(search, page, pageSize, cursor);
     }
 
-    /// <summary>
-    /// Điều chỉnh ngân sách/tổng mức đầu tư của dự án.
-    /// </summary>
-    /// <param name="id">Mã định danh Dự án (GUID)</param>
-    /// <param name="dto">Thông tin kinh phí điều chỉnh, lý do và quyết định phê duyệt</param>
-    /// <returns>Thông tin lịch sử điều chỉnh kinh phí dự án</returns>
-    /// <response code="200">Điều chỉnh kinh phí thành công</response>
-    /// <response code="400">Số tiền hoặc lý do không hợp lệ</response>
-    /// <response code="404">Không tìm thấy dự án</response>
-    [HttpPost("{id:guid}/dieu-chinh")]
-    [ProducesResponseType(typeof(DieuChinhDuAnDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<DieuChinhDuAnDto>> AdjustBudget(Guid id, [FromBody] CreateDieuChinhDuAnDto dto)
-    {
-        try
-        {
-            var result = await _duAnService.AdjustBudgetAsync(id, dto);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
 
-    /// <summary>
-    /// Lấy danh sách lịch sử các lần điều chỉnh kinh phí của dự án.
-    /// </summary>
-    /// <param name="id">Mã định danh Dự án (GUID)</param>
-    /// <returns>Danh sách các đợt điều chỉnh kinh phí</returns>
-    /// <response code="200">Lấy lịch sử điều chỉnh thành công</response>
-    /// <response code="403">Không có quyền truy cập</response>
-    /// <response code="404">Không tìm thấy dự án</response>
-    [HttpGet("{id:guid}/dieu-chinh")]
-    [ProducesResponseType(typeof(IReadOnlyList<DieuChinhDuAnDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<DieuChinhDuAnDto>>> GetAdjustments(Guid id)
-    {
-        try
-        {
-            var result = await _duAnService.GetAdjustmentsAsync(id);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
-        }
-    }
 
     /// <summary>
     /// Chuyển trạng thái dự án sang giai đoạn tiếp theo (vd: Chuẩn bị -> Thực hiện -> Hoàn thành).
@@ -221,34 +148,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         }
     }
 
-    /// <summary>
-    /// Lấy danh sách các Dự án Nguồn (Nguồn vốn/Dự án mua sắm) liên kết với Dự án Triển khai.
-    /// </summary>
-    /// <param name="id">Mã định danh Dự án (GUID)</param>
-    /// <returns>Danh sách dự án nguồn liên kết</returns>
-    /// <response code="200">Lấy danh sách dự án nguồn thành công</response>
-    /// <response code="403">Không có quyền truy cập</response>
-    /// <response code="404">Không tìm thấy dự án</response>
-    [HttpGet("{id:guid}/du-an-nguon")]
-    [ProducesResponseType(typeof(IReadOnlyList<DuAnNguonSummaryDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<DuAnNguonSummaryDto>>> GetSourceProjects(Guid id)
-    {
-        try
-        {
-            var result = await _duAnService.GetSourceProjectsByProjectIdAsync(id);
-            return Ok(result);
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
-        }
-    }
+
 
     /// <summary>
     /// Lấy danh sách các Gói thầu thuộc Dự án.
@@ -370,6 +270,27 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// Thực hiện Gộp Dự án hiện tại ({id}) vào Dự án đích (TargetDuAnId).
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án nguồn bị gộp (GUID)</param>
+    /// <param name="dto">Thông tin dự án đích và lý do gộp</param>
+    /// <response code="200">Gộp dự án thành công</response>
+    /// <response code="400">Dữ liệu không hợp lệ hoặc dự án đã bị gộp từ trước</response>
+    /// <response code="404">Không tìm thấy dự án nguồn hoặc dự án đích</response>
+    [HttpPost("{id:guid}/gop-du-an")]
+    [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DuAnDto>> GopDuAn(Guid id, [FromBody] GopDuAnDto dto)
+    {
+        var currentUserIdStr = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        Guid.TryParse(currentUserIdStr, out var currentUserId);
+
+        var result = await _duAnService.GopDuAnAsync(id, dto, currentUserId);
+        return Ok(result);
     }
 }
 

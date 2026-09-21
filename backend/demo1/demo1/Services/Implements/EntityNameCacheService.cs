@@ -88,15 +88,15 @@ namespace demo1.Services.Implements
                 foreach (var item in hopDongs) fetchedNames[item.Id] = item.Name;
             }
 
-            // 5. DieuChinhDuAns
+            // 5. KeHoachVons
             remainingGuids = missingGuids.Except(fetchedNames.Keys).ToList();
             if (remainingGuids.Any())
             {
-                var dieuChinhs = await dbContext.DieuChinhDuAns.AsNoTracking()
+                var keHoachVons = await dbContext.KeHoachVons.AsNoTracking()
                     .Where(dc => remainingGuids.Contains(dc.Id))
-                    .Select(dc => new { dc.Id, Name = !string.IsNullOrEmpty(dc.Name) ? dc.Name : dc.LyDoDieuChinh })
+                    .Select(dc => new { dc.Id, Name = dc.SoQuyetDinh ?? "Kế hoạch vốn" })
                     .ToListAsync();
-                foreach (var item in dieuChinhs) fetchedNames[item.Id] = item.Name;
+                foreach (var item in keHoachVons) fetchedNames[item.Id] = item.Name;
             }
 
             // 6. DoiTacs

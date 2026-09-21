@@ -149,29 +149,12 @@ public class ReportService : IReportService
         // 1. Tính toán thời gian báo cáo
         var (startOfPeriod, endOfPeriod, periodDisplayName, periodName) = CalculateReportPeriod(year, period, fromDate, toDate);
 
-        // 2. Tải bản đồ ngân sách tất cả dự án nguồn (LoaiDuAn = 1) để tính tổng ngân sách cho dự án triển khai theo danh sách dự án nguồn được chọn
-        var sourceProjectsMap = await _context.DuAns
-            .AsNoTracking()
-            .Where(da => da.IsActive && !da.IsDeleted && da.LoaiDuAn == 1)
-            .Select(da => new
-            {
-                da.Id,
-                da.DuToanPheDuyet,
-                AdjustmentsSum = da.DieuChinhs
-                    .Where(dc => dc.IsActive && !dc.IsDeleted && dc.NgayDieuChinh <= endOfPeriod)
-                    .Sum(dc => (decimal?)dc.GiaTriDieuChinh) ?? 0
-            })
-            .ToDictionaryAsync(p => p.Id, p => p);
-
-        // 3. Tải danh sách dự án hợp lệ (lọc phân quyền, bỏ qua dự án đã xóa, loại bỏ dự án nguồn đã triển khai để tránh trùng lặp)
+        // 2. Tải danh sách dự án hợp lệ (lọc phân quyền, bỏ qua dự án đã xóa, loại bỏ dự án gộp/Merged)
         var query = _context.DuAns
             .AsNoTracking()
-            .Where(da => da.IsActive && !da.IsDeleted);
+            .Where(da => da.IsActive && !da.IsDeleted && da.TrangThai != (int)TrangThaiDuAn.Merged);
 
-        // Tránh trùng lặp dự án nguồn đã triển khai thành dự án thực hiện
-        query = query.Where(da => !(da.LoaiDuAn == 1 && da.DaTrienKhai == true));
-
-        // Lọc dự án khởi tạo/bắt đầu trước hoặc trong kỳ báo cáo (từ năm trước hoặc trong khoảng từ ngày - đến ngày của kỳ báo cáo; loại bỏ các dự án bắt đầu sau endOfPeriod)
+        // Lọc dự án khởi tạo/bắt đầu trước hoặc trong kỳ báo cáo
         query = query.Where(da => 
             (da.NgayBatDau.HasValue && da.NgayBatDau.Value <= endOfPeriod) ||
             (!da.NgayBatDau.HasValue && da.NamBatDau.HasValue && da.NamBatDau.Value <= endOfPeriod.Year) ||
@@ -207,8 +190,6 @@ public class ReportService : IReportService
                 da.Id,
                 da.Name,
                 da.Code,
-                da.LoaiDuAn,
-                SourceNguonProjectId = da.NguonDuAns.Select(nk => nk.NguonProjectId).FirstOrDefault(),
                 da.DuToanPheDuyet,
                 da.SoQuyetDinh,
                 da.NgayBatDau,
@@ -225,9 +206,9 @@ public class ReportService : IReportService
                 da.PhanLoaiDuAnId,
                 PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
                 PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
-                AdjustmentsSum = da.DieuChinhs
-                    .Where(dc => dc.IsActive && !dc.IsDeleted && dc.NgayDieuChinh <= endOfPeriod)
-                    .Sum(dc => (decimal?)dc.GiaTriDieuChinh) ?? 0
+                ApprovedCapitalSum = da.KeHoachVonDuAns
+                    .Where(kd => kd.KeHoachVon != null && kd.KeHoachVon.TrangThai == 3)
+                    .Sum(kd => (decimal?)kd.SoTienDuocDuyet) ?? 0
             })
             .ToListAsync();
 
@@ -305,31 +286,7 @@ public class ReportService : IReportService
         foreach (var project in projectsData)
         {
             // Tính toán tổng ngân sách theo các dự án nguồn được chọn (nếu là dự án triển khai)
-            decimal totalBudgetVnd = 0;
-            if (project.LoaiDuAn == 2 && !string.IsNullOrWhiteSpace(project.SourceNguonProjectId))
-            {
-                var sourceGuids = project.SourceNguonProjectId
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(Guid.Parse)
-                    .ToList();
-
-                foreach (var sourceId in sourceGuids)
-                {
-                    if (sourceProjectsMap.TryGetValue(sourceId, out var sp))
-                    {
-                        totalBudgetVnd += (sp.DuToanPheDuyet + sp.AdjustmentsSum);
-                    }
-                }
-
-                if (totalBudgetVnd == 0)
-                {
-                    totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
-                }
-            }
-            else
-            {
-                totalBudgetVnd = project.DuToanPheDuyet + project.AdjustmentsSum;
-            }
+            decimal totalBudgetVnd = project.ApprovedCapitalSum > 0 ? project.ApprovedCapitalSum : project.DuToanPheDuyet;
 
             // Phân giải các giá trị lũy kế thanh toán từ map tổng hợp ở DB
             performedValues.TryGetValue(project.Id, out var perf);
@@ -409,8 +366,7 @@ public class ReportService : IReportService
                 // Mẫu Báo cáo 1
                 MaDuAn = project.Code,
                 DonViChuTri = !string.IsNullOrWhiteSpace(project.ToChucThucHien) ? project.ToChucThucHien : project.ChuDauTu,
-                PmPhuTrach = project.PmPhuTrach,
-                LoaiDuAn = !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName) ? project.PhanLoaiDuAnName : (project.LoaiDuAn == 1 ? "Dự án nguồn" : "Dự án triển khai"),
+                LoaiDuAn = !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName) ? project.PhanLoaiDuAnName : "Dự án CNTT",
                 NgayBatDau = project.NgayBatDau,
                 NgayKetThuc = project.NgayKetThuc,
                 ThoiGianConLaiNgay = project.NgayKetThuc.HasValue ? (int?)Math.Max(0, (project.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days) : null,
@@ -1066,7 +1022,7 @@ public class ReportService : IReportService
         var goiThau = await _context.GoiThaus
             .Include(g => g.DuAn)
             .Include(g => g.CongViecGoiThaus)
-            .FirstOrDefaultAsync(g => g.Id == idGoiThau && (g.DuAn == null || g.DuAn.LoaiDuAn == 2));
+            .FirstOrDefaultAsync(g => g.Id == idGoiThau && (g.DuAn == null || g.DuAn.TrangThai != 10));
 
         if (goiThau == null)
         {
@@ -1229,7 +1185,7 @@ public class ReportService : IReportService
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
             .Include(h => h.NhaThau)
-            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.LoaiDuAn == 2));
+            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.TrangThai != 10));
 
         if (_currentUserService != null)
         {
@@ -1810,7 +1766,7 @@ public class ReportService : IReportService
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
             .Include(h => h.NhaThau)
-            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.LoaiDuAn == 2));
+            .Where(h => h.IsActive && !h.IsDeleted && (h.DuAn == null || h.DuAn.TrangThai != 10));
 
         if (_currentUserService != null)
         {
@@ -2341,7 +2297,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
-            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2)
+            .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10)
             .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= selectedYear : d.NamBatDau!.Value <= selectedYear))
             .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= selectedYear : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= selectedYear : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= selectedYear))
             .ToListAsync();
@@ -2663,8 +2619,7 @@ public class ReportService : IReportService
             .Include(d => d.PhanLoaiDuAn)
             .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
-            .Include(d => d.NguonDuAns)
-            .Where(d => d.IsActive && !d.IsDeleted && d.LoaiDuAn == 2 && (d.DaTrienKhai == true || d.TrangThai == 2))
+            .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10)
             .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= endY : d.NamBatDau!.Value <= endY))
             .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= startY : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= startY : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= startY));
 
@@ -2781,15 +2736,15 @@ public class ReportService : IReportService
                 {
                     foreach (var nvItem in proj.DanhSachNguonVon)
                     {
-                        var nvName = (nvItem.NguonVon?.Name ?? string.Empty).Trim().ToLower();
-                        var nvCode = (nvItem.NguonVon?.Code ?? string.Empty).Trim().ToLower();
+                        string nvNameStr = (nvItem.NguonVon?.Name ?? string.Empty).Trim().ToLower();
+                        string nvCodeStr = (nvItem.NguonVon?.Code ?? string.Empty).Trim().ToLower();
                         decimal itemVal = nvItem.SoTien / factor;
 
-                        if (nvCode.Contains("quy_dtpt") || nvCode.Contains("qdtpt") || nvCode.Contains("dtpt") || nvName.Contains("phát triển"))
+                        if (nvCodeStr.Contains("quy_dtpt") || nvCodeStr.Contains("qdtpt") || nvCodeStr.Contains("dtpt") || nvNameStr.Contains("phát triển"))
                         {
                             quyDauTuPhatTrien += itemVal;
                         }
-                        else if (nvCode.Contains("nv_khac") || nvCode.Contains("nv_qpl") || nvName.Contains("phúc lợi") || nvName.Contains("khác"))
+                        else if (nvCodeStr.Contains("nv_khac") || nvCodeStr.Contains("nv_qpl") || nvNameStr.Contains("phúc lợi") || nvNameStr.Contains("khác"))
                         {
                             nguonKhac += itemVal;
                         }
@@ -2959,65 +2914,47 @@ public class ReportService : IReportService
             response.TongCongPhanKy[y] = response.Groups.Sum(g => g.TongPhanKyNhom.ContainsKey(y) ? g.TongPhanKyNhom[y] : 0);
         }
 
-        // Bổ sung DanhSachPhanBoNguon cho Mẫu Báo cáo 2 Excel (Dự án nguồn ➔ Dự án triển khai)
-        var allNguonLinks = await _context.DuAnNguonTrienKhais
+        // Bổ sung DanhSachPhanBoNguon cho Mẫu Báo cáo 2 Excel (Lịch sử gộp dự án)
+        var allGopLinks = await _context.DuAnGopLinks
             .AsNoTracking()
-            .Where(nl => !string.IsNullOrWhiteSpace(nl.NguonProjectId))
+            .Include(g => g.SourceDuAn)
+            .Include(g => g.TargetDuAn)
+                .ThenInclude(t => t.PhanKyVons)
             .ToListAsync();
-
-        var sourceGuids = allNguonLinks
-            .SelectMany(nl => nl.NguonProjectId!.Split(';', StringSplitOptions.RemoveEmptyEntries))
-            .Select(Guid.Parse)
-            .Distinct()
-            .ToList();
-
-        var sourceEntities = sourceGuids.Any()
-            ? await _context.DuAns
-                .AsNoTracking()
-                .Include(s => s.DieuChinhs)
-                .Where(s => sourceGuids.Contains(s.Id) && !s.IsDeleted)
-                .ToDictionaryAsync(s => s.Id, s => s)
-            : new Dictionary<Guid, DuAn>();
 
         int sttPhanBo = 1;
         var phanBoList = new List<KeHoachVonPhanBoNguonRowDto>();
 
-        foreach (var link in allNguonLinks)
+        foreach (var link in allGopLinks)
         {
-            var matchedImpl = projects.FirstOrDefault(p => p.Id == link.TrienKhaiProjectId);
-            if (matchedImpl == null) continue;
+            var srcDuAn = link.SourceDuAn;
+            var targetDuAn = link.TargetDuAn;
+            if (srcDuAn == null || targetDuAn == null) continue;
 
-            var sIds = link.NguonProjectId!.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse);
-            foreach (var sId in sIds)
+            decimal srcTotal = link.DuToanLucGop / factor;
+            decimal targetAllocated = targetDuAn.DuToanPheDuyet / factor;
+
+            var pkDict = new Dictionary<int, decimal>();
+            for (int y = startY; y <= endY; y++)
             {
-                if (!sourceEntities.TryGetValue(sId, out var srcDuAn)) continue;
-
-                decimal srcTotal = (srcDuAn.DuToanPheDuyet + (srcDuAn.DieuChinhs != null ? srcDuAn.DieuChinhs.Sum(dc => dc.GiaTriDieuChinh) : 0m)) / factor;
-                decimal implAllocated = matchedImpl.DuToanPheDuyet / factor;
-                decimal remaining = srcTotal > implAllocated ? srcTotal - implAllocated : 0m;
-
-                var pkDict = new Dictionary<int, decimal>();
-                for (int y = startY; y <= endY; y++)
-                {
-                    var pk = matchedImpl.PhanKyVons?.FirstOrDefault(p => p.Nam == y);
-                    pkDict[y] = pk != null ? (pk.SoTienPhanKy / factor) : 0m;
-                }
-
-                phanBoList.Add(new KeHoachVonPhanBoNguonRowDto
-                {
-                    Stt = sttPhanBo++,
-                    MaDuAnNguon = srcDuAn.Code,
-                    TenDuAnNguon = srcDuAn.Name,
-                    SoQuyetDinhPheDuyet = srcDuAn.SoQuyetDinh,
-                    TongVonPheDuyet = srcTotal,
-                    MaDuAnTrienKhaiLienKet = matchedImpl.Code,
-                    TenDuAnTrienKhai = matchedImpl.Name,
-                    VonPhanBoChoDaTrienKhai = implAllocated,
-                    PhanKyVonTheoNam = pkDict,
-                    VonNguonConLaiChuaPhanBo = remaining,
-                    TrangThaiNguon = remaining <= 0 ? "Đã phân bổ hết" : "Đã phân bổ"
-                });
+                var pk = targetDuAn.PhanKyVons?.FirstOrDefault(p => p.Nam == y);
+                pkDict[y] = pk != null ? (pk.SoTienPhanKy / factor) : 0m;
             }
+
+            phanBoList.Add(new KeHoachVonPhanBoNguonRowDto
+            {
+                Stt = sttPhanBo++,
+                MaDuAnNguon = srcDuAn.Code,
+                TenDuAnNguon = srcDuAn.Name,
+                SoQuyetDinhPheDuyet = srcDuAn.SoQuyetDinh,
+                TongVonPheDuyet = srcTotal,
+                MaDuAnTrienKhaiLienKet = targetDuAn.Code,
+                TenDuAnTrienKhai = targetDuAn.Name,
+                VonPhanBoChoDaTrienKhai = targetAllocated,
+                PhanKyVonTheoNam = pkDict,
+                VonNguonConLaiChuaPhanBo = 0m,
+                TrangThaiNguon = "Đã gộp vào dự án " + targetDuAn.Code
+            });
         }
         response.DanhSachPhanBoNguon = phanBoList;
 
@@ -3560,7 +3497,7 @@ public class ReportService : IReportService
         var query = _context.GoiThaus
             .AsNoTracking()
             .Include(g => g.DuAn)
-            .Where(g => !g.IsDeleted && (g.DuAn == null || (!g.DuAn.IsDeleted && g.DuAn.LoaiDuAn == 2)))
+            .Where(g => !g.IsDeleted && (g.DuAn == null || (!g.DuAn.IsDeleted && g.DuAn.TrangThai != 10)))
             .AsQueryable();
 
         if (duAnId.HasValue)

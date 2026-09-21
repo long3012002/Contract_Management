@@ -20,19 +20,19 @@ public class CodeGeneratorService : ICodeGeneratorService
         _context = context;
     }
 
-    public async Task<string> GenerateDuAnCodeAsync(int loaiDuAn, int? nam = null)
+    public async Task<string> GenerateDuAnCodeAsync(int? nam = null)
     {
         int targetYear = nam ?? DateTime.UtcNow.Year;
-        string suffix = loaiDuAn == 1 ? "DAN" : "DATK";
+        string suffix = "DA";
         
-        // Find existing codes for this loaiDuAn and targetYear
+        // Find existing codes for targetYear
         var existingCodes = await _context.DuAns
-            .Where(d => d.LoaiDuAn == loaiDuAn && !d.IsDeleted)
+            .Where(d => !d.IsDeleted)
             .Select(d => d.Code)
             .ToListAsync();
 
         int maxSeq = 0;
-        var pattern = new Regex($@"^(\d+)/{targetYear}/{suffix}$", RegexOptions.IgnoreCase);
+        var pattern = new Regex($@"^(\d+)/{targetYear}/(DA|DAN|DATK)$", RegexOptions.IgnoreCase);
 
         foreach (var code in existingCodes)
         {
@@ -178,14 +178,14 @@ public class CodeGeneratorService : ICodeGeneratorService
 
         // 1. Migrate DuAn
         var duAns = await _context.DuAns.Where(d => !d.IsDeleted).OrderBy(d => d.CreatedAt).ToListAsync();
-        var duAnGrouped = duAns.GroupBy(d => new { d.LoaiDuAn, Year = d.CreatedAt.Year });
+        var duAnGrouped = duAns.GroupBy(d => d.CreatedAt.Year);
         foreach (var group in duAnGrouped)
         {
             int seq = 1;
-            string suffix = group.Key.LoaiDuAn == 1 ? "DAN" : "DATK";
+            string suffix = "DA";
             foreach (var duAn in group)
             {
-                duAn.Code = $"{seq:D3}/{group.Key.Year}/{suffix}";
+                duAn.Code = $"{seq:D3}/{group.Key}/{suffix}";
                 seq++;
                 count++;
             }
@@ -302,9 +302,32 @@ public class CodeGeneratorService : ICodeGeneratorService
     private static string RemoveAccentsAndFormatting(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-        input = input.Trim().ToUpperInvariant();
+        var trimmed = input.Trim();
 
-        string normalizedString = input.Normalize(NormalizationForm.FormD);
+        // Check if multi-word string to generate acronym (e.g. "Bảo trì" -> "BT", "Ngân sách nhà nước" -> "NSNN")
+        var words = trimmed.Split(new[] { ' ', '-', '_', '.', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length > 1)
+        {
+            var acronym = new StringBuilder();
+            foreach (var word in words)
+            {
+                var cleanWord = RemoveAccentsCharByChar(word);
+                if (!string.IsNullOrEmpty(cleanWord))
+                {
+                    acronym.Append(cleanWord[0]);
+                }
+            }
+            return acronym.ToString().ToUpperInvariant();
+        }
+
+        return RemoveAccentsCharByChar(trimmed).ToUpperInvariant();
+    }
+
+    private static string RemoveAccentsCharByChar(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        string str = input.Replace("Đ", "D").Replace("đ", "d");
+        string normalizedString = str.Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder();
         foreach (char c in normalizedString)
         {
