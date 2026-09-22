@@ -38,6 +38,23 @@ public class KeHoachVonDto : IHasId
     public DateTime CreatedAt { get; set; }
 
     public List<KeHoachVonDuAnItemDto> DanhSachDuAn { get; set; } = new();
+    public List<TongNguonVonItemDto> TongTheoNguonVon { get; set; } = new();
+}
+
+public class NguonVonChiTietItemDto
+{
+    public Guid NguonVonId { get; set; }
+    public string MaNguonVon { get; set; } = string.Empty;
+    public string TenNguonVon { get; set; } = string.Empty;
+    public decimal SoTien { get; set; }
+}
+
+public class TongNguonVonItemDto
+{
+    public Guid NguonVonId { get; set; }
+    public string MaNguonVon { get; set; } = string.Empty;
+    public string TenNguonVon { get; set; } = string.Empty;
+    public decimal TongSoTien { get; set; }
 }
 
 public class KeHoachVonDuAnItemDto
@@ -50,6 +67,7 @@ public class KeHoachVonDuAnItemDto
     public decimal? VonDieuLe { get; set; }
     public decimal? QuyDauTuPhatTrien { get; set; }
     public string? GhiChu { get; set; }
+    public List<NguonVonChiTietItemDto> NguonVonChiTiet { get; set; } = new();
 }
 
 public class CreateKeHoachVonDto
@@ -104,6 +122,7 @@ public class KeHoachVonFilterDto
     public int? LoaiKeHoach { get; set; }
     public int? TrangThai { get; set; }
     public string? Search { get; set; }
+    public string? DonViTinh { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }

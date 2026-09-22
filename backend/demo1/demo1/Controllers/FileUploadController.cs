@@ -192,7 +192,7 @@ namespace demo1.Controllers
         /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
         /// <response code="200">Trả về file stream</response>
         /// <response code="404">Không tìm thấy file</response>
-        [HttpGet("download/{id:guid}")]
+        [HttpGet("download/by-id/{id:guid}", Name = "DownloadFileById")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DownloadFileById(Guid id)
@@ -216,7 +216,7 @@ namespace demo1.Controllers
         /// <response code="200">Trả về file stream</response>
         /// <response code="400">Tham số hoặc đường dẫn không hợp lệ (Directory Traversal)</response>
         /// <response code="404">Không tìm thấy file</response>
-        [HttpGet("download")]
+        [HttpGet("download", Name = "DownloadFileByPath")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

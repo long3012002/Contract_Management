@@ -42,9 +42,9 @@ public class KeHoachVonController : ControllerBase
     [HttpGet("GetById/{id:guid}")]
     [ProducesResponseType(typeof(KeHoachVonDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<KeHoachVonDto>> GetById(Guid id)
+    public async Task<ActionResult<KeHoachVonDto>> GetById(Guid id, [FromQuery] string? donViTinh = null)
     {
-        var result = await _keHoachVonService.GetByIdAsync(id);
+        var result = await _keHoachVonService.GetByIdAsync(id, donViTinh);
         return result == null ? NotFound(new { message = $"Không tìm thấy Kế hoạch vốn với ID [{id}]." }) : Ok(result);
     }
 
@@ -53,9 +53,9 @@ public class KeHoachVonController : ControllerBase
     /// </summary>
     [HttpGet("du-an/{duAnId:guid}")]
     [ProducesResponseType(typeof(List<KeHoachVonDuAnItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<KeHoachVonDuAnItemDto>>> GetLichSuByDuAn(Guid duAnId)
+    public async Task<ActionResult<List<KeHoachVonDuAnItemDto>>> GetLichSuByDuAn(Guid duAnId, [FromQuery] string? donViTinh = null)
     {
-        var result = await _keHoachVonService.GetLichSuKeHoachVonByDuAnIdAsync(duAnId);
+        var result = await _keHoachVonService.GetLichSuKeHoachVonByDuAnIdAsync(duAnId, donViTinh);
         return Ok(result);
     }
 

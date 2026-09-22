@@ -30,8 +30,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="period">Kỳ báo cáo: 1 (6 tháng đầu năm), 2 (Cả năm)</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Bảng tổng hợp kinh phí đầu tư và danh sách chi tiết các dự án</returns>
-    [HttpGet("dau-tu")]
-    [HttpGet("/api/NghiepVu/report/investment")]
+    [HttpGet("dau-tu", Name = "GetInvestmentReport")]
     [FeatureAuthorize("BAO_CAO_DAU_TU")]
     [ProducesResponseType(typeof(ReportResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -82,8 +81,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="toDateAlt">Đến ngày (tùy chọn 2)</param>
     /// <param name="fromAlt">Từ ngày (tùy chọn 3)</param>
     /// <param name="toAlt">Đến ngày (tùy chọn 3)</param>
-    [HttpGet("dau-tu/export")]
-    [HttpGet("/api/NghiepVu/report/investment/export")]
+    [HttpGet("dau-tu/export", Name = "ExportInvestmentReport")]
     [FeatureAuthorize("BAO_CAO_DAU_TU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportInvestmentReport(
@@ -173,8 +171,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
-    [HttpGet("thanh-toan-hop-dong")]
-    [HttpGet("/api/NghiepVu/report/contract-payments")]
+    [HttpGet("thanh-toan-hop-dong", Name = "GetContractPaymentReport")]
     [FeatureAuthorize("BAO_CAO_THANH_TOAN")]
     [ProducesResponseType(typeof(ContractPaymentReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ContractPaymentReportResponseDto>> GetContractPaymentReport(
@@ -208,8 +205,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
     /// <param name="base64">Trả về dạng mã hóa Base64</param>
     /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
-    [HttpGet("thanh-toan-hop-dong/export")]
-    [HttpGet("/api/NghiepVu/report/contract-payments/export")]
+    [HttpGet("thanh-toan-hop-dong/export", Name = "ExportContractPaymentReport")]
     [FeatureAuthorize("BAO_CAO_THANH_TOAN")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportContractPaymentReport(
@@ -287,9 +283,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="loaiHopDongIds">Danh sách ID loại hợp đồng</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
-    [HttpGet("theo-doi-hop-dong")]
-    [HttpGet("/api/NghiepVu/report/theo-doi-hop-dong")]
-    [HttpGet("/api/NghiepVu/reportTheoDoiHopDong")]
+    [HttpGet("theo-doi-hop-dong", Name = "GetTheoDoiHopDongReport")]
     [FeatureAuthorize("BAO_CAO_HOP_DONG")]
     [ProducesResponseType(typeof(TheoDoiHopDongReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TheoDoiHopDongReportResponseDto>> GetTheoDoiHopDongReport(
@@ -321,9 +315,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
     /// <param name="base64">Trả về dạng mã hóa Base64</param>
     /// <param name="donViTinh">Đơn vị tính (mặc định: đồng, các giá trị khác: triệu, tỷ, nghìn)</param>
-    [HttpGet("theo-doi-hop-dong/export")]
-    [HttpGet("/api/NghiepVu/report/theo-doi-hop-dong/export")]
-    [HttpGet("/api/NghiepVu/reportTheoDoiHopDong/export")]
+    [HttpGet("theo-doi-hop-dong/export", Name = "ExportTheoDoiHopDongReport")]
     [FeatureAuthorize("BAO_CAO_HOP_DONG")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportTheoDoiHopDongReport(
@@ -397,8 +389,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// </summary>
     /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
-    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}")]
-    [HttpGet("/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau:guid}")]
+    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}", Name = "GetCongViecGoiThauReport")]
     [FeatureAuthorize("BAO_CAO_TIEN_DO")]
     [ProducesResponseType(typeof(CongViecGoiThauReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -427,8 +418,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="format">Định dạng xuất: xlsx, csv, html</param>
     /// <param name="base64">Trả về dữ liệu Base64 thay vì file trực tiếp</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
-    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}/export")]
-    [HttpGet("/api/NghiepVu/report/cong-viec-goi-thau/{idGoiThau:guid}/export")]
+    [HttpGet("cong-viec-goi-thau/{idGoiThau:guid}/export", Name = "ExportCongViecGoiThauReport")]
     [FeatureAuthorize("BAO_CAO_TIEN_DO")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -500,7 +490,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Lấy dữ liệu Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Theo mẫu Phụ lục 01-05 &amp; Phụ biểu 01).
     /// </summary>
-    [HttpGet("ke-hoach-von")]
+    [HttpGet("ke-hoach-von", Name = "GetKeHoachVonReport")]
     [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(typeof(KeHoachVonReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<KeHoachVonReportResponseDto>> GetKeHoachVonReport(
@@ -523,7 +513,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Xuất file Báo cáo Kế hoạch vốn Đầu tư &amp; Mua sắm (Excel, CSV, HTML).
     /// </summary>
-    [HttpGet("ke-hoach-von/export")]
+    [HttpGet("ke-hoach-von/export", Name = "ExportKeHoachVonReport")]
     [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportKeHoachVonReport(
@@ -585,7 +575,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Lấy Báo cáo Tổng hợp &amp; Phân kỳ Kế hoạch vốn CNTT Giai đoạn.
     /// </summary>
-    [HttpGet("ke-hoach-von-cntt")]
+    [HttpGet("ke-hoach-von-cntt", Name = "GetKeHoachVonCnttReport")]
     [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(typeof(KeHoachVonCnttReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<KeHoachVonCnttReportResponseDto>> GetKeHoachVonCnttReport(
@@ -611,7 +601,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Xuất file Báo cáo Kế hoạch vốn CNTT Giai đoạn (Excel, CSV, HTML).
     /// </summary>
-    [HttpGet("ke-hoach-von-cntt/export")]
+    [HttpGet("ke-hoach-von-cntt/export", Name = "ExportKeHoachVonCnttReport")]
     [FeatureAuthorize("BAO_CAO_VON")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportKeHoachVonCnttReport(
@@ -682,10 +672,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="statusFilter">Bộ lọc trạng thái: 1 (Đã hết hạn), 2 (Sắp hết hạn), 3 (An toàn)</param>
     /// <param name="search">Từ khóa tìm kiếm</param>
     /// <param name="donViTinh">Đơn vị tính</param>
-    [HttpGet("license-sla")]
-    [HttpGet("han-license-bao-tri")]
-    [HttpGet("/api/NghiepVu/report/license-sla")]
-    [HttpGet("/api/NghiepVu/report/han-license-bao-tri")]
+    [HttpGet("license-sla", Name = "GetLicenseSlaReport")]
     [FeatureAuthorize("BAO_CAO_PHE_DUYET")]
     [ProducesResponseType(typeof(LicenseSlaReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<LicenseSlaReportResponseDto>> GetLicenseSlaReport(
@@ -708,10 +695,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Xuất file Báo cáo Quản lý Hạn License / Bảo trì &amp; SLA Nhà thầu (Excel, CSV, HTML).
     /// </summary>
-    [HttpGet("license-sla/export")]
-    [HttpGet("han-license-bao-tri/export")]
-    [HttpGet("/api/NghiepVu/report/license-sla/export")]
-    [HttpGet("/api/NghiepVu/report/han-license-bao-tri/export")]
+    [HttpGet("license-sla/export", Name = "ExportLicenseSlaReport")]
     [FeatureAuthorize("BAO_CAO_PHE_DUYET")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportLicenseSlaReport(
@@ -776,8 +760,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="duAnId">Lọc theo Dự án triển khai</param>
     /// <param name="search">Từ khóa tìm kiếm gói thầu hoặc dự án</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
-    [HttpGet("goi-thau-lcnt")]
-    [HttpGet("/api/NghiepVu/report/goi-thau-lcnt")]
+    [HttpGet("goi-thau-lcnt", Name = "GetGoiThauLcntReport")]
     [FeatureAuthorize("BAO_CAO_DAU_THAU")]
     [ProducesResponseType(typeof(GoiThauLcntReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<GoiThauLcntReportResponseDto>> GetGoiThauLcntReport(
@@ -801,8 +784,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Xuất file Báo cáo Lựa chọn Nhà thầu (LCNT) ra Excel.
     /// </summary>
-    [HttpGet("goi-thau-lcnt/export")]
-    [HttpGet("/api/NghiepVu/report/goi-thau-lcnt/export")]
+    [HttpGet("goi-thau-lcnt/export", Name = "ExportGoiThauLcntReport")]
     [FeatureAuthorize("BAO_CAO_DAU_THAU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportGoiThauLcntReport(
@@ -848,8 +830,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="duAnId">Mã Dự án cần lọc (nếu có)</param>
     /// <param name="search">Từ khóa tìm kiếm (Dự án, Gói thầu, Nhà thầu, Hợp đồng)</param>
     /// <param name="donViTinh">Đơn vị tính (đồng, triệu...)</param>
-    [HttpGet("tien-do-thanh-toan-du-an-thau")]
-    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau")]
+    [HttpGet("tien-do-thanh-toan-du-an-thau", Name = "GetTienDoThanhToanDuAnThauReport")]
     [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(typeof(TienDoThanhToanDuAnThauReportResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TienDoThanhToanDuAnThauReportResponseDto>> GetTienDoThanhToanDuAnThauReport(
@@ -873,8 +854,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Lấy danh sách tùy chọn bộ lọc dự án (Dropdown filter options) cho Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu.
     /// </summary>
-    [HttpGet("tien-do-thanh-toan-du-an-thau/filter-options")]
-    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/filter-options")]
+    [HttpGet("tien-do-thanh-toan-du-an-thau/filter-options", Name = "GetTienDoThanhToanFilterOptions")]
     [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(typeof(IReadOnlyList<DuAnLookupDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<DuAnLookupDto>>> GetTienDoThanhToanFilterOptions()
@@ -894,8 +874,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <summary>
     /// Xuất file Báo cáo Theo dõi Tiến độ Thanh toán các Dự án Thầu ra Excel / CSV / HTML / Base64.
     /// </summary>
-    [HttpGet("tien-do-thanh-toan-du-an-thau/export")]
-    [HttpGet("/api/NghiepVu/report/tien-do-thanh-toan-du-an-thau/export")]
+    [HttpGet("tien-do-thanh-toan-du-an-thau/export", Name = "ExportTienDoThanhToanDuAnThauReport")]
     [FeatureAuthorize("BAO_CAO_DU_AN_THAU")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExportTienDoThanhToanDuAnThauReport(

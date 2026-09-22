@@ -25,6 +25,8 @@ public class KeHoachVonService : IKeHoachVonService
             .Include(k => k.CreatedByUser)
             .Include(k => k.KeHoachVonDuAns)
                 .ThenInclude(kd => kd.DuAn)
+                    .ThenInclude(da => da.DanhSachNguonVon)
+                        .ThenInclude(nv => nv.NguonVon)
             .AsNoTracking()
             .AsQueryable();
 
@@ -61,7 +63,7 @@ public class KeHoachVonService : IKeHoachVonService
             .Take(pageSize)
             .ToListAsync();
 
-        var dtos = items.Select(MapToDto).ToList();
+        var dtos = items.Select(x => MapToDto(x, filter.DonViTinh)).ToList();
 
         return new PagedResult<KeHoachVonDto>
         {
@@ -72,16 +74,18 @@ public class KeHoachVonService : IKeHoachVonService
         };
     }
 
-    public async Task<KeHoachVonDto?> GetByIdAsync(Guid id)
+    public async Task<KeHoachVonDto?> GetByIdAsync(Guid id, string? donViTinh = null)
     {
         var entity = await _context.KeHoachVons
             .Include(k => k.CreatedByUser)
             .Include(k => k.KeHoachVonDuAns)
                 .ThenInclude(kd => kd.DuAn)
+                    .ThenInclude(da => da.DanhSachNguonVon)
+                        .ThenInclude(nv => nv.NguonVon)
             .AsNoTracking()
             .FirstOrDefaultAsync(k => k.Id == id);
 
-        return entity == null ? null : MapToDto(entity);
+        return entity == null ? null : MapToDto(entity, donViTinh);
     }
 
     public async Task<KeHoachVonDto> CreateAsync(CreateKeHoachVonDto dto, Guid? currentUserId)
@@ -320,31 +324,106 @@ public class KeHoachVonService : IKeHoachVonService
         return (await GetByIdAsync(id))!;
     }
 
-    public async Task<List<KeHoachVonDuAnItemDto>> GetLichSuKeHoachVonByDuAnIdAsync(Guid duAnId)
+    public async Task<List<KeHoachVonDuAnItemDto>> GetLichSuKeHoachVonByDuAnIdAsync(Guid duAnId, string? donViTinh = null)
     {
+        var factor = GetUnitFactor(donViTinh);
         var items = await _context.KeHoachVonDuAns
             .Include(kd => kd.KeHoachVon)
             .Include(kd => kd.DuAn)
+                .ThenInclude(da => da!.DanhSachNguonVon)
+                    .ThenInclude(nv => nv.NguonVon)
             .AsNoTracking()
             .Where(kd => kd.DuAnId == duAnId)
             .OrderByDescending(kd => kd.KeHoachVon.NamKeHoach)
             .ToListAsync();
 
-        return items.Select(x => new KeHoachVonDuAnItemDto
+        return items.Select(x =>
         {
-            DuAnId = x.DuAnId,
-            MaDuAn = x.DuAn?.Code ?? "",
-            TenDuAn = x.DuAn?.Name ?? "",
-            SoTienDeNghi = x.SoTienDeNghi,
-            SoTienDuocDuyet = x.SoTienDuocDuyet,
-            VonDieuLe = x.VonDieuLe,
-            QuyDauTuPhatTrien = x.QuyDauTuPhatTrien,
-            GhiChu = x.GhiChu ?? x.KeHoachVon?.SoQuyetDinh
+            var namKhv = x.KeHoachVon?.NamKeHoach ?? 0;
+            var allNv = x.DuAn?.DanhSachNguonVon ?? new List<DuAnNguonVon>();
+            var hasNamMatches = allNv.Any(nv => nv.Nam == namKhv);
+            var matchingNv = hasNamMatches
+                ? allNv.Where(nv => nv.Nam == namKhv).ToList()
+                : allNv.Where(nv => !nv.Nam.HasValue).ToList();
+
+            var nguonVonChiTiet = matchingNv.Select(nv => new NguonVonChiTietItemDto
+            {
+                NguonVonId = nv.NguonVonId,
+                MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
+                TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
+                SoTien = nv.SoTien / factor
+            }).ToList();
+
+            return new KeHoachVonDuAnItemDto
+            {
+                DuAnId = x.DuAnId,
+                MaDuAn = x.DuAn?.Code ?? "",
+                TenDuAn = x.DuAn?.Name ?? "",
+                SoTienDeNghi = x.SoTienDeNghi / factor,
+                SoTienDuocDuyet = x.SoTienDuocDuyet / factor,
+                VonDieuLe = x.VonDieuLe.HasValue ? x.VonDieuLe.Value / factor : null,
+                QuyDauTuPhatTrien = x.QuyDauTuPhatTrien.HasValue ? x.QuyDauTuPhatTrien.Value / factor : null,
+                GhiChu = x.GhiChu ?? x.KeHoachVon?.SoQuyetDinh,
+                NguonVonChiTiet = nguonVonChiTiet
+            };
         }).ToList();
     }
 
-    private static KeHoachVonDto MapToDto(KeHoachVon k)
+    private static decimal GetUnitFactor(string? donViTinh)
     {
+        if (string.IsNullOrWhiteSpace(donViTinh)) return 1m;
+        var s = donViTinh.Trim().ToLowerInvariant();
+        if (s == "4" || s.Contains("tỷ") || s.Contains("ty")) return 1_000_000_000m;
+        if (s == "3" || s.Contains("triệu") || s.Contains("trieu")) return 1_000_000m;
+        if (s == "2" || s.Contains("nghìn") || s.Contains("ngan") || s == "k") return 1_000m;
+        return 1m;
+    }
+
+    private static KeHoachVonDto MapToDto(KeHoachVon k, string? donViTinh = null)
+    {
+        var factor = GetUnitFactor(donViTinh);
+
+        var danhSachDuAn = k.KeHoachVonDuAns.Select(kd =>
+        {
+            var allNv = kd.DuAn?.DanhSachNguonVon ?? new List<DuAnNguonVon>();
+            var hasNamMatches = allNv.Any(nv => nv.Nam == k.NamKeHoach);
+            var matchingNv = hasNamMatches
+                ? allNv.Where(nv => nv.Nam == k.NamKeHoach).ToList()
+                : allNv.Where(nv => !nv.Nam.HasValue).ToList();
+
+            var nguonVonChiTiet = matchingNv.Select(nv => new NguonVonChiTietItemDto
+            {
+                NguonVonId = nv.NguonVonId,
+                MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
+                TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
+                SoTien = nv.SoTien / factor
+            }).ToList();
+
+            return new KeHoachVonDuAnItemDto
+            {
+                DuAnId = kd.DuAnId,
+                MaDuAn = kd.DuAn?.Code ?? "",
+                TenDuAn = kd.DuAn?.Name ?? "",
+                SoTienDeNghi = kd.SoTienDeNghi / factor,
+                SoTienDuocDuyet = kd.SoTienDuocDuyet / factor,
+                VonDieuLe = kd.VonDieuLe.HasValue ? kd.VonDieuLe.Value / factor : null,
+                QuyDauTuPhatTrien = kd.QuyDauTuPhatTrien.HasValue ? kd.QuyDauTuPhatTrien.Value / factor : null,
+                GhiChu = kd.GhiChu,
+                NguonVonChiTiet = nguonVonChiTiet
+            };
+        }).ToList();
+
+        var tongTheoNguonVon = danhSachDuAn
+            .SelectMany(da => da.NguonVonChiTiet)
+            .GroupBy(nv => new { nv.NguonVonId, nv.MaNguonVon, nv.TenNguonVon })
+            .Select(g => new TongNguonVonItemDto
+            {
+                NguonVonId = g.Key.NguonVonId,
+                MaNguonVon = g.Key.MaNguonVon,
+                TenNguonVon = g.Key.TenNguonVon,
+                TongSoTien = g.Sum(x => x.SoTien)
+            }).ToList();
+
         return new KeHoachVonDto
         {
             Id = k.Id,
@@ -354,23 +433,14 @@ public class KeHoachVonService : IKeHoachVonService
             TrangThai = k.TrangThai,
             SoQuyetDinh = k.SoQuyetDinh,
             NgayPheDuyet = k.NgayPheDuyet,
-            TongMucDeNghi = k.TongMucDeNghi,
-            TongMucDuocDuyet = k.TongMucDuocDuyet,
+            TongMucDeNghi = k.TongMucDeNghi / factor,
+            TongMucDuocDuyet = k.TongMucDuocDuyet / factor,
             GhiChu = k.GhiChu,
             CreatedByUserId = k.CreatedByUserId,
             CreatedByUserName = k.CreatedByUser?.FullName,
             CreatedAt = k.CreatedAt,
-            DanhSachDuAn = k.KeHoachVonDuAns.Select(kd => new KeHoachVonDuAnItemDto
-            {
-                DuAnId = kd.DuAnId,
-                MaDuAn = kd.DuAn?.Code ?? "",
-                TenDuAn = kd.DuAn?.Name ?? "",
-                SoTienDeNghi = kd.SoTienDeNghi,
-                SoTienDuocDuyet = kd.SoTienDuocDuyet,
-                VonDieuLe = kd.VonDieuLe,
-                QuyDauTuPhatTrien = kd.QuyDauTuPhatTrien,
-                GhiChu = kd.GhiChu
-            }).ToList()
+            DanhSachDuAn = danhSachDuAn,
+            TongTheoNguonVon = tongTheoNguonVon
         };
     }
 }

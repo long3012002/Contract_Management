@@ -8,7 +8,7 @@ namespace demo1.Services.Interfaces;
 public interface IKeHoachVonService
 {
     Task<PagedResult<KeHoachVonDto>> GetAllAsync(KeHoachVonFilterDto filter);
-    Task<KeHoachVonDto?> GetByIdAsync(Guid id);
+    Task<KeHoachVonDto?> GetByIdAsync(Guid id, string? donViTinh = null);
     Task<KeHoachVonDto> CreateAsync(CreateKeHoachVonDto dto, Guid? currentUserId);
     Task<bool> UpdateAsync(Guid id, UpdateKeHoachVonDto dto);
     Task<bool> DeleteAsync(Guid id);
@@ -19,5 +19,5 @@ public interface IKeHoachVonService
 
     Task<KeHoachVonDto> AddOrUpdateDuAnAsync(Guid id, AddDuAnToKHVDto dto);
     Task<KeHoachVonDto> RemoveDuAnAsync(Guid id, Guid duAnId);
-    Task<List<KeHoachVonDuAnItemDto>> GetLichSuKeHoachVonByDuAnIdAsync(Guid duAnId);
+    Task<List<KeHoachVonDuAnItemDto>> GetLichSuKeHoachVonByDuAnIdAsync(Guid duAnId, string? donViTinh = null);
 }
