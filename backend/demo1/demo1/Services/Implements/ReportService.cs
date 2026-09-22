@@ -2297,6 +2297,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
+            .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10)
             .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= selectedYear : d.NamBatDau!.Value <= selectedYear))
             .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= selectedYear : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= selectedYear : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= selectedYear))
@@ -2341,8 +2342,45 @@ public class ReportService : IReportService
             int stt = 1;
             foreach (var proj in filteredProj)
             {
-                decimal duToan = proj.DuToanPheDuyet / factor;
+                decimal duToan = (proj.DuToanPheDuyet > 0 ? proj.DuToanPheDuyet : (proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any() ? proj.DanhSachNguonVon.Sum(x => x.SoTien) : 0m)) / factor;
                 var (nhomCode, nhomTen) = ClassifyNhomKyThuat(proj, pType.Type);
+
+                decimal vonDieuLe = 0;
+                decimal quyPhucLoi = 0;
+                decimal quyDauTuPhatTrien = 0;
+                decimal nguonKhac = 0;
+
+                if (proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any())
+                {
+                    foreach (var nvItem in proj.DanhSachNguonVon)
+                    {
+                        string nvNameStr = (nvItem.NguonVon?.Name ?? string.Empty).Trim().ToLower();
+                        string nvCodeStr = (nvItem.NguonVon?.Code ?? string.Empty).Trim().ToLower();
+                        decimal itemVal = nvItem.SoTien / factor;
+
+                        if (nvCodeStr.Contains("quy_dtpt") || nvCodeStr.Contains("qdtpt") || nvCodeStr.Contains("dtpt") || nvNameStr.Contains("phát triển"))
+                        {
+                            quyDauTuPhatTrien += itemVal;
+                        }
+                        else if (nvCodeStr.Contains("phuc_loi") || nvCodeStr.Contains("qpl") || nvNameStr.Contains("phúc lợi"))
+                        {
+                            quyPhucLoi += itemVal;
+                        }
+                        else if (nvCodeStr.Contains("nv_khac") || nvNameStr.Contains("khác"))
+                        {
+                            nguonKhac += itemVal;
+                        }
+                        else
+                        {
+                            vonDieuLe += itemVal;
+                        }
+                    }
+                }
+                else
+                {
+                    vonDieuLe = duToan * 0.6m;
+                    quyPhucLoi = duToan * 0.4m;
+                }
 
                 var row = new KeHoachVonReportRowDto
                 {
@@ -2353,10 +2391,10 @@ public class ReportService : IReportService
                     QuyMoXaydung = proj.NoiDung,
                     SuCanThiet = proj.ThoiGianThucHien,
                     HangMucCongViec = proj.ToChucThucHien,
-                    VonDieuLeVaQuyDuTru = duToan * 0.6m,
-                    QuyPhucLoi = duToan * 0.4m,
-                    QuyDauTuPhatTrien = 0,
-                    NguonKhac = 0,
+                    VonDieuLeVaQuyDuTru = vonDieuLe,
+                    QuyPhucLoi = quyPhucLoi,
+                    QuyDauTuPhatTrien = quyDauTuPhatTrien,
+                    NguonKhac = nguonKhac,
                     TongDeXuatPheDuyet = duToan,
                     GhiChu = proj.SoQuyetDinh,
                     SoQuyetDinhNghiQuyet = proj.SoQuyetDinh,
@@ -2726,7 +2764,9 @@ public class ReportService : IReportService
             int stt = 1;
             foreach (var proj in groupProjs)
             {
-                decimal totalInvestment = proj.DuToanPheDuyet / factor;
+                decimal totalInvestment = (proj.DuToanPheDuyet > 0 
+                    ? proj.DuToanPheDuyet 
+                    : (proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any() ? proj.DanhSachNguonVon.Sum(nv => nv.SoTien) : 0m)) / factor;
 
                 decimal vonTuCo = 0;
                 decimal quyDauTuPhatTrien = 0;
@@ -2825,6 +2865,7 @@ public class ReportService : IReportService
                 dotThanhToanGrouped.TryGetValue(proj.Id, out var allDotThanhToans);
                 allDotThanhToans ??= new List<DotThanhToan>();
 
+                bool hasNguonVonWithYear = proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any(nv => nv.Nam.HasValue);
                 bool hasUserPhanKy = proj.PhanKyVons != null && proj.PhanKyVons.Any();
                 bool hasActualMilestones = allDotThanhToans.Any();
 
@@ -2832,15 +2873,23 @@ public class ReportService : IReportService
                 {
                     decimal valInYear = 0m;
 
-                    if (hasUserPhanKy)
+                    if (hasNguonVonWithYear)
                     {
-                        // Ưu tiên 1: Lấy phân kỳ vốn đã lập trực tiếp theo từng năm của dự án (DuAnPhanKyVon)
+                        // Ưu tiên 1: Lấy theo năm của tổng các nguồn vốn (DuAnNguonVon có Nam == y)
+                        var sumNguonVonInYear = proj.DanhSachNguonVon!
+                            .Where(nv => nv.Nam == y)
+                            .Sum(nv => nv.SoTien);
+                        valInYear = sumNguonVonInYear / factor;
+                    }
+                    else if (hasUserPhanKy)
+                    {
+                        // Ưu tiên 2: Lấy phân kỳ vốn đã lập trực tiếp theo từng năm của dự án (DuAnPhanKyVon)
                         var userPk = proj.PhanKyVons!.FirstOrDefault(pk => pk.Nam == y);
                         valInYear = userPk != null ? (userPk.SoTienPhanKy / factor) : 0m;
                     }
                     else if (hasActualMilestones)
                     {
-                        // Ưu tiên 2: Dựa vào đợt thanh toán thực tế trong CSDL (nếu chưa lập phân kỳ vốn)
+                        // Ưu tiên 3: Dựa vào đợt thanh toán thực tế trong CSDL (nếu chưa lập phân kỳ vốn)
                         var actualPaymentInYear = allDotThanhToans
                             .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value.Year == y) ||
                                         (!m.NgayThanhToan.HasValue && m.CreatedAt.Year == y))
@@ -2850,7 +2899,7 @@ public class ReportService : IReportService
                     }
                     else if (y >= pStart && y <= pEnd)
                     {
-                        // Ưu tiên 3: Dựa vào trọng số phân kỳ ước tính theo số năm dự án (nếu không có phân kỳ & đợt thanh toán)
+                        // Ưu tiên 4: Dựa vào trọng số phân kỳ ước tính theo số năm dự án (nếu không có phân kỳ & đợt thanh toán)
                         int yearIndex = y - pStart; // 0, 1, 2...
                         decimal weight = 1.0m;
 

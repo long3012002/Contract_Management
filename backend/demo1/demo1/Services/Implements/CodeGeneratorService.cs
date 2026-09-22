@@ -23,35 +23,41 @@ public class CodeGeneratorService : ICodeGeneratorService
     public async Task<string> GenerateDuAnCodeAsync(int? nam = null)
     {
         int targetYear = nam ?? DateTime.UtcNow.Year;
-        string suffix = "DA";
         
-        // Find existing codes for targetYear
         var existingCodes = await _context.DuAns
             .Where(d => !d.IsDeleted)
             .Select(d => d.Code)
             .ToListAsync();
 
         int maxSeq = 0;
-        var pattern = new Regex($@"^(\d+)/{targetYear}/(DA|DAN|DATK)$", RegexOptions.IgnoreCase);
+        var pattern = new Regex($@"^(DAN|DA)-?{targetYear}-?(\d+)$", RegexOptions.IgnoreCase);
+        var oldPattern = new Regex($@"^(\d+)/{targetYear}/(DA|DAN|DATK)$", RegexOptions.IgnoreCase);
 
         foreach (var code in existingCodes)
         {
             if (string.IsNullOrWhiteSpace(code)) continue;
             var match = pattern.Match(code.Trim());
-            if (match.Success && int.TryParse(match.Groups[1].Value, out int seq))
+            if (match.Success && int.TryParse(match.Groups[2].Value, out int seq))
             {
                 if (seq > maxSeq) maxSeq = seq;
+            }
+            else
+            {
+                var oldMatch = oldPattern.Match(code.Trim());
+                if (oldMatch.Success && int.TryParse(oldMatch.Groups[1].Value, out int oldSeq))
+                {
+                    if (oldSeq > maxSeq) maxSeq = oldSeq;
+                }
             }
         }
 
         int nextSeq = maxSeq + 1;
-        return $"{nextSeq:D3}/{targetYear}/{suffix}";
+        return $"DAN-{targetYear}-{nextSeq:D3}";
     }
 
     public async Task<string> GenerateGoiThauCodeAsync(int? nam = null)
     {
         int targetYear = nam ?? DateTime.UtcNow.Year;
-        string suffix = "GT";
 
         var existingCodes = await _context.GoiThaus
             .Where(g => !g.IsDeleted)
@@ -59,7 +65,8 @@ public class CodeGeneratorService : ICodeGeneratorService
             .ToListAsync();
 
         int maxSeq = 0;
-        var pattern = new Regex($@"^(\d+)/{targetYear}/{suffix}$", RegexOptions.IgnoreCase);
+        var pattern = new Regex($@"^GT-?{targetYear}-?(\d+)$", RegexOptions.IgnoreCase);
+        var oldPattern = new Regex($@"^(\d+)/{targetYear}/GT$", RegexOptions.IgnoreCase);
 
         foreach (var code in existingCodes)
         {
@@ -69,16 +76,23 @@ public class CodeGeneratorService : ICodeGeneratorService
             {
                 if (seq > maxSeq) maxSeq = seq;
             }
+            else
+            {
+                var oldMatch = oldPattern.Match(code.Trim());
+                if (oldMatch.Success && int.TryParse(oldMatch.Groups[1].Value, out int oldSeq))
+                {
+                    if (oldSeq > maxSeq) maxSeq = oldSeq;
+                }
+            }
         }
 
         int nextSeq = maxSeq + 1;
-        return $"{nextSeq:D3}/{targetYear}/{suffix}";
+        return $"GT-{targetYear}-{nextSeq:D3}";
     }
 
     public async Task<string> GenerateHopDongCodeAsync(int? nam = null)
     {
         int targetYear = nam ?? DateTime.UtcNow.Year;
-        string suffix = "HĐ";
 
         var existingCodes = await _context.HopDongs
             .Where(h => !h.IsDeleted)
@@ -86,7 +100,8 @@ public class CodeGeneratorService : ICodeGeneratorService
             .ToListAsync();
 
         int maxSeq = 0;
-        var pattern = new Regex($@"^(\d+)/{targetYear}/(HĐ|HD)$", RegexOptions.IgnoreCase);
+        var pattern = new Regex($@"^HD-?{targetYear}-?(\d+)$", RegexOptions.IgnoreCase);
+        var oldPattern = new Regex($@"^(\d+)/{targetYear}/(HĐ|HD)$", RegexOptions.IgnoreCase);
 
         foreach (var code in existingCodes)
         {
@@ -96,30 +111,28 @@ public class CodeGeneratorService : ICodeGeneratorService
             {
                 if (seq > maxSeq) maxSeq = seq;
             }
+            else
+            {
+                var oldMatch = oldPattern.Match(code.Trim());
+                if (oldMatch.Success && int.TryParse(oldMatch.Groups[1].Value, out int oldSeq))
+                {
+                    if (oldSeq > maxSeq) maxSeq = oldSeq;
+                }
+            }
         }
 
         int nextSeq = maxSeq + 1;
-        return $"{nextSeq:D3}/{targetYear}/{suffix}";
+        return $"HD-{targetYear}-{nextSeq:D3}";
     }
 
     public async Task<string> GenerateDotThanhToanCodeAsync(Guid hopDongId, int? nam = null)
     {
-        int targetYear = nam ?? DateTime.UtcNow.Year;
         var hopDong = await _context.HopDongs.FirstOrDefaultAsync(h => h.Id == hopDongId);
         
-        string hdShortCode = "HD";
+        string hdCode = "HD000";
         if (hopDong != null && !string.IsNullOrWhiteSpace(hopDong.Code))
         {
-            var match = Regex.Match(hopDong.Code.Trim(), @"^(\d+)/(\d{4})/(HĐ|HD)$", RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                hdShortCode = $"HD{match.Groups[1].Value}";
-            }
-            else
-            {
-                // Custom contract code: sanitize slashes
-                hdShortCode = hopDong.Code.Trim().Replace("/", "-").Replace(" ", "");
-            }
+            hdCode = hopDong.Code.Trim().Replace("/", "-").Replace(" ", "");
         }
 
         var existingDotCodes = await _context.DotThanhToans
@@ -128,20 +141,9 @@ public class CodeGeneratorService : ICodeGeneratorService
             .ToListAsync();
 
         int maxDotSeq = existingDotCodes.Count;
-        var dotPattern = new Regex($@"^(\d+)/{targetYear}/TT-", RegexOptions.IgnoreCase);
-
-        foreach (var code in existingDotCodes)
-        {
-            if (string.IsNullOrWhiteSpace(code)) continue;
-            var match = dotPattern.Match(code.Trim());
-            if (match.Success && int.TryParse(match.Groups[1].Value, out int seq))
-            {
-                if (seq > maxDotSeq) maxDotSeq = seq;
-            }
-        }
 
         int nextDotSeq = maxDotSeq + 1;
-        return $"{nextDotSeq:D2}/{targetYear}/TT-{hdShortCode}";
+        return $"TT-{hdCode}-{nextDotSeq:D2}";
     }
 
     public Task<string> GenerateDoiTacCodeAsync(string nameOrShortName)
@@ -161,15 +163,17 @@ public class CodeGeneratorService : ICodeGeneratorService
     public Task<string> GeneratePhanLoaiDuAnCodeAsync(string nameOrAbbr)
     {
         string clean = RemoveAccentsAndFormatting(nameOrAbbr);
-        if (clean.StartsWith("PL")) clean = clean.Substring(2).TrimStart('-', '_', ' ');
-        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "PL-LOAIDA" : $"PL-{clean}");
+        if (clean.StartsWith("LDA")) clean = clean.Substring(3).TrimStart('-', '_', ' ');
+        else if (clean.StartsWith("PL")) clean = clean.Substring(2).TrimStart('-', '_', ' ');
+        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "LDA-LOAIDA" : $"LDA-{clean}");
     }
 
     public Task<string> GenerateLoaiHopDongCodeAsync(string nameOrAbbr)
     {
         string clean = RemoveAccentsAndFormatting(nameOrAbbr);
-        if (clean.StartsWith("PLHD")) clean = clean.Substring(4).TrimStart('-', '_', ' ');
-        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "PLHD-LOAIHD" : $"PLHD-{clean}");
+        if (clean.StartsWith("LHD")) clean = clean.Substring(3).TrimStart('-', '_', ' ');
+        else if (clean.StartsWith("PLHD")) clean = clean.Substring(4).TrimStart('-', '_', ' ');
+        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "LHD-LOAIHD" : $"LHD-{clean}");
     }
 
     public async Task<int> MigrateAllLegacyCodesAsync()
@@ -182,10 +186,9 @@ public class CodeGeneratorService : ICodeGeneratorService
         foreach (var group in duAnGrouped)
         {
             int seq = 1;
-            string suffix = "DA";
             foreach (var duAn in group)
             {
-                duAn.Code = $"{seq:D3}/{group.Key}/{suffix}";
+                duAn.Code = $"DAN-{group.Key}-{seq:D3}";
                 seq++;
                 count++;
             }
@@ -199,7 +202,7 @@ public class CodeGeneratorService : ICodeGeneratorService
             int seq = 1;
             foreach (var gt in group)
             {
-                gt.Code = $"{seq:D3}/{group.Key}/GT";
+                gt.Code = $"GT-{group.Key}-{seq:D3}";
                 seq++;
                 count++;
             }
@@ -213,7 +216,7 @@ public class CodeGeneratorService : ICodeGeneratorService
             int seq = 1;
             foreach (var hd in group)
             {
-                hd.Code = $"{seq:D3}/{group.Key}/HĐ";
+                hd.Code = $"HD-{group.Key}-{seq:D3}";
                 seq++;
                 count++;
             }
@@ -231,21 +234,12 @@ public class CodeGeneratorService : ICodeGeneratorService
             string hdShortCode = "HD";
             if (hopDong != null && !string.IsNullOrWhiteSpace(hopDong.Code))
             {
-                var match = Regex.Match(hopDong.Code.Trim(), @"^(\d+)/(\d{4})/(HĐ|HD)$", RegexOptions.IgnoreCase);
-                if (match.Success)
-                {
-                    hdShortCode = $"HD{match.Groups[1].Value}";
-                }
-                else
-                {
-                    hdShortCode = hopDong.Code.Trim().Replace("/", "-").Replace(" ", "");
-                }
+                hdShortCode = hopDong.Code.Trim().Replace("/", "-").Replace(" ", "");
             }
 
             foreach (var dt in group)
             {
-                int year = dt.CreatedAt.Year;
-                dt.Code = $"{seq:D2}/{year}/TT-{hdShortCode}";
+                dt.Code = $"TT-{hdShortCode}-{seq:D2}";
                 seq++;
                 count++;
             }
@@ -277,7 +271,7 @@ public class CodeGeneratorService : ICodeGeneratorService
         var phanLoaiDuAns = await _context.PhanLoaiDuAns.Where(p => !p.IsDeleted).ToListAsync();
         foreach (var pl in phanLoaiDuAns)
         {
-            if (string.IsNullOrWhiteSpace(pl.Code) || !pl.Code.StartsWith("PL-"))
+            if (string.IsNullOrWhiteSpace(pl.Code) || !pl.Code.StartsWith("LDA-"))
             {
                 pl.Code = await GeneratePhanLoaiDuAnCodeAsync(string.IsNullOrWhiteSpace(pl.Name) ? pl.Code : pl.Name);
                 count++;
@@ -288,7 +282,7 @@ public class CodeGeneratorService : ICodeGeneratorService
         var loaiHopDongs = await _context.LoaiHopDongs.Where(l => !l.IsDeleted).ToListAsync();
         foreach (var lhd in loaiHopDongs)
         {
-            if (string.IsNullOrWhiteSpace(lhd.Code) || !lhd.Code.StartsWith("PLHD-"))
+            if (string.IsNullOrWhiteSpace(lhd.Code) || !lhd.Code.StartsWith("LHD-"))
             {
                 lhd.Code = await GenerateLoaiHopDongCodeAsync(string.IsNullOrWhiteSpace(lhd.Name) ? lhd.Code : lhd.Name);
                 count++;

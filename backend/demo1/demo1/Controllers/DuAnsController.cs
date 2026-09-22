@@ -292,5 +292,41 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
         var result = await _duAnService.GopDuAnAsync(id, dto, currentUserId);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Thực hiện Hủy liên kết Gộp Dự án tại Dự án đích ({id}).
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án đích nhận gộp (GUID)</param>
+    /// <param name="dto">Thông tin bản ghi liên kết gộp hoặc dự án nguồn cần hủy gộp</param>
+    /// <response code="200">Hủy gộp dự án thành công</response>
+    /// <response code="400">Không thể hủy gộp do đã phát sinh thanh toán/giải ngân</response>
+    /// <response code="404">Không tìm thấy dự án hoặc liên kết gộp</response>
+    [HttpPost("{id:guid}/huy-gop-du-an")]
+    [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DuAnDto>> HuyGopDuAn(Guid id, [FromBody] HuyGopDuAnDto dto)
+    {
+        try
+        {
+            var currentUserIdStr = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            Guid.TryParse(currentUserIdStr, out var currentUserId);
+
+            var result = await _duAnService.HuyGopDuAnAsync(id, dto, currentUserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+    }
 }
 

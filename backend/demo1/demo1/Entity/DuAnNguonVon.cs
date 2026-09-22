@@ -14,6 +14,7 @@ public class DuAnNguonVon
     public virtual NguonVon? NguonVon { get; set; }
 
     public decimal SoTien { get; set; }
+    public int? Nam { get; set; }
     public string? GhiChu { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

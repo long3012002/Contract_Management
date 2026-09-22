@@ -33,3 +33,21 @@ public class DuAnGopLinkDto
     public decimal DuToanLucGop { get; set; }
     public string? GhiChu { get; set; }
 }
+
+public class HuyGopDuAnDto
+{
+    /// <summary>
+    /// ID của bản ghi liên kết gộp DuAnGopLink (nếu truyền trực tiếp)
+    /// </summary>
+    public Guid? GopLinkId { get; set; }
+
+    /// <summary>
+    /// Mã GUID của Dự án nguồn đã bị gộp cần hủy gộp (nếu không truyền GopLinkId)
+    /// </summary>
+    public Guid? SourceDuAnId { get; set; }
+
+    /// <summary>
+    /// Lý do hoặc ghi chú thực hiện hủy gộp dự án
+    /// </summary>
+    public string? GhiChu { get; set; }
+}

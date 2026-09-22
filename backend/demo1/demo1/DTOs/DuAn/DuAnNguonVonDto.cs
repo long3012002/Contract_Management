@@ -9,6 +9,7 @@ public class DuAnNguonVonDto
     public Guid NguonVonId { get; set; }
     public string? MaNguonVon { get; set; }
     public string? TenNguonVon { get; set; }
+    public int? Nam { get; set; }
     public decimal SoTien { get; set; }
     public string? GhiChu { get; set; }
 }
@@ -16,6 +17,7 @@ public class DuAnNguonVonDto
 public class CreateDuAnNguonVonDto
 {
     public Guid NguonVonId { get; set; }
+    public int? Nam { get; set; }
     public decimal SoTien { get; set; }
     public string? GhiChu { get; set; }
 }

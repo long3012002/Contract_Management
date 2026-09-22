@@ -7,7 +7,7 @@ namespace demo1.Entity;
 public class DuAn : BaseEntity
 {
     public decimal DuToanPheDuyet { get; set; }
-    public int TrangThai { get; set; } = 1;
+    public int TrangThai { get; set; } = 3;
 
     public Guid? NhomDuAnId { get; set; }
     public virtual NhomDuAn? NhomDuAn { get; set; }

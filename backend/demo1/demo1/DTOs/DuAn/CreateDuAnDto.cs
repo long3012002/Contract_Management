@@ -20,7 +20,7 @@ public class CreateDuAnDto
     [Range(0, double.MaxValue)]
     public decimal DuToanPheDuyet { get; set; }
 
-    public int TrangThai { get; set; } = 1;
+    public int TrangThai { get; set; } = 3;
 
     public Guid? NhomDuAnId { get; set; }
     public Guid? PhanLoaiDuAnId { get; set; }
