@@ -96,6 +96,7 @@ public static class ServiceConfiguration
             });
 
             c.CustomSchemaIds(type => type.FullName ?? type.Name);
+            c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
 
             c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {

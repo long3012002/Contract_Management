@@ -55,7 +55,7 @@ namespace demo1.Controllers
         /// <returns>Thông tin Chức vụ</returns>
         /// <response code="200">Tìm thấy chức vụ</response>
         /// <response code="404">Không tìm thấy chức vụ</response>
-        [HttpGet("{id:guid}")]
+        [HttpGet("GetById/{id:guid}")]
         [ProducesResponseType(typeof(ChucVuDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById(Guid id)

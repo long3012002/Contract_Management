@@ -51,7 +51,7 @@ namespace demo1.Controllers
         /// </summary>
         /// <param name="id">Mã định danh Tổ nhóm (GUID)</param>
         /// <returns>Thông tin tổ nhóm</returns>
-        [HttpGet("{id:guid}")]
+        [HttpGet("GetById/{id:guid}")]
         [ProducesResponseType(typeof(ToNhomDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById(Guid id)

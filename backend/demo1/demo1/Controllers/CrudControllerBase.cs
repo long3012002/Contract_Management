@@ -56,7 +56,7 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     /// <returns>Thông tin chi tiết đối tượng</returns>
     /// <response code="200">Tìm thấy bản ghi</response>
     /// <response code="404">Không tìm thấy bản ghi theo ID</response>
-    [HttpGet("{id:guid}")]
+    [HttpGet("GetById/{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public virtual async Task<ActionResult<TDto>> GetById(Guid id)

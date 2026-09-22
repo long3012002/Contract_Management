@@ -20,7 +20,6 @@ public class ContractWarningsController(IWarningService service) : ControllerBas
     /// <returns>Danh sách cảnh báo hợp đồng sắp hết hạn</returns>
     /// <response code="200">Lấy danh sách cảnh báo thành công</response>
     [HttpGet("expiring-soon")]
-    [HttpGet("~/api/HeThong/warnings/contracts-expiring-soon")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetContractsExpiringSoon()
     {
@@ -34,7 +33,6 @@ public class ContractWarningsController(IWarningService service) : ControllerBas
     /// <returns>Danh sách hợp đồng quá hạn</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("expired")]
-    [HttpGet("~/api/HeThong/warnings/expired-contracts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetExpiredContracts()
     {
@@ -48,7 +46,6 @@ public class ContractWarningsController(IWarningService service) : ControllerBas
     /// <returns>Danh sách hợp đồng vượt ngân sách</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("over-budget")]
-    [HttpGet("~/api/HeThong/warnings/over-budget-contracts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOverBudgetContracts()
     {

@@ -39,6 +39,7 @@ public class PhuLucHopDongController : ControllerBase
     /// Lấy chi tiết một Phụ lục hợp đồng.
     /// </summary>
     [HttpGet("phu-luc/{id}")]
+    [HttpGet("phu-luc-hop-dong/{id}")]
     [ProducesResponseType(typeof(PhuLucHopDongDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PhuLucHopDongDto>> GetById(Guid id)

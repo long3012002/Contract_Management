@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace demo1.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/HeThong/system-code")]
 [Authorize]
 public class SystemCodeController : ControllerBase
 {

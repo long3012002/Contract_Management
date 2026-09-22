@@ -20,7 +20,6 @@ public class LicenseWarningsController(IWarningService service) : ControllerBase
     /// <returns>Danh sách License sắp hết hạn</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("expiring-soon")]
-    [HttpGet("~/api/HeThong/warnings/licenses-expiring-soon")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLicensesExpiringSoon()
     {
@@ -34,7 +33,6 @@ public class LicenseWarningsController(IWarningService service) : ControllerBase
     /// <returns>Danh sách License đã hết hạn</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     [HttpGet("expired")]
-    [HttpGet("~/api/HeThong/warnings/expired-licenses")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetExpiredLicenses()
     {

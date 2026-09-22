@@ -53,7 +53,7 @@ namespace demo1.Controllers
         /// <returns>Thông tin Đơn vị</returns>
         /// <response code="200">Tìm thấy đơn vị</response>
         /// <response code="404">Không tìm thấy đơn vị</response>
-        [HttpGet("{id:guid}")]
+        [HttpGet("GetById/{id:guid}")]
         [ProducesResponseType(typeof(DonViDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetById(Guid id)

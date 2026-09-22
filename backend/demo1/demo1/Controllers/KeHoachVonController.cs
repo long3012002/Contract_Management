@@ -13,7 +13,7 @@ namespace demo1.Controllers;
 /// <summary>
 /// API Quản lý Kế hoạch Vốn (Lập kế hoạch vốn, Trình duyệt, Phê duyệt/Trả về, Thêm/Xóa dự án khỏi đợt KHV).
 /// </summary>
-[Route("api/ke-hoach-von")]
+[Route("api/NghiepVu/ke-hoach-von")]
 [Authorize]
 [ApiController]
 public class KeHoachVonController : ControllerBase
@@ -39,7 +39,7 @@ public class KeHoachVonController : ControllerBase
     /// <summary>
     /// Lấy thông tin chi tiết một đợt Kế hoạch vốn kèm danh sách Dự án thuộc đợt đó.
     /// </summary>
-    [HttpGet("{id:guid}")]
+    [HttpGet("GetById/{id:guid}")]
     [ProducesResponseType(typeof(KeHoachVonDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<KeHoachVonDto>> GetById(Guid id)
