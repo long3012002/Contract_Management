@@ -73,7 +73,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-403",
                 Name = "Dự án cấm truy cập",
-                LoaiDuAn = 1,
                 CreatedByUserId = otherUser.Id,
                 ChuDuAnId = otherUser.Id
             };
@@ -105,7 +104,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-VIEW-01",
                 Name = "Dự án được cấp quyền xem",
-                LoaiDuAn = 1,
                 CreatedByUserId = otherUser.Id,
                 ChuDuAnId = otherUser.Id
             };
@@ -152,7 +150,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-ROLE-01",
                 Name = "Dự án xem theo Role Matrix",
-                LoaiDuAn = 1,
                 CreatedByUserId = otherUser.Id,
                 ChuDuAnId = otherUser.Id
             };
@@ -232,7 +229,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-NO-DEL",
                 Name = "Dự án không được xóa",
-                LoaiDuAn = 1,
                 CreatedByUserId = otherUser.Id,
                 ChuDuAnId = otherUser.Id
             };
@@ -279,7 +275,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-OLD",
                 Name = "Dự án cũ do user sở hữu",
-                LoaiDuAn = 1,
                 CreatedByUserId = ownerUser.Id,
                 ChuDuAnId = ownerUser.Id
             };
@@ -327,7 +322,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-SCOPED-01",
                 Name = "Dự án A bị giới hạn VIEW",
-                LoaiDuAn = 1,
                 CreatedByUserId = creator.Id,
                 ChuDuAnId = creator.Id
             };
@@ -390,7 +384,6 @@ namespace demo1.Tests.UnitTests.Controllers
                 Id = Guid.NewGuid(),
                 Code = "DA-UNSCOPED-02",
                 Name = "Dự án B không bị giới hạn riêng",
-                LoaiDuAn = 1,
                 CreatedByUserId = creator.Id,
                 ChuDuAnId = creator.Id
             };

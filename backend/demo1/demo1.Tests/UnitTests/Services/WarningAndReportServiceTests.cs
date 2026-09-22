@@ -144,7 +144,7 @@ namespace demo1.Tests.UnitTests.Services
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-INV-CALC", Name = "Dự án CNTT tính toán", DuToanPheDuyet = 10000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-INV-CALC", Name = "Dự án CNTT tính toán", DuToanPheDuyet = 10000000000m, TrangThai = 1 };
             var hopDong = new HopDong { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "HD-INV-CALC", GiaTriHopDong = 8000000000m, IsActive = true, IsDeleted = false };
             
             // Đợt 1: Kỳ trước (năm 2025)
@@ -227,7 +227,7 @@ namespace demo1.Tests.UnitTests.Services
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            var projB = new DuAn { Id = Guid.NewGuid(), Code = "DA-B-50B", Name = "Dự án nhóm B quy mô lớn", DuToanPheDuyet = 50000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            var projB = new DuAn { Id = Guid.NewGuid(), Code = "DA-B-50B", Name = "Dự án nhóm B quy mô lớn", DuToanPheDuyet = 50000000000m, TrangThai = 1 };
             _dbContext.DuAns.Add(projB);
             await _dbContext.SaveChangesAsync();
 
@@ -260,7 +260,7 @@ namespace demo1.Tests.UnitTests.Services
             emptyReport.Rows.Any(r => r.RowType == "GrandTotal").Should().BeTrue();
 
             // Case 2: Only Group C project (< 45B) -> Group B should be excluded, Group C included
-            var projC = new DuAn { Id = Guid.NewGuid(), Code = "DA-C-10B", Name = "Dự án nhóm C quy mô nhỏ", DuToanPheDuyet = 10000000000m, LoaiDuAn = 2, TrangThai = 1 };
+            var projC = new DuAn { Id = Guid.NewGuid(), Code = "DA-C-10B", Name = "Dự án nhóm C quy mô nhỏ", DuToanPheDuyet = 10000000000m, TrangThai = 1 };
             _dbContext.DuAns.Add(projC);
             await _dbContext.SaveChangesAsync();
 
@@ -288,7 +288,6 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-MULTI-CNTT",
                 Name = "Dự án CNTT Đa Năm",
                 DuToanPheDuyet = 60000000000m, // Group B
-                LoaiDuAn = 2,
                 PhanLoaiDuAnId = plCntt.Id,
                 TrangThai = 1,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -300,7 +299,6 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-MULTI-XDCB",
                 Name = "Dự án XDCB Đa Năm",
                 DuToanPheDuyet = 10000000000m, // Group C
-                LoaiDuAn = 2,
                 PhanLoaiDuAnId = plXdcb.Id,
                 TrangThai = 1,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -416,8 +414,8 @@ namespace demo1.Tests.UnitTests.Services
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng", LoaiDuAn = 2, DaTrienKhai = true };
-            var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data", LoaiDuAn = 2, DaTrienKhai = true };
+            var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng", DaTrienKhai = true };
+            var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data", DaTrienKhai = true };
             _dbContext.DuAns.AddRange(projXdcb, projCntt);
             await _dbContext.SaveChangesAsync();
 
@@ -467,13 +465,13 @@ namespace demo1.Tests.UnitTests.Services
 
             _dbContext.NguonVons.AddRange(nvNhht, nvQdtpt, nvKhac);
 
-            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000, LoaiDuAn = 2, DaTrienKhai = true };
+            var p1 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV1", Name = "Dự án phần mềm 1", DuToanPheDuyet = 1000000, DaTrienKhai = true };
             p1.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p1.Id, NguonVonId = nvNhht.Id, SoTien = 1000000 });
 
-            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000, LoaiDuAn = 2, DaTrienKhai = true };
+            var p2 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV2", Name = "Dự án phần mềm 2", DuToanPheDuyet = 2000000, DaTrienKhai = true };
             p2.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p2.Id, NguonVonId = nvQdtpt.Id, SoTien = 2000000 });
 
-            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000, LoaiDuAn = 2, DaTrienKhai = true };
+            var p3 = new DuAn { Id = Guid.NewGuid(), Code = "DA-NV3", Name = "Dự án phần mềm 3", DuToanPheDuyet = 3000000, DaTrienKhai = true };
             p3.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = p3.Id, NguonVonId = nvKhac.Id, SoTien = 3000000 });
 
             _dbContext.DuAns.AddRange(p1, p2, p3);
@@ -586,7 +584,6 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-MULTI-NV", 
                 Name = "Dự án CNTT nhiều nguồn vốn", 
                 DuToanPheDuyet = 3000000000m,
-                LoaiDuAn = 2,
                 DaTrienKhai = true
             };
 
@@ -619,50 +616,6 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task GetKeHoachVonCnttReportAsync_Should_Only_Include_LoaiDuAn_2_And_Exclude_LoaiDuAn_1()
-        {
-            // Arrange
-            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
-            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
-
-            var projNguon = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-NGUON-01",
-                Name = "Dự án nguồn CNTT",
-                DuToanPheDuyet = 500000000m,
-                LoaiDuAn = 1,
-                NoiDung = "Phần mềm nguồn",
-                IsActive = true
-            };
-
-            var projTrienKhai = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-TRIENKHAI-01",
-                Name = "Dự án triển khai CNTT",
-                DuToanPheDuyet = 500000000m,
-                LoaiDuAn = 2,
-                DaTrienKhai = true,
-                NoiDung = "Phần mềm triển khai",
-                IsActive = true
-            };
-
-            _dbContext.DuAns.AddRange(projNguon, projTrienKhai);
-            await _dbContext.SaveChangesAsync();
-
-            // Act
-            var report = await service.GetKeHoachVonCnttReportAsync(2025, 2026, null, "1");
-
-            // Assert
-            report.Should().NotBeNull();
-            var allRowProjectIds = report.Groups.SelectMany(g => g.Rows).Select(r => r.DuAnId).ToList();
-
-            allRowProjectIds.Should().Contain(projTrienKhai.Id);
-            allRowProjectIds.Should().NotContain(projNguon.Id);
-        }
-
-        [Fact]
         public async Task GetKeHoachVonCnttReportAsync_Should_Only_Include_Approved_Or_Higher_Status_Projects()
         {
             // Arrange
@@ -675,7 +628,6 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-APPROVED-01",
                 Name = "Dự án đã triển khai",
                 DuToanPheDuyet = 300000000m,
-                LoaiDuAn = 2,
                 DaTrienKhai = true,
                 NoiDung = "Phần mềm đã triển khai",
                 IsActive = true
@@ -687,7 +639,6 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-APPROVED-02",
                 Name = "Dự án hoàn thành phê duyệt",
                 DuToanPheDuyet = 400000000m,
-                LoaiDuAn = 2,
                 TrangThai = 2,
                 NoiDung = "Hạ tầng đã duyệt",
                 IsActive = true
@@ -699,9 +650,8 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "DA-UNAPPROVED-01",
                 Name = "Dự án chưa duyệt",
                 DuToanPheDuyet = 500000000m,
-                LoaiDuAn = 2,
                 DaTrienKhai = false,
-                TrangThai = 1,
+                TrangThai = 0,
                 NoiDung = "Phần mềm dự thảo",
                 IsActive = true
             };
@@ -710,7 +660,7 @@ namespace demo1.Tests.UnitTests.Services
             await _dbContext.SaveChangesAsync();
 
             // Act
-            var report = await service.GetKeHoachVonCnttReportAsync(2025, 2026, null, "1");
+            var report = await service.GetKeHoachVonCnttReportAsync(2025, 2026, 1, "1");
 
             // Assert
             report.Should().NotBeNull();
@@ -719,49 +669,6 @@ namespace demo1.Tests.UnitTests.Services
             allRowProjectIds.Should().Contain(projTrienKhaiApproved1.Id);
             allRowProjectIds.Should().Contain(projTrienKhaiApproved2.Id);
             allRowProjectIds.Should().NotContain(projTrienKhaiUnapproved.Id);
-        }
-
-        [Fact]
-        public async Task GetKeHoachVonReportAsync_Should_Only_Include_LoaiDuAn_2_And_Exclude_LoaiDuAn_1()
-        {
-            // Arrange
-            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
-            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
-
-            var projNguon = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-NGUON-XDCB",
-                Name = "Dự án nguồn XDCB",
-                DuToanPheDuyet = 500000000m,
-                LoaiDuAn = 1,
-                NoiDung = "xây dựng công trình nguồn",
-                IsActive = true
-            };
-
-            var projTrienKhai = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-TRIENKHAI-XDCB",
-                Name = "Dự án triển khai XDCB",
-                DuToanPheDuyet = 500000000m,
-                LoaiDuAn = 2,
-                NoiDung = "xây dựng công trình triển khai",
-                IsActive = true
-            };
-
-            _dbContext.DuAns.AddRange(projNguon, projTrienKhai);
-            await _dbContext.SaveChangesAsync();
-
-            // Act
-            var report = await service.GetKeHoachVonReportAsync(DateTime.Now.Year, 1, "triệu");
-
-            // Assert
-            report.Should().NotBeNull();
-            var allRowProjectIds = report.PhuLucs.SelectMany(pl => pl.Rows).Select(r => r.DuAnId).ToList();
-
-            allRowProjectIds.Should().Contain(projTrienKhai.Id);
-            allRowProjectIds.Should().NotContain(projNguon.Id);
         }
 
         [Fact]
@@ -775,7 +682,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-LCNT-01",
                 Name = "Dự án LCNT Test",
-                LoaiDuAn = 2,
                 IsActive = true
             };
             _dbContext.DuAns.Add(proj);
@@ -866,7 +772,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-TEST-V2",
                 Name = "Dự án Thử nghiệm V2",
-                LoaiDuAn = 2,
                 NgayBatDau = DateTime.UtcNow.AddMonths(-2),
                 NgayKetThuc = DateTime.UtcNow.AddMonths(4),
                 DuToanPheDuyet = 500000000m,

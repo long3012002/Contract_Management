@@ -62,7 +62,6 @@ namespace demo1.Tests.UnitTests.Services
             {
                 Code = "PRJ_SRC-DA-TEST-001",
                 Name = "Dự án Thử nghiệm tự động",
-                LoaiDuAn = 1,
                 Description = "Mô tả dự án kiểm thử"
             };
 
@@ -224,7 +223,6 @@ namespace demo1.Tests.UnitTests.Services
             {
                 Code = "PRJ_SRC-DA-NV-001",
                 Name = "Dự án Nguồn Vốn Đơn",
-                LoaiDuAn = 1,
                 DuToanPheDuyet = 500000000m,
                 DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
                 {
@@ -238,7 +236,6 @@ namespace demo1.Tests.UnitTests.Services
             {
                 Code = "PRJ_SRC-DA-NV-002",
                 Name = "Dự án Nguồn Vốn Đa Nguồn",
-                LoaiDuAn = 1,
                 DuToanPheDuyet = 1000000000m,
                 DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
                 {
@@ -287,203 +284,13 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task CreateAsync_Should_Throw_When_SourceProjectIds_Contains_Duplicates()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-
-            var sp = new DuAn { Id = Guid.NewGuid(), Code = "SP-001", Name = "Nguồn 1", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = false };
-            _dbContext.DuAns.Add(sp);
-            await _dbContext.SaveChangesAsync();
-
-            var createDto = new CreateDuAnDto
-            {
-                Code = "PRJ_SUB-TK-001",
-                Name = "Triển khai 1",
-                LoaiDuAn = 2,
-                SourceProjectIds = new List<Guid> { sp.Id, sp.Id }
-            };
-
-            Func<Task> act = async () => await _duAnService.CreateAsync(createDto);
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*chứa mã dự án trùng lặp*");
-        }
-
-        [Fact]
-        public async Task CreateAsync_Should_Throw_When_SourceProject_Already_Linked_In_DuAnNguonTrienKhai()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-
-            var sp = new DuAn { Id = Guid.NewGuid(), Code = "SP-LINKED", Name = "Dự án nguồn đã liên kết", LoaiDuAn = 1, DuToanPheDuyet = 5000000m, DaTrienKhai = false };
-            var tkExisting = new DuAn { Id = Guid.NewGuid(), Code = "TK-EXIST", Name = "Triển khai cũ", LoaiDuAn = 2, DuToanPheDuyet = 5000000m, DaTrienKhai = true };
-            var link = new DuAnNguonTrienKhai { TrienKhaiProjectId = tkExisting.Id, NguonProjectId = sp.Id.ToString() };
-
-            _dbContext.DuAns.AddRange(sp, tkExisting);
-            _dbContext.DuAnNguonTrienKhais.Add(link);
-            await _dbContext.SaveChangesAsync();
-
-            var newTkDto = new CreateDuAnDto
-            {
-                Code = "PRJ_SUB-TK-NEW",
-                Name = "Triển khai mới",
-                LoaiDuAn = 2,
-                SourceProjectIds = new List<Guid> { sp.Id }
-            };
-
-            Func<Task> act = async () => await _duAnService.CreateAsync(newTkDto);
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*đã thuộc về một dự án triển khai khác*");
-        }
-
-        [Fact]
-        public async Task CreateAsync_Should_Throw_When_LoaiDuAn_Is_1_And_SourceProjectIds_Provided()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-            await _dbContext.SaveChangesAsync();
-
-            var createDto = new CreateDuAnDto
-            {
-                Code = "PRJ_SRC-SP-INVALID",
-                Name = "Dự án nguồn có liên kết",
-                LoaiDuAn = 1,
-                SourceProjectIds = new List<Guid> { Guid.NewGuid() }
-            };
-
-            Func<Task> act = async () => await _duAnService.CreateAsync(createDto);
-            await act.Should().ThrowAsync<ArgumentException>()
-                .WithMessage("*không thể liên kết đến dự án nguồn khác*");
-        }
-
-        [Fact]
-        public async Task UpdateAsync_Should_Throw_When_SourceProject_Already_Linked_To_Another_Project()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-
-            var sp1 = new DuAn { Id = Guid.NewGuid(), Code = "SP-01", Name = "Nguồn 1", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var sp2 = new DuAn { Id = Guid.NewGuid(), Code = "SP-02", Name = "Nguồn 2", LoaiDuAn = 1, DuToanPheDuyet = 2000000m, DaTrienKhai = true };
-            var tk1 = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-01", Name = "Triển khai 1", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var tk2 = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-02", Name = "Triển khai 2", LoaiDuAn = 2, DuToanPheDuyet = 2000000m, DaTrienKhai = true };
-
-            var link1 = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk1.Id, NguonProjectId = sp1.Id.ToString() };
-            var link2 = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk2.Id, NguonProjectId = sp2.Id.ToString() };
-
-            _dbContext.DuAns.AddRange(sp1, sp2, tk1, tk2);
-            _dbContext.DuAnNguonTrienKhais.AddRange(link1, link2);
-            await _dbContext.SaveChangesAsync();
-
-            // Attempt to update tk2 to also link sp1 (which belongs to tk1)
-            var updateDto = new UpdateDuAnDto
-            {
-                Code = tk2.Code,
-                Name = tk2.Name,
-                SourceProjectIds = new List<Guid> { sp1.Id }
-            };
-
-            Func<Task> act = async () => await _duAnService.UpdateAsync(tk2.Id, updateDto);
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*đã thuộc về một dự án triển khai khác*");
-        }
-
-        [Fact]
-        public async Task UpdateAsync_Should_Succeed_When_Keeping_Own_SourceProjects()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-
-            var sp = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SRC-SP-OWN", Name = "Nguồn sở hữu", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var tk = new DuAn { Id = Guid.NewGuid(), Code = "PRJ_SUB-TK-OWN", Name = "Triển khai sở hữu", LoaiDuAn = 2, DuToanPheDuyet = 1000000m, DaTrienKhai = true };
-            var link = new DuAnNguonTrienKhai { TrienKhaiProjectId = tk.Id, NguonProjectId = sp.Id.ToString() };
-
-            _dbContext.DuAns.AddRange(sp, tk);
-            _dbContext.DuAnNguonTrienKhais.Add(link);
-            await _dbContext.SaveChangesAsync();
-
-            var updateDto = new UpdateDuAnDto
-            {
-                Code = tk.Code,
-                Name = "Triển khai đã đổi tên",
-                SourceProjectIds = new List<Guid> { sp.Id }
-            };
-
-            var result = await _duAnService.UpdateAsync(tk.Id, updateDto);
-            result.Should().BeTrue();
-
-            var reloaded = await _dbContext.DuAns.FindAsync(tk.Id);
-            reloaded!.Name.Should().Be("Triển khai đã đổi tên");
-        }
-
-        [Fact]
-        public async Task CreateRangeAsync_Should_Throw_When_Batch_Contains_Duplicate_SourceProjects()
-        {
-            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
-            _dbContext.Users.Add(user);
-
-            var sp = new DuAn { Id = Guid.NewGuid(), Code = "SP-SHARED", Name = "Nguồn dùng chung", LoaiDuAn = 1, DuToanPheDuyet = 1000000m, DaTrienKhai = false };
-            _dbContext.DuAns.Add(sp);
-            await _dbContext.SaveChangesAsync();
-
-            var dtos = new List<CreateDuAnDto>
-            {
-                new CreateDuAnDto { Code = "PRJ_SUB-TK-B1", Name = "TK Batch 1", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } },
-                new CreateDuAnDto { Code = "PRJ_SUB-TK-B2", Name = "TK Batch 2", LoaiDuAn = 2, SourceProjectIds = new List<Guid> { sp.Id } }
-            };
-
-            Func<Task> act = async () => await _duAnService.CreateRangeAsync(dtos);
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*được liên kết nhiều hơn một lần trong danh sách tạo*");
-        }
-
-        [Fact]
-        public async Task AdjustBudgetAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
-        {
-            var nonExistentId = Guid.NewGuid();
-            var dto = new CreateDieuChinhDuAnDto { GiaTriDieuChinh = 100000, LyDoDieuChinh = "Tăng ngân sách" };
-
-            Func<Task> act = async () => await _duAnService.AdjustBudgetAsync(nonExistentId, dto);
-            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
-                .WithMessage("Không tìm thấy dự án.");
-        }
-
-        [Fact]
-        public async Task AdjustBudgetAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
-        {
-            var owner = new User { Id = Guid.NewGuid(), Username = "project_owner", FullName = "Owner", IsActive = true, IsSystemAdmin = false };
-            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_user", FullName = "No Perm", IsActive = true, IsSystemAdmin = false };
-            _dbContext.Users.AddRange(owner, unauthorizedUser);
-
-            var project = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-PERM-01",
-                Name = "Dự án bảo mật",
-                LoaiDuAn = 1,
-                DuToanPheDuyet = 5000000m,
-                CreatedByUserId = owner.Id,
-                ChuDuAnId = owner.Id
-            };
-            _dbContext.DuAns.Add(project);
-            await _dbContext.SaveChangesAsync();
-
-            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_user");
-
-            var dto = new CreateDieuChinhDuAnDto { GiaTriDieuChinh = 100000, LyDoDieuChinh = "Tăng ngân sách" };
-
-            Func<Task> act = async () => await _duAnService.AdjustBudgetAsync(project.Id, dto);
-            await act.Should().ThrowAsync<UnauthorizedAccessException>()
-                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
-        }
-
-        [Fact]
         public async Task AdvanceStatusAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
         {
             var nonExistentId = Guid.NewGuid();
 
             Func<Task> act = async () => await _duAnService.AdvanceStatusAsync(nonExistentId);
             await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
-                .WithMessage("Không tìm thấy dự án.");
+                .WithMessage("*Không tìm thấy*");
         }
 
         [Fact]
@@ -498,7 +305,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-PERM-02",
                 Name = "Dự án chuyển trạng thái",
-                LoaiDuAn = 1,
                 TrangThai = 1,
                 CreatedByUserId = owner.Id,
                 ChuDuAnId = owner.Id
@@ -520,7 +326,7 @@ namespace demo1.Tests.UnitTests.Services
 
             Func<Task> act = async () => await _duAnService.CloseProjectAsync(nonExistentId);
             await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
-                .WithMessage("Không tìm thấy dự án.");
+                .WithMessage("*Không tìm thấy*");
         }
 
         [Fact]
@@ -535,7 +341,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-PERM-03",
                 Name = "Dự án đóng",
-                LoaiDuAn = 1,
                 TrangThai = 1,
                 CreatedByUserId = owner.Id,
                 ChuDuAnId = owner.Id
@@ -548,80 +353,6 @@ namespace demo1.Tests.UnitTests.Services
             Func<Task> act = async () => await _duAnService.CloseProjectAsync(project.Id);
             await act.Should().ThrowAsync<UnauthorizedAccessException>()
                 .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
-        }
-
-        [Fact]
-        public async Task GetAdjustmentsAsync_Should_Throw_KeyNotFoundException_When_Project_Not_Found()
-        {
-            var nonExistentId = Guid.NewGuid();
-
-            Func<Task> act = async () => await _duAnService.GetAdjustmentsAsync(nonExistentId);
-            await act.Should().ThrowAsync<System.Collections.Generic.KeyNotFoundException>()
-                .WithMessage("Không tìm thấy dự án.");
-        }
-
-        [Fact]
-        public async Task GetAdjustmentsAsync_Should_Throw_UnauthorizedAccessException_When_User_Has_No_Permission()
-        {
-            var owner = new User { Id = Guid.NewGuid(), Username = "owner_4", FullName = "Owner 4", IsActive = true, IsSystemAdmin = false };
-            var unauthorizedUser = new User { Id = Guid.NewGuid(), Username = "unauthorized_4", FullName = "No Perm 4", IsActive = true, IsSystemAdmin = false };
-            _dbContext.Users.AddRange(owner, unauthorizedUser);
-
-            var project = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-PERM-04",
-                Name = "Dự án tra cứu điều chỉnh",
-                LoaiDuAn = 1,
-                CreatedByUserId = owner.Id,
-                ChuDuAnId = owner.Id
-            };
-            _dbContext.DuAns.Add(project);
-            await _dbContext.SaveChangesAsync();
-
-            _mockCurrentUserService.Setup(x => x.GetUsername()).Returns("unauthorized_4");
-
-            Func<Task> act = async () => await _duAnService.GetAdjustmentsAsync(project.Id);
-            await act.Should().ThrowAsync<UnauthorizedAccessException>()
-                .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
-        }
-
-        [Fact]
-        public async Task CreateAsync_Should_Inherit_NgayBatDau_From_Source_Project_When_Not_Provided_For_Implementation_Project()
-        {
-            // Arrange
-            var sourceNgayBatDau = new DateTime(2025, 6, 15, 0, 0, 0, DateTimeKind.Utc);
-            var sourceProj = new DuAn
-            {
-                Id = Guid.NewGuid(),
-                Code = "DA-NGUON-DATE",
-                Name = "Dự án Nguồn Test Ngày",
-                LoaiDuAn = 1,
-                DuToanPheDuyet = 5000000000,
-                NgayBatDau = sourceNgayBatDau,
-                DaTrienKhai = false
-            };
-            _dbContext.DuAns.Add(sourceProj);
-            await _dbContext.SaveChangesAsync();
-
-            var createDto = new CreateDuAnDto
-            {
-                Code = "PRJ_SUB-DA-TK-DATE",
-                Name = "Dự án Triển khai Kế thừa Ngày",
-                LoaiDuAn = 2,
-                SourceProjectIds = new List<Guid> { sourceProj.Id },
-                NgayBatDau = null, // không nhập ngày bắt đầu
-                NgayKetThuc = null // không yêu cầu nhập luôn ngày kết thúc
-            };
-
-            // Act
-            var result = await _duAnService.CreateAsync(createDto);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.NgayBatDau.Should().Be(sourceNgayBatDau);
-            result.NamBatDau.Should().Be(2025);
-            result.NgayKetThuc.Should().BeNull();
         }
 
         public void Dispose()

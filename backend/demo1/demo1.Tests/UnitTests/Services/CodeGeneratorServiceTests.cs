@@ -20,25 +20,17 @@ public class CodeGeneratorServiceTests
     }
 
     [Fact]
-    public async Task GenerateDuAnCode_SourceProject_ReturnsFormattedCode()
+    public async Task GenerateDuAnCode_ReturnsFormattedCode()
     {
         var year = DateTime.UtcNow.Year;
-        var code1 = await _service.GenerateDuAnCodeAsync(1);
-        Assert.Equal($"001/{year}/DAN", code1);
+        var code1 = await _service.GenerateDuAnCodeAsync();
+        Assert.Equal($"DAN-{year}-001", code1);
 
-        _context.DuAns.Add(new DuAn { Code = code1, LoaiDuAn = 1, CreatedAt = DateTime.UtcNow });
+        _context.DuAns.Add(new DuAn { Code = code1, CreatedAt = DateTime.UtcNow });
         await _context.SaveChangesAsync();
 
-        var code2 = await _service.GenerateDuAnCodeAsync(1);
-        Assert.Equal($"002/{year}/DAN", code2);
-    }
-
-    [Fact]
-    public async Task GenerateDuAnCode_ImplementationProject_ReturnsFormattedCode()
-    {
-        var year = DateTime.UtcNow.Year;
-        var code1 = await _service.GenerateDuAnCodeAsync(2);
-        Assert.Equal($"001/{year}/DATK", code1);
+        var code2 = await _service.GenerateDuAnCodeAsync();
+        Assert.Equal($"DAN-{year}-002", code2);
     }
 
     [Fact]
@@ -46,7 +38,7 @@ public class CodeGeneratorServiceTests
     {
         var year = DateTime.UtcNow.Year;
         var code = await _service.GenerateGoiThauCodeAsync();
-        Assert.Equal($"001/{year}/GT", code);
+        Assert.Equal($"GT-{year}-001", code);
     }
 
     [Fact]
@@ -54,7 +46,7 @@ public class CodeGeneratorServiceTests
     {
         var year = DateTime.UtcNow.Year;
         var code = await _service.GenerateHopDongCodeAsync();
-        Assert.Equal($"001/{year}/HĐ", code);
+        Assert.Equal($"HD-{year}-001", code);
     }
 
     [Fact]
@@ -66,20 +58,20 @@ public class CodeGeneratorServiceTests
         await _context.SaveChangesAsync();
 
         var code1 = await _service.GenerateDotThanhToanCodeAsync(hopDongId);
-        Assert.Equal($"01/{year}/TT-HD017", code1);
+        Assert.Equal($"TT-017-{year}-HĐ-01", code1);
     }
 
     [Fact]
     public async Task GenerateDoiTacCode_ReturnsFormattedCode()
     {
         var code = await _service.GenerateDoiTacCodeAsync("Công ty CMC");
-        Assert.Equal("NT-CONGTYCMC", code);
+        Assert.Equal("NT-CTC", code);
     }
 
     [Fact]
     public async Task GenerateNguonVonCode_ReturnsFormattedCode()
     {
         var code = await _service.GenerateNguonVonCodeAsync("Ngân sách nhà nước");
-        Assert.Equal("NV-NGANSACHNHANUOC", code);
+        Assert.Equal("NV-NSNN", code);
     }
 }

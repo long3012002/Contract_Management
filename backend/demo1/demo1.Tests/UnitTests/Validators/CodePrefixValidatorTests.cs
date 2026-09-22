@@ -7,12 +7,11 @@ namespace demo1.Tests.UnitTests.Validators;
 public class CodePrefixValidatorTests
 {
     [Theory]
-    [InlineData("001/2026/DAN", 1)]
-    [InlineData("002/2026/DATK", 2)]
-    [InlineData("CUSTOM_CODE_123", 1)]
-    public void ValidateDuAnCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode, int loaiDuAn)
+    [InlineData("DAN-2026-001")]
+    [InlineData("CUSTOM_CODE_123")]
+    public void ValidateDuAnCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode)
     {
-        var exception = Record.Exception(() => CodePrefixValidator.ValidateDuAnCode(inputCode, loaiDuAn));
+        var exception = Record.Exception(() => CodePrefixValidator.ValidateDuAnCode(inputCode));
         Assert.Null(exception);
     }
 
@@ -22,11 +21,11 @@ public class CodePrefixValidatorTests
     [InlineData(null)]
     public void ValidateDuAnCode_EmptyOrNullCode_ThrowsArgumentException(string? inputCode)
     {
-        Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateDuAnCode(inputCode, 1));
+        Assert.Throws<ArgumentException>(() => CodePrefixValidator.ValidateDuAnCode(inputCode));
     }
 
     [Theory]
-    [InlineData("002/2026/GT")]
+    [InlineData("GT-2026-001")]
     [InlineData("CUSTOM_GT")]
     public void ValidateGoiThauCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode)
     {
@@ -44,7 +43,7 @@ public class CodePrefixValidatorTests
     }
 
     [Theory]
-    [InlineData("017/2026/HĐ")]
+    [InlineData("HD-2026-001")]
     [InlineData("CUSTOM_HD")]
     public void ValidateHopDongCode_ValidNonEmptyCodes_DoesNotThrow(string inputCode)
     {

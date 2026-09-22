@@ -334,6 +334,108 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return results;
     }
 
+    public override async Task<bool> UpdateAsync(Guid id, UpdateDuAnDto dto)
+    {
+        var entity = await DbSet
+            .Include(d => d.PhanKyVons)
+            .Include(d => d.DanhSachNguonVon)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (entity == null) return false;
+
+        await _securityService.EnsureUserHasProjectAccessAsync(entity, "UPDATE");
+
+        var phanKyDtos = dto.PhanKyVons;
+        var nguonVonDtos = dto.DanhSachNguonVon;
+
+        dto.PhanKyVons = null;
+        dto.DanhSachNguonVon = null;
+
+        Mapper.Map(dto, entity);
+
+        if (phanKyDtos != null)
+        {
+            decimal duToan = entity.DuToanPheDuyet;
+            var incomingYears = phanKyDtos.Select(x => x.Nam).ToHashSet();
+
+            // Delete items no longer present in DTO
+            var toDelete = entity.PhanKyVons.Where(x => !incomingYears.Contains(x.Nam)).ToList();
+            foreach (var item in toDelete)
+            {
+                DbContext.DuAnPhanKyVons.Remove(item);
+                entity.PhanKyVons.Remove(item);
+            }
+
+            // Update existing or add new items
+            foreach (var pkDto in phanKyDtos)
+            {
+                decimal percent = duToan > 0 ? Math.Round((pkDto.SoTienPhanKy / duToan) * 100, 2) : 0;
+                var existing = entity.PhanKyVons.FirstOrDefault(x => x.Nam == pkDto.Nam);
+                if (existing != null)
+                {
+                    existing.SoTienPhanKy = pkDto.SoTienPhanKy;
+                    existing.TyLePercent = percent;
+                    existing.GhiChu = pkDto.GhiChu;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    var newPk = new DuAnPhanKyVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = entity.Id,
+                        Nam = pkDto.Nam,
+                        SoTienPhanKy = pkDto.SoTienPhanKy,
+                        TyLePercent = percent,
+                        GhiChu = pkDto.GhiChu,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    DbContext.DuAnPhanKyVons.Add(newPk);
+                }
+            }
+        }
+
+        if (nguonVonDtos != null)
+        {
+            var incomingKeys = nguonVonDtos.Select(x => (x.NguonVonId, x.Nam)).ToHashSet();
+
+            var toDelete = entity.DanhSachNguonVon.Where(x => !incomingKeys.Contains((x.NguonVonId, x.Nam))).ToList();
+            foreach (var item in toDelete)
+            {
+                DbContext.DuAnNguonVons.Remove(item);
+                entity.DanhSachNguonVon.Remove(item);
+            }
+
+            foreach (var nvDto in nguonVonDtos)
+            {
+                var existing = entity.DanhSachNguonVon.FirstOrDefault(x => x.NguonVonId == nvDto.NguonVonId && x.Nam == nvDto.Nam);
+                if (existing != null)
+                {
+                    existing.SoTien = nvDto.SoTien;
+                    existing.GhiChu = nvDto.GhiChu;
+                }
+                else
+                {
+                    var newNv = new DuAnNguonVon
+                    {
+                        Id = Guid.NewGuid(),
+                        DuAnId = entity.Id,
+                        NguonVonId = nvDto.NguonVonId,
+                        Nam = nvDto.Nam,
+                        SoTien = nvDto.SoTien,
+                        GhiChu = nvDto.GhiChu,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    DbContext.DuAnNguonVons.Add(newNv);
+                }
+            }
+        }
+
+        entity.UpdatedAt = DateTime.UtcNow;
+        await DbContext.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<DuAnDto> AdvanceStatusAsync(Guid id)
     {
         var entity = await DbSet.FirstOrDefaultAsync(d => d.Id == id);

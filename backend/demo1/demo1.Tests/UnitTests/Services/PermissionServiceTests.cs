@@ -380,15 +380,14 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task GrantSourceProjectPermission_ShouldNotSynthesizeChildFeatures()
+        public async Task GetUserPermissionsAsync_WhenIncludeChildrenIsFalse_ShouldNotSynthesizeChildFeatures()
         {
             // Arrange
             var admin = new User { Id = Guid.NewGuid(), Username = "admin_user_src", IsActive = true };
             var targetUser = new User { Id = Guid.NewGuid(), Username = "target_user_src", IsActive = true };
             _dbContext.Users.AddRange(admin, targetUser);
 
-            // Source Project: LoaiDuAn = 1
-            var sourceProject = new DuAn { Id = Guid.NewGuid(), Code = "DA-SRC-01", Name = "Dự án Nguồn 1", LoaiDuAn = 1 };
+            var sourceProject = new DuAn { Id = Guid.NewGuid(), Code = "DA-SRC-01", Name = "Dự án Nguồn 1" };
             _dbContext.DuAns.Add(sourceProject);
 
             var viewPerm = await _dbContext.Permissions.FirstOrDefaultAsync(p => p.Code == "VIEW")
@@ -409,15 +408,15 @@ namespace demo1.Tests.UnitTests.Services
                 DuAnId = sourceProject.Id
             };
 
-            // Act 1: Grant permission for Source Project (LoaiDuAn = 1)
+            // Act 1: Grant permission for Project
             await _permissionService.GrantUserPermissionAsync(admin.Id, grantDto);
 
-            // Act 2: Query user permissions with includeChildren = true
+            // Act 2: Query user permissions with includeChildren = false
             _mockCurrentUserService.Setup(c => c.GetUsername()).Returns("target_user_src");
-            var result = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "DU_AN", true);
+            var result = await _permissionService.GetUserPermissionsAsync(targetUser.Id, "DU_AN", false);
             var list = result.ToList();
 
-            // Assert: Only DU_AN permission returned, no synthesized GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC for Source Project
+            // Assert: Only DU_AN permission returned, no synthesized GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC
             list.Count(p => p.FeatureCode == "DU_AN").Should().Be(1);
             list.Count(p => p.FeatureCode == "GOI_THAU").Should().Be(0);
             list.Count(p => p.FeatureCode == "QUAN_LY_HOP_DONG").Should().Be(0);

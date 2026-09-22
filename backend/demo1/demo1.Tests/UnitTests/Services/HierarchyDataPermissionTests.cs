@@ -104,7 +104,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-SUBORDINATE",
                 Name = "Dự án do Chuyên viên tạo",
-                LoaiDuAn = 1,
                 CreatedByUserId = _specialistUser.Id,
                 ChuDuAnId = _specialistUser.Id
             };
@@ -137,7 +136,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-MANAGER",
                 Name = "Dự án do Trưởng phòng tạo",
-                LoaiDuAn = 1,
                 CreatedByUserId = _managerUser.Id,
                 ChuDuAnId = _managerUser.Id
             };
@@ -163,7 +161,6 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-SUB-2",
                 Name = "Dự án Gói thầu cấp dưới",
-                LoaiDuAn = 1,
                 CreatedByUserId = _specialistUser.Id
             };
             var goiThau = new GoiThau
