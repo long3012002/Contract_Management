@@ -741,6 +741,57 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return items;
     }
 
+    public override async Task<bool> DeleteAsync(Guid id)
+    {
+        var entity = await DbSet.FirstOrDefaultAsync(d => d.Id == id);
+        if (entity == null) return false;
+
+        await _securityService.EnsureUserHasProjectAccessAsync(entity, "DELETE");
+        return await _cascadeService.DeleteAsync(id);
+    }
+
+    public override async Task<bool> SoftDeleteAsync(Guid id)
+    {
+        return await SoftDeleteAsync(new[] { id });
+    }
+
+    public override async Task<bool> SoftDeleteAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList == null || !idList.Any()) return false;
+
+        var entities = await DbSet.Where(d => idList.Contains(d.Id)).ToListAsync();
+        if (!entities.Any()) return false;
+
+        foreach (var entity in entities)
+        {
+            await _securityService.EnsureUserHasProjectAccessAsync(entity, "DELETE");
+        }
+
+        return await _cascadeService.SoftDeleteAsync(idList);
+    }
+
+    public override async Task<bool> RestoreAsync(Guid id)
+    {
+        return await RestoreAsync(new[] { id });
+    }
+
+    public override async Task<bool> RestoreAsync(IEnumerable<Guid> ids)
+    {
+        var idList = ids?.Where(i => i != Guid.Empty).Distinct().ToList();
+        if (idList == null || !idList.Any()) return false;
+
+        var entities = await DbSet.IgnoreQueryFilters().Where(d => idList.Contains(d.Id) && d.IsDeleted).ToListAsync();
+        if (!entities.Any()) return false;
+
+        foreach (var entity in entities)
+        {
+            await _securityService.EnsureUserHasProjectAccessAsync(entity, "DELETE");
+        }
+
+        return await _cascadeService.RestoreAsync(idList);
+    }
+
     private static IQueryable<DuAn> ApplySearchFilter(IQueryable<DuAn> query, string keyword)
     {
         return query.Where(item =>

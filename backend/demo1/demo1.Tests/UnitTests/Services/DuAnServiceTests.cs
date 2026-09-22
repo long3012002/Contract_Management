@@ -11,6 +11,7 @@ using demo1.Tests.Helpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -353,6 +354,65 @@ namespace demo1.Tests.UnitTests.Services
             Func<Task> act = async () => await _duAnService.CloseProjectAsync(project.Id);
             await act.Should().ThrowAsync<UnauthorizedAccessException>()
                 .WithMessage("Bạn không có quyền thực hiện thao tác trên dự án này.");
+        }
+
+        [Theory]
+        [InlineData((int)TrangThaiDuAn.Draft)]
+        [InlineData((int)TrangThaiDuAn.Approved)]
+        [InlineData((int)TrangThaiDuAn.Implementing)]
+        [InlineData((int)TrangThaiDuAn.Completed)]
+        [InlineData((int)TrangThaiDuAn.Merged)]
+        public async Task DeleteAsync_Should_Delete_Project_Regardless_Of_TrangThai(int trangThai)
+        {
+            var user = new User { Id = Guid.NewGuid(), Username = "test_admin", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = $"DA-STATUS-{trangThai}",
+                Name = $"Dự án trạng thái {trangThai}",
+                TrangThai = trangThai,
+                CreatedByUserId = user.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            var result = await _duAnService.DeleteAsync(project.Id);
+
+            result.Should().BeTrue();
+            var deletedProject = await _dbContext.DuAns.FindAsync(project.Id);
+            deletedProject.Should().BeNull();
+        }
+
+        [Theory]
+        [InlineData((int)TrangThaiDuAn.Draft)]
+        [InlineData((int)TrangThaiDuAn.Approved)]
+        [InlineData((int)TrangThaiDuAn.Implementing)]
+        [InlineData((int)TrangThaiDuAn.Completed)]
+        [InlineData((int)TrangThaiDuAn.Merged)]
+        public async Task SoftDeleteAsync_Should_SoftDelete_Project_Regardless_Of_TrangThai(int trangThai)
+        {
+            var user = new User { Id = Guid.NewGuid(), Username = "test_admin", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = $"DA-SOFT-{trangThai}",
+                Name = $"Dự án xóa mềm trạng thái {trangThai}",
+                TrangThai = trangThai,
+                CreatedByUserId = user.Id
+            };
+            _dbContext.DuAns.Add(project);
+            await _dbContext.SaveChangesAsync();
+
+            var result = await _duAnService.SoftDeleteAsync(project.Id);
+
+            result.Should().BeTrue();
+            var softDeletedProject = await _dbContext.DuAns.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.Id == project.Id);
+            softDeletedProject.Should().NotBeNull();
+            softDeletedProject!.IsDeleted.Should().BeTrue();
         }
 
         public void Dispose()
