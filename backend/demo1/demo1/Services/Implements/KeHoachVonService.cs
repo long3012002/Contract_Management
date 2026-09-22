@@ -84,8 +84,18 @@ public class KeHoachVonService : IKeHoachVonService
         return entity == null ? null : MapToDto(entity);
     }
 
-    public async Task<KeHoachVonDto> CreateAsync(CreateKeHoachVonDto dto, Guid currentUserId)
+    public async Task<KeHoachVonDto> CreateAsync(CreateKeHoachVonDto dto, Guid? currentUserId)
     {
+        Guid? validUserId = null;
+        if (currentUserId.HasValue && currentUserId.Value != Guid.Empty)
+        {
+            var userExists = await _context.Users.AnyAsync(u => u.Id == currentUserId.Value);
+            if (userExists)
+            {
+                validUserId = currentUserId.Value;
+            }
+        }
+
         var entity = new KeHoachVon
         {
             NamKeHoach = dto.NamKeHoach,
@@ -94,7 +104,7 @@ public class KeHoachVonService : IKeHoachVonService
             TrangThai = 3, // Mặc định Đã duyệt (vì thông tin nhập vào là dữ liệu đã được phê duyệt)
             SoQuyetDinh = dto.SoQuyetDinh,
             GhiChu = dto.GhiChu,
-            CreatedByUserId = currentUserId,
+            CreatedByUserId = validUserId,
             CreatedAt = DateTime.UtcNow
         };
 
