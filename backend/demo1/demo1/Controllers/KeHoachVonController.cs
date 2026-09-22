@@ -67,8 +67,16 @@ public class KeHoachVonController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<KeHoachVonDto>> Create([FromBody] CreateKeHoachVonDto dto)
     {
-        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        Guid.TryParse(currentUserIdStr, out var currentUserId);
+        var currentUserIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(ClaimTypes.Name)
+            ?? User.FindFirst("sub")?.Value
+            ?? User.FindFirst("id")?.Value;
+
+        Guid? currentUserId = null;
+        if (Guid.TryParse(currentUserIdStr, out var parsedId) && parsedId != Guid.Empty)
+        {
+            currentUserId = parsedId;
+        }
 
         var result = await _keHoachVonService.CreateAsync(dto, currentUserId);
         return Ok(result);
