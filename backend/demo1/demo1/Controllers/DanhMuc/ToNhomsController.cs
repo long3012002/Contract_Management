@@ -13,6 +13,7 @@ namespace demo1.Controllers
     /// API Quản lý Danh mục Tổ nhóm thuộc phòng ban.
     /// </summary>
     [Authorize]
+    [FeatureAuthorize("DANH_MUC")]
     [ApiController]
     [Route("api/DanhMuc/to-nhom")]
     public class ToNhomsController : ControllerBase

@@ -14,6 +14,7 @@ namespace demo1.Controllers;
 /// API Quản lý Hợp nhất Hàng hóa - Dịch vụ - License (Hỗ trợ tra cứu có bộ lọc động theo Loại hoặc Lấy tất cả).
 /// </summary>
 [Authorize]
+[FeatureAuthorize("DANH_MUC")]
 [Route("api/NghiepVu/hang-hoa-dich-vu")]
 public class HangHoaDichVusController : CrudControllerBase<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {

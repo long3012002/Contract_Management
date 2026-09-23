@@ -15,6 +15,7 @@ namespace demo1.Controllers;
 /// </summary>
 [Route("api/NghiepVu/ke-hoach-von")]
 [Authorize]
+[FeatureAuthorize("KE_HOACH_VON")]
 [ApiController]
 public class KeHoachVonController : ControllerBase
 {

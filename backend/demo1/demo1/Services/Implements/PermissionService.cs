@@ -645,7 +645,9 @@ namespace demo1.Services.Implements
                         (normalizedFeatureCode == "CONG_VIEC" && (up.FeatureCode == "TASK" || up.FeatureCode == "CONGVIEC" || up.FeatureCode == "CONG_VIEC" || up.FeatureCode == "DU_AN" || up.FeatureCode == "PROJECT" || up.FeatureCode == "DUAN")) ||
                         (normalizedFeatureCode == "LICENSE" && (up.FeatureCode == "BAN_QUYEN" || up.FeatureCode == "LICENSE")) ||
                         (normalizedFeatureCode == "DOI_TAC" && (up.FeatureCode == "PARTNER" || up.FeatureCode == "DOI_TAC")) ||
-                        (normalizedFeatureCode == "BAO_CAO" && (up.FeatureCode == "REPORT" || up.FeatureCode == "BAO_CAO"))
+                        (normalizedFeatureCode == "BAO_CAO" && (up.FeatureCode == "REPORT" || up.FeatureCode == "BAO_CAO" || up.FeatureCode.StartsWith("BAO_CAO_"))) ||
+                        (normalizedFeatureCode == "KE_HOACH_VON" && (up.FeatureCode == "KEHOACHVON" || up.FeatureCode == "KE_HOACH_VON" || up.FeatureCode == "CAP_VON")) ||
+                        (normalizedFeatureCode == "DANH_MUC" && (up.FeatureCode == "DANHMUC" || up.FeatureCode == "DANH_MUC" || up.FeatureCode == "CATEGORY"))
                     );
                 }
             }
@@ -1030,6 +1032,35 @@ namespace demo1.Services.Implements
 
         public async Task<IEnumerable<FeatureCatalogDto>> GetFeatureCatalogAsync()
         {
+            var dbFeatures = await _context.Features.AsNoTracking()
+                .Where(f => f.IsActive)
+                .OrderBy(f => f.SortOrder)
+                .ToListAsync();
+
+            if (dbFeatures.Any())
+            {
+                var dtos = dbFeatures.Select(f => new FeatureCatalogDto
+                {
+                    FeatureId = f.Id,
+                    FeatureCode = f.Code,
+                    FeatureName = f.Name,
+                    Description = f.Description,
+                    ParentCode = f.ParentCode,
+                    SortOrder = f.SortOrder,
+                    Aliases = GetAliasesForFeature(f.Code)
+                }).ToList();
+
+                // Build tree hierarchy
+                var parentMap = dtos.Where(d => string.IsNullOrEmpty(d.ParentCode)).ToList();
+                foreach (var parent in parentMap)
+                {
+                    parent.Children = dtos.Where(d => string.Equals(d.ParentCode, parent.Code, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+
+                return dtos;
+            }
+
+            // Fallback comprehensive catalog
             var features = new List<FeatureCatalogDto>
             {
                 new FeatureCatalogDto
@@ -1037,53 +1068,104 @@ namespace demo1.Services.Implements
                     Code = "DU_AN",
                     Name = "Quản lý Dự án",
                     Description = "Tính năng quản lý thông tin các dự án công nghệ thông tin và đầu tư",
-                    Aliases = new List<string> { "PROJECT", "PROJECTS", "DUAN" }
+                    SortOrder = 10,
+                    Aliases = GetAliasesForFeature("DU_AN")
                 },
                 new FeatureCatalogDto
                 {
                     Code = "GOI_THAU",
                     Name = "Quản lý Gói thầu",
                     Description = "Tính năng quản lý các gói thầu và công việc liên quan trong dự án",
-                    Aliases = new List<string> { "PACKAGE", "PACKAGES", "GOITHAU" }
+                    SortOrder = 20,
+                    Aliases = GetAliasesForFeature("GOI_THAU")
                 },
                 new FeatureCatalogDto
                 {
                     Code = "QUAN_LY_HOP_DONG",
                     Name = "Quản lý Hợp đồng",
                     Description = "Tính năng quản lý hợp đồng, giá trị hợp đồng, phụ lục và đợt thanh toán",
-                    Aliases = new List<string> { "CONTRACT", "CONTRACTS", "HOPDONG", "HOP_DONG", "QUANLYHOPDONG" }
+                    SortOrder = 30,
+                    Aliases = GetAliasesForFeature("QUAN_LY_HOP_DONG")
                 },
                 new FeatureCatalogDto
                 {
                     Code = "CONG_VIEC",
                     Name = "Quản lý Công việc",
                     Description = "Tính năng quản lý chi tiết các hạng mục công việc gói thầu",
-                    Aliases = new List<string> { "TASK", "TASKS", "CONGVIEC" }
+                    SortOrder = 35,
+                    Aliases = GetAliasesForFeature("CONG_VIEC")
                 },
                 new FeatureCatalogDto
                 {
                     Code = "DOI_TAC",
                     Name = "Quản lý Đối tác / Nhà thầu",
                     Description = "Tính năng quản lý thông tin nhà thầu, đối tác cung cấp dịch vụ",
-                    Aliases = new List<string> { "PARTNER", "PARTNERS", "DOITAC" }
+                    SortOrder = 40,
+                    Aliases = GetAliasesForFeature("DOI_TAC")
                 },
                 new FeatureCatalogDto
                 {
-                    Code = "BAO_CAO",
-                    Name = "Báo cáo & Thống kê",
-                    Description = "Tính năng tổng hợp báo cáo tình hình dự án, hợp đồng và tiến độ",
-                    Aliases = new List<string> { "REPORT", "REPORTS", "BAOCAO" }
+                    Code = "KE_HOACH_VON",
+                    Name = "Kế hoạch vốn",
+                    Description = "Tính năng quản lý kế hoạch vốn đầu tư và phân kỳ vốn",
+                    SortOrder = 45,
+                    Aliases = GetAliasesForFeature("KE_HOACH_VON")
                 },
                 new FeatureCatalogDto
                 {
                     Code = "LICENSE",
                     Name = "Quản lý Bản quyền / License",
                     Description = "Tính năng quản lý thông tin bản quyền phần mềm, hạn sử dụng license",
-                    Aliases = new List<string> { "LICENSES", "BANQUYEN", "BAN_QUYEN" }
+                    SortOrder = 46,
+                    Aliases = GetAliasesForFeature("LICENSE")
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "DANH_MUC",
+                    Name = "Quản lý Danh mục dữ liệu",
+                    Description = "Tính năng quản lý các danh mục dữ liệu dùng chung",
+                    SortOrder = 50,
+                    Aliases = GetAliasesForFeature("DANH_MUC")
+                },
+                new FeatureCatalogDto
+                {
+                    Code = "BAO_CAO",
+                    Name = "Báo cáo & Thống kê",
+                    Description = "Tính năng tổng hợp báo cáo tình hình dự án, hợp đồng và tiến độ",
+                    SortOrder = 60,
+                    Aliases = GetAliasesForFeature("BAO_CAO"),
+                    Children = new List<FeatureCatalogDto>
+                    {
+                        new FeatureCatalogDto { Code = "BAO_CAO_TIEN_DO", Name = "Báo cáo 1: Tiến độ Dự án", Description = "Báo cáo trình tự thực hiện các công việc thuộc gói thầu và dự án", ParentCode = "BAO_CAO", SortOrder = 61 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_VON", Name = "Báo cáo 2: Phân bổ & Vốn", Description = "Báo cáo kế hoạch vốn đầu tư, mua sắm và phân kỳ vốn CNTT", ParentCode = "BAO_CAO", SortOrder = 62 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_DAU_THAU", Name = "Báo cáo 3: Nhà thầu (LCNT)", Description = "Báo cáo kế hoạch và kết quả lựa chọn nhà thầu", ParentCode = "BAO_CAO", SortOrder = 63 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_HOP_DONG", Name = "Báo cáo 4: Quản lý Hợp đồng", Description = "Báo cáo theo dõi chi tiết tình hình thực hiện hợp đồng", ParentCode = "BAO_CAO", SortOrder = 64 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_THANH_TOAN", Name = "Báo cáo 5: Đợt thanh toán", Description = "Báo cáo theo dõi giải ngân và các đợt thanh toán hợp đồng", ParentCode = "BAO_CAO", SortOrder = 65 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_DU_AN_THAU", Name = "Báo cáo 6: TT Dự án thầu", Description = "Báo cáo tiến độ thanh toán tổng hợp các dự án thầu", ParentCode = "BAO_CAO", SortOrder = 66 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_DAU_TU", Name = "Báo cáo Tổng hợp Đầu tư", Description = "Báo cáo tổng hợp tình hình thực hiện kinh phí đầu tư", ParentCode = "BAO_CAO", SortOrder = 67 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_PHE_DUYET", Name = "Danh mục Dự án phê duyệt", Description = "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", ParentCode = "BAO_CAO", SortOrder = 68 }
+                    }
                 }
             };
 
-            return await Task.FromResult(features);
+            return features;
+        }
+
+        private static List<string> GetAliasesForFeature(string code)
+        {
+            return code switch
+            {
+                "DU_AN" => new List<string> { "PROJECT", "PROJECTS", "DUAN" },
+                "GOI_THAU" => new List<string> { "PACKAGE", "PACKAGES", "GOITHAU" },
+                "QUAN_LY_HOP_DONG" => new List<string> { "CONTRACT", "CONTRACTS", "HOPDONG", "HOP_DONG", "QUANLYHOPDONG" },
+                "CONG_VIEC" => new List<string> { "TASK", "TASKS", "CONGVIEC" },
+                "DOI_TAC" => new List<string> { "PARTNER", "PARTNERS", "DOITAC" },
+                "DANH_MUC" => new List<string> { "DANHMUC", "CATEGORY", "CATEGORIES" },
+                "LICENSE" => new List<string> { "LICENSES", "BANQUYEN", "BAN_QUYEN" },
+                "KE_HOACH_VON" => new List<string> { "KEHOACHVON", "CAP_VON" },
+                "BAO_CAO" => new List<string> { "REPORT", "REPORTS", "BAOCAO" },
+                _ => new List<string>()
+            };
         }
 
         public static string NormalizeFeatureCode(string? featureCode)
@@ -1098,7 +1180,9 @@ namespace demo1.Services.Implements
                 "TASK" or "TASKS" or "CONGVIEC" => "CONG_VIEC",
                 "PARTNER" or "PARTNERS" or "DOITAC" => "DOI_TAC",
                 "REPORT" or "REPORTS" or "BAOCAO" => "BAO_CAO",
-                "LICENSE" or "LICENSES" or "BANQUYEN" => "LICENSE",
+                "LICENSE" or "LICENSES" or "BANQUYEN" or "BAN_QUYEN" => "LICENSE",
+                "KEHOACHVON" or "KE_HOACH_VON" or "CAP_VON" => "KE_HOACH_VON",
+                "CATEGORY" or "CATEGORIES" or "DANHMUC" or "DANH_MUC" => "DANH_MUC",
                 _ => code
             };
         }

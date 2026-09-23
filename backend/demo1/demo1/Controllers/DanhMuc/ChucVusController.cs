@@ -12,6 +12,7 @@ namespace demo1.Controllers
     /// API Quản lý Danh mục Chức vụ (Chuyên viên, Trưởng phòng, Giám đốc, Ban quản lý...).
     /// </summary>
     [Authorize]
+    [FeatureAuthorize("DANH_MUC")]
     [ApiController]
     [Route("api/DanhMuc/chuc-vu")]
     public class ChucVusController : ControllerBase

@@ -1,12 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
-using demo1.Data;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Http;
-
+using demo1.Data;
 using demo1.Services.Implements;
 using demo1.Entity;
 
@@ -25,11 +26,13 @@ namespace demo1.Controllers
     {
         private readonly string _featureCode;
         private readonly AppDbContext _dbContext;
+        private readonly IMemoryCache? _cache;
 
-        public FeatureAuthorizeFilter(string featureCode, AppDbContext dbContext)
+        public FeatureAuthorizeFilter(string featureCode, AppDbContext dbContext, IMemoryCache? cache = null)
         {
             _featureCode = PermissionService.NormalizeFeatureCode(featureCode);
             _dbContext = dbContext;
+            _cache = cache;
         }
 
         public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
@@ -48,7 +51,7 @@ namespace demo1.Controllers
                 return;
             }
 
-            var dbUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+            var dbUser = await GetUserByUsernameAsync(username);
             if (dbUser == null)
             {
                 context.Result = new ForbidResult();
@@ -125,12 +128,55 @@ namespace demo1.Controllers
                 }
             }
 
-            // 1. GET requests: check if they are project owner/related user, or if they have VIEW permission
+            // 1. GET requests
             if (httpMethod == "GET")
             {
+                // Danh mục (Lookup / Category catalogs) is read-accessible to all authenticated users
+                if (_featureCode == "DANH_MUC")
+                {
+                    return;
+                }
+
+                // Listing endpoint: Check if user has ANY access on this feature before letting request proceed
                 if (string.IsNullOrEmpty(entityId))
                 {
-                    return; // Listing endpoint, handled by service-level filtering
+                    if (await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
+                    {
+                        return;
+                    }
+
+                    var validCodesForListing = GetEquivalentFeatureCodes(_featureCode);
+                    var hasAnyUserPerm = await _dbContext.UserPermissions.AsNoTracking()
+                        .AnyAsync(up => up.UserId == dbUser.Id && validCodesForListing.Contains(up.FeatureCode));
+                    if (hasAnyUserPerm)
+                    {
+                        return;
+                    }
+
+                    if (await IsProjectOwnerAnywhereAsync(dbUser.Id))
+                    {
+                        return;
+                    }
+
+                    var isStakeholderAnywhere = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                        .AnyAsync(n => n.UserId == dbUser.Id);
+                    if (isStakeholderAnywhere)
+                    {
+                        return;
+                    }
+
+                    context.Result = new JsonResult(new
+                    {
+                        Message = "Bạn không có quyền truy cập tính năng này. Vui lòng liên hệ quản trị viên.",
+                        RequiresPermissionRequest = true,
+                        FeatureCode = _featureCode,
+                        EntityId = string.Empty,
+                        RequiredPermissionCode = "VIEW"
+                    })
+                    {
+                        StatusCode = StatusCodes.Status403Forbidden
+                    };
+                    return;
                 }
 
                 if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId))
@@ -141,83 +187,54 @@ namespace demo1.Controllers
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
                 var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
 
-                // Check if user has specific entity-level UserPermissions assigned for this project/entity
-                var hasEntitySpecificUserPermissions = await _dbContext.UserPermissions
+                // Additive Union: Check UserPermissions
+                var hasViewUserPerm = await _dbContext.UserPermissions
                     .AsNoTracking()
+                    .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
+                            validCodes.Contains(up.FeatureCode) ||
+                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                        ) &&
+                        (
                             up.EntityId == entityId ||
                             (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ));
+                        ) &&
+                        up.Permission != null && validViewActions.Contains(up.Permission.Code));
 
-                if (hasEntitySpecificUserPermissions)
+                if (hasViewUserPerm)
                 {
-                    // SCOPED OVERRIDE: User has specific entity-level UserPermissions (e.g. Tab Thành viên Dự án).
-                    // Must evaluate ONLY based on these entity-level UserPermissions. Do NOT check RolePermissions.
-                    var hasViewPermission = await _dbContext.UserPermissions
-                        .AsNoTracking()
-                        .Include(up => up.Permission)
-                        .AnyAsync(up =>
-                            up.UserId == dbUser.Id &&
-                            (
-                                validCodes.Contains(up.FeatureCode) ||
-                                (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                            ) &&
-                            (
-                                up.EntityId == entityId ||
-                                (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                            ) &&
-                            up.Permission != null && validViewActions.Contains(up.Permission.Code));
-
-                    if (!hasViewPermission)
-                    {
-                        if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
-                        {
-                            return;
-                        }
-
-                        context.Result = new JsonResult(new
-                        {
-                            Message = "Bạn không có quyền xem bản ghi này. Vui lòng liên hệ chủ dự án hoặc quản trị viên.",
-                            RequiresPermissionRequest = true,
-                            FeatureCode = _featureCode,
-                            EntityId = entityId,
-                            RequiredPermissionCode = "VIEW"
-                        })
-                        {
-                            StatusCode = StatusCodes.Status403Forbidden
-                        };
-                        return;
-                    }
                     return;
                 }
 
-                // Fallback to RolePermission if user does NOT have specific UserPermissions for this entity
-                if (!await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
+                // Additive Union: Check RolePermissions
+                if (await HasRolePermissionAsync(dbUser.Id, _featureCode, "VIEW"))
                 {
-                    if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
-                    {
-                        return;
-                    }
-
-                    context.Result = new JsonResult(new
-                    {
-                        Message = "Bạn không có quyền xem bản ghi này. Vui lòng liên hệ chủ dự án hoặc quản trị viên.",
-                        RequiresPermissionRequest = true,
-                        FeatureCode = _featureCode,
-                        EntityId = entityId,
-                        RequiredPermissionCode = "VIEW"
-                    })
-                    {
-                        StatusCode = StatusCodes.Status403Forbidden
-                    };
                     return;
                 }
+
+                // Additive Union: Check hierarchical position level
+                if (await IsCreatedByLowerOrEqualPositionUserAsync(dbUser, entityId))
+                {
+                    return;
+                }
+
+                context.Result = new JsonResult(new
+                {
+                    Message = "Bạn không có quyền xem bản ghi này. Vui lòng liên hệ chủ dự án hoặc quản trị viên.",
+                    RequiresPermissionRequest = true,
+                    FeatureCode = _featureCode,
+                    EntityId = entityId,
+                    RequiredPermissionCode = "VIEW"
+                })
+                {
+                    StatusCode = StatusCodes.Status403Forbidden
+                };
                 return;
             }
 
-            // Requirement: Creating new items requires explicit CREATE UserPermission for the feature OR being Project Owner OR RolePermission
+            // 2. POST requests: Additive Union (UserPermission OR RolePermission OR Project Owner)
             if (httpMethod == "POST")
             {
                 if (!string.IsNullOrEmpty(entityId) && await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId, isReadOnlyCheck: true))
@@ -232,34 +249,35 @@ namespace demo1.Controllers
                 var requiredPermCode = "CREATE";
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
-                // Composite Index Lookup on UserPermissions + Permission Catalog Code + DuAnId check if available
                 var hasPermission = await _dbContext.UserPermissions
                     .AsNoTracking()
                     .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         validCodes.Contains(up.FeatureCode) &&
-                        (!duAnId.HasValue || up.DuAnId == duAnId.Value) &&
+                        (!duAnId.HasValue || up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()) &&
                         up.Permission != null && up.Permission.Code == requiredPermCode);
 
-                if (!hasPermission && !await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
+                if (hasPermission || await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
-                    context.Result = new JsonResult(new
-                    {
-                        Message = "Bạn chưa có quyền tạo mới trên tính năng này. Vui lòng gửi yêu cầu cấp quyền.",
-                        RequiresPermissionRequest = true,
-                        FeatureCode = _featureCode,
-                        EntityId = string.Empty,
-                        RequiredPermissionCode = requiredPermCode
-                    })
-                    {
-                        StatusCode = StatusCodes.Status403Forbidden
-                    };
                     return;
                 }
+
+                context.Result = new JsonResult(new
+                {
+                    Message = "Bạn chưa có quyền tạo mới trên tính năng này. Vui lòng gửi yêu cầu cấp quyền.",
+                    RequiresPermissionRequest = true,
+                    FeatureCode = _featureCode,
+                    EntityId = string.Empty,
+                    RequiredPermissionCode = requiredPermCode
+                })
+                {
+                    StatusCode = StatusCodes.Status403Forbidden
+                };
+                return;
             }
 
-            // Requirement: Editing/Deleting specific record requires explicit UserPermission OR being Project Owner / Related User (for tasks/comments) OR RolePermission
+            // 3. PUT/PATCH/DELETE requests: Additive Union (Project Owner OR UserPermission OR RolePermission)
             if (httpMethod == "PUT" || httpMethod == "PATCH" || httpMethod == "DELETE")
             {
                 if (string.IsNullOrEmpty(entityId))
@@ -269,72 +287,69 @@ namespace demo1.Controllers
 
                 if (await IsProjectOwnerOrRelatedUserAsync(dbUser.Id, entityId, isReadOnlyCheck: false))
                 {
-                    return; // Project Owner or Related User (for assigned task/comment) has operational access
+                    return;
                 }
 
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
-                // Check if user has specific entity-level UserPermissions assigned for this project/entity
-                var hasEntitySpecificUserPermissions = await _dbContext.UserPermissions
+                // Additive Union: Check UserPermissions
+                var hasUserPerm = await _dbContext.UserPermissions
                     .AsNoTracking()
+                    .Include(up => up.Permission)
                     .AnyAsync(up =>
                         up.UserId == dbUser.Id &&
                         (
-                            up.EntityId == entityId ||
-                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ));
+                            (validCodes.Contains(up.FeatureCode) && (up.EntityId == entityId || (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString())))) ||
+                            (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
+                        ) &&
+                        up.Permission != null && (up.Permission.Code == requiredPermCode || up.Permission.Code == "ADMIN"));
 
-                if (hasEntitySpecificUserPermissions)
+                if (hasUserPerm)
                 {
-                    // SCOPED OVERRIDE: User has specific entity-level UserPermissions.
-                    // Must evaluate ONLY based on their entity-level UserPermissions. Do NOT fallback to RolePermissions!
-                    var hasPermission = await _dbContext.UserPermissions
-                        .AsNoTracking()
-                        .Include(up => up.Permission)
-                        .AnyAsync(up =>
-                            up.UserId == dbUser.Id &&
-                            (
-                                (validCodes.Contains(up.FeatureCode) && up.EntityId == entityId) ||
-                                (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
-                            ) &&
-                            up.Permission != null && up.Permission.Code == requiredPermCode);
-
-                    if (!hasPermission)
-                    {
-                        context.Result = new JsonResult(new
-                        {
-                            Message = $"Bạn chưa có quyền { (requiredPermCode == "DELETE" ? "xóa" : "chỉnh sửa") } trên bản ghi này. Vui lòng gửi yêu cầu cấp quyền.",
-                            RequiresPermissionRequest = true,
-                            FeatureCode = _featureCode,
-                            EntityId = entityId,
-                            RequiredPermissionCode = requiredPermCode
-                        })
-                        {
-                            StatusCode = StatusCodes.Status403Forbidden
-                        };
-                        return;
-                    }
                     return;
                 }
 
-                // Fallback to RolePermission if user does NOT have specific UserPermissions for this entity
-                if (!await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
+                // Additive Union: Check RolePermissions
+                if (await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
-                    context.Result = new JsonResult(new
-                    {
-                        Message = $"Bạn chưa có quyền { (requiredPermCode == "DELETE" ? "xóa" : "chỉnh sửa") } trên bản ghi này. Vui lòng gửi yêu cầu cấp quyền.",
-                        RequiresPermissionRequest = true,
-                        FeatureCode = _featureCode,
-                        EntityId = entityId,
-                        RequiredPermissionCode = requiredPermCode
-                    })
-                    {
-                        StatusCode = StatusCodes.Status403Forbidden
-                    };
                     return;
                 }
+
+                context.Result = new JsonResult(new
+                {
+                    Message = $"Bạn chưa có quyền {(requiredPermCode == "DELETE" ? "xóa" : "chỉnh sửa")} trên bản ghi này. Vui lòng gửi yêu cầu cấp quyền.",
+                    RequiresPermissionRequest = true,
+                    FeatureCode = _featureCode,
+                    EntityId = entityId,
+                    RequiredPermissionCode = requiredPermCode
+                })
+                {
+                    StatusCode = StatusCodes.Status403Forbidden
+                };
+                return;
             }
+        }
+
+        private async Task<User?> GetUserByUsernameAsync(string username)
+        {
+            if (_cache == null)
+            {
+                return await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+            }
+
+            var cacheKey = $"auth_user_{username}";
+            if (_cache.TryGetValue(cacheKey, out User? cachedUser) && cachedUser != null)
+            {
+                return cachedUser;
+            }
+
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
+            if (user != null)
+            {
+                _cache.Set(cacheKey, user, TimeSpan.FromSeconds(60));
+            }
+            return user;
         }
 
         private static List<string> GetEquivalentFeatureCodes(string featureCode)
@@ -383,7 +398,6 @@ namespace demo1.Controllers
                     codes.Add("REPORTS");
                     break;
                 case "DANH_MUC":
-                case "CATEGORY":
                     codes.Add("DANH_MUC");
                     codes.Add("DANHMUC");
                     codes.Add("CATEGORY");
@@ -393,6 +407,12 @@ namespace demo1.Controllers
                     codes.Add("LICENSE");
                     codes.Add("LICENSES");
                     codes.Add("BANQUYEN");
+                    codes.Add("BAN_QUYEN");
+                    break;
+                case "KE_HOACH_VON":
+                    codes.Add("KE_HOACH_VON");
+                    codes.Add("KEHOACHVON");
+                    codes.Add("CAP_VON");
                     break;
             }
 
@@ -415,6 +435,18 @@ namespace demo1.Controllers
 
         private async Task<bool> IsProjectOwnerAnywhereAsync(Guid userId)
         {
+            if (_cache != null)
+            {
+                var cacheKey = $"user_is_owner_{userId}";
+                if (_cache.TryGetValue(cacheKey, out bool isOwner))
+                {
+                    return isOwner;
+                }
+                var result = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
+                _cache.Set(cacheKey, result, TimeSpan.FromSeconds(60));
+                return result;
+            }
+
             return await _dbContext.DuAns.AsNoTracking().AnyAsync(da => (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
         }
 
@@ -529,9 +561,8 @@ namespace demo1.Controllers
                 return false;
             }
 
-            var callerChucVu = await _dbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(cv => cv.Id == currentUser.IdChucVu.Value);
-            if (callerChucVu == null) return false;
-            var callerLevel = callerChucVu.Level;
+            var callerLevel = await GetChucVuLevelAsync(currentUser.IdChucVu.Value);
+            if (!callerLevel.HasValue) return false;
 
             Guid? creatorId = null;
             Guid? ownerId = null;
@@ -595,31 +626,74 @@ namespace demo1.Controllers
                     u => u.IdChucVu,
                     cv => cv.Id,
                     (u, cvs) => new { User = u, ChucVu = cvs.FirstOrDefault() })
-                .AnyAsync(x => x.ChucVu != null && x.ChucVu.Level > callerLevel);
+                .AnyAsync(x => x.ChucVu != null && x.ChucVu.Level > callerLevel.Value);
+        }
+
+        private async Task<int?> GetChucVuLevelAsync(Guid chucVuId)
+        {
+            if (_cache != null)
+            {
+                var cacheKey = $"user_chucvu_{chucVuId}";
+                if (_cache.TryGetValue(cacheKey, out int cachedLevel))
+                {
+                    return cachedLevel;
+                }
+                var cv = await _dbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(c => c.Id == chucVuId);
+                if (cv == null) return null;
+                _cache.Set(cacheKey, cv.Level, TimeSpan.FromSeconds(120));
+                return cv.Level;
+            }
+
+            var chucVu = await _dbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(c => c.Id == chucVuId);
+            return chucVu?.Level;
         }
 
         private async Task<bool> HasRolePermissionAsync(Guid userId, string featureCode, string action)
         {
-            var userRoleIds = await _dbContext.UserRoles
-                .AsNoTracking()
-                .Where(ur => ur.UserId == userId)
-                .Select(ur => ur.RoleId)
-                .ToListAsync();
+            List<(string FeatureCode, string Permissions)> rolePerms;
+            var cacheKey = $"user_role_perms_{userId}";
 
-            if (!userRoleIds.Any()) return false;
+            if (_cache != null && _cache.TryGetValue(cacheKey, out List<(string FeatureCode, string Permissions)>? cachedPerms) && cachedPerms != null)
+            {
+                rolePerms = cachedPerms;
+            }
+            else
+            {
+                var userRoleIds = await _dbContext.UserRoles
+                    .AsNoTracking()
+                    .Where(ur => ur.UserId == userId)
+                    .Select(ur => ur.RoleId)
+                    .ToListAsync();
+
+                if (!userRoleIds.Any())
+                {
+                    rolePerms = new List<(string FeatureCode, string Permissions)>();
+                }
+                else
+                {
+                    rolePerms = await _dbContext.RolePermissions
+                        .AsNoTracking()
+                        .Include(rp => rp.Feature)
+                        .Where(rp => userRoleIds.Contains(rp.RoleId) && rp.CanAccess && rp.Feature != null)
+                        .Select(rp => new ValueTuple<string, string>(rp.Feature!.Code.ToUpper(), rp.Permissions ?? ""))
+                        .ToListAsync();
+                }
+
+                if (_cache != null)
+                {
+                    _cache.Set(cacheKey, rolePerms, TimeSpan.FromSeconds(60));
+                }
+            }
+
+            if (!rolePerms.Any()) return false;
 
             var validCodes = GetEquivalentFeatureCodes(featureCode)
                 .Select(c => c.ToUpper())
                 .Distinct()
                 .ToList();
 
-            var rolePerms = await _dbContext.RolePermissions
-                .AsNoTracking()
-                .Include(rp => rp.Feature)
-                .Where(rp => userRoleIds.Contains(rp.RoleId) && rp.CanAccess && rp.Feature != null && validCodes.Contains(rp.Feature.Code.ToUpper()))
-                .ToListAsync();
-
-            if (!rolePerms.Any()) return false;
+            var matchingPerms = rolePerms.Where(rp => validCodes.Contains(rp.FeatureCode)).ToList();
+            if (!matchingPerms.Any()) return false;
 
             if (action.Equals("VIEW", StringComparison.OrdinalIgnoreCase))
             {
@@ -627,7 +701,7 @@ namespace demo1.Controllers
             }
 
             var normAction = action.ToLower();
-            return rolePerms.Any(rp =>
+            return matchingPerms.Any(rp =>
                 !string.IsNullOrWhiteSpace(rp.Permissions) &&
                 rp.Permissions.ToLower().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Any(p => p == normAction || (normAction == "edit" && p == "update") || (normAction == "update" && p == "edit")));

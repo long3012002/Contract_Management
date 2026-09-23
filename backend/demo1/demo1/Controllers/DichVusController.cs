@@ -13,6 +13,7 @@ namespace demo1.Controllers;
 /// API Quản lý Dịch vụ (Danh sách dịch vụ kèm theo hợp đồng/gói thầu, Tạo mới hàng loạt).
 /// </summary>
 [Authorize]
+[FeatureAuthorize("DANH_MUC")]
 [Route("api/NghiepVu/dich-vu")]
 public class DichVusController : CrudControllerBase<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {

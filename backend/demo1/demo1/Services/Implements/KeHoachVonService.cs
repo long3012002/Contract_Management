@@ -187,7 +187,6 @@ public class KeHoachVonService : IKeHoachVonService
                     existingLink.VonDieuLe = item.VonDieuLe;
                     existingLink.QuyDauTuPhatTrien = item.QuyDauTuPhatTrien;
                     existingLink.GhiChu = item.GhiChu;
-                    existingLink.UpdatedAt = DateTime.UtcNow;
                 }
                 else
                 {

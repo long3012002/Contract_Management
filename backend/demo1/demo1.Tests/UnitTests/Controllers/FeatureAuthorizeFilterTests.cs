@@ -309,9 +309,10 @@ namespace demo1.Tests.UnitTests.Controllers
         }
 
         [Fact]
-        public async Task Project_PUT_Should_Return_403_When_UserPermission_Is_View_Only_Even_If_Role_Has_Edit()
+        public async Task Project_PUT_Should_PassThrough_When_User_Has_Role_Edit_Even_If_UserPermission_Is_View()
         {
-            // Arrange: Role has EDIT permission, BUT user has explicit entity-level UserPermission with VIEW only
+            // Arrange: Additive Union -> Role has EDIT permission, and user has entity-level UserPermission with VIEW.
+            // Under Additive Union, user still has EDIT access via RolePermission.
             var creator = new User { Id = Guid.NewGuid(), Username = "creator_user", FullName = "Creator", IsActive = true };
             var userX = new User { Id = Guid.NewGuid(), Username = "user_x", FullName = "User X", IsActive = true, IsSystemAdmin = false };
             var role = new Role { Id = Guid.NewGuid(), Name = "GlobalEditorRole", IsActive = true };
@@ -321,7 +322,7 @@ namespace demo1.Tests.UnitTests.Controllers
             {
                 Id = Guid.NewGuid(),
                 Code = "DA-SCOPED-01",
-                Name = "Dự án A bị giới hạn VIEW",
+                Name = "Dự án A có UserPerm VIEW và Role EDIT",
                 CreatedByUserId = creator.Id,
                 ChuDuAnId = creator.Id
             };
@@ -337,7 +338,6 @@ namespace demo1.Tests.UnitTests.Controllers
 
             var viewPermCatalog = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(_dbContext.Permissions, p => p.Code == "VIEW");
 
-            // Explicit scoped restriction on Project A: VIEW only
             var scopedUserPerm = new UserPermission
             {
                 Id = Guid.NewGuid(),
@@ -364,10 +364,8 @@ namespace demo1.Tests.UnitTests.Controllers
             // Act
             await filter.OnAuthorizationAsync(context);
 
-            // Assert: Must return 403 Forbidden because Scoped UserPermission (VIEW only) overrides Global Role EDIT permission!
-            context.Result.Should().NotBeNull();
-            context.Result.Should().BeOfType<JsonResult>();
-            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+            // Assert: Must PassThrough (Result is null) because of Additive Union with Role EDIT!
+            context.Result.Should().BeNull();
         }
 
         [Fact]
@@ -413,6 +411,123 @@ namespace demo1.Tests.UnitTests.Controllers
 
             // Assert: Should pass through because user has no specific UserPermission override, so Role EDIT permission is used
             context.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task Listing_GET_Should_Return_403_When_User_Has_No_Access_To_Feature()
+        {
+            // Arrange: User without any RolePermission, UserPermission, or Ownership
+            var user = new User { Id = Guid.NewGuid(), Username = "no_access_list_user", FullName = "No Access", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("no_access_list_user", "GET", "", "");
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Listing GET without any feature access should return 403 Forbidden
+            context.Result.Should().NotBeNull();
+            context.Result.Should().BeOfType<JsonResult>();
+            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        }
+
+        [Fact]
+        public async Task Listing_GET_Should_PassThrough_When_User_Has_RolePermission_Access()
+        {
+            // Arrange
+            var user = new User { Id = Guid.NewGuid(), Username = "role_list_user", FullName = "Role List User", IsActive = true, IsSystemAdmin = false };
+            var role = new Role { Id = Guid.NewGuid(), Name = "ViewerRole", IsActive = true };
+            var feature = new Feature { Id = Guid.NewGuid(), Code = "DU_AN", Name = "Quản lý Dự án", IsActive = true };
+
+            var userRole = new UserRole { UserId = user.Id, RoleId = role.Id };
+            var rolePermission = new RolePermission
+            {
+                RoleId = role.Id,
+                FeatureId = feature.Id,
+                CanAccess = true,
+                Permissions = "view"
+            };
+
+            _dbContext.Users.Add(user);
+            _dbContext.Roles.Add(role);
+            _dbContext.Features.Add(feature);
+            _dbContext.UserRoles.Add(userRole);
+            _dbContext.RolePermissions.Add(rolePermission);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext);
+            var context = CreateFilterContext("role_list_user", "GET", "", "");
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: Listing GET should pass through to service layer
+            context.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task Filter_With_MemoryCache_Should_Work_Correctly()
+        {
+            // Arrange
+            var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+            var user = new User { Id = Guid.NewGuid(), Username = "cached_user", FullName = "Cached User", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DU_AN", _dbContext, cache);
+            var context = CreateFilterContext("cached_user", "GET", "", "");
+
+            // Act: 1st call populates cache
+            await filter.OnAuthorizationAsync(context);
+            context.Result.Should().BeNull();
+
+            // Act: 2nd call uses cache
+            var context2 = CreateFilterContext("cached_user", "GET", "", "");
+            await filter.OnAuthorizationAsync(context2);
+            context2.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task DanhMuc_GET_Should_PassThrough_For_Any_Authenticated_User()
+        {
+            // Arrange: Regular user with NO special permissions or roles
+            var user = new User { Id = Guid.NewGuid(), Username = "danh_muc_viewer", FullName = "DM Viewer", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DANH_MUC", _dbContext);
+
+            // Act 1: Listing GET
+            var contextListing = CreateFilterContext("danh_muc_viewer", "GET", "", "");
+            await filter.OnAuthorizationAsync(contextListing);
+            contextListing.Result.Should().BeNull();
+
+            // Act 2: Detail GET
+            var contextDetail = CreateFilterContext("danh_muc_viewer", "GET", "id", Guid.NewGuid().ToString());
+            await filter.OnAuthorizationAsync(contextDetail);
+            contextDetail.Result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task DanhMuc_POST_Should_Return_403_When_User_Lacks_Create_Permission()
+        {
+            // Arrange: User with no create permission on DANH_MUC
+            var user = new User { Id = Guid.NewGuid(), Username = "danh_muc_no_create", FullName = "DM No Create", IsActive = true, IsSystemAdmin = false };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var filter = new FeatureAuthorizeFilter("DANH_MUC", _dbContext);
+            var context = CreateFilterContext("danh_muc_no_create", "POST", "", "");
+
+            // Act
+            await filter.OnAuthorizationAsync(context);
+
+            // Assert: POST should be blocked
+            context.Result.Should().NotBeNull();
+            context.Result.Should().BeOfType<JsonResult>();
+            ((JsonResult)context.Result!).StatusCode.Should().Be(StatusCodes.Status403Forbidden);
         }
 
         public void Dispose()

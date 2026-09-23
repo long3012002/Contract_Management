@@ -14,6 +14,7 @@ namespace demo1.Controllers;
 /// API Quản lý License Phần mềm (Danh sách License, Tạo mới, Tra cứu theo Dự án, Cảnh báo hết hạn và Thống kê).
 /// </summary>
 [Authorize]
+[FeatureAuthorize("LICENSE")]
 [Route("api/NghiepVu/licenses")]
 public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDto, UpdateLicenseDto>
 {

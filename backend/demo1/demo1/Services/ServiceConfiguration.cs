@@ -204,14 +204,14 @@ public static class ServiceConfiguration
             });
         });
 
-        // Configure Hangfire with PostgreSQL Storage
+        // Configure Hangfire with PostgreSQL Storage using isolated "hangfire" schema to prevent collision with public schema
         services.AddHangfire(config => config
             .SetDataCompatibilityLevel(Hangfire.CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
             .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString), new PostgreSqlStorageOptions
             {
-                SchemaName = "public",
+                SchemaName = "hangfire",
                 PrepareSchemaIfNecessary = true
             }));
 

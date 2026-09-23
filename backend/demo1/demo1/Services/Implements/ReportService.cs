@@ -71,21 +71,21 @@ public class ReportService : IReportService
 
         switch (period)
         {
-            case 1: // Cả năm
-                return (
-                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
-                    $"năm {year}",
-                    "1N"
-                );
-            case 2: // 6 tháng đầu năm (Kỳ 1)
+            case 1: // 6 tháng đầu năm (Kỳ 1)
                 return (
                     new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc),
                     $"6T đầu năm {year}",
                     "6T"
                 );
-            case 3: // 6 tháng cuối năm (Kỳ 2)
+            case 2: // Cả năm (Kỳ 2)
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+                    $"năm {year}",
+                    "1N"
+                );
+            case 3: // 6 tháng cuối năm (Kỳ 2 cũ / Kỳ 3)
                 return (
                     new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                     new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
@@ -158,7 +158,7 @@ public class ReportService : IReportService
         query = query.Where(da => 
             (da.NgayBatDau.HasValue && da.NgayBatDau.Value <= endOfPeriod) ||
             (!da.NgayBatDau.HasValue && da.NamBatDau.HasValue && da.NamBatDau.Value <= endOfPeriod.Year) ||
-            (!da.NgayBatDau.HasValue && !da.NamBatDau.HasValue && da.CreatedAt <= endOfPeriod)
+            (!da.NgayBatDau.HasValue && !da.NamBatDau.HasValue && da.CreatedAt.Year <= endOfPeriod.Year)
         );
 
         // Lọc bỏ các dự án đã kết thúc trước khi bắt đầu kỳ báo cáo (ngày kết thúc < startOfPeriod)
@@ -206,9 +206,14 @@ public class ReportService : IReportService
                 da.PhanLoaiDuAnId,
                 PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
                 PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
-                ApprovedCapitalSum = da.KeHoachVonDuAns
-                    .Where(kd => kd.KeHoachVon != null && kd.KeHoachVon.TrangThai == 3)
-                    .Sum(kd => (decimal?)kd.SoTienDuocDuyet) ?? 0
+                DanhSachNguonVon = da.DanhSachNguonVon.Select(nv => new
+                {
+                    nv.Id,
+                    nv.SoTien,
+                    nv.NguonVonId,
+                    NguonVonCode = nv.NguonVon != null ? nv.NguonVon.Code : null,
+                    NguonVonName = nv.NguonVon != null ? nv.NguonVon.Name : null
+                }).ToList()
             })
             .ToListAsync();
 
@@ -285,8 +290,46 @@ public class ReportService : IReportService
 
         foreach (var project in projectsData)
         {
-            // Tính toán tổng ngân sách theo các dự án nguồn được chọn (nếu là dự án triển khai)
-            decimal totalBudgetVnd = project.ApprovedCapitalSum > 0 ? project.ApprovedCapitalSum : project.DuToanPheDuyet;
+            // 1. Tính toán Tổng mức vốn đầu tư từ Tổng mức đầu tư (DuToanPheDuyet) và Danh sách nguồn vốn của dự án
+            decimal totalNguonVonVnd = project.DanhSachNguonVon != null && project.DanhSachNguonVon.Any()
+                ? project.DanhSachNguonVon.Sum(nv => nv.SoTien)
+                : 0m;
+            decimal totalBudgetVnd = project.DuToanPheDuyet > 0 ? project.DuToanPheDuyet : totalNguonVonVnd;
+
+            decimal rawVcshVnd = 0;
+            decimal rawVayVnd = 0;
+            decimal rawKhacVnd = 0;
+
+            if (project.DanhSachNguonVon != null && project.DanhSachNguonVon.Any())
+            {
+                foreach (var nv in project.DanhSachNguonVon)
+                {
+                    var code = (nv.NguonVonCode ?? string.Empty).ToLowerInvariant();
+                    var name = (nv.NguonVonName ?? string.Empty).ToLowerInvariant();
+
+                    if (code.Contains("vay") || name.Contains("vay") || name.Contains("tín dụng") || name.Contains("tin dung"))
+                    {
+                        rawVayVnd += nv.SoTien;
+                    }
+                    else if (code.Contains("khac") || code.Contains("nv_khac") || name.Contains("khác") || name.Contains("khac"))
+                    {
+                        rawKhacVnd += nv.SoTien;
+                    }
+                    else
+                    {
+                        rawVcshVnd += nv.SoTien;
+                    }
+                }
+            }
+            else
+            {
+                rawVcshVnd = totalBudgetVnd;
+            }
+
+            if (rawVcshVnd == 0 && rawVayVnd == 0 && rawKhacVnd == 0 && totalBudgetVnd > 0)
+            {
+                rawVcshVnd = totalBudgetVnd;
+            }
 
             // Phân giải các giá trị lũy kế thanh toán từ map tổng hợp ở DB
             performedValues.TryGetValue(project.Id, out var perf);
@@ -321,9 +364,9 @@ public class ReportService : IReportService
 
             // Quy đổi theo đơn vị tính
             decimal budgetTotal = totalBudgetVnd / conversionFactor;
-            decimal budgetVcsh = budgetTotal;
-            decimal budgetVay = 0;
-            decimal budgetKhac = 0;
+            decimal budgetVcsh = rawVcshVnd / conversionFactor;
+            decimal budgetVay = rawVayVnd / conversionFactor;
+            decimal budgetKhac = rawKhacVnd / conversionFactor;
 
             decimal kLuongKyTruoc = performedKyTruocVnd / conversionFactor;
             decimal kLuongTrongKy = performedTrongKyVnd / conversionFactor;

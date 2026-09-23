@@ -13,6 +13,7 @@ namespace demo1.Controllers;
 /// API Quản lý Hàng hóa / Thiết bị trong Hợp đồng (Danh sách hàng hóa, Thêm mới hàng loạt, Tra cứu theo Hợp đồng).
 /// </summary>
 [Authorize]
+[FeatureAuthorize("DANH_MUC")]
 [Route("api/NghiepVu/hang-hoa")]
 public class HangHoasController : CrudControllerBase<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {

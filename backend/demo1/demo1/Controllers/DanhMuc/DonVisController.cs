@@ -12,6 +12,7 @@ namespace demo1.Controllers
     /// API Quản lý Danh mục Đơn vị (Hội sở chính, Chi nhánh, Đơn vị thành viên).
     /// </summary>
     [Authorize]
+    [FeatureAuthorize("DANH_MUC")]
     [ApiController]
     [Route("api/DanhMuc/don-vi")]
     public class DonVisController : ControllerBase

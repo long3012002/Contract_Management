@@ -11,6 +11,7 @@ namespace demo1.Controllers;
 /// API Quản lý và Tra cứu Đợt thanh toán của Hợp đồng.
 /// </summary>
 [Authorize]
+[FeatureAuthorize("QUAN_LY_HOP_DONG")]
 [ApiController]
 [Route("api/NghiepVu/dot-thanh-toan")]
 public class DotThanhToansController(IDotThanhToanService dotThanhToanService) : ControllerBase

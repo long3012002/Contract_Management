@@ -20,6 +20,7 @@ namespace demo1.Controllers
     /// API Quản lý Tải lên và Tải xuống tài liệu đính kèm (FileAttachments).
     /// </summary>
     [Authorize]
+    [FeatureAuthorize("DU_AN")]
     [ApiController]
     [Route("api/HeThong/files")]
     public class FileUploadController : ControllerBase

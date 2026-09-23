@@ -221,6 +221,105 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Filter_WholeYear_When_Period_Is_2()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-YEAR-2026", Name = "Dự án cả năm 2026", DuToanPheDuyet = 5000000000m, TrangThai = 1 };
+            var hopDong = new HopDong { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "HD-YEAR-2026", GiaTriHopDong = 4000000000m, IsActive = true, IsDeleted = false };
+
+            // Đợt 1: 6T đầu năm (tháng 3/2026)
+            var dot1 = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hopDong.Id,
+                HopDong = hopDong,
+                TenDot = "Đợt 1 - T3/2026",
+                GiaTriThanhToan = 1000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            // Đợt 2: 6T cuối năm (tháng 10/2026)
+            var dot2 = new DotThanhToan
+            {
+                Id = Guid.NewGuid(),
+                HopDongId = hopDong.Id,
+                HopDong = hopDong,
+                TenDot = "Đợt 2 - T10/2026",
+                GiaTriThanhToan = 2000000000m,
+                IsPaid = true,
+                NgayThanhToan = new DateTime(2026, 10, 20, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _dbContext.DuAns.Add(project);
+            _dbContext.HopDongs.Add(hopDong);
+            _dbContext.DotThanhToans.AddRange(dot1, dot2);
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Period 1 (6T đầu năm)
+            var reportP1 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            var rowP1 = reportP1.Rows.FirstOrDefault(r => r.ProjectName == "Dự án cả năm 2026");
+            rowP1.Should().NotBeNull();
+            rowP1!.KhoiLuongTrongKy.Should().Be(1000000000m); // Chỉ có đợt 1
+            reportP1.Period.Should().Be(1);
+            reportP1.FromDate.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            reportP1.ToDate.Should().Be(new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc));
+
+            // Act 2: Period 2 (Cả năm)
+            var reportP2 = await service.GetInvestmentReportAsync(2026, 2, "đồng");
+            var rowP2 = reportP2.Rows.FirstOrDefault(r => r.ProjectName == "Dự án cả năm 2026");
+            rowP2.Should().NotBeNull();
+            rowP2!.KhoiLuongTrongKy.Should().Be(3000000000m); // Cả đợt 1 + đợt 2
+            reportP2.Period.Should().Be(2);
+            reportP2.FromDate.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            reportP2.ToDate.Should().Be(new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc));
+        }
+
+        [Fact]
+        public async Task ReportService_GetInvestmentReportAsync_Should_Calculate_TongMucDauTu_And_Funding_Sources_Correctly()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var nvVcsh = new NguonVon { Id = Guid.NewGuid(), Code = "NV_VDL_QDTR", Name = "Vốn điều lệ và Quỹ dự trữ", IsActive = true };
+            var nvVay = new NguonVon { Id = Guid.NewGuid(), Code = "NV_VAY", Name = "Vốn vay thương mại", IsActive = true };
+            var nvKhac = new NguonVon { Id = Guid.NewGuid(), Code = "NV_KHAC", Name = "Nguồn khác", IsActive = true };
+            _dbContext.NguonVons.AddRange(nvVcsh, nvVay, nvKhac);
+
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-FUNDING-SRC",
+                Name = "Dự án Nguồn vốn đầy đủ",
+                DuToanPheDuyet = 10000000000m,
+                TrangThai = 1
+            };
+
+            var dnv1 = new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = project.Id, NguonVonId = nvVcsh.Id, SoTien = 6000000000m };
+            var dnv2 = new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = project.Id, NguonVonId = nvVay.Id, SoTien = 3000000000m };
+            var dnv3 = new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = project.Id, NguonVonId = nvKhac.Id, SoTien = 1000000000m };
+
+            _dbContext.DuAns.Add(project);
+            _dbContext.DuAnNguonVons.AddRange(dnv1, dnv2, dnv3);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetInvestmentReportAsync(2026, 2, "đồng");
+
+            // Assert
+            var row = report.Rows.FirstOrDefault(r => r.ProjectName == "Dự án Nguồn vốn đầy đủ");
+            row.Should().NotBeNull();
+            row!.TongMucDauTuTong.Should().Be(10000000000m);
+            row.TongMucDauTuVCSH.Should().Be(6000000000m);
+            row.TongMucDauTuVay.Should().Be(3000000000m);
+            row.TongMucDauTuKhac.Should().Be(1000000000m);
+        }
+
+        [Fact]
         public async Task ReportService_GetInvestmentReportAsync_Should_Categorize_GroupB_Projects()
         {
             // Arrange
@@ -348,8 +447,8 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DotThanhToans.AddRange(dot2024, dot2025, dot2026);
             await _dbContext.SaveChangesAsync();
 
-            // Act 1: Báo cáo năm 2025 (Cả năm - period 1)
-            var report2025 = await service.GetInvestmentReportAsync(2025, 1, "đồng");
+            // Act 1: Báo cáo năm 2025 (Cả năm - period 2)
+            var report2025 = await service.GetInvestmentReportAsync(2025, 2, "đồng");
 
             // Assert 1: Năm 2025 -> Kỳ trước = 2024 (1 tỷ), Trong kỳ = 2025 (2 tỷ), Lũy kế = 3 tỷ
             var row2025 = report2025.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
@@ -358,8 +457,8 @@ namespace demo1.Tests.UnitTests.Services
             row2025.KhoiLuongTrongKy.Should().Be(2000000000m);
             row2025.KhoiLuongLuyKe.Should().Be(3000000000m);
 
-            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm - period 2)
-            var report2026 = await service.GetInvestmentReportAsync(2026, 2, "đồng");
+            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm - period 1)
+            var report2026 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
 
             // Assert 2: Năm 2026 -> Kỳ trước = 2024+2025 (3 tỷ), Trong kỳ = 2026 (3 tỷ), Lũy kế = 6 tỷ
             var row2026 = report2026.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");

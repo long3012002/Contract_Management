@@ -12,6 +12,7 @@ namespace demo1.Controllers
     /// API Quản lý Danh mục Phòng ban (Phòng CNTT, Phòng Kế toán, Phòng Dự án...).
     /// </summary>
     [Authorize]
+    [FeatureAuthorize("DANH_MUC")]
     [ApiController]
     [Route("api/DanhMuc/phong-ban")]
     public class PhongBansController : ControllerBase

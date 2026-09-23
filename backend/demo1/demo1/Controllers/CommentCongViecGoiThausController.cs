@@ -14,6 +14,7 @@ namespace demo1.Controllers;
 [ApiController]
 [Route("api/NghiepVu/comment-cong-viec")]
 [Authorize]
+[FeatureAuthorize("CONG_VIEC")]
 public class CommentCongViecGoiThausController : ControllerBase
 {
     private readonly ICommentCongViecGoiThauService _commentService;

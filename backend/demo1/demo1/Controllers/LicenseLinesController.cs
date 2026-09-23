@@ -13,6 +13,7 @@ namespace demo1.Controllers;
 /// API Quản lý License Line Items trong Hợp đồng.
 /// </summary>
 [Authorize]
+[FeatureAuthorize("LICENSE")]
 [Route("api/NghiepVu/license-lines")]
 public class LicenseLinesController : CrudControllerBase<HangHoaDichVuDto, CreateHangHoaDichVuDto, UpdateHangHoaDichVuDto>
 {

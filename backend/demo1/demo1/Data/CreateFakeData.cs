@@ -26,8 +26,8 @@ public static class CreateFakeDataExtensions
         {
             try
             {
-                // Thử kết nối với DB trước (Retry 3 lần)
-                int maxRetries = 3;
+                // Thử kết nối với DB trước (Retry 10 lần)
+                int maxRetries = 10;
                 int retryDelayMs = 2000;
                 bool connected = false;
 
@@ -56,6 +56,29 @@ public static class CreateFakeDataExtensions
                 {
                     logger?.LogError("Không thể kết nối Database sau {MaxRetries} lần thử. Server vẫn sẽ tiếp tục khởi chạy mà không thực hiện AutoMigrate/SeedData.", maxRetries);
                     return;
+                }
+
+                try
+                {
+                    // Clean up any legacy Hangfire tables in public schema to prevent collisions
+                    await context.Database.ExecuteSqlRawAsync(@"
+                        DROP TABLE IF EXISTS public.""lock"" CASCADE;
+                        DROP TABLE IF EXISTS public.""schema"" CASCADE;
+                        DROP TABLE IF EXISTS public.""job"" CASCADE;
+                        DROP TABLE IF EXISTS public.""state"" CASCADE;
+                        DROP TABLE IF EXISTS public.""jobparameter"" CASCADE;
+                        DROP TABLE IF EXISTS public.""jobqueue"" CASCADE;
+                        DROP TABLE IF EXISTS public.""list"" CASCADE;
+                        DROP TABLE IF EXISTS public.""set"" CASCADE;
+                        DROP TABLE IF EXISTS public.""counter"" CASCADE;
+                        DROP TABLE IF EXISTS public.""aggregatedcounter"" CASCADE;
+                        DROP TABLE IF EXISTS public.""hash"" CASCADE;
+                        DROP TABLE IF EXISTS public.""server"" CASCADE;
+                    ");
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "Bỏ qua dọn dẹp bảng Hangfire cũ trong public schema.");
                 }
 
                 await context.Database.MigrateAsync();

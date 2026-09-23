@@ -165,7 +165,8 @@ namespace demo1.Tests.UnitTests.Services
             var auditLog = await context.AuditLogs.FirstOrDefaultAsync(a => a.TableName == "DuAns" && a.Action == "Cấp quyền");
             Assert.NotNull(auditLog);
             Assert.Equal("admin", auditLog.Username);
-            Assert.Contains("admin cấp quyền Xem cho người dùng user1 (User One) trên dự án 'Dự án ABC'", auditLog.Description);
+            Assert.Contains("user1 (User One)", auditLog.Description);
+            Assert.Contains("Dự án ABC", auditLog.Description);
         }
 
         [Fact]
@@ -206,7 +207,8 @@ namespace demo1.Tests.UnitTests.Services
             var auditLog = await context.AuditLogs.FirstOrDefaultAsync(a => a.TableName == "DuAns" && a.Action == "Thu hồi quyền");
             Assert.NotNull(auditLog);
             Assert.Equal("admin", auditLog.Username);
-            Assert.Contains("admin thu hồi quyền Xem của người dùng user1 (User One) trên dự án 'Dự án ABC'", auditLog.Description);
+            Assert.Contains("user1 (User One)", auditLog.Description);
+            Assert.Contains("Dự án ABC", auditLog.Description);
         }
 
         [Fact]

@@ -18,6 +18,7 @@ public class HealthController : ControllerBase
     /// <returns>Trạng thái Healthy và thời gian hệ thống</returns>
     /// <response code="200">Máy chủ đang hoạt động bình thường</response>
     [HttpGet]
+    [HttpGet("/health")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult Get()
     {
