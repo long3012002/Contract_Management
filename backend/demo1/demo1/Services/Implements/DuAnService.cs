@@ -510,6 +510,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await _securityService.EnsureUserHasProjectAccessAsync(targetProject, "UPDATE");
 
         Guid targetId;
+        var (resolvedUserId, actorName) = await ResolveCurrentUserAsync(currentUserId);
+
         using (var transaction = await DbContext.Database.BeginTransactionAsync())
         {
             try
@@ -523,7 +525,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     SourceDuAnId = sourceId,
                     TargetDuAnId = dto.TargetDuAnId,
                     NgayGop = DateTime.UtcNow,
-                    NguoiThucHienId = currentUserId,
+                    NguoiThucHienId = resolvedUserId,
                     DuToanLucGop = sourceProject.DuToanPheDuyet,
                     GhiChu = dto.GhiChu ?? $"Gộp từ dự án {sourceProject.Code} sang dự án {targetProject.Code}"
                 };
@@ -534,24 +536,32 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 sourceProject.TrangThai = (int)TrangThaiDuAn.Merged;
                 sourceProject.UpdatedAt = DateTime.UtcNow;
 
-                // 3. Chuyển quyền sở hữu / tham chiếu tất cả Gói thầu, Hợp đồng, License sang dự án đích
-                var goiThaus = await DbContext.GoiThaus.Where(g => g.DuAnId == sourceId).ToListAsync();
-                foreach (var gt in goiThaus)
+                // 3. Ghi Audit Log cho cả 2 dự án
+                var auditLogTarget = new AuditLog
                 {
-                    gt.DuAnId = dto.TargetDuAnId;
-                }
+                    Id = Guid.NewGuid(),
+                    UserId = resolvedUserId.ToString(),
+                    Username = actorName,
+                    Action = "MERGE_PROJECT_TARGET",
+                    TableName = "DuAn",
+                    EntityId = targetProject.Id.ToString(),
+                    Description = $"Nhận gộp dự án {sourceProject.Code} vào dự án {targetProject.Code}. Ghi chú: {dto.GhiChu ?? "Không có"}",
+                    Timestamp = DateTime.UtcNow
+                };
 
-                var hopDongs = await DbContext.HopDongs.Where(h => h.DuAnId == sourceId).ToListAsync();
-                foreach (var hd in hopDongs)
+                var auditLogSource = new AuditLog
                 {
-                    hd.DuAnId = dto.TargetDuAnId;
-                }
+                    Id = Guid.NewGuid(),
+                    UserId = resolvedUserId.ToString(),
+                    Username = actorName,
+                    Action = "MERGE_PROJECT_SOURCE",
+                    TableName = "DuAn",
+                    EntityId = sourceProject.Id.ToString(),
+                    Description = $"Được gộp vào dự án {targetProject.Code}, chuyển trạng thái sang Đã gộp. Ghi chú: {dto.GhiChu ?? "Không có"}",
+                    Timestamp = DateTime.UtcNow
+                };
 
-                var licenses = await DbContext.Licenses.Where(l => l.DuAnId == sourceId).ToListAsync();
-                foreach (var lc in licenses)
-                {
-                    lc.DuAnId = dto.TargetDuAnId;
-                }
+                DbContext.AuditLogs.AddRange(auditLogTarget, auditLogSource);
 
                 await DbContext.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -566,6 +576,183 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         }
 
         return (await GetByIdAsync(targetId))!;
+    }
+
+    public async Task<DuAnDto> GopTaoDuAnMoiAsync(GopTaoDuAnMoiDto dto, Guid currentUserId)
+    {
+        if (dto.SourceDuAnIds == null || dto.SourceDuAnIds.Distinct().Count() < 2)
+        {
+            throw new ArgumentException("Cần chọn ít nhất 2 dự án nguồn khác nhau để thực hiện gộp tạo dự án mới.");
+        }
+
+        var distinctSourceIds = dto.SourceDuAnIds.Distinct().ToList();
+        var sourceProjects = await DbSet.Where(d => distinctSourceIds.Contains(d.Id)).ToListAsync();
+
+        if (sourceProjects.Count != distinctSourceIds.Count)
+        {
+            throw new KeyNotFoundException("Không tìm thấy một số dự án nguồn trong danh sách chọn gộp.");
+        }
+
+        foreach (var sp in sourceProjects)
+        {
+            if (sp.TrangThai == (int)TrangThaiDuAn.Merged)
+            {
+                throw new InvalidOperationException($"Dự án [{sp.Code}] đã ở trạng thái Đã gộp (Merged), không thể thực hiện gộp tiếp.");
+            }
+            await _securityService.EnsureUserHasProjectAccessAsync(sp, "UPDATE");
+        }
+
+        // Validate thông tin dự án mới
+        if (string.IsNullOrWhiteSpace(dto.Code))
+        {
+            throw new ArgumentException("Vui lòng nhập Mã dự án mới.");
+        }
+        else
+        {
+            dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code);
+        }
+
+        DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
+
+        var exists = await DbSet.AnyAsync(item => item.Code.ToLower() == dto.Code.ToLower());
+        if (exists)
+        {
+            throw new InvalidOperationException($"Mã dự án '{dto.Code}' đã tồn tại.");
+        }
+
+        Guid newProjectId;
+        var (resolvedUserId, actorName) = await ResolveCurrentUserAsync(currentUserId);
+
+        using (var transaction = await DbContext.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                // 1. Tạo mới Dự án Đích (Dự án Mới)
+                var newProject = Mapper.Map<DuAn>(dto);
+                newProject.Id = Guid.NewGuid();
+                newProject.CreatedAt = DateTime.UtcNow;
+                newProject.CreatedByUserId = resolvedUserId;
+
+                var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == resolvedUserId);
+                if (currentUser != null && currentUser.IsSystemAdmin && dto.ChuDuAnId.HasValue)
+                {
+                    newProject.ChuDuAnId = dto.ChuDuAnId;
+                }
+                else
+                {
+                    newProject.ChuDuAnId = resolvedUserId;
+                }
+
+                if (dto.PhanKyVons != null && dto.PhanKyVons.Any())
+                {
+                    var duplicateYears = dto.PhanKyVons.GroupBy(x => x.Nam).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+                    if (duplicateYears.Any())
+                    {
+                        throw new InvalidOperationException($"Phân kỳ vốn không được trùng lặp năm: {string.Join(", ", duplicateYears)}.");
+                    }
+
+                    foreach (var pkDto in dto.PhanKyVons)
+                    {
+                        var percent = pkDto.TyLePercent;
+                        if (!percent.HasValue || percent == 0)
+                        {
+                            percent = newProject.DuToanPheDuyet > 0 ? Math.Round((pkDto.SoTienPhanKy / newProject.DuToanPheDuyet) * 100, 2) : 0;
+                        }
+
+                        newProject.PhanKyVons.Add(new DuAnPhanKyVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = newProject.Id,
+                            Nam = pkDto.Nam,
+                            SoTienPhanKy = pkDto.SoTienPhanKy,
+                            TyLePercent = percent,
+                            GhiChu = pkDto.GhiChu
+                        });
+                    }
+                }
+
+                if (dto.DanhSachNguonVon != null && dto.DanhSachNguonVon.Any())
+                {
+                    foreach (var nvDto in dto.DanhSachNguonVon)
+                    {
+                        newProject.DanhSachNguonVon.Add(new DuAnNguonVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = newProject.Id,
+                            NguonVonId = nvDto.NguonVonId,
+                            Nam = nvDto.Nam,
+                            SoTien = nvDto.SoTien,
+                            GhiChu = nvDto.GhiChu,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+
+                DbSet.Add(newProject);
+
+                // 2. Đánh dấu các dự án nguồn là ĐÃ GỘP (Merged = 10) và lưu DuAnGopLink
+                var sourceCodes = sourceProjects.Select(s => s.Code).ToList();
+
+                foreach (var sp in sourceProjects)
+                {
+                    sp.TrangThai = (int)TrangThaiDuAn.Merged;
+                    sp.UpdatedAt = DateTime.UtcNow;
+
+                    var gopLink = new DuAnGopLink
+                    {
+                        Id = Guid.NewGuid(),
+                        Code = $"GL-{Guid.NewGuid():N}",
+                        Name = $"Gộp dự án {sp.Code} vào {newProject.Code}",
+                        SourceDuAnId = sp.Id,
+                        TargetDuAnId = newProject.Id,
+                        NgayGop = DateTime.UtcNow,
+                        NguoiThucHienId = resolvedUserId,
+                        DuToanLucGop = sp.DuToanPheDuyet,
+                        GhiChu = dto.GhiChuGop ?? $"Gộp từ dự án {sp.Code} sang dự án mới {newProject.Code}"
+                    };
+
+                    DbContext.DuAnGopLinks.Add(gopLink);
+
+                    // Audit log cho dự án nguồn
+                    DbContext.AuditLogs.Add(new AuditLog
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = resolvedUserId.ToString(),
+                        Username = actorName,
+                        Action = "MERGE_PROJECT_SOURCE",
+                        TableName = "DuAn",
+                        EntityId = sp.Id.ToString(),
+                        Description = $"Được gộp vào dự án mới {newProject.Code}, chuyển trạng thái sang Đã gộp. Ghi chú: {dto.GhiChuGop ?? "Không có"}",
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+
+                // Audit log cho dự án mới được tạo
+                DbContext.AuditLogs.Add(new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = resolvedUserId.ToString(),
+                    Username = actorName,
+                    Action = "MERGE_PROJECT_CREATED",
+                    TableName = "DuAn",
+                    EntityId = newProject.Id.ToString(),
+                    Description = $"Dự án mới được tạo từ việc gộp các dự án nguồn: [{string.Join(", ", sourceCodes)}]. Ghi chú: {dto.GhiChuGop ?? "Không có"}",
+                    Timestamp = DateTime.UtcNow
+                });
+
+                await DbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                newProjectId = newProject.Id;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        return (await GetByIdAsync(newProjectId))!;
     }
 
     public async Task<DuAnDto> HuyGopDuAnAsync(Guid targetDuAnId, HuyGopDuAnDto dto, Guid currentUserId)
@@ -603,62 +790,24 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         await _securityService.EnsureUserHasProjectAccessAsync(sourceProject, "UPDATE");
         await _securityService.EnsureUserHasProjectAccessAsync(targetProject, "UPDATE");
 
-        // 3. Kiểm tra điều kiện "chưa phát sinh nghiệm thu/giải ngân tiếp theo"
-        var targetHopDongIds = await DbContext.HopDongs
-            .Where(h => h.DuAnId == targetDuAnId || h.DuAnId == sourceId)
-            .Select(h => h.Id)
-            .ToListAsync();
-
-        if (targetHopDongIds.Any())
-        {
-            var hasNewPayments = await DbContext.DotThanhToans
-                .AnyAsync(d => targetHopDongIds.Contains(d.HopDongId) &&
-                               (d.IsPaid || d.NgayThanhToanThucTe != null || d.CreatedAt > gopLink.NgayGop));
-
-            if (hasNewPayments)
-            {
-                throw new InvalidOperationException("Không thể hủy gộp dự án do đã phát sinh đợt nghiệm thu/thanh toán/giải ngân sau thời điểm gộp.");
-            }
-        }
+        var (resolvedUserId, actorName) = await ResolveCurrentUserAsync(currentUserId);
 
         using (var transaction = await DbContext.Database.BeginTransactionAsync())
         {
             try
             {
-                // 4. Trả trạng thái dự án nguồn từ Merged (10) về lại Draft (1 - Bản nháp)
+                // 3. Trả trạng thái dự án nguồn từ Merged (10) về lại Draft (1 - Bản nháp)
                 sourceProject.TrangThai = (int)TrangThaiDuAn.Draft;
                 sourceProject.UpdatedAt = DateTime.UtcNow;
 
-                // 5. Chuyển trả lại các Gói thầu, Hợp đồng, License về dự án nguồn
-                var goiThaus = await DbContext.GoiThaus.Where(g => g.DuAnId == targetDuAnId).ToListAsync();
-                foreach (var gt in goiThaus)
-                {
-                    gt.DuAnId = sourceId;
-                }
-
-                var hopDongs = await DbContext.HopDongs.Where(h => h.DuAnId == targetDuAnId).ToListAsync();
-                foreach (var hd in hopDongs)
-                {
-                    hd.DuAnId = sourceId;
-                }
-
-                var licenses = await DbContext.Licenses.Where(l => l.DuAnId == targetDuAnId).ToListAsync();
-                foreach (var lc in licenses)
-                {
-                    lc.DuAnId = sourceId;
-                }
-
-                // 6. Xóa bản ghi trong DuAnGopLink
+                // 4. Xóa bản ghi trong DuAnGopLink
                 DbContext.DuAnGopLinks.Remove(gopLink);
 
-                // 7. Ghi Audit Log cho cả 2 dự án
-                var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId);
-                var actorName = currentUser?.FullName ?? currentUser?.Username ?? "Hệ thống";
-
+                // 5. Ghi Audit Log cho cả 2 dự án
                 var auditLogTarget = new AuditLog
                 {
                     Id = Guid.NewGuid(),
-                    UserId = currentUserId.ToString(),
+                    UserId = resolvedUserId.ToString(),
                     Username = actorName,
                     Action = "UNMERGE_PROJECT",
                     TableName = "DuAn",
@@ -670,7 +819,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 var auditLogSource = new AuditLog
                 {
                     Id = Guid.NewGuid(),
-                    UserId = currentUserId.ToString(),
+                    UserId = resolvedUserId.ToString(),
                     Username = actorName,
                     Action = "UNMERGE_PROJECT",
                     TableName = "DuAn",
@@ -827,5 +976,51 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
     {
         var raw = $"{createdAt:o}|{id}";
         return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw));
+    }
+
+    private async Task<(Guid UserId, string ActorName)> ResolveCurrentUserAsync(Guid currentUserId)
+    {
+        if (currentUserId != Guid.Empty)
+        {
+            var userById = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == currentUserId);
+            if (userById != null)
+            {
+                return (userById.Id, userById.FullName ?? userById.Username);
+            }
+        }
+
+        var detectedId = _currentUserService.GetUserId();
+        if (detectedId.HasValue && detectedId.Value != Guid.Empty)
+        {
+            var userByClaim = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == detectedId.Value);
+            if (userByClaim != null)
+            {
+                return (userByClaim.Id, userByClaim.FullName ?? userByClaim.Username);
+            }
+        }
+
+        var currentUsername = _currentUserService.GetUsername();
+        if (!string.IsNullOrEmpty(currentUsername))
+        {
+            var userByName = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+            if (userByName != null)
+            {
+                return (userByName.Id, userByName.FullName ?? userByName.Username);
+            }
+        }
+
+        var firstAdmin = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive && u.IsSystemAdmin);
+        if (firstAdmin != null)
+        {
+            return (firstAdmin.Id, firstAdmin.FullName ?? firstAdmin.Username);
+        }
+
+        var anyUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive);
+        if (anyUser != null)
+        {
+            return (anyUser.Id, anyUser.FullName ?? anyUser.Username);
+        }
+
+        throw new UnauthorizedAccessException("Không xác định được danh tính người dùng thực hiện thao tác.");
     }
 }

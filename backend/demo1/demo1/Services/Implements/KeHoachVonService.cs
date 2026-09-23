@@ -63,7 +63,12 @@ public class KeHoachVonService : IKeHoachVonService
             .Take(pageSize)
             .ToListAsync();
 
-        var dtos = items.Select(x => MapToDto(x, filter.DonViTinh)).ToList();
+        var defaultNguonVon = await _context.NguonVons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Code == "NV_VDL_QDTR" || x.Code == "NV_VDL")
+            ?? await _context.NguonVons.AsNoTracking().FirstOrDefaultAsync(x => x.IsActive);
+
+        var dtos = items.Select(x => MapToDto(x, filter.DonViTinh, defaultNguonVon)).ToList();
 
         return new PagedResult<KeHoachVonDto>
         {
@@ -85,7 +90,14 @@ public class KeHoachVonService : IKeHoachVonService
             .AsNoTracking()
             .FirstOrDefaultAsync(k => k.Id == id);
 
-        return entity == null ? null : MapToDto(entity, donViTinh);
+        if (entity == null) return null;
+
+        var defaultNguonVon = await _context.NguonVons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Code == "NV_VDL_QDTR" || x.Code == "NV_VDL")
+            ?? await _context.NguonVons.AsNoTracking().FirstOrDefaultAsync(x => x.IsActive);
+
+        return MapToDto(entity, donViTinh, defaultNguonVon);
     }
 
     public async Task<KeHoachVonDto> CreateAsync(CreateKeHoachVonDto dto, Guid? currentUserId)
@@ -134,8 +146,6 @@ public class KeHoachVonService : IKeHoachVonService
                     DuAnId = da.DuAnId,
                     SoTienDeNghi = da.SoTienDeNghi,
                     SoTienDuocDuyet = approvedAmount,
-                    VonDieuLe = da.VonDieuLe,
-                    QuyDauTuPhatTrien = da.QuyDauTuPhatTrien,
                     GhiChu = da.GhiChu,
                     CreatedAt = DateTime.UtcNow
                 });
@@ -184,8 +194,6 @@ public class KeHoachVonService : IKeHoachVonService
                 {
                     existingLink.SoTienDeNghi = item.SoTienDeNghi;
                     existingLink.SoTienDuocDuyet = approvedAmount;
-                    existingLink.VonDieuLe = item.VonDieuLe;
-                    existingLink.QuyDauTuPhatTrien = item.QuyDauTuPhatTrien;
                     existingLink.GhiChu = item.GhiChu;
                 }
                 else
@@ -196,8 +204,6 @@ public class KeHoachVonService : IKeHoachVonService
                         DuAnId = item.DuAnId,
                         SoTienDeNghi = item.SoTienDeNghi,
                         SoTienDuocDuyet = approvedAmount,
-                        VonDieuLe = item.VonDieuLe,
-                        QuyDauTuPhatTrien = item.QuyDauTuPhatTrien,
                         GhiChu = item.GhiChu,
                         CreatedAt = DateTime.UtcNow
                     });
@@ -276,8 +282,6 @@ public class KeHoachVonService : IKeHoachVonService
                 if (target != null)
                 {
                     target.SoTienDuocDuyet = item.SoTienDuocDuyet;
-                    if (item.VonDieuLe.HasValue) target.VonDieuLe = item.VonDieuLe.Value;
-                    if (item.QuyDauTuPhatTrien.HasValue) target.QuyDauTuPhatTrien = item.QuyDauTuPhatTrien.Value;
                     if (!string.IsNullOrWhiteSpace(item.GhiChu)) target.GhiChu = item.GhiChu;
                 }
             }
@@ -330,8 +334,6 @@ public class KeHoachVonService : IKeHoachVonService
         {
             existing.SoTienDeNghi = dto.SoTienDeNghi;
             existing.SoTienDuocDuyet = approvedAmount;
-            existing.VonDieuLe = dto.VonDieuLe;
-            existing.QuyDauTuPhatTrien = dto.QuyDauTuPhatTrien;
             existing.GhiChu = dto.GhiChu;
         }
         else
@@ -342,8 +344,6 @@ public class KeHoachVonService : IKeHoachVonService
                 DuAnId = dto.DuAnId,
                 SoTienDeNghi = dto.SoTienDeNghi,
                 SoTienDuocDuyet = approvedAmount,
-                VonDieuLe = dto.VonDieuLe,
-                QuyDauTuPhatTrien = dto.QuyDauTuPhatTrien,
                 GhiChu = dto.GhiChu,
                 CreatedAt = DateTime.UtcNow
             });
@@ -388,79 +388,17 @@ public class KeHoachVonService : IKeHoachVonService
     {
         var nguonVonChiTiet = new List<NguonVonChiTietItemDto>();
 
-        bool hasVonDieuLe = kd.VonDieuLe.HasValue && kd.VonDieuLe.Value > 0;
-        bool hasQuyDtpt = kd.QuyDauTuPhatTrien.HasValue && kd.QuyDauTuPhatTrien.Value > 0;
-
-        if (hasVonDieuLe)
+        if (matchingNv != null && matchingNv.Any())
         {
-            var matchNv = matchingNv.FirstOrDefault(x =>
-                x.NguonVon != null && (
-                    x.NguonVon.Code == "VON_DIEU_LE" ||
-                    x.NguonVon.Code == "NV_VDL" ||
-                    x.NguonVon.Name.ToLower().Contains("điều lệ")
-                ));
-
-            nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+            foreach (var nv in matchingNv)
             {
-                NguonVonId = matchNv?.NguonVonId ?? Guid.Empty,
-                MaNguonVon = matchNv?.NguonVon?.Code ?? "VON_DIEU_LE",
-                TenNguonVon = matchNv?.NguonVon?.Name ?? "Vốn điều lệ và Quỹ dự trữ bổ sung vốn điều lệ",
-                SoTien = kd.VonDieuLe!.Value / factor
-            });
-        }
-
-        if (hasQuyDtpt)
-        {
-            var matchNv = matchingNv.FirstOrDefault(x =>
-                x.NguonVon != null && (
-                    x.NguonVon.Code == "QUY_DTPT" ||
-                    x.NguonVon.Code == "NV_QDTPT" ||
-                    x.NguonVon.Name.ToLower().Contains("phát triển")
-                ));
-
-            nguonVonChiTiet.Add(new NguonVonChiTietItemDto
-            {
-                NguonVonId = matchNv?.NguonVonId ?? Guid.Empty,
-                MaNguonVon = matchNv?.NguonVon?.Code ?? "QUY_DTPT",
-                TenNguonVon = matchNv?.NguonVon?.Name ?? "Quỹ đầu tư phát triển",
-                SoTien = kd.QuyDauTuPhatTrien!.Value / factor
-            });
-        }
-
-        // Nếu không có VonDieuLe/QuyDauTuPhatTrien được điền riêng
-        if (!hasVonDieuLe && !hasQuyDtpt && matchingNv.Any())
-        {
-            decimal totalBudget = matchingNv.Sum(x => x.SoTien);
-            decimal planProposal = kd.SoTienDeNghi;
-
-            if (matchingNv.Count == 1)
-            {
-                var nv = matchingNv[0];
                 nguonVonChiTiet.Add(new NguonVonChiTietItemDto
                 {
                     NguonVonId = nv.NguonVonId,
                     MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
                     TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                    SoTien = (planProposal > 0 ? planProposal : 0) / factor
+                    SoTien = nv.SoTien / factor
                 });
-            }
-            else
-            {
-                foreach (var nv in matchingNv)
-                {
-                    // Phân bổ số tiền đề xuất đợt này theo tỷ lệ dự toán nguồn vốn thay vì hiển thị trực tiếp nv.SoTien (dự toán tổng)
-                    decimal allocatedPlanAmount = (totalBudget > 0 && planProposal > 0)
-                        ? (nv.SoTien / totalBudget) * planProposal
-                        : 0;
-
-                    nguonVonChiTiet.Add(new NguonVonChiTietItemDto
-                    {
-                        NguonVonId = nv.NguonVonId,
-                        MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
-                        TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                        SoTien = allocatedPlanAmount / factor
-                    });
-                }
             }
         }
 
@@ -480,15 +418,15 @@ public class KeHoachVonService : IKeHoachVonService
             .OrderByDescending(kd => kd.KeHoachVon.NamKeHoach)
             .ToListAsync();
 
+        var defaultNguonVon = await _context.NguonVons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Code == "NV_VDL_QDTR" || x.Code == "NV_VDL")
+            ?? await _context.NguonVons.AsNoTracking().FirstOrDefaultAsync(x => x.IsActive);
+
         return items.Select(x =>
         {
             var namKhv = x.KeHoachVon?.NamKeHoach ?? 0;
-            var allNv = x.DuAn?.DanhSachNguonVon ?? new List<DuAnNguonVon>();
-            var hasNamMatches = allNv.Any(nv => nv.Nam == namKhv);
-            var matchingNv = hasNamMatches
-                ? allNv.Where(nv => nv.Nam == namKhv).ToList()
-                : allNv.Where(nv => !nv.Nam.HasValue).ToList();
-
+            var matchingNv = ResolveMatchingNguonVon(x.DuAn, namKhv, defaultNguonVon);
             var nguonVonChiTiet = BuildNguonVonChiTiet(x, matchingNv, factor);
 
             return new KeHoachVonDuAnItemDto
@@ -498,12 +436,65 @@ public class KeHoachVonService : IKeHoachVonService
                 TenDuAn = x.DuAn?.Name ?? "",
                 SoTienDeNghi = x.SoTienDeNghi / factor,
                 SoTienDuocDuyet = x.SoTienDuocDuyet / factor,
-                VonDieuLe = x.VonDieuLe.HasValue ? x.VonDieuLe.Value / factor : null,
-                QuyDauTuPhatTrien = x.QuyDauTuPhatTrien.HasValue ? x.QuyDauTuPhatTrien.Value / factor : null,
                 GhiChu = x.GhiChu ?? x.KeHoachVon?.SoQuyetDinh,
                 NguonVonChiTiet = nguonVonChiTiet
             };
         }).ToList();
+    }
+
+    private static List<DuAnNguonVon> ResolveMatchingNguonVon(
+        DuAn? duAn,
+        int namKeHoach,
+        NguonVon? defaultNguonVon = null)
+    {
+        var allNv = duAn?.DanhSachNguonVon?.Where(x => x.NguonVon != null).ToList() ?? new List<DuAnNguonVon>();
+
+        // 1. Ưu tiên 1: Nguồn vốn có chỉ định đúng năm kế hoạch
+        if (allNv.Any(nv => nv.Nam == namKeHoach))
+        {
+            return allNv.Where(nv => nv.Nam == namKeHoach).ToList();
+        }
+
+        // 2. Ưu tiên 2: Nguồn vốn không gán năm cụ thể (dùng chung cho mọi năm)
+        if (allNv.Any(nv => !nv.Nam.HasValue))
+        {
+            return allNv.Where(nv => !nv.Nam.HasValue).ToList();
+        }
+
+        // 3. Ưu tiên 3: Nguồn vốn của dự án ở các năm khác -> gom nhóm theo NguonVonId để lấy đầy đủ các nguồn vốn của dự án
+        if (allNv.Any())
+        {
+            return allNv
+                .GroupBy(nv => nv.NguonVonId)
+                .Select(g => new DuAnNguonVon
+                {
+                    Id = g.First().Id,
+                    DuAnId = g.First().DuAnId,
+                    NguonVonId = g.Key,
+                    NguonVon = g.First().NguonVon,
+                    SoTien = g.Sum(x => x.SoTien),
+                    GhiChu = g.First().GhiChu
+                })
+                .ToList();
+        }
+
+        // 4. Nếu dự án chưa có cấu hình nguồn vốn trong DB, dùng Nguồn vốn mặc định của hệ thống
+        if (defaultNguonVon != null)
+        {
+            return new List<DuAnNguonVon>
+            {
+                new DuAnNguonVon
+                {
+                    Id = Guid.Empty,
+                    DuAnId = duAn?.Id ?? Guid.Empty,
+                    NguonVonId = defaultNguonVon.Id,
+                    NguonVon = defaultNguonVon,
+                    SoTien = duAn?.DuToanPheDuyet ?? 0m
+                }
+            };
+        }
+
+        return new List<DuAnNguonVon>();
     }
 
     private static decimal GetUnitFactor(string? donViTinh)
@@ -516,18 +507,13 @@ public class KeHoachVonService : IKeHoachVonService
         return 1m;
     }
 
-    private static KeHoachVonDto MapToDto(KeHoachVon k, string? donViTinh = null)
+    private static KeHoachVonDto MapToDto(KeHoachVon k, string? donViTinh = null, NguonVon? defaultNguonVon = null)
     {
         var factor = GetUnitFactor(donViTinh);
 
         var danhSachDuAn = k.KeHoachVonDuAns.Select(kd =>
         {
-            var allNv = kd.DuAn?.DanhSachNguonVon ?? new List<DuAnNguonVon>();
-            var hasNamMatches = allNv.Any(nv => nv.Nam == k.NamKeHoach);
-            var matchingNv = hasNamMatches
-                ? allNv.Where(nv => nv.Nam == k.NamKeHoach).ToList()
-                : allNv.Where(nv => !nv.Nam.HasValue).ToList();
-
+            var matchingNv = ResolveMatchingNguonVon(kd.DuAn, k.NamKeHoach, defaultNguonVon);
             var nguonVonChiTiet = BuildNguonVonChiTiet(kd, matchingNv, factor);
 
             return new KeHoachVonDuAnItemDto
@@ -537,8 +523,6 @@ public class KeHoachVonService : IKeHoachVonService
                 TenDuAn = kd.DuAn?.Name ?? "",
                 SoTienDeNghi = kd.SoTienDeNghi / factor,
                 SoTienDuocDuyet = kd.SoTienDuocDuyet / factor,
-                VonDieuLe = kd.VonDieuLe.HasValue ? kd.VonDieuLe.Value / factor : null,
-                QuyDauTuPhatTrien = kd.QuyDauTuPhatTrien.HasValue ? kd.QuyDauTuPhatTrien.Value / factor : null,
                 GhiChu = kd.GhiChu,
                 NguonVonChiTiet = nguonVonChiTiet
             };

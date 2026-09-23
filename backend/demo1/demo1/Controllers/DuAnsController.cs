@@ -18,10 +18,12 @@ namespace demo1.Controllers;
 public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, UpdateDuAnDto>
 {
     private readonly IDuAnService _duAnService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public DuAnsController(IDuAnService service) : base(service)
+    public DuAnsController(IDuAnService service, ICurrentUserService currentUserService) : base(service)
     {
         _duAnService = service;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>
@@ -286,10 +288,28 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DuAnDto>> GopDuAn(Guid id, [FromBody] GopDuAnDto dto)
     {
-        var currentUserIdStr = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
-        Guid.TryParse(currentUserIdStr, out var currentUserId);
+        var currentUserId = _currentUserService.GetUserId() ?? Guid.Empty;
 
         var result = await _duAnService.GopDuAnAsync(id, dto, currentUserId);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Thực hiện chọn 2 hoặc nhiều dự án nguồn để gộp và tạo thành một Dự án MỚI, đồng thời đánh dấu các dự án nguồn là Đã gộp (Merged).
+    /// </summary>
+    /// <param name="dto">Danh sách ID các dự án nguồn cần gộp và thông tin Dự án Mới</param>
+    /// <response code="200">Gộp tạo dự án mới thành công</response>
+    /// <response code="400">Dữ liệu không hợp lệ hoặc dự án nguồn đã ở trạng thái Đã gộp</response>
+    /// <response code="404">Không tìm thấy một trong các dự án nguồn</response>
+    [HttpPost("gop-tao-du-an-moi")]
+    [ProducesResponseType(typeof(DuAnDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DuAnDto>> GopTaoDuAnMoi([FromBody] GopTaoDuAnMoiDto dto)
+    {
+        var currentUserId = _currentUserService.GetUserId() ?? Guid.Empty;
+
+        var result = await _duAnService.GopTaoDuAnMoiAsync(dto, currentUserId);
         return Ok(result);
     }
 
@@ -309,8 +329,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     {
         try
         {
-            var currentUserIdStr = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
-            Guid.TryParse(currentUserIdStr, out var currentUserId);
+            var currentUserId = _currentUserService.GetUserId() ?? Guid.Empty;
 
             var result = await _duAnService.HuyGopDuAnAsync(id, dto, currentUserId);
             return Ok(result);

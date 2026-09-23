@@ -51,3 +51,16 @@ public class HuyGopDuAnDto
     /// </summary>
     public string? GhiChu { get; set; }
 }
+
+public class GopTaoDuAnMoiDto : CreateDuAnDto
+{
+    /// <summary>
+    /// Danh sách ID các dự án nguồn cần gộp (tối thiểu 2 ID)
+    /// </summary>
+    public List<Guid> SourceDuAnIds { get; set; } = new();
+
+    /// <summary>
+    /// Ghi chú / lý do thực hiện gộp tạo dự án mới
+    /// </summary>
+    public string? GhiChuGop { get; set; }
+}

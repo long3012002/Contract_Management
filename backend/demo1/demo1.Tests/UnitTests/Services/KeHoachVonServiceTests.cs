@@ -164,5 +164,57 @@ namespace demo1.Tests.UnitTests.Services
             var all = _dbContext.KeHoachVons.ToList();
             all.Should().HaveCount(2);
         }
+
+        [Fact]
+        public async Task KeHoachVonService_BuildNguonVonChiTiet_Should_Use_Exact_DanhSachNguonVon_Amounts()
+        {
+            // Arrange
+            var nv1 = new NguonVon { Id = Guid.NewGuid(), Code = "NV_VDL_QDTR", Name = "Vốn điều lệ và Quỹ dự trữ bổ sung vốn điều lệ" };
+            var nv2 = new NguonVon { Id = Guid.NewGuid(), Code = "NV_QDTPT", Name = "Quỹ đầu tư phát triển" };
+            _dbContext.NguonVons.AddRange(nv1, nv2);
+
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-PROP", Name = "Dự án Test 1" };
+            // Exact amounts: 20,000,000 and 50,000,000
+            project.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = project.Id, NguonVonId = nv1.Id, SoTien = 20_000_000m, Nam = 2026 });
+            project.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = project.Id, NguonVonId = nv2.Id, SoTien = 50_000_000m, Nam = 2026 });
+            _dbContext.DuAns.Add(project);
+
+            var khv = new KeHoachVon
+            {
+                Id = Guid.NewGuid(),
+                NamKeHoach = 2026,
+                LoaiKeHoach = 1,
+                TrangThai = 3,
+                TongMucDeNghi = 70_000_000m,
+                TongMucDuocDuyet = 70_000_000m
+            };
+            khv.KeHoachVonDuAns.Add(new KeHoachVonDuAn
+            {
+                KeHoachVonId = khv.Id,
+                DuAnId = project.Id,
+                SoTienDeNghi = 70_000_000m,
+                SoTienDuocDuyet = 70_000_000m
+            });
+            _dbContext.KeHoachVons.Add(khv);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetByIdAsync(khv.Id);
+
+            // Assert
+            result.Should().NotBeNull();
+            var da = result!.DanhSachDuAn.First();
+            da.NguonVonChiTiet.Should().HaveCount(2);
+
+            var nv1Detail = da.NguonVonChiTiet.First(x => x.NguonVonId == nv1.Id);
+            var nv2Detail = da.NguonVonChiTiet.First(x => x.NguonVonId == nv2.Id);
+
+            // Exact 20,000,000 and 50,000,000
+            nv1Detail.SoTien.Should().Be(20_000_000m);
+            nv1Detail.TenNguonVon.Should().Be("Vốn điều lệ và Quỹ dự trữ bổ sung vốn điều lệ");
+
+            nv2Detail.SoTien.Should().Be(50_000_000m);
+            nv2Detail.TenNguonVon.Should().Be("Quỹ đầu tư phát triển");
+        }
     }
 }
