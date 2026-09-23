@@ -160,8 +160,8 @@ namespace demo1.Data
                     }
                 );
             });
-            ConfigureBaseEntity(modelBuilder.Entity<KeHoachVon>());
-            ConfigureBaseEntity(modelBuilder.Entity<DuAnGopLink>());
+            ConfigureBaseEntity(modelBuilder.Entity<KeHoachVon>(), uniqueCode: false);
+            ConfigureBaseEntity(modelBuilder.Entity<DuAnGopLink>(), uniqueCode: false);
             ConfigureBaseEntity(modelBuilder.Entity<GoiThau>());
             ConfigureBaseEntity(modelBuilder.Entity<HopDong>());
             ConfigureBaseEntity(modelBuilder.Entity<PhuLucHopDong>());

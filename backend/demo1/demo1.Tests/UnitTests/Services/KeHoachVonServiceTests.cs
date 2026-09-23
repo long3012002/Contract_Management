@@ -146,5 +146,23 @@ namespace demo1.Tests.UnitTests.Services
             history[0].NguonVonChiTiet.Should().HaveCount(1);
             history[0].NguonVonChiTiet[0].SoTien.Should().Be(500m);
         }
+
+        [Fact]
+        public async Task KeHoachVonService_CreateAsync_Should_Create_Multiple_Entries_Without_Duplicate_Code_Error()
+        {
+            // Arrange
+            var dto1 = new CreateKeHoachVonDto { NamKeHoach = 2026, LoaiKeHoach = 1, SoQuyetDinh = "QD-01" };
+            var dto2 = new CreateKeHoachVonDto { NamKeHoach = 2026, LoaiKeHoach = 2, SoQuyetDinh = "QD-02" };
+
+            // Act
+            var res1 = await _service.CreateAsync(dto1, null);
+            var res2 = await _service.CreateAsync(dto2, null);
+
+            // Assert
+            res1.Should().NotBeNull();
+            res2.Should().NotBeNull();
+            var all = _dbContext.KeHoachVons.ToList();
+            all.Should().HaveCount(2);
+        }
     }
 }

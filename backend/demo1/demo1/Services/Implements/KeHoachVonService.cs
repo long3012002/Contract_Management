@@ -100,8 +100,20 @@ public class KeHoachVonService : IKeHoachVonService
             }
         }
 
+        var loaiText = dto.LoaiKeHoach switch
+        {
+            1 => "6 tháng đầu năm",
+            2 => "Cả năm",
+            3 => $"Bổ sung (Đợt {dto.DotBoSung ?? 1})",
+            _ => "Khác"
+        };
+
         var entity = new KeHoachVon
         {
+            Code = !string.IsNullOrWhiteSpace(dto.SoQuyetDinh)
+                ? dto.SoQuyetDinh.Trim()
+                : $"KHV-{dto.NamKeHoach}-{(dto.LoaiKeHoach == 3 ? $"BS{dto.DotBoSung ?? 1}" : dto.LoaiKeHoach == 1 ? "6T" : "CN")}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
+            Name = $"Kế hoạch vốn {dto.NamKeHoach} ({loaiText})",
             NamKeHoach = dto.NamKeHoach,
             LoaiKeHoach = dto.LoaiKeHoach,
             DotBoSung = dto.LoaiKeHoach == 3 ? (dto.DotBoSung ?? 1) : null,

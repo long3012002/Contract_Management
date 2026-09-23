@@ -518,6 +518,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 var gopLink = new DuAnGopLink
                 {
                     Id = Guid.NewGuid(),
+                    Code = $"GL-{Guid.NewGuid():N}",
+                    Name = $"Gộp dự án {sourceProject.Code} vào {targetProject.Code}",
                     SourceDuAnId = sourceId,
                     TargetDuAnId = dto.TargetDuAnId,
                     NgayGop = DateTime.UtcNow,
