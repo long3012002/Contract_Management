@@ -411,6 +411,29 @@ public class KeHoachVonService : IKeHoachVonService
                 SoTien = nv.SoTien / factor
             }).ToList();
 
+            // Nếu dự án có VonDieuLe / QuyDauTuPhatTrien trực tiếp trên KeHoachVonDuAn
+            if (kd.VonDieuLe.HasValue && kd.VonDieuLe.Value > 0 && !nguonVonChiTiet.Any(x => x.MaNguonVon == "VON_DIEU_LE"))
+            {
+                nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+                {
+                    NguonVonId = Guid.Empty,
+                    MaNguonVon = "VON_DIEU_LE",
+                    TenNguonVon = "Vốn điều lệ & Quỹ dự trữ bổ sung vốn điều lệ",
+                    SoTien = kd.VonDieuLe.Value / factor
+                });
+            }
+
+            if (kd.QuyDauTuPhatTrien.HasValue && kd.QuyDauTuPhatTrien.Value > 0 && !nguonVonChiTiet.Any(x => x.MaNguonVon == "QUY_DTPT"))
+            {
+                nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+                {
+                    NguonVonId = Guid.Empty,
+                    MaNguonVon = "QUY_DTPT",
+                    TenNguonVon = "Quỹ đầu tư phát triển",
+                    SoTien = kd.QuyDauTuPhatTrien.Value / factor
+                });
+            }
+
             return new KeHoachVonDuAnItemDto
             {
                 DuAnId = kd.DuAnId,
@@ -425,6 +448,7 @@ public class KeHoachVonService : IKeHoachVonService
             };
         }).ToList();
 
+        // Tính tổng theo nguồn vốn từ nguonVonChiTiet (nguồn vốn của dự án theo năm)
         var tongTheoNguonVon = danhSachDuAn
             .SelectMany(da => da.NguonVonChiTiet)
             .GroupBy(nv => new { nv.NguonVonId, nv.MaNguonVon, nv.TenNguonVon })
@@ -436,6 +460,10 @@ public class KeHoachVonService : IKeHoachVonService
                 TongSoTien = g.Sum(x => x.SoTien)
             }).ToList();
 
+        // Tính tổng trực tiếp từ danh sách dự án, không đọc field cached trên entity
+        var tongDeNghi = danhSachDuAn.Sum(da => da.SoTienDeNghi);
+        var tongDuocDuyet = danhSachDuAn.Sum(da => da.SoTienDuocDuyet);
+
         return new KeHoachVonDto
         {
             Id = k.Id,
@@ -445,8 +473,9 @@ public class KeHoachVonService : IKeHoachVonService
             TrangThai = k.TrangThai,
             SoQuyetDinh = k.SoQuyetDinh,
             NgayPheDuyet = k.NgayPheDuyet,
-            TongMucDeNghi = k.TongMucDeNghi / factor,
-            TongMucDuocDuyet = k.TongMucDuocDuyet / factor,
+            // Ưu tiên giá trị tính thực tế, fallback về field cached nếu chưa có dự án nào
+            TongMucDeNghi = tongDeNghi > 0 ? tongDeNghi : k.TongMucDeNghi / factor,
+            TongMucDuocDuyet = tongDuocDuyet > 0 ? tongDuocDuyet : k.TongMucDuocDuyet / factor,
             GhiChu = k.GhiChu,
             CreatedByUserId = k.CreatedByUserId,
             CreatedByUserName = k.CreatedByUser?.FullName,
