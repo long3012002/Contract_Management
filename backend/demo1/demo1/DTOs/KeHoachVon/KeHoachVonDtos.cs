@@ -88,6 +88,8 @@ public class UpdateKeHoachVonDto
     public int? DotBoSung { get; set; }
     public string? SoQuyetDinh { get; set; }
     public string? GhiChu { get; set; }
+
+    public List<AddDuAnToKHVDto>? DanhSachDuAn { get; set; } = new();
 }
 
 public class ApproveKeHoachVonDto

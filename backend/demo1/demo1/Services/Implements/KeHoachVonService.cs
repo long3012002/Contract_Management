@@ -153,7 +153,9 @@ public class KeHoachVonService : IKeHoachVonService
 
     public async Task<bool> UpdateAsync(Guid id, UpdateKeHoachVonDto dto)
     {
-        var entity = await _context.KeHoachVons.FirstOrDefaultAsync(k => k.Id == id);
+        var entity = await _context.KeHoachVons
+            .Include(k => k.KeHoachVonDuAns)
+            .FirstOrDefaultAsync(k => k.Id == id);
         if (entity == null) return false;
 
         entity.NamKeHoach = dto.NamKeHoach;
@@ -162,6 +164,50 @@ public class KeHoachVonService : IKeHoachVonService
         entity.SoQuyetDinh = dto.SoQuyetDinh;
         entity.GhiChu = dto.GhiChu;
         entity.UpdatedAt = DateTime.UtcNow;
+
+        if (dto.DanhSachDuAn != null)
+        {
+            // Sync attached project links
+            var dtoDuAnIds = dto.DanhSachDuAn.Select(x => x.DuAnId).ToHashSet();
+            var linksToRemove = entity.KeHoachVonDuAns.Where(k => !dtoDuAnIds.Contains(k.DuAnId)).ToList();
+            foreach (var item in linksToRemove)
+            {
+                _context.KeHoachVonDuAns.Remove(item);
+            }
+
+            foreach (var item in dto.DanhSachDuAn)
+            {
+                var existingLink = entity.KeHoachVonDuAns.FirstOrDefault(k => k.DuAnId == item.DuAnId);
+                var approvedAmount = (item.SoTienDuocDuyet.HasValue && item.SoTienDuocDuyet.Value > 0) ? item.SoTienDuocDuyet.Value : item.SoTienDeNghi;
+
+                if (existingLink != null)
+                {
+                    existingLink.SoTienDeNghi = item.SoTienDeNghi;
+                    existingLink.SoTienDuocDuyet = approvedAmount;
+                    existingLink.VonDieuLe = item.VonDieuLe;
+                    existingLink.QuyDauTuPhatTrien = item.QuyDauTuPhatTrien;
+                    existingLink.GhiChu = item.GhiChu;
+                    existingLink.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    entity.KeHoachVonDuAns.Add(new KeHoachVonDuAn
+                    {
+                        KeHoachVonId = id,
+                        DuAnId = item.DuAnId,
+                        SoTienDeNghi = item.SoTienDeNghi,
+                        SoTienDuocDuyet = approvedAmount,
+                        VonDieuLe = item.VonDieuLe,
+                        QuyDauTuPhatTrien = item.QuyDauTuPhatTrien,
+                        GhiChu = item.GhiChu,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            entity.TongMucDeNghi = entity.KeHoachVonDuAns.Sum(x => x.SoTienDeNghi);
+            entity.TongMucDuocDuyet = entity.KeHoachVonDuAns.Sum(x => x.SoTienDuocDuyet);
+        }
 
         await _context.SaveChangesAsync();
         return true;
