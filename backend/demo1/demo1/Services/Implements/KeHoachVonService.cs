@@ -381,6 +381,80 @@ public class KeHoachVonService : IKeHoachVonService
         return (await GetByIdAsync(id))!;
     }
 
+    private static List<NguonVonChiTietItemDto> BuildNguonVonChiTiet(
+        KeHoachVonDuAn kd,
+        List<DuAnNguonVon> matchingNv,
+        decimal factor)
+    {
+        var nguonVonChiTiet = new List<NguonVonChiTietItemDto>();
+
+        bool hasVonDieuLe = kd.VonDieuLe.HasValue && kd.VonDieuLe.Value > 0;
+        bool hasQuyDtpt = kd.QuyDauTuPhatTrien.HasValue && kd.QuyDauTuPhatTrien.Value > 0;
+
+        if (hasVonDieuLe)
+        {
+            var matchNv = matchingNv.FirstOrDefault(x =>
+                x.NguonVon?.Code == "VON_DIEU_LE" ||
+                x.NguonVon?.Code == "NV_VDL" ||
+                (x.NguonVon?.Name != null && x.NguonVon.Name.ToLower().Contains("điều lệ")));
+
+            nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+            {
+                NguonVonId = matchNv?.NguonVonId ?? Guid.Empty,
+                MaNguonVon = matchNv?.NguonVon?.Code ?? "VON_DIEU_LE",
+                TenNguonVon = matchNv?.NguonVon?.Name ?? "Vốn điều lệ & Quỹ dự trữ bổ sung vốn điều lệ",
+                SoTien = kd.VonDieuLe!.Value / factor
+            });
+        }
+
+        if (hasQuyDtpt)
+        {
+            var matchNv = matchingNv.FirstOrDefault(x =>
+                x.NguonVon?.Code == "QUY_DTPT" ||
+                x.NguonVon?.Code == "NV_QDTPT" ||
+                (x.NguonVon?.Name != null && x.NguonVon.Name.ToLower().Contains("phát triển")));
+
+            nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+            {
+                NguonVonId = matchNv?.NguonVonId ?? Guid.Empty,
+                MaNguonVon = matchNv?.NguonVon?.Code ?? "QUY_DTPT",
+                TenNguonVon = matchNv?.NguonVon?.Name ?? "Quỹ đầu tư phát triển",
+                SoTien = kd.QuyDauTuPhatTrien!.Value / factor
+            });
+        }
+
+        // Nếu không có VonDieuLe/QuyDauTuPhatTrien được điền riêng, nhưng có matchingNv
+        if (!hasVonDieuLe && !hasQuyDtpt && matchingNv.Any())
+        {
+            if (matchingNv.Count == 1)
+            {
+                var nv = matchingNv[0];
+                nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+                {
+                    NguonVonId = nv.NguonVonId,
+                    MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
+                    TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
+                    SoTien = (kd.SoTienDeNghi > 0 ? kd.SoTienDeNghi : nv.SoTien) / factor
+                });
+            }
+            else
+            {
+                foreach (var nv in matchingNv)
+                {
+                    nguonVonChiTiet.Add(new NguonVonChiTietItemDto
+                    {
+                        NguonVonId = nv.NguonVonId,
+                        MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
+                        TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
+                        SoTien = nv.SoTien / factor
+                    });
+                }
+            }
+        }
+
+        return nguonVonChiTiet;
+    }
+
     public async Task<List<KeHoachVonDuAnItemDto>> GetLichSuKeHoachVonByDuAnIdAsync(Guid duAnId, string? donViTinh = null)
     {
         var factor = GetUnitFactor(donViTinh);
@@ -403,13 +477,7 @@ public class KeHoachVonService : IKeHoachVonService
                 ? allNv.Where(nv => nv.Nam == namKhv).ToList()
                 : allNv.Where(nv => !nv.Nam.HasValue).ToList();
 
-            var nguonVonChiTiet = matchingNv.Select(nv => new NguonVonChiTietItemDto
-            {
-                NguonVonId = nv.NguonVonId,
-                MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
-                TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                SoTien = nv.SoTien / factor
-            }).ToList();
+            var nguonVonChiTiet = BuildNguonVonChiTiet(x, matchingNv, factor);
 
             return new KeHoachVonDuAnItemDto
             {
@@ -448,36 +516,7 @@ public class KeHoachVonService : IKeHoachVonService
                 ? allNv.Where(nv => nv.Nam == k.NamKeHoach).ToList()
                 : allNv.Where(nv => !nv.Nam.HasValue).ToList();
 
-            var nguonVonChiTiet = matchingNv.Select(nv => new NguonVonChiTietItemDto
-            {
-                NguonVonId = nv.NguonVonId,
-                MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
-                TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                SoTien = nv.SoTien / factor
-            }).ToList();
-
-            // Nếu dự án có VonDieuLe / QuyDauTuPhatTrien trực tiếp trên KeHoachVonDuAn
-            if (kd.VonDieuLe.HasValue && kd.VonDieuLe.Value > 0 && !nguonVonChiTiet.Any(x => x.MaNguonVon == "VON_DIEU_LE"))
-            {
-                nguonVonChiTiet.Add(new NguonVonChiTietItemDto
-                {
-                    NguonVonId = Guid.Empty,
-                    MaNguonVon = "VON_DIEU_LE",
-                    TenNguonVon = "Vốn điều lệ & Quỹ dự trữ bổ sung vốn điều lệ",
-                    SoTien = kd.VonDieuLe.Value / factor
-                });
-            }
-
-            if (kd.QuyDauTuPhatTrien.HasValue && kd.QuyDauTuPhatTrien.Value > 0 && !nguonVonChiTiet.Any(x => x.MaNguonVon == "QUY_DTPT"))
-            {
-                nguonVonChiTiet.Add(new NguonVonChiTietItemDto
-                {
-                    NguonVonId = Guid.Empty,
-                    MaNguonVon = "QUY_DTPT",
-                    TenNguonVon = "Quỹ đầu tư phát triển",
-                    SoTien = kd.QuyDauTuPhatTrien.Value / factor
-                });
-            }
+            var nguonVonChiTiet = BuildNguonVonChiTiet(kd, matchingNv, factor);
 
             return new KeHoachVonDuAnItemDto
             {
