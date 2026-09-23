@@ -1142,9 +1142,8 @@ namespace demo1.Data
                 }
 
                 string action = state == EntityState.Added ? "GRANT_PERMISSION" : "REVOKE_PERMISSION";
-                string actionDesc = state == EntityState.Added ? "cấp quyền" : "thu hồi quyền";
-                string relationWord = state == EntityState.Added ? "cho" : "của";
-                string description = $"{username} {actionDesc} {permName} {relationWord} người dùng {recipientName} trên {targetDesc}";
+                string actionDesc = state == EntityState.Added ? "Cấp quyền" : "Thu hồi quyền";
+                string description = $"{actionDesc} - Người dùng: {recipientName} | Quyền: {permName} | Đối tượng: {targetDesc}";
 
                 var log = new AuditLog
                 {
