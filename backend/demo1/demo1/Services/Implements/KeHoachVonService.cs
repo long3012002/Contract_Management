@@ -394,15 +394,17 @@ public class KeHoachVonService : IKeHoachVonService
         if (hasVonDieuLe)
         {
             var matchNv = matchingNv.FirstOrDefault(x =>
-                x.NguonVon?.Code == "VON_DIEU_LE" ||
-                x.NguonVon?.Code == "NV_VDL" ||
-                (x.NguonVon?.Name != null && x.NguonVon.Name.ToLower().Contains("điều lệ")));
+                x.NguonVon != null && (
+                    x.NguonVon.Code == "VON_DIEU_LE" ||
+                    x.NguonVon.Code == "NV_VDL" ||
+                    x.NguonVon.Name.ToLower().Contains("điều lệ")
+                ));
 
             nguonVonChiTiet.Add(new NguonVonChiTietItemDto
             {
                 NguonVonId = matchNv?.NguonVonId ?? Guid.Empty,
                 MaNguonVon = matchNv?.NguonVon?.Code ?? "VON_DIEU_LE",
-                TenNguonVon = matchNv?.NguonVon?.Name ?? "Vốn điều lệ & Quỹ dự trữ bổ sung vốn điều lệ",
+                TenNguonVon = matchNv?.NguonVon?.Name ?? "Vốn điều lệ và Quỹ dự trữ bổ sung vốn điều lệ",
                 SoTien = kd.VonDieuLe!.Value / factor
             });
         }
@@ -410,9 +412,11 @@ public class KeHoachVonService : IKeHoachVonService
         if (hasQuyDtpt)
         {
             var matchNv = matchingNv.FirstOrDefault(x =>
-                x.NguonVon?.Code == "QUY_DTPT" ||
-                x.NguonVon?.Code == "NV_QDTPT" ||
-                (x.NguonVon?.Name != null && x.NguonVon.Name.ToLower().Contains("phát triển")));
+                x.NguonVon != null && (
+                    x.NguonVon.Code == "QUY_DTPT" ||
+                    x.NguonVon.Code == "NV_QDTPT" ||
+                    x.NguonVon.Name.ToLower().Contains("phát triển")
+                ));
 
             nguonVonChiTiet.Add(new NguonVonChiTietItemDto
             {
@@ -423,9 +427,12 @@ public class KeHoachVonService : IKeHoachVonService
             });
         }
 
-        // Nếu không có VonDieuLe/QuyDauTuPhatTrien được điền riêng, nhưng có matchingNv
+        // Nếu không có VonDieuLe/QuyDauTuPhatTrien được điền riêng
         if (!hasVonDieuLe && !hasQuyDtpt && matchingNv.Any())
         {
+            decimal totalBudget = matchingNv.Sum(x => x.SoTien);
+            decimal planProposal = kd.SoTienDeNghi;
+
             if (matchingNv.Count == 1)
             {
                 var nv = matchingNv[0];
@@ -434,19 +441,24 @@ public class KeHoachVonService : IKeHoachVonService
                     NguonVonId = nv.NguonVonId,
                     MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
                     TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                    SoTien = (kd.SoTienDeNghi > 0 ? kd.SoTienDeNghi : nv.SoTien) / factor
+                    SoTien = (planProposal > 0 ? planProposal : 0) / factor
                 });
             }
             else
             {
                 foreach (var nv in matchingNv)
                 {
+                    // Phân bổ số tiền đề xuất đợt này theo tỷ lệ dự toán nguồn vốn thay vì hiển thị trực tiếp nv.SoTien (dự toán tổng)
+                    decimal allocatedPlanAmount = (totalBudget > 0 && planProposal > 0)
+                        ? (nv.SoTien / totalBudget) * planProposal
+                        : 0;
+
                     nguonVonChiTiet.Add(new NguonVonChiTietItemDto
                     {
                         NguonVonId = nv.NguonVonId,
                         MaNguonVon = nv.NguonVon?.Code ?? string.Empty,
                         TenNguonVon = nv.NguonVon?.Name ?? string.Empty,
-                        SoTien = nv.SoTien / factor
+                        SoTien = allocatedPlanAmount / factor
                     });
                 }
             }
