@@ -243,6 +243,61 @@ namespace demo1.Controllers
         }
 
         /// <summary>
+        /// Cập nhật loại Quyền đã cấp cho Người dùng theo ID (GUID).
+        /// </summary>
+        /// <param name="id">Mã định danh Quyền người dùng (GUID)</param>
+        /// <param name="dto">Dữ liệu cập nhật quyền mới (PermissionId hoặc PermissionCode)</param>
+        /// <returns>Bản ghi phân quyền đã được cập nhật</returns>
+        /// <response code="200">Cập nhật quyền thành công</response>
+        /// <response code="403">Yêu cầu quyền Quản trị hệ thống hoặc Chủ dự án</response>
+        /// <response code="404">Không tìm thấy bản ghi phân quyền hoặc catalog</response>
+        [HttpPut("{id:guid}")]
+        [ProducesResponseType(typeof(UserPermissionDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdateUserPermissionDto dto)
+        {
+            var isSystemAdmin = await IsAdminAsync();
+            var currentUserId = await GetCurrentUserIdAsync();
+            if (!currentUserId.HasValue) return Unauthorized();
+
+            if (!isSystemAdmin)
+            {
+                var userPerm = await _context.UserPermissions.AsNoTracking().FirstOrDefaultAsync(up => up.Id == id);
+                if (userPerm == null) return NotFound(new { Message = "Không tìm thấy quyền người dùng." });
+
+                Guid? duAnId = userPerm.DuAnId;
+                if (!duAnId.HasValue && userPerm.EntityName != null && userPerm.EntityName.Equals("DuAn", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(userPerm.EntityId, out var parsedId))
+                {
+                    duAnId = parsedId;
+                }
+
+                if (duAnId.HasValue)
+                {
+                    var project = await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == duAnId.Value);
+                    if (project == null || (project.CreatedByUserId != currentUserId.Value && project.ChuDuAnId != currentUserId.Value))
+                    {
+                        return Forbid();
+                    }
+                }
+                else
+                {
+                    return Forbid();
+                }
+            }
+
+            try
+            {
+                var result = await _permissionService.UpdateUserPermissionAsync(currentUserId.Value, id, dto);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { Message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Thu hồi một Quyền đã cấp cho Người dùng theo ID (GUID).
         /// </summary>
         /// <param name="id">Mã định danh Quyền người dùng (GUID)</param>
