@@ -138,4 +138,11 @@ namespace demo1.DTOs.Permission
         public string? RequestStatus { get; set; } // None, Pending, Approved, Rejected
         public Guid? RequestId { get; set; }
     }
+
+    public class UpdateUserPermissionDto
+    {
+        public Guid? PermissionId { get; set; }
+        public string? PermissionCode { get; set; }
+    }
 }
+

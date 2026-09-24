@@ -526,6 +526,76 @@ namespace demo1.Services.Implements
             return result;
         }
 
+        public async Task<UserPermissionDto> UpdateUserPermissionAsync(Guid adminId, Guid permissionId, UpdateUserPermissionDto dto)
+        {
+            var perm = await _context.UserPermissions
+                .Include(up => up.User)
+                .Include(up => up.Permission)
+                .FirstOrDefaultAsync(up => up.Id == permissionId);
+
+            if (perm == null) throw new KeyNotFoundException("Không tìm thấy quyền người dùng.");
+
+            demo1.Entity.Permission? newPermCatalog = null;
+            if (dto.PermissionId.HasValue && dto.PermissionId.Value != Guid.Empty)
+            {
+                newPermCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Id == dto.PermissionId.Value);
+            }
+            else if (!string.IsNullOrEmpty(dto.PermissionCode))
+            {
+                newPermCatalog = await _context.Permissions.FirstOrDefaultAsync(p => p.Code == dto.PermissionCode);
+            }
+
+            if (newPermCatalog == null) throw new KeyNotFoundException("Không tìm thấy quyền mới trong danh mục.");
+
+            var oldPermissionId = perm.PermissionId;
+            perm.PermissionId = newPermCatalog.Id;
+            perm.GrantedByUserId = adminId;
+            perm.GrantedAt = DateTime.UtcNow;
+
+            // Cascade update to sub-features if DU_AN
+            if (perm.FeatureCode == "DU_AN" && perm.DuAnId.HasValue)
+            {
+                var cascadedPerms = await _context.UserPermissions
+                    .Where(up => up.UserId == perm.UserId &&
+                                 up.PermissionId == oldPermissionId &&
+                                 up.DuAnId == perm.DuAnId &&
+                                 (up.FeatureCode == "GOI_THAU" || up.FeatureCode == "QUAN_LY_HOP_DONG"))
+                    .ToListAsync();
+
+                foreach (var cp in cascadedPerms)
+                {
+                    cp.PermissionId = newPermCatalog.Id;
+                    cp.GrantedByUserId = adminId;
+                    cp.GrantedAt = DateTime.UtcNow;
+                }
+            }
+
+            var admin = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == adminId);
+            var project = perm.DuAnId.HasValue ? await _context.DuAns.AsNoTracking().FirstOrDefaultAsync(da => da.Id == perm.DuAnId.Value) : null;
+
+            var adminActorName = admin?.FullName ?? admin?.Username ?? "Hệ thống";
+            var targetProjectName = project?.Name ?? perm.DuAnId?.ToString() ?? perm.EntityId;
+
+            var userNoti = NotificationBuilder.Create()
+                .WithTitle("Phân quyền: Cập nhật quyền truy cập")
+                .WithContent($"Quyền của bạn trên dự án '{targetProjectName}' đã được cập nhật thành '{newPermCatalog.Name}' bởi '{adminActorName}'.")
+                .WithFeatureCode("USER_PERMISSION")
+                .WithEntity("UserPermission", perm.Id.ToString())
+                .ForUser(perm.UserId)
+                .WithActor(adminActorName)
+                .WithTarget(targetProjectName)
+                .WithBadge("Cập nhật quyền", "primary")
+                .Build();
+            _context.Notifications.Add(userNoti);
+            if (perm.User != null)
+            {
+                await SendSignalRNotificationAsync(perm.User.Username, userNoti);
+            }
+
+            await _context.SaveChangesAsync();
+            return MapToUserPermissionDto(perm, perm.User, newPermCatalog, admin?.Username);
+        }
+
         public async Task<bool> RevokeUserPermissionAsync(Guid adminId, Guid permissionId)
         {
             var perm = await _context.UserPermissions
