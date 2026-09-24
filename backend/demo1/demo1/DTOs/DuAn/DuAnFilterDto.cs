@@ -17,5 +17,6 @@ public class DuAnFilterDto
     public DateTime? EndDate { get; set; }
 
     public string? Status { get; set; }
+    public string? MergeType { get; set; } // 'all', 'normal', 'merged' (bị gộp), 'parent' (nhận gộp)
     public Guid? AllocatedProjectId { get; set; }
 }
