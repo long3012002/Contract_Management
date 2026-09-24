@@ -94,8 +94,10 @@ namespace demo1.Controllers
             {
                 // 1. Tạo unique ID cho FileAttachment
                 var fileAttachmentId = Guid.NewGuid();
+                var fileExt = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var physicalFileName = $"{fileAttachmentId}{fileExt}";
 
-                // 2. Xây dựng đường dẫn vật lý và đường dẫn tương đối
+                // 2. Xây dựng đường dẫn vật lý và đường dẫn tương đối (lưu đĩa bằng GUID an toàn)
                 var targetDir = Path.Combine(_storagePath, fileAttachmentId.ToString(), featureCode.Trim(), entityId.ToString());
                 
                 if (!Directory.Exists(targetDir))
@@ -103,17 +105,17 @@ namespace demo1.Controllers
                     Directory.CreateDirectory(targetDir);
                 }
 
-                var physicalPath = Path.Combine(targetDir, file.FileName);
-                var relativePath = Path.Combine(fileAttachmentId.ToString(), featureCode.Trim(), entityId.ToString(), file.FileName)
+                var physicalPath = Path.Combine(targetDir, physicalFileName);
+                var relativePath = Path.Combine(fileAttachmentId.ToString(), featureCode.Trim(), entityId.ToString(), physicalFileName)
                                        .Replace('\\', '/');
 
-                // 3. Lưu file vật lý xuống đĩa
-                using (var stream = new FileStream(physicalPath, FileMode.Create))
+                // 3. Stream ghi file vật lý xuống đĩa với buffer 80KB tối ưu
+                using (var stream = new FileStream(physicalPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                // 4. Tạo bản ghi trong cơ sở dữ liệu
+                // 4. Tạo bản ghi trong cơ sở dữ liệu (lưu tên file gốc phục vụ hiển thị/tải về)
                 var fileAttachment = new FileAttachment
                 {
                     Id = fileAttachmentId,
@@ -188,7 +190,7 @@ namespace demo1.Controllers
 
         /// <summary>
         /// Tải xuống tệp tin đính kèm bằng mã định danh duy nhất (GUID).
-        /// Khuyên dùng cho môi trường bảo mật cao.
+        /// Khuyên dùng cho môi trường bảo mật cao và tối ưu RAM tối đa.
         /// </summary>
         /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
         /// <response code="200">Trả về file stream</response>
@@ -204,10 +206,24 @@ namespace demo1.Controllers
 
             var fullPath = Path.Combine(_storagePath, attachment.FilePath.Replace('/', Path.DirectorySeparatorChar));
             if (!System.IO.File.Exists(fullPath))
+            {
+                // Fallback tương thích ngược: Tìm theo tên file gốc nếu trước đây lưu bằng tên cũ
+                var legacyDir = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(legacyDir) && Directory.Exists(legacyDir))
+                {
+                    var legacyFullPath = Path.Combine(legacyDir, attachment.FileName);
+                    if (System.IO.File.Exists(legacyFullPath))
+                    {
+                        fullPath = legacyFullPath;
+                    }
+                }
+            }
+
+            if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { Message = "Tệp tin không tồn tại trên ổ đĩa server." });
 
-            var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
-            return File(bytes, attachment.ContentType, attachment.FileName);
+            // Trả về trực tiếp qua Kernel stream (Zero memory pressure), hỗ trợ Resume Download
+            return PhysicalFile(fullPath, attachment.ContentType, attachment.FileName, enableRangeProcessing: true);
         }
 
         /// <summary>
@@ -226,34 +242,31 @@ namespace demo1.Controllers
             if (string.IsNullOrWhiteSpace(relativePath))
                 return BadRequest(new { Message = "Đường dẫn file không được để trống." });
 
-            // Ngăn chặn Directory Traversal
-            if (relativePath.Contains("..") || relativePath.StartsWith("/") || relativePath.StartsWith("\\"))
-                return BadRequest(new { Message = "Đường dẫn yêu cầu không hợp lệ." });
+            // Ngăn chặn Directory Traversal bằng kiểm tra ranh giới đường dẫn tuyệt đối
+            var normalizedRelativePath = relativePath.Replace('/', Path.DirectorySeparatorChar)
+                                                     .Replace('\\', Path.DirectorySeparatorChar)
+                                                     .TrimStart(Path.DirectorySeparatorChar);
 
-            var cleanPath = relativePath.Replace('\\', '/');
-            var fullPath = Path.Combine(_storagePath, cleanPath.Replace('/', Path.DirectorySeparatorChar));
+            var storageRootFullPath = Path.GetFullPath(_storagePath);
+            var fullPath = Path.GetFullPath(Path.Combine(storageRootFullPath, normalizedRelativePath));
+
+            if (!fullPath.StartsWith(storageRootFullPath, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { Message = "Đường dẫn yêu cầu không hợp lệ hoặc bị từ chối truy cập." });
 
             if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { Message = "Tệp tin không tồn tại trên hệ thống." });
 
-            var bytes = await System.IO.File.ReadAllBytesAsync(fullPath);
-            var originalFileName = Path.GetFileName(fullPath);
-            var contentType = "application/octet-stream";
+            var cleanPath = relativePath.Replace('\\', '/');
 
-            // Thử tra cứu thông tin tên file và loại file gốc từ cơ sở dữ liệu
+            // Tra cứu thông tin tên file và loại file gốc từ cơ sở dữ liệu
             var attachment = await _dbContext.FileAttachments
                 .FirstOrDefaultAsync(fa => fa.FilePath == cleanPath && fa.IsActive);
-            if (attachment != null)
-            {
-                originalFileName = attachment.FileName;
-                contentType = attachment.ContentType;
-            }
-            else
-            {
-                contentType = GetContentType(fullPath);
-            }
 
-            return File(bytes, contentType, originalFileName);
+            var originalFileName = attachment?.FileName ?? Path.GetFileName(fullPath);
+            var contentType = attachment?.ContentType ?? GetContentType(fullPath);
+
+            // Trả về PhysicalFile stream tối ưu RAM
+            return PhysicalFile(fullPath, contentType, originalFileName, enableRangeProcessing: true);
         }
 
         private string GetContentType(string path)
@@ -345,6 +358,20 @@ namespace demo1.Controllers
                 var fullPath = Path.Combine(_storagePath, attachment.FilePath.Replace('/', Path.DirectorySeparatorChar));
                 if (!System.IO.File.Exists(fullPath))
                 {
+                    // Fallback tương thích ngược: Tìm theo tên file gốc nếu trước đây lưu bằng tên cũ
+                    var legacyDir = Path.GetDirectoryName(fullPath);
+                    if (!string.IsNullOrEmpty(legacyDir) && Directory.Exists(legacyDir))
+                    {
+                        var legacyFullPath = Path.Combine(legacyDir, attachment.FileName);
+                        if (System.IO.File.Exists(legacyFullPath))
+                        {
+                            fullPath = legacyFullPath;
+                        }
+                    }
+                }
+
+                if (!System.IO.File.Exists(fullPath))
+                {
                     // Nếu tệp vật lý chưa có trên đĩa (dữ liệu thử nghiệm/seed), tự khởi tạo tệp mẫu để tránh ngắt quãng 404 khi xem thử
                     var targetDir = Path.GetDirectoryName(fullPath);
                     if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
@@ -354,9 +381,8 @@ namespace demo1.Controllers
                     await System.IO.File.WriteAllTextAsync(fullPath, $"Nội dung tài liệu thử nghiệm {attachment.FileName}");
                 }
 
-                // Trả về file dưới dạng Streaming (FileStreamResult) tránh nạp toàn bộ file lớn vào RAM
-                var fileStream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                return File(fileStream, attachment.ContentType, attachment.FileName);
+                // Trả về file dưới dạng Streaming (PhysicalFile) tránh nạp toàn bộ file lớn vào RAM
+                return PhysicalFile(fullPath, attachment.ContentType, attachment.FileName, enableRangeProcessing: true);
             }
             catch (Exception ex)
             {
