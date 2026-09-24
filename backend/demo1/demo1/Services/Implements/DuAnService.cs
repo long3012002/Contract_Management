@@ -110,6 +110,28 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                 (!item.NgayKetThucThucTe.HasValue && item.NgayKetThuc.HasValue && item.NgayKetThuc.Value.Date <= end));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.MergeType) && filter.MergeType.ToLower() != "all")
+        {
+            var mType = filter.MergeType.Trim().ToLower();
+            if (mType == "merged" || mType == "source")
+            {
+                // Dự án bị gộp
+                query = query.Where(item => item.TrangThai == (int)TrangThaiDuAn.Merged);
+            }
+            else if (mType == "parent" || mType == "target")
+            {
+                // Dự án nhận gộp (Dự án cha)
+                var targetProjectIds = DbContext.DuAnGopLinks.Select(l => l.TargetDuAnId).Distinct();
+                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && targetProjectIds.Contains(item.Id));
+            }
+            else if (mType == "normal")
+            {
+                // Dự án thông thường (Không bị gộp và không phải dự án cha nhận gộp)
+                var targetProjectIds = DbContext.DuAnGopLinks.Select(l => l.TargetDuAnId).Distinct();
+                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && !targetProjectIds.Contains(item.Id));
+            }
+        }
+
         var totalItems = await query.CountAsync();
 
         List<DuAn> items;
