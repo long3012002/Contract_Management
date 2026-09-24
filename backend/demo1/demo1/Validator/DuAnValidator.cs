@@ -26,4 +26,16 @@ public static class DuAnValidator
             throw new ArgumentException("Năm bắt đầu không được lớn hơn năm kết thúc.");
         }
     }
+
+    public static void ValidateNguonVon(decimal duToanPheDuyet, IEnumerable<DTOs.CreateDuAnNguonVonDto>? danhSachNguonVon)
+    {
+        if (danhSachNguonVon != null && danhSachNguonVon.Any())
+        {
+            var tongNguonVon = danhSachNguonVon.Sum(x => x.SoTien);
+            if (tongNguonVon > duToanPheDuyet)
+            {
+                throw new InvalidOperationException($"Tổng số tiền các nguồn vốn ({tongNguonVon:N0} VNĐ) không được vượt quá tổng mức đầu tư dự án ({duToanPheDuyet:N0} VNĐ).");
+            }
+        }
+    }
 }

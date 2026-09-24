@@ -233,6 +233,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     dto.Code = CodePrefixValidator.FormatDuAnCode(dto.Code);
                 }
                 DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
+                DuAnValidator.ValidateNguonVon(dto.DuToanPheDuyet, dto.DanhSachNguonVon);
 
                 var entity = Mapper.Map<DuAn>(dto);
                 entity.Id = Guid.NewGuid();
@@ -369,6 +370,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         var phanKyDtos = dto.PhanKyVons;
         var nguonVonDtos = dto.DanhSachNguonVon;
+
+        DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
+        if (nguonVonDtos != null)
+        {
+            DuAnValidator.ValidateNguonVon(dto.DuToanPheDuyet, nguonVonDtos);
+        }
+        else
+        {
+            var existingNguonVonDtos = entity.DanhSachNguonVon.Select(nv => new CreateDuAnNguonVonDto { SoTien = nv.SoTien, NguonVonId = nv.NguonVonId, Nam = nv.Nam });
+            DuAnValidator.ValidateNguonVon(dto.DuToanPheDuyet, existingNguonVonDtos);
+        }
 
         dto.PhanKyVons = null;
         dto.DanhSachNguonVon = null;
