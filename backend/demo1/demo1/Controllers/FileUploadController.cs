@@ -80,7 +80,7 @@ namespace demo1.Controllers
             if (file.Length > _maxFileSize)
                 return BadRequest(new { Message = $"File vượt quá giới hạn cho phép ({_maxFileSize / 1024 / 1024} MB)." });
 
-            var fileExtension = Path.GetExtension(file.FileName).ToLower();
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!_allowedExtensions.Contains(fileExtension))
                 return BadRequest(new { Message = "Định dạng file không được hỗ trợ." });
 
@@ -90,6 +90,11 @@ namespace demo1.Controllers
             if (entityId == Guid.Empty)
                 return BadRequest(new { Message = "Mã thực thể (entityId) không hợp lệ." });
 
+            // Kiểm tra Magic Bytes / File Signature thực tế của file để chống mạo danh định dạng
+            if (!IsValidFileSignature(file, fileExtension))
+                return BadRequest(new { Message = "Nội dung tệp không hợp lệ hoặc không đúng với định dạng mở rộng." });
+
+            string? physicalPath = null;
             try
             {
                 // 1. Tạo unique ID cho FileAttachment
@@ -105,7 +110,7 @@ namespace demo1.Controllers
                     Directory.CreateDirectory(targetDir);
                 }
 
-                var physicalPath = Path.Combine(targetDir, physicalFileName);
+                physicalPath = Path.Combine(targetDir, physicalFileName);
                 var relativePath = Path.Combine(fileAttachmentId.ToString(), featureCode.Trim(), entityId.ToString(), physicalFileName)
                                        .Replace('\\', '/');
 
@@ -144,12 +149,62 @@ namespace demo1.Controllers
             }
             catch (Exception ex)
             {
+                // Rollback: Xóa file vật lý đã ghi nếu lưu cơ sở dữ liệu bị lỗi để tránh file rác (orphan files)
+                if (!string.IsNullOrEmpty(physicalPath) && System.IO.File.Exists(physicalPath))
+                {
+                    try
+                    {
+                        System.IO.File.Delete(physicalPath);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        _logger.LogWarning(deleteEx, "Không thể xóa file tạm khi rollback: {PhysicalPath}", physicalPath);
+                    }
+                }
+
                 _logger.LogError(ex, "Lỗi trong quá trình upload file đính kèm.");
                 return StatusCode(StatusCodes.Status500InternalServerError, new 
                 { 
                     Message = "Đã xảy ra lỗi trong quá trình upload file.", 
                     Detail = _env.IsDevelopment() ? ex.Message : null 
                 });
+            }
+        }
+
+        /// <summary>
+        /// Kiểm tra Magic Bytes / File Signatures đối chiếu với extension của file
+        /// </summary>
+        private static bool IsValidFileSignature(IFormFile file, string extension)
+        {
+            try
+            {
+                using var stream = file.OpenReadStream();
+                using var reader = new BinaryReader(stream);
+                var headerBytes = reader.ReadBytes(8);
+                if (headerBytes.Length < 2) return false;
+
+                return extension switch
+                {
+                    ".pdf" => headerBytes.Length >= 4 &&
+                              headerBytes[0] == 0x25 && headerBytes[1] == 0x50 && headerBytes[2] == 0x44 && headerBytes[3] == 0x46, // %PDF
+                    ".png" => headerBytes.Length >= 8 &&
+                              headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4E && headerBytes[3] == 0x47 &&
+                              headerBytes[4] == 0x0D && headerBytes[5] == 0x0A && headerBytes[6] == 0x1A && headerBytes[7] == 0x0A,
+                    ".jpg" or ".jpeg" => headerBytes.Length >= 3 &&
+                                         headerBytes[0] == 0xFF && headerBytes[1] == 0xD8 && headerBytes[2] == 0xFF,
+                    ".docx" or ".xlsx" => headerBytes.Length >= 4 &&
+                                          headerBytes[0] == 0x50 && headerBytes[1] == 0x4B &&
+                                          (headerBytes[2] == 0x03 || headerBytes[2] == 0x05 || headerBytes[2] == 0x07) &&
+                                          (headerBytes[3] == 0x04 || headerBytes[3] == 0x06 || headerBytes[3] == 0x08), // PK.. (ZIP archive header)
+                    ".doc" or ".xls" => headerBytes.Length >= 8 &&
+                                        headerBytes[0] == 0xD0 && headerBytes[1] == 0xCF && headerBytes[2] == 0x11 && headerBytes[3] == 0xE0 &&
+                                        headerBytes[4] == 0xA1 && headerBytes[5] == 0xB1 && headerBytes[6] == 0x1A && headerBytes[7] == 0xE1, // OLE compound document
+                    _ => true // Các định dạng khác chưa có chữ ký cứng cho qua nếu thuộc danh sách cho phép
+                };
+            }
+            catch
+            {
+                return false;
             }
         }
 
