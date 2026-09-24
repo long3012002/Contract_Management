@@ -31,8 +31,11 @@ app.UseHangfireDashboard();
 app.MapControllers();
 app.MapHub<demo1.Hubs.NotificationHub>("/hub/notifications");
 
-// Initialize & Seed Fake Data if empty
-await app.CreateFakeDataAsync();
+// 1. Tự động áp dụng EF Core Migrations độc lập
+await app.ApplyDatabaseMigrationsAsync();
+
+// 2. Đồng bộ danh mục Master Data chuẩn
+await app.SeedDatabaseAsync();
 
 app.Run();
 
