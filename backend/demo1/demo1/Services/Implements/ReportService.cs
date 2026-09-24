@@ -2699,9 +2699,7 @@ public class ReportService : IReportService
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
-            .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10)
-            .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= endY : d.NamBatDau!.Value <= endY))
-            .Where(d => (d.NgayKetThucThucTe.HasValue ? d.NgayKetThucThucTe.Value.Year >= startY : d.NgayKetThuc.HasValue ? d.NgayKetThuc.Value.Year >= startY : !d.NamKetThuc.HasValue || d.NamKetThuc.Value >= startY));
+            .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10);
 
         // Filter groupStatus (1: Triển khai/phê duyệt, 2: Mới)
         if (groupStatus.HasValue && groupStatus.Value == 1)
