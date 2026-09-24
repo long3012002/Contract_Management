@@ -2698,7 +2698,6 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(d => d.NhomDuAn)
             .Include(d => d.PhanLoaiDuAn)
-            .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Where(d => d.IsActive && !d.IsDeleted && d.TrangThai != 10)
             .Where(d => (!d.NgayBatDau.HasValue && !d.NamBatDau.HasValue) || (d.NgayBatDau.HasValue ? d.NgayBatDau.Value.Year <= endY : d.NamBatDau!.Value <= endY))
@@ -2722,18 +2721,6 @@ public class ReportService : IReportService
         }
 
         var projects = await query.ToListAsync();
-        var duAnIds = projects.Select(p => p.Id).ToList();
-
-        // Lấy đợt thanh toán hợp đồng liên quan trực tiếp đến các dự án
-        var dotThanhToansByDuAnList = await _context.DotThanhToans
-            .AsNoTracking()
-            .Include(d => d.HopDong)
-            .Where(d => d.HopDong != null && d.HopDong.DuAnId.HasValue && duAnIds.Contains(d.HopDong.DuAnId.Value))
-            .ToListAsync();
-
-        var dotThanhToanGrouped = dotThanhToansByDuAnList
-            .GroupBy(d => d.HopDong!.DuAnId!.Value)
-            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Target fixed groups A, B, C, D
         var fixedGroups = new List<(string Key, string Name, string LoaiDuAnText)>
@@ -2898,72 +2885,16 @@ public class ReportService : IReportService
                     }
                 }
 
-                int pStart = proj.NamBatDau ?? (proj.NgayBatDau?.Year ?? startY);
-                int pEnd = proj.NamKetThuc ?? (proj.NgayKetThuc?.Year ?? endY);
-                if (pEnd < pStart) pEnd = pStart;
-
-                int numProjYears = pEnd - pStart + 1;
-
-                // Lấy danh sách đợt thanh toán hợp đồng thực tế của dự án
-                dotThanhToanGrouped.TryGetValue(proj.Id, out var allDotThanhToans);
-                allDotThanhToans ??= new List<DotThanhToan>();
-
-                bool hasNguonVonWithYear = proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any(nv => nv.Nam.HasValue);
-                bool hasUserPhanKy = proj.PhanKyVons != null && proj.PhanKyVons.Any();
-                bool hasActualMilestones = allDotThanhToans.Any();
-
+                // Phân kỳ vốn: lấy dữ liệu từ Danh sách vốn dự án (DuAnNguonVon), so sánh năm của Danh sách vốn dự án với năm của các cột
                 for (int y = startY; y <= endY; y++)
                 {
                     decimal valInYear = 0m;
-
-                    if (hasNguonVonWithYear)
+                    if (proj.DanhSachNguonVon != null && proj.DanhSachNguonVon.Any())
                     {
-                        // Ưu tiên 1: Lấy theo năm của tổng các nguồn vốn (DuAnNguonVon có Nam == y)
-                        var sumNguonVonInYear = proj.DanhSachNguonVon!
+                        var sumNguonVonInYear = proj.DanhSachNguonVon
                             .Where(nv => nv.Nam == y)
                             .Sum(nv => nv.SoTien);
                         valInYear = sumNguonVonInYear / factor;
-                    }
-                    else if (hasUserPhanKy)
-                    {
-                        // Ưu tiên 2: Lấy phân kỳ vốn đã lập trực tiếp theo từng năm của dự án (DuAnPhanKyVon)
-                        var userPk = proj.PhanKyVons!.FirstOrDefault(pk => pk.Nam == y);
-                        valInYear = userPk != null ? (userPk.SoTienPhanKy / factor) : 0m;
-                    }
-                    else if (hasActualMilestones)
-                    {
-                        // Ưu tiên 3: Dựa vào đợt thanh toán thực tế trong CSDL (nếu chưa lập phân kỳ vốn)
-                        var actualPaymentInYear = allDotThanhToans
-                            .Where(m => (m.NgayThanhToan.HasValue && m.NgayThanhToan.Value.Year == y) ||
-                                        (!m.NgayThanhToan.HasValue && m.CreatedAt.Year == y))
-                            .Sum(m => m.GiaTriThanhToan);
-
-                        valInYear = actualPaymentInYear / factor;
-                    }
-                    else if (y >= pStart && y <= pEnd)
-                    {
-                        // Ưu tiên 4: Dựa vào trọng số phân kỳ ước tính theo số năm dự án (nếu không có phân kỳ & đợt thanh toán)
-                        int yearIndex = y - pStart; // 0, 1, 2...
-                        decimal weight = 1.0m;
-
-                        if (numProjYears == 2)
-                        {
-                            weight = yearIndex == 0 ? 0.45m : 0.55m;
-                        }
-                        else if (numProjYears == 3)
-                        {
-                            weight = yearIndex switch { 0 => 0.30m, 1 => 0.50m, _ => 0.20m };
-                        }
-                        else if (numProjYears == 4)
-                        {
-                            weight = yearIndex switch { 0 => 0.20m, 1 => 0.40m, 2 => 0.30m, _ => 0.10m };
-                        }
-                        else if (numProjYears >= 5)
-                        {
-                            weight = yearIndex switch { 0 => 0.15m, 1 => 0.30m, 2 => 0.35m, 3 => 0.15m, _ => 0.05m };
-                        }
-
-                        valInYear = totalInvestment * weight;
                     }
 
                     row.PhanKyDauTu.Add(new KeHoachVonCnttPhanKyDto { Nam = y, GiaTri = valInYear });
@@ -3011,7 +2942,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Include(g => g.SourceDuAn)
             .Include(g => g.TargetDuAn)
-                .ThenInclude(t => t.PhanKyVons)
+                .ThenInclude(t => t.DanhSachNguonVon)
             .ToListAsync();
 
         int sttPhanBo = 1;
@@ -3029,8 +2960,10 @@ public class ReportService : IReportService
             var pkDict = new Dictionary<int, decimal>();
             for (int y = startY; y <= endY; y++)
             {
-                var pk = targetDuAn.PhanKyVons?.FirstOrDefault(p => p.Nam == y);
-                pkDict[y] = pk != null ? (pk.SoTienPhanKy / factor) : 0m;
+                var sumInYear = targetDuAn.DanhSachNguonVon?
+                    .Where(nv => nv.Nam == y)
+                    .Sum(nv => nv.SoTien) ?? 0m;
+                pkDict[y] = sumInYear / factor;
             }
 
             phanBoList.Add(new KeHoachVonPhanBoNguonRowDto

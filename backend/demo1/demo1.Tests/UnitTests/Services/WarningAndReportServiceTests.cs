@@ -686,10 +686,8 @@ namespace demo1.Tests.UnitTests.Services
                 DaTrienKhai = true
             };
 
-            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1000000000m });
-            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv2.Id, SoTien = 2000000000m });
-            proj.PhanKyVons.Add(new DuAnPhanKyVon { Id = Guid.NewGuid(), DuAnId = proj.Id, Nam = 2025, SoTienPhanKy = 1500000000m });
-            proj.PhanKyVons.Add(new DuAnPhanKyVon { Id = Guid.NewGuid(), DuAnId = proj.Id, Nam = 2026, SoTienPhanKy = 1500000000m });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1000000000m, Nam = 2025 });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv2.Id, SoTien = 2000000000m, Nam = 2026 });
 
             _dbContext.DuAns.Add(proj);
             await _dbContext.SaveChangesAsync();
@@ -706,8 +704,8 @@ namespace demo1.Tests.UnitTests.Services
             row.Should().NotBeNull();
             row!.NguonVonChiTiet[nv1.Id].Should().Be(1000000000m);
             row.NguonVonChiTiet[nv2.Id].Should().Be(2000000000m);
-            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2025)?.GiaTri.Should().Be(1500000000m);
-            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2026)?.GiaTri.Should().Be(1500000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2025)?.GiaTri.Should().Be(1000000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2026)?.GiaTri.Should().Be(2000000000m);
 
             excelBytes.Should().NotBeNullOrEmpty();
             csvBytes.Should().NotBeNullOrEmpty();
@@ -768,6 +766,52 @@ namespace demo1.Tests.UnitTests.Services
             allRowProjectIds.Should().Contain(projTrienKhaiApproved1.Id);
             allRowProjectIds.Should().Contain(projTrienKhaiApproved2.Id);
             allRowProjectIds.Should().NotContain(projTrienKhaiUnapproved.Id);
+        }
+
+        [Fact]
+        public async Task GetKeHoachVonCnttReportAsync_PhanKyDauTu_Should_Match_DanhSachNguonVon_Years()
+        {
+            // Arrange
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var nv1 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST_1", Name = "Nguồn vốn 1" };
+            var nv2 = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST_2", Name = "Nguồn vốn 2" };
+            _dbContext.NguonVons.AddRange(nv1, nv2);
+
+            var proj = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-PK-NV",
+                Name = "Dự án kiểm tra phân kỳ nguồn vốn",
+                DuToanPheDuyet = 5000000000m,
+                DaTrienKhai = true,
+                NoiDung = "Phần mềm kiểm tra phân kỳ"
+            };
+
+            // 2024: 1 tỷ (NV1)
+            // 2025: 1.5 tỷ (NV1) + 0.5 tỷ (NV2) = 2 tỷ
+            // 2026: 2 tỷ (NV2)
+            // 2027: không có vốn (phải là 0)
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1000000000m, Nam = 2024 });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv1.Id, SoTien = 1500000000m, Nam = 2025 });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv2.Id, SoTien = 500000000m, Nam = 2025 });
+            proj.DanhSachNguonVon.Add(new DuAnNguonVon { Id = Guid.NewGuid(), DuAnId = proj.Id, NguonVonId = nv2.Id, SoTien = 2000000000m, Nam = 2026 });
+
+            _dbContext.DuAns.Add(proj);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: lấy báo cáo từ 2024 đến 2027
+            var report = await service.GetKeHoachVonCnttReportAsync(2024, 2027, null, "1");
+
+            // Assert
+            report.Should().NotBeNull();
+            var row = report.Groups.SelectMany(g => g.Rows).FirstOrDefault(r => r.DuAnId == proj.Id);
+            row.Should().NotBeNull();
+            row!.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2024)?.GiaTri.Should().Be(1000000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2025)?.GiaTri.Should().Be(2000000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2026)?.GiaTri.Should().Be(2000000000m);
+            row.PhanKyDauTu.FirstOrDefault(p => p.Nam == 2027)?.GiaTri.Should().Be(0m);
         }
 
         [Fact]
