@@ -194,6 +194,8 @@ namespace demo1.Services.Workers
                         dotMessage = $"sắp đến hạn (còn {daysRemaining} ngày, {formattedAmount}, hạn: {formattedDate})";
                     }
 
+                    var targetName = string.IsNullOrWhiteSpace(phase.HopDong?.Name) ? (phase.HopDong?.Code ?? phase.TenDot) : phase.HopDong.Name;
+
                     var notification = NotificationBuilder.Create()
                         .WithTitle(title)
                         .WithContent(content)
