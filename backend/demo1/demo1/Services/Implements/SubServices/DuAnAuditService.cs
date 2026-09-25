@@ -385,6 +385,74 @@ public class DuAnAuditService : IDuAnAuditService
         return ReplaceGuidsInJson(str, entityNameMap) ?? string.Empty;
     }
 
+    private string FormatValueString(string key, object? val, Dictionary<string, string> entityNameMap)
+    {
+        if (val == null) return string.Empty;
+
+        var rawStr = val is JsonElement element
+            ? (element.ValueKind == JsonValueKind.Null || element.ValueKind == JsonValueKind.Undefined ? string.Empty : element.ToString())
+            : (val.ToString() ?? string.Empty);
+
+        var replaced = ReplaceGuidsInJson(rawStr, entityNameMap) ?? string.Empty;
+
+        var keyLower = key.ToLowerInvariant().Replace(" ", "").Replace("_", "");
+
+        // 1. Trạng thái dự án / thanh toán / công việc
+        if (keyLower.Contains("trangthai") || keyLower.Contains("status"))
+        {
+            if (int.TryParse(replaced, out var statusInt))
+            {
+                if (keyLower.Contains("thanhtoan") || keyLower.Contains("payment"))
+                {
+                    return statusInt switch
+                    {
+                        0 => "Chưa thanh toán",
+                        1 => "Đang xử lý",
+                        2 => "Đã thanh toán",
+                        3 => "Đã hủy",
+                        _ => replaced
+                    };
+                }
+
+                // Mặc định TrangThaiDuAn
+                return statusInt switch
+                {
+                    1 => "Bản nháp",
+                    2 => "Đã trình",
+                    3 => "Đã duyệt",
+                    4 => "Đang triển khai",
+                    5 => "Nghiệm thu",
+                    6 => "Thanh toán",
+                    7 => "Quyết toán",
+                    8 => "Hoàn thành",
+                    9 => "Tạm dừng",
+                    10 => "Đã gộp",
+                    _ => replaced
+                };
+            }
+
+            if (string.Equals(replaced, "Approved", StringComparison.OrdinalIgnoreCase)) return "Đã duyệt";
+            if (string.Equals(replaced, "Implementing", StringComparison.OrdinalIgnoreCase)) return "Đang triển khai";
+            if (string.Equals(replaced, "Acceptance", StringComparison.OrdinalIgnoreCase)) return "Nghiệm thu";
+            if (string.Equals(replaced, "Payment", StringComparison.OrdinalIgnoreCase)) return "Thanh toán";
+            if (string.Equals(replaced, "Settlement", StringComparison.OrdinalIgnoreCase)) return "Quyết toán";
+            if (string.Equals(replaced, "Completed", StringComparison.OrdinalIgnoreCase)) return "Hoàn thành";
+            if (string.Equals(replaced, "Merged", StringComparison.OrdinalIgnoreCase)) return "Đã gộp";
+        }
+
+        // 2. Boolean flags (IsPaid, etc.)
+        if (bool.TryParse(replaced, out var boolVal))
+        {
+            if (keyLower.Contains("ispaid") || keyLower.Contains("thanhtoan"))
+            {
+                return boolVal ? "Đã thanh toán" : "Chưa thanh toán";
+            }
+            return boolVal ? "Có" : "Không";
+        }
+
+        return replaced;
+    }
+
     private string? ProcessAndFormatJson(string? json, Dictionary<string, string> entityNameMap)
     {
         if (string.IsNullOrWhiteSpace(json)) return json;
@@ -398,8 +466,13 @@ public class DuAnAuditService : IDuAnAuditService
         var formatted = new Dictionary<string, object?>();
         foreach (var kvp in dict)
         {
+            var keyLower = kvp.Key.ToLowerInvariant().Replace(" ", "").Replace("_", "");
+            // Bỏ qua các trường kỹ thuật nội bộ
+            if (keyLower == "daketthuc" || keyLower == "isactive" || keyLower == "isdeleted" || keyLower == "trangthaixoa")
+                continue;
+
             var translatedKey = AppDbContext.TranslateColumnName(kvp.Key);
-            var valStr = ReplaceGuidsInValue(kvp.Value, entityNameMap);
+            var valStr = FormatValueString(kvp.Key, kvp.Value, entityNameMap);
             formatted[translatedKey] = valStr;
         }
 
@@ -444,11 +517,16 @@ public class DuAnAuditService : IDuAnAuditService
 
         foreach (var key in allKeys)
         {
+            var keyLower = key.ToLowerInvariant().Replace(" ", "").Replace("_", "");
+            // Bỏ qua các trường kỹ thuật nội bộ không cần hiển thị cho người dùng
+            if (keyLower == "daketthuc" || keyLower == "isactive" || keyLower == "isdeleted" || keyLower == "trangthaixoa")
+                continue;
+
             translatedOld.TryGetValue(key, out var rawOld);
             translatedNew.TryGetValue(key, out var rawNew);
 
-            var oldStr = ReplaceGuidsInValue(rawOld, entityNameMap);
-            var newStr = ReplaceGuidsInValue(rawNew, entityNameMap);
+            var oldStr = FormatValueString(key, rawOld, entityNameMap);
+            var newStr = FormatValueString(key, rawNew, entityNameMap);
 
             var normOld = string.IsNullOrWhiteSpace(oldStr) ? string.Empty : oldStr.Trim();
             var normNew = string.IsNullOrWhiteSpace(newStr) ? string.Empty : newStr.Trim();
