@@ -18,8 +18,8 @@ public static class NotificationMapper
         var message = n.Message;
         var targetName = n.TargetName;
 
-        // Auto fallback extraction for older records in DB if structured fields are null
-        if (string.IsNullOrWhiteSpace(actionBadge) && string.IsNullOrWhiteSpace(message))
+        // Auto fallback extraction for older records in DB if structured fields are null or message is missing
+        if (string.IsNullOrWhiteSpace(actionBadge) || string.IsNullOrWhiteSpace(message))
         {
             EnrichLegacyMetadata(n.Title, content, category, ref actionBadge, ref badgeVariant, ref actorName, ref message, ref targetName);
         }

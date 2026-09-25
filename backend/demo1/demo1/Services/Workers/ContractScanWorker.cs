@@ -209,6 +209,7 @@ namespace demo1.Services.Workers
                             .ForUser(user.Id)
                             .WithTarget(targetName)
                             .WithBadge(badgeText, badgeVariant)
+                            .WithMessage(message)
                             .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));
@@ -273,6 +274,20 @@ namespace demo1.Services.Workers
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
                         var badgeVariant = isOverdue ? "destructive" : "warning";
+                        string licMessage;
+                        if (daysRemaining < 0)
+                        {
+                            licMessage = $"đã hết hạn {Math.Abs(daysRemaining)} ngày (ngày hết hạn: {license.NgayKetThuc.Value:dd/MM/yyyy})";
+                        }
+                        else if (daysRemaining == 0)
+                        {
+                            licMessage = $"hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy})";
+                        }
+                        else
+                        {
+                            licMessage = $"sắp hết hạn (còn {daysRemaining} ngày)";
+                        }
+
                         var targetName = string.IsNullOrWhiteSpace(license.Name) ? license.Code : license.Name;
 
                         var notification = NotificationBuilder.Create()
@@ -284,6 +299,7 @@ namespace demo1.Services.Workers
                             .ForUser(user.Id)
                             .WithTarget(targetName)
                             .WithBadge(badgeText, badgeVariant)
+                            .WithMessage(licMessage)
                             .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));
@@ -377,6 +393,19 @@ namespace demo1.Services.Workers
 
                         if (alreadyNotified) continue;
 
+                        string hhhMessage;
+                        if (daysRemaining < 0)
+                        {
+                            hhhMessage = $"đã hết hạn {Math.Abs(daysRemaining)} ngày (ngày hết hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy})";
+                        }
+                        else if (daysRemaining == 0)
+                        {
+                            hhhMessage = $"hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy})";
+                        }
+                        else
+                        {
+                            hhhMessage = $"sắp hết hạn (còn {daysRemaining} ngày)";
+                        }
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
                         var badgeVariant = isOverdue ? "destructive" : "warning";
@@ -390,6 +419,7 @@ namespace demo1.Services.Workers
                             .ForUser(user.Id)
                             .WithTarget(licenseName)
                             .WithBadge(badgeText, badgeVariant)
+                            .WithMessage(hhhMessage)
                             .Build();
                         dbContext.Notifications.Add(notification);
                         notificationsToPush.Add((user.Username, notification));

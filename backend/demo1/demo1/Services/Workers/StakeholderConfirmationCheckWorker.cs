@@ -152,6 +152,7 @@ namespace demo1.Services.Workers
                             .ForUser(record.UserId)
                             .WithTarget(taskTitle)
                             .WithBadge("Đã quá hạn", "destructive")
+                            .WithMessage("quá hạn xác nhận công việc")
                             .Build();
 
                         dbContext.Notifications.Add(notification);
@@ -184,6 +185,7 @@ namespace demo1.Services.Workers
                                 .WithActor(memberName)
                                 .WithTarget(taskTitle)
                                 .WithBadge("Đã quá hạn", "destructive")
+                                .WithMessage("đã quá hạn xác nhận")
                                 .Build();
                             dbContext.Notifications.Add(overdueNotification);
                             notificationsToPush.Add((targetUser.Username, overdueNotification));
@@ -233,6 +235,7 @@ namespace demo1.Services.Workers
                             .ForUser(record.UserId)
                             .WithTarget(taskTitle)
                             .WithBadge("Sắp hết hạn", "warning")
+                            .WithMessage($"sắp hết hạn (còn {hoursLeft} giờ để xác nhận)")
                             .Build();
 
                         dbContext.Notifications.Add(notification);
