@@ -180,7 +180,19 @@ namespace demo1.Services.Workers
                     var isOverdue = daysRemaining < 0;
                     var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
                     var badgeVariant = isOverdue ? "destructive" : "warning";
-                    var targetName = string.IsNullOrWhiteSpace(phase.TenDot) ? phase.HopDong.Name : $"{phase.TenDot} ({phase.HopDong.Name})";
+                    string dotMessage;
+                    if (daysRemaining < 0)
+                    {
+                        dotMessage = $"đã quá hạn {Math.Abs(daysRemaining)} ngày ({formattedAmount}, hạn: {formattedDate})";
+                    }
+                    else if (daysRemaining == 0)
+                    {
+                        dotMessage = $"đến hạn thanh toán hôm nay ({formattedAmount}, {formattedDate})";
+                    }
+                    else
+                    {
+                        dotMessage = $"sắp đến hạn (còn {daysRemaining} ngày, {formattedAmount}, hạn: {formattedDate})";
+                    }
 
                     var notification = NotificationBuilder.Create()
                         .WithTitle(title)
@@ -191,6 +203,7 @@ namespace demo1.Services.Workers
                         .ForUser(user.Id)
                         .WithTarget(targetName)
                         .WithBadge(badgeText, badgeVariant)
+                        .WithMessage(dotMessage)
                         .Build();
 
                     dbContext.Notifications.Add(notification);

@@ -703,6 +703,7 @@ public class CongViecGoiThauService
                     .WithActor(actorName)
                     .WithTarget(task.TenTaiLieu)
                     .WithBadge("Xác nhận", "success")
+                    .WithMessage("đã xác nhận công việc")
                     .Build();
 
                 DbContext.Notifications.Add(notification);
