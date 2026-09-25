@@ -45,6 +45,9 @@ namespace demo1.DTOs
 
     public class DocumentPermissions
     {
+        [JsonPropertyName("chat")]
+        public bool Chat { get; set; } = false;
+
         [JsonPropertyName("comment")]
         public bool Comment { get; set; } = true;
 
@@ -100,7 +103,8 @@ namespace demo1.DTOs
         public bool Forcesave { get; set; } = true;
 
         [JsonPropertyName("chat")]
-        public bool Chat { get; set; } = false;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? Chat { get; set; }
 
         [JsonPropertyName("comments")]
         public bool Comments { get; set; } = true;

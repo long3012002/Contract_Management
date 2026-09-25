@@ -69,6 +69,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.ChuDuAn);
@@ -187,6 +188,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         IQueryable<DuAn> query = DbSet.AsNoTracking()
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.ChuDuAn);
@@ -204,6 +206,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var entity = await DbSet
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
             .Include(da => da.NhomDuAn)
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.ChuDuAn)
@@ -305,6 +308,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     }
                 }
 
+                await ProcessKeHoachVonAssignmentAsync(
+                    entity,
+                    dto.KeHoachVonIds,
+                    dto.DanhSachKeHoachVon,
+                    dto.DanhSachNguonVon?.Select(x => x.Nam),
+                    entity.DuToanPheDuyet);
+
                 if (entity.TrangThai <= 1 || entity.TrangThai == (int)TrangThaiDuAn.Draft)
                 {
                     entity.TrangThai = (int)TrangThaiDuAn.Approved; // Mặc định Đã duyệt (3) khi thêm mới
@@ -362,6 +372,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var entity = await DbSet
             .Include(d => d.PhanKyVons)
             .Include(d => d.DanhSachNguonVon)
+            .Include(d => d.KeHoachVonDuAns)
             .FirstOrDefaultAsync(d => d.Id == id);
 
         if (entity == null) return false;
@@ -370,6 +381,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         var phanKyDtos = dto.PhanKyVons;
         var nguonVonDtos = dto.DanhSachNguonVon;
+        var keHoachVonDtos = dto.DanhSachKeHoachVon;
+        var keHoachVonIds = dto.KeHoachVonIds;
 
         DuAnValidator.EnsureValid(dto.DuToanPheDuyet, dto.NgayBatDau, dto.NgayKetThuc, dto.NamBatDau, dto.NamKetThuc, dto.NgayKetThucThucTe);
         if (nguonVonDtos != null)
@@ -384,6 +397,8 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         dto.PhanKyVons = null;
         dto.DanhSachNguonVon = null;
+        dto.DanhSachKeHoachVon = null;
+        dto.KeHoachVonIds = null;
 
         Mapper.Map(dto, entity);
 
@@ -465,10 +480,27 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             }
         }
 
+        if (keHoachVonDtos != null || keHoachVonIds != null)
+        {
+            await SyncKeHoachVonAssignmentAsync(
+                entity,
+                keHoachVonIds,
+                keHoachVonDtos,
+                entity.DanhSachNguonVon.Select(x => x.Nam),
+                entity.DuToanPheDuyet);
+        }
+        else if (nguonVonDtos != null && entity.KeHoachVonDuAns.Any())
+        {
+            var existingKhvIds = entity.KeHoachVonDuAns.Select(x => x.KeHoachVonId).ToList();
+            var existingKhvs = await DbContext.KeHoachVons.Where(k => existingKhvIds.Contains(k.Id)).ToListAsync();
+            DuAnValidator.ValidateKeHoachVon(entity.DanhSachNguonVon.Select(x => x.Nam), existingKhvs);
+        }
+
         entity.UpdatedAt = DateTime.UtcNow;
         await DbContext.SaveChangesAsync();
         return true;
     }
+
 
     public async Task<DuAnDto> AdvanceStatusAsync(Guid id)
     {
@@ -721,6 +753,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                         });
                     }
                 }
+
+                await ProcessKeHoachVonAssignmentAsync(
+                    newProject,
+                    dto.KeHoachVonIds,
+                    dto.DanhSachKeHoachVon,
+                    dto.DanhSachNguonVon?.Select(x => x.Nam),
+                    newProject.DuToanPheDuyet);
 
                 DbSet.Add(newProject);
 
@@ -1057,4 +1096,181 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         throw new UnauthorizedAccessException("Không xác định được danh tính người dùng thực hiện thao tác.");
     }
+
+    private async Task ProcessKeHoachVonAssignmentAsync(
+        DuAn entity,
+        List<Guid>? keHoachVonIds,
+        List<CreateDuAnKeHoachVonDto>? danhSachKeHoachVon,
+        IEnumerable<int?>? nguonVonNams,
+        decimal duToanPheDuyet)
+    {
+        var combinedItems = new Dictionary<Guid, CreateDuAnKeHoachVonDto>();
+
+        if (danhSachKeHoachVon != null)
+        {
+            foreach (var item in danhSachKeHoachVon)
+            {
+                if (item.KeHoachVonId != Guid.Empty && !combinedItems.ContainsKey(item.KeHoachVonId))
+                {
+                    combinedItems[item.KeHoachVonId] = item;
+                }
+            }
+        }
+
+        if (keHoachVonIds != null)
+        {
+            foreach (var khvId in keHoachVonIds)
+            {
+                if (khvId != Guid.Empty && !combinedItems.ContainsKey(khvId))
+                {
+                    combinedItems[khvId] = new CreateDuAnKeHoachVonDto { KeHoachVonId = khvId };
+                }
+            }
+        }
+
+        if (!combinedItems.Any())
+        {
+            return;
+        }
+
+        var khvIds = combinedItems.Keys.ToList();
+        var keHoachVons = await DbContext.KeHoachVons
+            .Where(k => khvIds.Contains(k.Id))
+            .ToListAsync();
+
+        var missingKhvIds = khvIds.Except(keHoachVons.Select(k => k.Id)).ToList();
+        if (missingKhvIds.Any())
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Kế hoạch vốn với ID [{missingKhvIds.First()}].");
+        }
+
+        DuAnValidator.ValidateKeHoachVon(nguonVonNams, keHoachVons);
+
+        foreach (var khv in keHoachVons)
+        {
+            var inputDto = combinedItems[khv.Id];
+            decimal deNghi = inputDto.SoTienDeNghi ?? 0m;
+            if (deNghi <= 0)
+            {
+                var matchingNvAmount = entity.DanhSachNguonVon
+                    .Where(nv => nv.Nam == khv.NamKeHoach)
+                    .Sum(nv => nv.SoTien);
+
+                deNghi = matchingNvAmount > 0 ? matchingNvAmount : duToanPheDuyet;
+            }
+
+            decimal duocDuyet = inputDto.SoTienDuocDuyet.HasValue && inputDto.SoTienDuocDuyet.Value > 0
+                ? inputDto.SoTienDuocDuyet.Value
+                : deNghi;
+
+            entity.KeHoachVonDuAns.Add(new KeHoachVonDuAn
+            {
+                KeHoachVonId = khv.Id,
+                DuAnId = entity.Id,
+                SoTienDeNghi = deNghi,
+                SoTienDuocDuyet = duocDuyet,
+                VonDieuLe = inputDto.VonDieuLe,
+                QuyDauTuPhatTrien = inputDto.QuyDauTuPhatTrien,
+                GhiChu = inputDto.GhiChu,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    private async Task SyncKeHoachVonAssignmentAsync(
+        DuAn entity,
+        List<Guid>? keHoachVonIds,
+        List<CreateDuAnKeHoachVonDto>? danhSachKeHoachVon,
+        IEnumerable<int?>? nguonVonNams,
+        decimal duToanPheDuyet)
+    {
+        var combinedItems = new Dictionary<Guid, CreateDuAnKeHoachVonDto>();
+
+        if (danhSachKeHoachVon != null)
+        {
+            foreach (var item in danhSachKeHoachVon)
+            {
+                if (item.KeHoachVonId != Guid.Empty && !combinedItems.ContainsKey(item.KeHoachVonId))
+                {
+                    combinedItems[item.KeHoachVonId] = item;
+                }
+            }
+        }
+
+        if (keHoachVonIds != null)
+        {
+            foreach (var khvId in keHoachVonIds)
+            {
+                if (khvId != Guid.Empty && !combinedItems.ContainsKey(khvId))
+                {
+                    combinedItems[khvId] = new CreateDuAnKeHoachVonDto { KeHoachVonId = khvId };
+                }
+            }
+        }
+
+        var incomingKhvIds = combinedItems.Keys.ToHashSet();
+
+        var keHoachVons = await DbContext.KeHoachVons
+            .Where(k => incomingKhvIds.Contains(k.Id))
+            .ToListAsync();
+
+        var missingKhvIds = incomingKhvIds.Except(keHoachVons.Select(k => k.Id)).ToList();
+        if (missingKhvIds.Any())
+        {
+            throw new KeyNotFoundException($"Không tìm thấy Kế hoạch vốn với ID [{missingKhvIds.First()}].");
+        }
+
+        DuAnValidator.ValidateKeHoachVon(nguonVonNams, keHoachVons);
+
+        var toDelete = entity.KeHoachVonDuAns.Where(x => !incomingKhvIds.Contains(x.KeHoachVonId)).ToList();
+        foreach (var item in toDelete)
+        {
+            DbContext.KeHoachVonDuAns.Remove(item);
+            entity.KeHoachVonDuAns.Remove(item);
+        }
+
+        foreach (var khv in keHoachVons)
+        {
+            var inputDto = combinedItems[khv.Id];
+            decimal deNghi = inputDto.SoTienDeNghi ?? 0m;
+            if (deNghi <= 0)
+            {
+                var matchingNvAmount = entity.DanhSachNguonVon
+                    .Where(nv => nv.Nam == khv.NamKeHoach)
+                    .Sum(nv => nv.SoTien);
+
+                deNghi = matchingNvAmount > 0 ? matchingNvAmount : duToanPheDuyet;
+            }
+
+            decimal duocDuyet = inputDto.SoTienDuocDuyet.HasValue && inputDto.SoTienDuocDuyet.Value > 0
+                ? inputDto.SoTienDuocDuyet.Value
+                : deNghi;
+
+            var existing = entity.KeHoachVonDuAns.FirstOrDefault(x => x.KeHoachVonId == khv.Id);
+            if (existing != null)
+            {
+                if (inputDto.SoTienDeNghi.HasValue) existing.SoTienDeNghi = inputDto.SoTienDeNghi.Value;
+                if (inputDto.SoTienDuocDuyet.HasValue) existing.SoTienDuocDuyet = inputDto.SoTienDuocDuyet.Value;
+                if (inputDto.VonDieuLe.HasValue) existing.VonDieuLe = inputDto.VonDieuLe;
+                if (inputDto.QuyDauTuPhatTrien.HasValue) existing.QuyDauTuPhatTrien = inputDto.QuyDauTuPhatTrien;
+                if (inputDto.GhiChu != null) existing.GhiChu = inputDto.GhiChu;
+            }
+            else
+            {
+                var newLink = new KeHoachVonDuAn
+                {
+                    KeHoachVonId = khv.Id,
+                    DuAnId = entity.Id,
+                    SoTienDeNghi = deNghi,
+                    SoTienDuocDuyet = duocDuyet,
+                    VonDieuLe = inputDto.VonDieuLe,
+                    QuyDauTuPhatTrien = inputDto.QuyDauTuPhatTrien,
+                    GhiChu = inputDto.GhiChu,
+                    CreatedAt = DateTime.UtcNow
+                };
+                entity.KeHoachVonDuAns.Add(newLink);
+            }
+        }
+    }
 }
+

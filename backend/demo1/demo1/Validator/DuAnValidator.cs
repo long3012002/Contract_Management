@@ -38,4 +38,24 @@ public static class DuAnValidator
             }
         }
     }
+
+    public static void ValidateKeHoachVon(IEnumerable<int?>? nguonVonNams, IEnumerable<Entity.KeHoachVon> keHoachVons)
+    {
+        if (keHoachVons == null || !keHoachVons.Any()) return;
+
+        var validYears = nguonVonNams?
+            .Where(n => n.HasValue)
+            .Select(n => n!.Value)
+            .ToHashSet() ?? new HashSet<int>();
+
+        foreach (var khv in keHoachVons)
+        {
+            if (!validYears.Contains(khv.NamKeHoach))
+            {
+                var tenKhv = !string.IsNullOrWhiteSpace(khv.Name) ? khv.Name : (!string.IsNullOrWhiteSpace(khv.Code) ? khv.Code : khv.Id.ToString());
+                throw new InvalidOperationException($"Không thể gán dự án vào Kế hoạch vốn '{tenKhv}' (năm {khv.NamKeHoach}) do dự án không có nguồn vốn nào thuộc năm {khv.NamKeHoach}.");
+            }
+        }
+    }
 }
+

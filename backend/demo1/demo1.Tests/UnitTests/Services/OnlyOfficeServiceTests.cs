@@ -295,6 +295,103 @@ namespace demo1.Tests.UnitTests.Services
                 .WithMessage("Bạn không có quyền chỉnh sửa tệp tin đính kèm này.");
         }
 
+        [Fact]
+        public async Task GenerateConfigAsync_Should_Use_Configured_PublicBaseUrl_And_Correct_Permissions()
+        {
+            var adminUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "admin_test",
+                IsActive = true,
+                IsSystemAdmin = true
+            };
+            _dbContext.Users.Add(adminUser);
+
+            var attachment = new FileAttachment
+            {
+                Id = Guid.NewGuid(),
+                FileName = "test.docx",
+                FilePath = "uploads/test.docx",
+                ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                FileSize = 2048,
+                EntityType = "DU_AN",
+                EntityId = Guid.NewGuid(),
+                Code = "DOC-TEST",
+                Name = "Test Doc",
+                IsActive = true
+            };
+            _dbContext.FileAttachments.Add(attachment);
+            await _dbContext.SaveChangesAsync();
+
+            var config = await _onlyOfficeService.GenerateConfigAsync(attachment, "view", adminUser.Id, adminUser.Username);
+
+            config.Should().NotBeNull();
+            config.Document.Url.Should().StartWith("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-download/");
+            config.EditorConfig.CallbackUrl.Should().Be("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-callback");
+            config.Document.Permissions.Chat.Should().BeFalse();
+            config.EditorConfig.Customization.Chat.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GenerateConfigAsync_Should_Derive_Host_From_ServerUrl_When_Request_Is_Localhost()
+        {
+            var adminUser = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "admin_ip_test",
+                IsActive = true,
+                IsSystemAdmin = true
+            };
+            _dbContext.Users.Add(adminUser);
+
+            var attachment = new FileAttachment
+            {
+                Id = Guid.NewGuid(),
+                FileName = "test_ip.docx",
+                FilePath = "uploads/test_ip.docx",
+                ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                FileSize = 1024,
+                EntityType = "DU_AN",
+                EntityId = Guid.NewGuid(),
+                Code = "DOC-IP",
+                Name = "IP Test Doc",
+                IsActive = true
+            };
+            _dbContext.FileAttachments.Add(attachment);
+            await _dbContext.SaveChangesAsync();
+
+            var mockConfig = new Mock<IConfiguration>();
+            var uploadSection = new Mock<IConfigurationSection>();
+            uploadSection.Setup(s => s["StoragePath"]).Returns("uploads");
+            var ooSection = new Mock<IConfigurationSection>();
+            ooSection.Setup(s => s["JwtSecret"]).Returns("TestSecretKeyForOnlyOffice1234567890");
+            ooSection.Setup(s => s["ServerUrl"]).Returns("http://10.225.10.78:8080");
+            mockConfig.Setup(c => c.GetSection("UploadSettings")).Returns(uploadSection.Object);
+            mockConfig.Setup(c => c.GetSection("OnlyOfficeSettings")).Returns(ooSection.Object);
+
+            var mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Scheme = "http";
+            httpContext.Request.Host = new HostString("localhost", 64950);
+            mockHttpContextAccessor.Setup(h => h.HttpContext).Returns(httpContext);
+
+            var service = new OnlyOfficeService(
+                _dbContext,
+                _mockPermissionService.Object,
+                mockConfig.Object,
+                _mockEnv.Object,
+                _mockLogger.Object,
+                _mockHttpClientFactory.Object,
+                mockHttpContextAccessor.Object
+            );
+
+            var config = await service.GenerateConfigAsync(attachment, "view", adminUser.Id, adminUser.Username);
+
+            config.Should().NotBeNull();
+            config.Document.Url.Should().StartWith("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-download/");
+            config.EditorConfig.CallbackUrl.Should().Be("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-callback");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

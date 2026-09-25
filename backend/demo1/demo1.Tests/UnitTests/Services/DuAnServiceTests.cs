@@ -415,9 +415,127 @@ namespace demo1.Tests.UnitTests.Services
             softDeletedProject!.IsDeleted.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_Assign_KeHoachVon_When_FundingSource_Year_Matches()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var nv = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST", Name = "Nguồn vốn Test", IsActive = true };
+            _dbContext.NguonVons.Add(nv);
+
+            var khv2026 = new KeHoachVon { Id = Guid.NewGuid(), NamKeHoach = 2026, LoaiKeHoach = 2, Code = "KHV-2026", Name = "Kế hoạch vốn 2026" };
+            _dbContext.KeHoachVons.Add(khv2026);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-KHV-001",
+                Name = "Dự án gán KHV hợp lệ",
+                DuToanPheDuyet = 500000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nv.Id, Nam = 2026, SoTien = 500000000m }
+                },
+                KeHoachVonIds = new List<Guid> { khv2026.Id }
+            };
+
+            var result = await _duAnService.CreateAsync(createDto);
+
+            result.Should().NotBeNull();
+            result.DanhSachKeHoachVon.Should().HaveCount(1);
+            result.DanhSachKeHoachVon[0].KeHoachVonId.Should().Be(khv2026.Id);
+            result.DanhSachKeHoachVon[0].NamKeHoach.Should().Be(2026);
+            result.DanhSachKeHoachVon[0].SoTienDeNghi.Should().Be(500000000m);
+        }
+
+        [Fact]
+        public async Task CreateAsync_Should_Throw_When_No_FundingSource_Year_Matches_KeHoachVon_Year()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var nv = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST2", Name = "Nguồn vốn Test 2", IsActive = true };
+            _dbContext.NguonVons.Add(nv);
+
+            var khv2027 = new KeHoachVon { Id = Guid.NewGuid(), NamKeHoach = 2027, LoaiKeHoach = 2, Code = "KHV-2027", Name = "Kế hoạch vốn 2027" };
+            _dbContext.KeHoachVons.Add(khv2027);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-KHV-002",
+                Name = "Dự án gán KHV không hợp lệ năm",
+                DuToanPheDuyet = 500000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nv.Id, Nam = 2026, SoTien = 500000000m }
+                },
+                KeHoachVonIds = new List<Guid> { khv2027.Id }
+            };
+
+            Func<Task> act = async () => await _duAnService.CreateAsync(createDto);
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*không có nguồn vốn nào thuộc năm 2027*");
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Sync_KeHoachVon_When_FundingSource_Year_Matches()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var nv = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "NV_TEST3", Name = "Nguồn vốn Test 3", IsActive = true };
+            _dbContext.NguonVons.Add(nv);
+
+            var khv2026 = new KeHoachVon { Id = Guid.NewGuid(), NamKeHoach = 2026, LoaiKeHoach = 2, Code = "KHV-2026-B", Name = "Kế hoạch vốn 2026 B" };
+            _dbContext.KeHoachVons.Add(khv2026);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-KHV-003",
+                Name = "Dự án update KHV",
+                DuToanPheDuyet = 800000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nv.Id, Nam = 2026, SoTien = 800000000m }
+                }
+            };
+            var created = await _duAnService.CreateAsync(createDto);
+
+            var updateDto = new UpdateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-KHV-003",
+                Name = "Dự án update KHV (đã cập nhật)",
+                DuToanPheDuyet = 800000000m,
+                DanhSachKeHoachVon = new List<CreateDuAnKeHoachVonDto>
+                {
+                    new CreateDuAnKeHoachVonDto
+                    {
+                        KeHoachVonId = khv2026.Id,
+                        SoTienDeNghi = 400000000m,
+                        SoTienDuocDuyet = 400000000m,
+                        GhiChu = "Đã gán thành công"
+                    }
+                }
+            };
+
+            var updateResult = await _duAnService.UpdateAsync(created.Id, updateDto);
+            updateResult.Should().BeTrue();
+
+            var updatedProject = await _duAnService.GetByIdAsync(created.Id);
+            updatedProject.Should().NotBeNull();
+            updatedProject!.DanhSachKeHoachVon.Should().HaveCount(1);
+            updatedProject.DanhSachKeHoachVon[0].KeHoachVonId.Should().Be(khv2026.Id);
+            updatedProject.DanhSachKeHoachVon[0].SoTienDeNghi.Should().Be(400000000m);
+            updatedProject.DanhSachKeHoachVon[0].GhiChu.Should().Be("Đã gán thành công");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
         }
     }
 }
+

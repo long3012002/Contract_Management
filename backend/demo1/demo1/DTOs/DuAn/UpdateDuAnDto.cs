@@ -56,4 +56,7 @@ public class UpdateDuAnDto
 
     public List<CreateDuAnPhanKyVonDto>? PhanKyVons { get; set; }
     public List<CreateDuAnNguonVonDto>? DanhSachNguonVon { get; set; }
+    public List<Guid>? KeHoachVonIds { get; set; }
+    public List<CreateDuAnKeHoachVonDto>? DanhSachKeHoachVon { get; set; }
 }
+

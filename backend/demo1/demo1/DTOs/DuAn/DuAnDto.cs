@@ -300,4 +300,15 @@ public class DuAnDto : IHasId
     /// Cảnh báo rủi ro RAG (🟢 Đúng tiến độ, 🟡 Cần chú ý, 🔴 Trễ hạn, ⚪ Đang lập kế hoạch)
     /// </summary>
     public string CanhBaoRuiRo { get; set; } = "🟢 Đúng tiến độ";
+
+    /// <summary>
+    /// Danh sách các đợt Kế hoạch vốn đã gán cho dự án
+    /// </summary>
+    public List<DuAnKeHoachVonDto> DanhSachKeHoachVon { get; set; } = new();
+
+    /// <summary>
+    /// Danh sách ID các Kế hoạch vốn đã gán cho dự án
+    /// </summary>
+    public List<Guid> KeHoachVonIds => DanhSachKeHoachVon?.Select(x => x.KeHoachVonId).ToList() ?? new List<Guid>();
 }
+

@@ -57,8 +57,8 @@ namespace demo1.Services.Implements
 
             var ooSettings = configuration.GetSection("OnlyOfficeSettings");
             _jwtSecret = ooSettings["JwtSecret"] ?? "OnlyOffice_Secret_Key_For_Contract_Management_2026";
-            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "https://hopdong.co-opbank.vn/onlyoffice-api").TrimEnd('/');
-            _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://10.224.0.26:8080").TrimEnd('/');
+            _publicBaseUrl = (ooSettings["PublicBaseUrl"] ?? "").TrimEnd('/');
+            _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://10.225.10.78:8080").TrimEnd('/');
         }
 
         private string GetPublicBaseUrl()
@@ -67,18 +67,40 @@ namespace demo1.Services.Implements
             if (request != null)
             {
                 var scheme = request.Scheme;
-                var hostStr = request.Host.Value;
+                var hostStr = request.Host.Host;
 
-                if (hostStr.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || hostStr.StartsWith("127.0.0.1"))
+                // Nếu request đến từ localhost / 127.0.0.1, trích xuất IP/host từ ServerUrl trong appsettings.json
+                if (hostStr.Equals("localhost", StringComparison.OrdinalIgnoreCase) || hostStr.Equals("127.0.0.1"))
                 {
-                    var portSuffix = request.Host.Port.HasValue ? $":{request.Host.Port.Value}" : "";
-                    return $"{scheme}://10.224.2.77{portSuffix}";
+                    if (Uri.TryCreate(_onlyOfficeServerUrl, UriKind.Absolute, out var serverUri) &&
+                        !string.IsNullOrWhiteSpace(serverUri.Host) &&
+                        !serverUri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) &&
+                        !serverUri.Host.Equals("127.0.0.1"))
+                    {
+                        var portSuffix = request.Host.Port.HasValue ? $":{request.Host.Port.Value}" : "";
+                        return $"{scheme}://{serverUri.Host}{portSuffix}";
+                    }
                 }
 
-                return $"{scheme}://{hostStr}";
+                // Nếu không phải localhost (truy cập qua domain/IP máy chủ), dùng trực tiếp Request.Host
+                return $"{scheme}://{request.Host.Value}";
             }
 
-            return _publicBaseUrl;
+            // Fallback khi không có HttpContext (ví dụ background job hoặc test)
+            if (Uri.TryCreate(_onlyOfficeServerUrl, UriKind.Absolute, out var fallbackUri) &&
+                !string.IsNullOrWhiteSpace(fallbackUri.Host) &&
+                !fallbackUri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) &&
+                !fallbackUri.Host.Equals("127.0.0.1"))
+            {
+                return $"http://{fallbackUri.Host}:64950";
+            }
+
+            if (!string.IsNullOrWhiteSpace(_publicBaseUrl))
+            {
+                return _publicBaseUrl;
+            }
+
+            return "http://localhost:64950";
         }
 
         public async Task<OnlyOfficeConfigDto> GenerateConfigAsync(FileAttachment attachment, string mode, Guid userId, string userName)
@@ -202,6 +224,7 @@ namespace demo1.Services.Implements
                     Url = downloadUrl,
                     Permissions = new DocumentPermissions
                     {
+                        Chat = false,
                         Comment = true,
                         Copy = true,
                         Download = true,
@@ -224,7 +247,6 @@ namespace demo1.Services.Implements
                     {
                         Autosave = true,
                         Forcesave = true,
-                        Chat = false,
                         Comments = true,
                         CompactHeader = false
                     }

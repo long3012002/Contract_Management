@@ -73,7 +73,11 @@ namespace demo1.Mapper
                     !src.NgayKetThuc.HasValue ? "⚪ Đang lập kế hoạch" :
                     (src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days < 0 ? "🔴 Trễ tiến độ" :
                     (src.NgayKetThuc.Value.Date - DateTime.UtcNow.Date).Days <= 30 ? "🟡 Nguy cơ trễ hạn" :
-                    "🟢 Đúng tiến độ"));
+                    "🟢 Đúng tiến độ"))
+                .ForMember(dest => dest.DanhSachKeHoachVon, opt => opt.MapFrom(src => 
+                    src.KeHoachVonDuAns != null 
+                        ? src.KeHoachVonDuAns.OrderByDescending(k => k.KeHoachVon != null ? k.KeHoachVon.NamKeHoach : 0).ToList() 
+                        : new List<KeHoachVonDuAn>()));
             CreateMap<CreateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
@@ -85,7 +89,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
                 .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
                 .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()) // Will be managed in service
-                .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()); // Will be managed in service
+                .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()) // Will be managed in service
+                .ForMember(dest => dest.KeHoachVonDuAns, opt => opt.Ignore()); // Will be managed in service
             CreateMap<UpdateDuAnDto, DuAn>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
@@ -96,14 +101,28 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
                 .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
                 .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()) // Will be managed in service
-                .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()); // Will be managed in service
+                .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()) // Will be managed in service
+                .ForMember(dest => dest.KeHoachVonDuAns, opt => opt.Ignore()); // Will be managed in service
 
             // KeHoachVon & DuAnGopLink mappings
             CreateMap<KeHoachVon, KeHoachVonDto>();
             CreateMap<KeHoachVonDuAn, KeHoachVonDuAnItemDto>()
                 .ForMember(dest => dest.MaDuAn, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Code : null))
                 .ForMember(dest => dest.TenDuAn, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null));
+            CreateMap<KeHoachVonDuAn, DuAnKeHoachVonDto>()
+                .ForMember(dest => dest.SoQuyetDinh, opt => opt.MapFrom(src => src.KeHoachVon != null ? src.KeHoachVon.SoQuyetDinh : null))
+                .ForMember(dest => dest.TenKeHoachVon, opt => opt.MapFrom(src => src.KeHoachVon != null ? src.KeHoachVon.Name : null))
+                .ForMember(dest => dest.NamKeHoach, opt => opt.MapFrom(src => src.KeHoachVon != null ? src.KeHoachVon.NamKeHoach : 0))
+                .ForMember(dest => dest.LoaiKeHoach, opt => opt.MapFrom(src => src.KeHoachVon != null ? src.KeHoachVon.LoaiKeHoach : 0))
+                .ForMember(dest => dest.LoaiKeHoachText, opt => opt.MapFrom(src => src.KeHoachVon != null 
+                    ? (src.KeHoachVon.LoaiKeHoach == 1 ? "6 tháng đầu năm" : src.KeHoachVon.LoaiKeHoach == 2 ? "Cả năm" : $"Bổ sung (Đợt {src.KeHoachVon.DotBoSung ?? 1})") 
+                    : null))
+                .ForMember(dest => dest.TrangThai, opt => opt.MapFrom(src => src.KeHoachVon != null ? src.KeHoachVon.TrangThai : 0))
+                .ForMember(dest => dest.TrangThaiText, opt => opt.MapFrom(src => src.KeHoachVon != null 
+                    ? (src.KeHoachVon.TrangThai == 1 ? "Nháp (Draft)" : src.KeHoachVon.TrangThai == 2 ? "Đã trình (Submitted)" : src.KeHoachVon.TrangThai == 3 ? "Đã duyệt (Approved)" : src.KeHoachVon.TrangThai == 4 ? "Trả về (Rejected)" : "Không xác định") 
+                    : null));
             CreateMap<DuAnGopLink, DuAnGopLinkDto>();
+
 
             // GoiThau mappings
             CreateMap<GoiThau, GoiThauDto>()
