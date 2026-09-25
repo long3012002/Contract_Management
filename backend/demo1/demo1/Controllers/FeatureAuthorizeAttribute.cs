@@ -153,8 +153,8 @@ namespace demo1.Controllers
                     }
 
                     var validCodesForListing = GetEquivalentFeatureCodes(_featureCode);
-                    var hasAnyUserPerm = await _dbContext.UserPermissions.AsNoTracking()
-                        .AnyAsync(up => up.UserId == dbUser.Id && validCodesForListing.Contains(up.FeatureCode));
+                    var userPerms = await GetUserPermissionsCachedAsync(dbUser.Id);
+                    var hasAnyUserPerm = userPerms.Any(up => validCodesForListing.Contains(up.FeatureCode));
                     if (hasAnyUserPerm)
                     {
                         return;
@@ -165,9 +165,7 @@ namespace demo1.Controllers
                         return;
                     }
 
-                    var isStakeholderAnywhere = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
-                        .AnyAsync(n => n.UserId == dbUser.Id);
-                    if (isStakeholderAnywhere)
+                    if (await IsStakeholderAnywhereAsync(dbUser.Id))
                     {
                         return;
                     }
@@ -194,21 +192,18 @@ namespace demo1.Controllers
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
                 var validViewActions = new[] { "VIEW", "EDIT", "CREATE", "DELETE", "ADMIN" };
 
-                // Additive Union: Check UserPermissions
-                var hasViewUserPerm = await _dbContext.UserPermissions
-                    .AsNoTracking()
-                    .Include(up => up.Permission)
-                    .AnyAsync(up =>
-                        up.UserId == dbUser.Id &&
-                        (
-                            validCodes.Contains(up.FeatureCode) ||
-                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ) &&
-                        (
-                            up.EntityId == entityId ||
-                            (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
-                        ) &&
-                        up.Permission != null && validViewActions.Contains(up.Permission.Code));
+                // Additive Union: Check UserPermissions (Cached)
+                var userPermsDetail = await GetUserPermissionsCachedAsync(dbUser.Id);
+                var hasViewUserPerm = userPermsDetail.Any(up =>
+                    (
+                        validCodes.Contains(up.FeatureCode) ||
+                        (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                    ) &&
+                    (
+                        up.EntityId == entityId ||
+                        (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()))
+                    ) &&
+                    validViewActions.Contains(up.PermissionCode));
 
                 if (hasViewUserPerm)
                 {
@@ -256,14 +251,11 @@ namespace demo1.Controllers
                 var requiredPermCode = "CREATE";
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
-                var hasPermission = await _dbContext.UserPermissions
-                    .AsNoTracking()
-                    .Include(up => up.Permission)
-                    .AnyAsync(up =>
-                        up.UserId == dbUser.Id &&
-                        validCodes.Contains(up.FeatureCode) &&
-                        (!duAnId.HasValue || up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()) &&
-                        up.Permission != null && up.Permission.Code == requiredPermCode);
+                var userPerms = await GetUserPermissionsCachedAsync(dbUser.Id);
+                var hasPermission = userPerms.Any(up =>
+                    validCodes.Contains(up.FeatureCode) &&
+                    (!duAnId.HasValue || up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString()) &&
+                    up.PermissionCode == requiredPermCode);
 
                 if (hasPermission || await HasRolePermissionAsync(dbUser.Id, _featureCode, requiredPermCode))
                 {
@@ -300,17 +292,14 @@ namespace demo1.Controllers
                 var requiredPermCode = (httpMethod == "DELETE") ? "DELETE" : "EDIT";
                 var validCodes = GetEquivalentFeatureCodes(_featureCode);
 
-                // Additive Union: Check UserPermissions
-                var hasUserPerm = await _dbContext.UserPermissions
-                    .AsNoTracking()
-                    .Include(up => up.Permission)
-                    .AnyAsync(up =>
-                        up.UserId == dbUser.Id &&
-                        (
-                            (validCodes.Contains(up.FeatureCode) && (up.EntityId == entityId || (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString())))) ||
-                            (up.FeatureCode == "DU_AN" && duAnId.HasValue && up.DuAnId == duAnId.Value)
-                        ) &&
-                        up.Permission != null && (up.Permission.Code == requiredPermCode || up.Permission.Code == "ADMIN"));
+                // Additive Union: Check UserPermissions (Cached)
+                var userPerms = await GetUserPermissionsCachedAsync(dbUser.Id);
+                var hasUserPerm = userPerms.Any(up =>
+                    (
+                        (validCodes.Contains(up.FeatureCode) && (up.EntityId == entityId || (duAnId.HasValue && (up.DuAnId == duAnId.Value || up.EntityId == duAnId.Value.ToString())))) ||
+                        (up.FeatureCode.Equals("DU_AN", StringComparison.OrdinalIgnoreCase) && duAnId.HasValue && up.DuAnId == duAnId.Value)
+                    ) &&
+                    (up.PermissionCode == requiredPermCode || up.PermissionCode == "ADMIN"));
 
                 if (hasUserPerm)
                 {
@@ -338,6 +327,58 @@ namespace demo1.Controllers
             }
         }
 
+        private static readonly MemoryCacheEntryOptions DefaultSlidingOptions = new MemoryCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromMinutes(20),
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(4)
+        };
+
+        private sealed record CachedUserPermission(string FeatureCode, string? EntityId, Guid? DuAnId, string PermissionCode);
+
+        private async Task<List<CachedUserPermission>> GetUserPermissionsCachedAsync(Guid userId)
+        {
+            var cacheKey = $"user_permissions_{userId}";
+            if (_cache != null && _cache.TryGetValue(cacheKey, out List<CachedUserPermission>? cachedPerms) && cachedPerms != null)
+            {
+                return cachedPerms;
+            }
+
+            var perms = await _dbContext.UserPermissions
+                .AsNoTracking()
+                .Where(up => up.UserId == userId && up.Permission != null)
+                .Select(up => new CachedUserPermission(
+                    up.FeatureCode ?? "",
+                    up.EntityId,
+                    up.DuAnId,
+                    up.Permission!.Code.ToUpper()
+                ))
+                .ToListAsync();
+
+            if (_cache != null)
+            {
+                _cache.Set(cacheKey, perms, DefaultSlidingOptions);
+            }
+
+            return perms;
+        }
+
+        private async Task<bool> IsStakeholderAnywhereAsync(Guid userId)
+        {
+            if (_cache != null)
+            {
+                var cacheKey = $"user_is_stakeholder_{userId}";
+                if (_cache.TryGetValue(cacheKey, out bool isStakeholder))
+                {
+                    return isStakeholder;
+                }
+                var result = await _dbContext.CongViecNguoiLienQuans.AsNoTracking().AnyAsync(n => n.UserId == userId);
+                _cache.Set(cacheKey, result, DefaultSlidingOptions);
+                return result;
+            }
+
+            return await _dbContext.CongViecNguoiLienQuans.AsNoTracking().AnyAsync(n => n.UserId == userId);
+        }
+
         private async Task<User?> GetUserByUsernameAsync(string username)
         {
             if (_cache == null)
@@ -354,7 +395,7 @@ namespace demo1.Controllers
             var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
             if (user != null)
             {
-                _cache.Set(cacheKey, user, TimeSpan.FromSeconds(60));
+                _cache.Set(cacheKey, user, DefaultSlidingOptions);
             }
             return user;
         }
@@ -450,7 +491,7 @@ namespace demo1.Controllers
                     return isOwner;
                 }
                 var result = await _dbContext.DuAns.AsNoTracking().AnyAsync(da => (da.CreatedByUserId == userId || da.ChuDuAnId == userId));
-                _cache.Set(cacheKey, result, TimeSpan.FromSeconds(60));
+                _cache.Set(cacheKey, result, DefaultSlidingOptions);
                 return result;
             }
 
@@ -647,7 +688,11 @@ namespace demo1.Controllers
                 }
                 var cv = await _dbContext.ChucVus.AsNoTracking().FirstOrDefaultAsync(c => c.Id == chucVuId);
                 if (cv == null) return null;
-                _cache.Set(cacheKey, cv.Level, TimeSpan.FromSeconds(120));
+                _cache.Set(cacheKey, cv.Level, new MemoryCacheEntryOptions
+                {
+                    SlidingExpiration = TimeSpan.FromMinutes(60),
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(8)
+                });
                 return cv.Level;
             }
 
@@ -688,7 +733,7 @@ namespace demo1.Controllers
 
                 if (_cache != null)
                 {
-                    _cache.Set(cacheKey, rolePerms, TimeSpan.FromSeconds(60));
+                    _cache.Set(cacheKey, rolePerms, DefaultSlidingOptions);
                 }
             }
 

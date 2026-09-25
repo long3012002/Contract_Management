@@ -2721,13 +2721,13 @@ public class ReportService : IReportService
 
         var projects = await query.ToListAsync();
 
-        // Target fixed groups A, B, C, D
+        // Target fixed groups
         var fixedGroups = new List<(string Key, string Name, string LoaiDuAnText)>
         {
-            ("A", "A. HỆ THỐNG PHẦN MỀM", "Phần mềm"),
-            ("B", "B. HẠ TẦNG THIẾT BỊ HỆ THỐNG", "Hạ tầng"),
-            ("C", "C. TÍCH HỢP HỆ THỐNG", "Tích hợp"),
-            ("D", "D. DỰ ÁN KHÁC", "Khác")
+            ("A", "HỆ THỐNG PHẦN MỀM", "Phần mềm"),
+            ("B", "HẠ TẦNG THIẾT BỊ HỆ THỐNG", "Hạ tầng"),
+            ("C", "TÍCH HỢP HỆ THỐNG", "Tích hợp"),
+            ("D", "DỰ ÁN KHÁC", "Khác")
         };
 
         // Filter projectType if specified
@@ -2776,6 +2776,7 @@ public class ReportService : IReportService
             return ("D", "Khác");
         }
 
+        int groupIndex = 0;
         foreach (var gMeta in fixedGroups)
         {
             var groupProjs = projects
@@ -2788,11 +2789,14 @@ public class ReportService : IReportService
                 continue;
             }
 
+            char groupLetter = (char)('A' + groupIndex);
+            groupIndex++;
+
             var gDto = new KeHoachVonCnttReportGroupDto
             {
                 NhomTrangThai = groupStatus ?? 1,
-                TenNhom = gMeta.Name,
-                LoaiDuAnKey = gMeta.Key,
+                TenNhom = $"{groupLetter}. {gMeta.Name}",
+                LoaiDuAnKey = groupLetter.ToString(),
                 Rows = new List<KeHoachVonCnttReportRowDto>()
             };
 

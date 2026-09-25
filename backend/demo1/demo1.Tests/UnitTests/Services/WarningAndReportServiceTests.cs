@@ -556,6 +556,29 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
+        public async Task ReportService_KeHoachVonCntt_GroupNumbering_Should_Be_Sequential_From_A()
+        {
+            // Arrange: Only create projects for Infrastructure (originally B) and Other (originally D)
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
+            var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
+
+            var projHaTang = new DuAn { Id = Guid.NewGuid(), Code = "DA-HT", Name = "Mua sắm thiết bị máy chủ", DuToanPheDuyet = 5000000000, NoiDung = "thiết bị máy chủ hạ tầng", DaTrienKhai = true };
+            var projKhac = new DuAn { Id = Guid.NewGuid(), Code = "DA-KHAC", Name = "Thuê dịch vụ tư vấn tổng thể", DuToanPheDuyet = 2000000000, NoiDung = "tư vấn nghiệp vụ", DaTrienKhai = true };
+            _dbContext.DuAns.AddRange(projHaTang, projKhac);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var report = await service.GetKeHoachVonCnttReportAsync(2024, 2025, null, "1");
+
+            // Assert: Groups should be 2 groups, renumbered sequentially starting with A and B
+            report.Groups.Should().HaveCount(2);
+            report.Groups[0].LoaiDuAnKey.Should().Be("A");
+            report.Groups[0].TenNhom.Should().StartWith("A. ");
+            report.Groups[1].LoaiDuAnKey.Should().Be("B");
+            report.Groups[1].TenNhom.Should().StartWith("B. ");
+        }
+
+        [Fact]
         public async Task ReportService_KeHoachVonCntt_NguonVon_Classification_Should_Map_Correctly()
         {
             // Arrange

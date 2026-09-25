@@ -11,6 +11,7 @@ using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using demo1.Services.Helpers;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace demo1.Services.Implements
 {
@@ -20,17 +21,31 @@ namespace demo1.Services.Implements
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<PermissionService> _logger;
         private readonly IHubContext<NotificationHub>? _hubContext;
+        private readonly IMemoryCache? _cache;
 
         public PermissionService(
             AppDbContext context,
             ICurrentUserService currentUserService,
             ILogger<PermissionService> logger,
-            IHubContext<NotificationHub>? hubContext = null)
+            IHubContext<NotificationHub>? hubContext = null,
+            IMemoryCache? cache = null)
         {
             _context = context;
             _currentUserService = currentUserService;
             _logger = logger;
             _hubContext = hubContext;
+            _cache = cache;
+        }
+
+        private void InvalidateUserPermissionCache(Guid userId)
+        {
+            if (_cache != null)
+            {
+                _cache.Remove($"user_permissions_{userId}");
+                _cache.Remove($"user_role_perms_{userId}");
+                _cache.Remove($"user_is_owner_{userId}");
+                _cache.Remove($"user_is_stakeholder_{userId}");
+            }
         }
 
         public async Task<bool> HasPermissionAsync(Guid userId, string featureCode, string entityName, string entityId, string action)
@@ -326,6 +341,7 @@ namespace demo1.Services.Implements
             await SendSignalRNotificationAsync(request.User?.Username, notification);
 
             await _context.SaveChangesAsync();
+            InvalidateUserPermissionCache(request.UserId);
 
             return MapToRequestDto(request, request.User, reviewer, request.RequestedPermission);
         }
@@ -424,6 +440,7 @@ namespace demo1.Services.Implements
             }
 
             await _context.SaveChangesAsync();
+            InvalidateUserPermissionCache(dto.UserId);
             return MapToUserPermissionDto(existingPerm, user, permCatalog, admin?.Username);
         }
 
@@ -523,6 +540,10 @@ namespace demo1.Services.Implements
             }
 
             await _context.SaveChangesAsync();
+            foreach (var uId in dto.UserIds)
+            {
+                InvalidateUserPermissionCache(uId);
+            }
             return result;
         }
 
@@ -593,6 +614,7 @@ namespace demo1.Services.Implements
             }
 
             await _context.SaveChangesAsync();
+            InvalidateUserPermissionCache(perm.UserId);
             return MapToUserPermissionDto(perm, perm.User, newPermCatalog, admin?.Username);
         }
 
@@ -658,6 +680,7 @@ namespace demo1.Services.Implements
             }
 
             await _context.SaveChangesAsync();
+            InvalidateUserPermissionCache(perm.UserId);
             return true;
         }
 
