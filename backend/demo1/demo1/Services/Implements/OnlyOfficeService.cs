@@ -61,7 +61,7 @@ namespace demo1.Services.Implements
             _onlyOfficeServerUrl = (ooSettings["ServerUrl"] ?? "http://10.225.10.78:8080").TrimEnd('/');
         }
 
-        private string GetPublicBaseUrl()
+        private string GetClientPublicBaseUrl()
         {
             var request = _httpContextAccessor.HttpContext?.Request;
             if (request != null)
@@ -69,7 +69,6 @@ namespace demo1.Services.Implements
                 var scheme = request.Scheme;
                 var hostStr = request.Host.Host;
 
-                // Nếu request đến từ localhost / 127.0.0.1, trích xuất IP/host từ ServerUrl trong appsettings.json
                 if (hostStr.Equals("localhost", StringComparison.OrdinalIgnoreCase) || hostStr.Equals("127.0.0.1"))
                 {
                     if (Uri.TryCreate(_onlyOfficeServerUrl, UriKind.Absolute, out var serverUri) &&
@@ -82,25 +81,20 @@ namespace demo1.Services.Implements
                     }
                 }
 
-                // Nếu không phải localhost (truy cập qua domain/IP máy chủ), dùng trực tiếp Request.Host
                 return $"{scheme}://{request.Host.Value}";
             }
 
-            // Fallback khi không có HttpContext (ví dụ background job hoặc test)
-            if (Uri.TryCreate(_onlyOfficeServerUrl, UriKind.Absolute, out var fallbackUri) &&
-                !string.IsNullOrWhiteSpace(fallbackUri.Host) &&
-                !fallbackUri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) &&
-                !fallbackUri.Host.Equals("127.0.0.1"))
-            {
-                return $"http://{fallbackUri.Host}:64950";
-            }
+            return "http://localhost:64950";
+        }
 
+        private string GetPublicBaseUrl()
+        {
             if (!string.IsNullOrWhiteSpace(_publicBaseUrl))
             {
                 return _publicBaseUrl;
             }
 
-            return "http://localhost:64950";
+            return GetClientPublicBaseUrl();
         }
 
         public async Task<OnlyOfficeConfigDto> GenerateConfigAsync(FileAttachment attachment, string mode, Guid userId, string userName)
@@ -209,9 +203,14 @@ namespace demo1.Services.Implements
             var documentKey = $"FA_{attachment.Id:N}_v{attachment.CurrentVersion}_{ticks}";
 
             var downloadToken = GenerateDownloadToken(attachment.Id);
-            var activeBaseUrl = GetPublicBaseUrl();
-            var downloadUrl = $"{activeBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
-            var callbackUrl = $"{activeBaseUrl}/api/HeThong/files/onlyoffice-callback";
+            
+            // Client domain (Public domain mà Trình duyệt Client dùng để truy cập)
+            var clientBaseUrl = GetClientPublicBaseUrl();
+            var downloadUrl = $"{clientBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
+
+            // Callback domain (Nếu có PublicBaseUrl nội bộ như http://backend:8080 thì ưu tiên dùng cho OnlyOffice Container gọi về)
+            var internalBaseUrl = !string.IsNullOrWhiteSpace(_publicBaseUrl) ? _publicBaseUrl : clientBaseUrl;
+            var callbackUrl = $"{internalBaseUrl}/api/HeThong/files/onlyoffice-callback";
 
             var config = new OnlyOfficeConfigDto
             {

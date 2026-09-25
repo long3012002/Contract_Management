@@ -1805,6 +1805,7 @@ public class ReportService : IReportService
         DateTime targetCutoffDate = cutoffDate ?? new DateTime(selectedYear, 12, 31, 23, 59, 59, DateTimeKind.Utc);
 
         var query = _context.HopDongs
+            .AsNoTracking()
             .Include(h => h.DotThanhToans)
             .Include(h => h.DuAn)
             .Include(h => h.GoiThau)
