@@ -515,7 +515,8 @@ namespace demo1.Tests.UnitTests.Services
 
             var projXdcb = new DuAn { Id = Guid.NewGuid(), Code = "DA-XDCB", Name = "Xây dựng trụ sở mới", DuToanPheDuyet = 90000000000, NoiDung = "xây dựng trụ sở 5 tầng", DaTrienKhai = true };
             var projCntt = new DuAn { Id = Guid.NewGuid(), Code = "DA-CNTT", Name = "Trang bị hệ thống Backup", DuToanPheDuyet = 25000000000, NoiDung = "CNTT backup data", DaTrienKhai = true };
-            _dbContext.DuAns.AddRange(projXdcb, projCntt);
+            var projSoftware = new DuAn { Id = Guid.NewGuid(), Code = "DA-SW", Name = "Phần mềm quản lý lõi", DuToanPheDuyet = 15000000000, DaTrienKhai = true };
+            _dbContext.DuAns.AddRange(projXdcb, projCntt, projSoftware);
             await _dbContext.SaveChangesAsync();
 
             // Act
@@ -537,6 +538,8 @@ namespace demo1.Tests.UnitTests.Services
 
             cnttReport.Should().NotBeNull();
             cnttReport.Groups.Should().NotBeEmpty();
+            // All groups returned must have at least one row (no empty groups)
+            cnttReport.Groups.Should().AllSatisfy(g => g.Rows.Should().NotBeEmpty());
             cnttReport.Groups.Should().Contain(g => !string.IsNullOrEmpty(g.LoaiDuAnKey));
             cnttReport.Groups.SelectMany(g => g.Rows).Should().AllSatisfy(r => {
                 r.TenPhanLoaiDuAn.Should().NotBeNullOrEmpty();
@@ -546,6 +549,7 @@ namespace demo1.Tests.UnitTests.Services
 
             cnttReportFiltered.Should().NotBeNull();
             cnttReportFiltered.Groups.Should().NotBeEmpty();
+            cnttReportFiltered.Groups.Should().AllSatisfy(g => g.Rows.Should().NotBeEmpty());
 
             cnttExcel.Should().NotBeNullOrEmpty();
             cnttHtml.Should().NotBeNullOrEmpty();

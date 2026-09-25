@@ -2778,6 +2778,16 @@ public class ReportService : IReportService
 
         foreach (var gMeta in fixedGroups)
         {
+            var groupProjs = projects
+                .Where(p => ClassifyProject(p).Key == gMeta.Key)
+                .OrderBy(p => p.Name)
+                .ToList();
+
+            if (!groupProjs.Any())
+            {
+                continue;
+            }
+
             var gDto = new KeHoachVonCnttReportGroupDto
             {
                 NhomTrangThai = groupStatus ?? 1,
@@ -2785,10 +2795,6 @@ public class ReportService : IReportService
                 LoaiDuAnKey = gMeta.Key,
                 Rows = new List<KeHoachVonCnttReportRowDto>()
             };
-
-            var groupProjs = projects
-                .Where(p => ClassifyProject(p).Key == gMeta.Key)
-                .OrderBy(p => p.Name);
 
             int stt = 1;
             foreach (var proj in groupProjs)
