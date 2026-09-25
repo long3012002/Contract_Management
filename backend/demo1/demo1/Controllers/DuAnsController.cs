@@ -79,9 +79,9 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// </summary>
     [NonAction]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public override Task<ActionResult<PagedResult<DuAnDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null)
+    public override Task<ActionResult<PagedResult<DuAnDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null, bool? isDeleted = null)
     {
-        return base.GetAll(search, page, pageSize, cursor);
+        return base.GetAll(search, page, pageSize, cursor, isDeleted);
     }
 
 

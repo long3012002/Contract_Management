@@ -26,14 +26,15 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         _codeGeneratorService = codeGeneratorService;
     }
 
-    public override Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<GoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
         return GetAllAsync(new GoiThauFilterDto
         {
             Search = search,
             Page = page,
             PageSize = pageSize,
-            Cursor = cursor
+            Cursor = cursor,
+            IsDeleted = isDeleted
         });
     }
 
@@ -44,7 +45,13 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             var page = Math.Max(1, filter.Page);
             var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
-            IQueryable<GoiThau> query = DbSet.AsNoTracking()
+            IQueryable<GoiThau> query = filter.IsDeleted == true
+                ? DbSet.IgnoreQueryFilters().Where(gt => gt.IsDeleted).AsNoTracking()
+                : (filter.IsDeleted == false
+                    ? DbSet.Where(gt => !gt.IsDeleted).AsNoTracking()
+                    : DbSet.AsNoTracking());
+
+            query = query
                 .Include(gt => gt.DuAn);
 
             var currentUsername = _currentUserService.GetUsername();
@@ -195,6 +202,70 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
         catch (Exception ex)
         {
             _logger.LogError(ex, "Lỗi xảy ra trong GetByIdAsync của GoiThauService cho ID {Id}.", id);
+            throw;
+        }
+    }
+
+    public override async Task<PagedResult<GoiThauDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        try
+        {
+            var safePage = Math.Max(1, page);
+            var safePageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<GoiThau> query = DbSet.IgnoreQueryFilters()
+                .Where(gt => gt.IsDeleted)
+                .Include(gt => gt.DuAn)
+                .AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                query = ApplySearchFilter(query, keyword);
+            }
+
+            var totalItems = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(item => item.CreatedAt)
+                .ThenByDescending(item => item.Id)
+                .Skip((safePage - 1) * safePageSize)
+                .Take(safePageSize)
+                .ToListAsync();
+
+            var dtos = Mapper.Map<List<GoiThauDto>>(items);
+            await PopulateTongGiaTriHopDongAsync(dtos);
+
+            return new PagedResult<GoiThauDto>
+            {
+                Items = dtos,
+                Page = safePage,
+                PageSize = safePageSize,
+                TotalItems = totalItems
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetXoaMemAsync của GoiThauService.");
+            throw;
+        }
+    }
+
+    public override async Task<GoiThauDto?> GetXoaMemByIdAsync(Guid id)
+    {
+        try
+        {
+            var entity = await DbSet.IgnoreQueryFilters()
+                .Include(gt => gt.DuAn)
+                .FirstOrDefaultAsync(gt => gt.Id == id && gt.IsDeleted);
+            if (entity is null) return null;
+
+            var dto = Mapper.Map<GoiThauDto>(entity);
+            await PopulateTongGiaTriHopDongAsync(new List<GoiThauDto> { dto });
+            return dto;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi xảy ra trong GetXoaMemByIdAsync của GoiThauService cho ID {Id}.", id);
             throw;
         }
     }

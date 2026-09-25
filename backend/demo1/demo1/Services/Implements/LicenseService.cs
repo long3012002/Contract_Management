@@ -61,14 +61,15 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             (l.DuAn != null && EF.Functions.Like(l.DuAn.Name, $"%{keyword}%")));
     }
 
-    public override Task<PagedResult<LicenseDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<LicenseDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
         return GetAllAsync(new LicenseFilterDto
         {
             Search = search,
             Page = page,
             PageSize = pageSize,
-            Cursor = cursor
+            Cursor = cursor,
+            IsDeleted = isDeleted
         });
     }
 
@@ -79,7 +80,13 @@ public class LicenseService : DbCrudService<License, LicenseDto, CreateLicenseDt
             var page = Math.Max(1, filter.Page);
             var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
-            IQueryable<License> query = DbSet
+            IQueryable<License> query = filter.IsDeleted == true
+                ? DbSet.IgnoreQueryFilters().Where(l => l.IsDeleted)
+                : (filter.IsDeleted == false
+                    ? DbSet.Where(l => !l.IsDeleted)
+                    : DbSet);
+
+            query = query
                 .Include(l => l.DuAn)
                 .Include(l => l.HopDong)
                 .Include(l => l.NhaCungCap)

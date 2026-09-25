@@ -27,14 +27,15 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         _codeGeneratorService = codeGeneratorService;
     }
 
-    public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<HopDongDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
         return GetAllAsync(new HopDongFilterDto
         {
             Search = search,
             Page = page,
             PageSize = pageSize,
-            Cursor = cursor
+            Cursor = cursor,
+            IsDeleted = isDeleted
         });
     }
 
@@ -45,7 +46,13 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 100);
 
-        IQueryable<HopDong> query = DbSet.AsNoTracking()
+        IQueryable<HopDong> query = filter.IsDeleted == true
+            ? DbSet.IgnoreQueryFilters().Where(h => h.IsDeleted).AsNoTracking()
+            : (filter.IsDeleted == false
+                ? DbSet.Where(h => !h.IsDeleted).AsNoTracking()
+                : DbSet.AsNoTracking());
+
+        query = query
             .Include(h => h.GoiThau)
             .Include(h => h.DuAn)
             .Include(h => h.LoaiHopDongNavigation)
@@ -275,6 +282,82 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             .Include(h => h.HangHoaDichVus)
                 .ThenInclude(hh => hh.License)
             .FirstOrDefaultAsync(h => h.Id == id);
+        if (entity is null) return null;
+        var dto = Mapper.Map<HopDongDto>(entity);
+        await PopulateAttachmentsAsync(new List<HopDongDto> { dto });
+        CalculatePhuLucTotals(new List<HopDongDto> { dto });
+        return dto;
+    }
+
+    public override async Task<PagedResult<HopDongDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        var safePage = Math.Max(1, page);
+        var safePageSize = Math.Clamp(pageSize, 1, 100);
+
+        IQueryable<HopDong> query = DbSet.IgnoreQueryFilters()
+            .Where(h => h.IsDeleted)
+            .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
+            .Include(h => h.LoaiHopDongNavigation)
+            .Include(h => h.ChuDauTu)
+            .Include(h => h.NhaThau)
+            .Include(h => h.DotThanhToans)
+            .Include(h => h.PhuLucHopDongs)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var keyword = search.Trim();
+            query = query.Where(item => 
+                EF.Functions.Like(item.Code, $"%{keyword}%") || 
+                EF.Functions.Like(item.Name, $"%{keyword}%") ||
+                (item.Description != null && EF.Functions.Like(item.Description, $"%{keyword}%")));
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenByDescending(item => item.Id)
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync();
+
+        var dtos = Mapper.Map<List<HopDongDto>>(items);
+        await PopulateAttachmentsAsync(dtos);
+        CalculatePhuLucTotals(dtos);
+
+        return new PagedResult<HopDongDto>
+        {
+            Items = dtos,
+            Page = safePage,
+            PageSize = safePageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public override async Task<HopDongDto?> GetXoaMemByIdAsync(Guid id)
+    {
+        var entity = await DbSet.IgnoreQueryFilters()
+            .Include(h => h.GoiThau)
+            .Include(h => h.DuAn)
+            .Include(h => h.LoaiHopDongNavigation)
+            .Include(h => h.ChuDauTu)
+            .Include(h => h.NhaThau)
+            .Include(h => h.DotThanhToans)
+            .Include(h => h.PhuLucHopDongs)
+            .Include(h => h.NhaThauGoiThaus)
+                .ThenInclude(nt => nt.NhaThau)
+            .Include(h => h.HangHoaDichVus)
+                .ThenInclude(hh => hh.DonViTinh)
+            .Include(h => h.HangHoaDichVus)
+                .ThenInclude(hh => hh.XuatXu)
+            .Include(h => h.HangHoaDichVus)
+                .ThenInclude(hh => hh.HangSanXuat)
+            .Include(h => h.HangHoaDichVus)
+                .ThenInclude(hh => hh.License)
+            .FirstOrDefaultAsync(h => h.Id == id && h.IsDeleted);
         if (entity is null) return null;
         var dto = Mapper.Map<HopDongDto>(entity);
         await PopulateAttachmentsAsync(new List<HopDongDto> { dto });

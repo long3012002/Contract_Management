@@ -49,6 +49,10 @@ public class HangHoaDichVuDto : IHasId
     public decimal DonGia { get; set; }
     public decimal ThanhTien { get; set; }
 
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedByUserId { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

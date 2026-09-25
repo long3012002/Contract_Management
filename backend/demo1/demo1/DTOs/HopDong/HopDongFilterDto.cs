@@ -25,4 +25,5 @@ public class HopDongFilterDto
     public DateTime? ToNgayHieuLuc { get; set; }
     public decimal? MinGiaTri { get; set; }
     public decimal? MaxGiaTri { get; set; }
+    public bool? IsDeleted { get; set; }
 }

@@ -41,11 +41,12 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? cursor = null)
+        [FromQuery] string? cursor = null,
+        [FromQuery] bool? isDeleted = null)
     {
         var safePageSize = Math.Clamp(pageSize, 1, 200);
         var safePage = Math.Max(1, page);
-        var result = await _service.GetAllAsync(search, safePage, safePageSize, cursor);
+        var result = await _service.GetAllAsync(search, safePage, safePageSize, cursor, isDeleted);
         return Ok(result);
     }
 
@@ -62,6 +63,47 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     public virtual async Task<ActionResult<TDto>> GetById(Guid id)
     {
         var result = await _service.GetByIdAsync(id);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy danh sách các bản ghi đã bị xóa mềm có phân trang và hỗ trợ tìm kiếm/cursor.
+    /// </summary>
+    /// <param name="search">Từ khóa tìm kiếm (tùy chọn)</param>
+    /// <param name="page">Trang hiện tại (Mặc định: 1)</param>
+    /// <param name="pageSize">Số lượng bản ghi mỗi trang (Mặc định: 20)</param>
+    /// <param name="cursor">Con trỏ phân trang dạng cursor (tùy chọn)</param>
+    /// <returns>Danh sách phân trang các bản ghi đã xóa mềm kèm tổng số bản ghi</returns>
+    /// <response code="200">Lấy danh sách thành công</response>
+    /// <response code="401">Chưa xác thực (Chưa truyền JWT Token)</response>
+    [HttpGet("GetXoaMem")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public virtual async Task<ActionResult<PagedResult<TDto>>> GetXoaMem(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? cursor = null)
+    {
+        var safePageSize = Math.Clamp(pageSize, 1, 200);
+        var safePage = Math.Max(1, page);
+        var result = await _service.GetXoaMemAsync(search, safePage, safePageSize, cursor);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Lấy thông tin chi tiết một bản ghi đã bị xóa mềm theo ID (GUID).
+    /// </summary>
+    /// <param name="id">Mã định danh duy nhất (GUID)</param>
+    /// <returns>Thông tin chi tiết bản ghi đã xóa mềm</returns>
+    /// <response code="200">Tìm thấy bản ghi đã xóa mềm</response>
+    /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi chưa bị xóa</response>
+    [HttpGet("GetXoaMem/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public virtual async Task<ActionResult<TDto>> GetXoaMemById(Guid id)
+    {
+        var result = await _service.GetXoaMemByIdAsync(id);
         return result is null ? NotFound() : Ok(result);
     }
 

@@ -16,6 +16,9 @@ public class DoiTacDto : IHasId
     public string? Representative { get; set; }
     public string? Position { get; set; }
     public bool IsActive { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedByUserId { get; set; }
     public int ContractCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

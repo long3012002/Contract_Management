@@ -34,7 +34,8 @@ public class HangHoaDichVusController : CrudControllerBase<HangHoaDichVuDto, Cre
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? cursor = null)
+        [FromQuery] string? cursor = null,
+        [FromQuery] bool? isDeleted = null)
     {
         // Handled by custom GetAll with loai below
         return await GetAllWithLoai(search, page, pageSize, null, cursor);

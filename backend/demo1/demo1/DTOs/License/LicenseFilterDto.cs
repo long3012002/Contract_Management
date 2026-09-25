@@ -13,5 +13,6 @@ namespace demo1.DTOs
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
         public string? Cursor { get; set; }
+        public bool? IsDeleted { get; set; }
     }
 }

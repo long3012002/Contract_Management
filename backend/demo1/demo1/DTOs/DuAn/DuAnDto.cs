@@ -13,6 +13,9 @@ public class DuAnDto : IHasId
     /// Mã định danh duy nhất của Dự án (GUID)
     /// </summary>
     public Guid Id { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedByUserId { get; set; }
 
     /// <summary>
     /// Mã số dự án

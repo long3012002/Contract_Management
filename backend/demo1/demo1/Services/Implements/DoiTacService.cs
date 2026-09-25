@@ -16,9 +16,9 @@ public class DoiTacService : DbCrudService<DoiTac, DoiTacDto, CreateDoiTacDto, U
     {
     }
 
-    public override async Task<PagedResult<DoiTacDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override async Task<PagedResult<DoiTacDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
-        var result = await base.GetAllAsync(search, page, pageSize, cursor);
+        var result = await base.GetAllAsync(search, page, pageSize, cursor, isDeleted);
         if (result.Items != null && result.Items.Any())
         {
             var doiTacIds = result.Items.Select(x => x.Id).ToList();

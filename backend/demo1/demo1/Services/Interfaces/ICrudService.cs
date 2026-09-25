@@ -6,9 +6,11 @@ namespace demo1.Services.Interfaces;
 public interface ICrudService<TDto, in TCreateDto, in TUpdateDto>
     where TDto : IHasId
 {
-    Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null);
+    Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null);
     Task<IReadOnlyList<TDto>> GetAllItemsAsync();
     Task<TDto?> GetByIdAsync(Guid id);
+    Task<PagedResult<TDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null);
+    Task<TDto?> GetXoaMemByIdAsync(Guid id);
     Task<TDto> CreateAsync(TCreateDto dto);
     Task<IEnumerable<TDto>> CreateRangeAsync(IEnumerable<TCreateDto> dtos);
     Task<bool> UpdateAsync(Guid id, TUpdateDto dto);

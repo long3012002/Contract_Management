@@ -50,14 +50,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         _codeGeneratorService = codeGeneratorService;
     }
 
-    public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override Task<PagedResult<DuAnDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
         return GetAllAsync(new DuAnFilterDto
         {
             Search = search,
             Page = page,
             PageSize = pageSize,
-            Cursor = cursor
+            Cursor = cursor,
+            IsDeleted = isDeleted
         });
     }
 
@@ -66,7 +67,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         var page = Math.Max(1, filter.Page);
         var pageSize = Math.Clamp(filter.PageSize, 1, 1000);
 
-        IQueryable<DuAn> query = DbSet.AsNoTracking()
+        IQueryable<DuAn> query = filter.IsDeleted == true
+            ? DbSet.IgnoreQueryFilters().Where(da => da.IsDeleted).AsNoTracking()
+            : (filter.IsDeleted == false
+                ? DbSet.Where(da => !da.IsDeleted).AsNoTracking()
+                : DbSet.AsNoTracking());
+
+        query = query
             .Include(da => da.PhanKyVons)
             .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
             .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
@@ -211,6 +218,64 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             .Include(da => da.PhanLoaiDuAn)
             .Include(da => da.ChuDuAn)
             .FirstOrDefaultAsync(da => da.Id == id);
+        if (entity is null) return null;
+
+        var dto = Mapper.Map<DuAnDto>(entity);
+        await _nguonLinkService.PopulateSourceProjectsAsync(new List<DuAnDto> { dto });
+        return dto;
+    }
+
+    public override async Task<PagedResult<DuAnDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        IQueryable<DuAn> query = DbSet.IgnoreQueryFilters()
+            .Where(da => da.IsDeleted)
+            .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn)
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var keyword = search.Trim();
+            query = ApplySearchFilter(query, keyword);
+        }
+
+        var totalItems = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(item => item.CreatedAt)
+            .ThenByDescending(item => item.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var dtos = Mapper.Map<List<DuAnDto>>(items);
+        await _nguonLinkService.PopulateSourceProjectsAsync(dtos);
+
+        return new PagedResult<DuAnDto>
+        {
+            Items = dtos,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public override async Task<DuAnDto?> GetXoaMemByIdAsync(Guid id)
+    {
+        var entity = await DbSet.IgnoreQueryFilters()
+            .Include(da => da.PhanKyVons)
+            .Include(da => da.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
+            .Include(da => da.KeHoachVonDuAns).ThenInclude(kd => kd.KeHoachVon)
+            .Include(da => da.NhomDuAn)
+            .Include(da => da.PhanLoaiDuAn)
+            .Include(da => da.ChuDuAn)
+            .FirstOrDefaultAsync(da => da.Id == id && da.IsDeleted);
         if (entity is null) return null;
 
         var dto = Mapper.Map<DuAnDto>(entity);

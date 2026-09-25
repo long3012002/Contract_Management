@@ -14,4 +14,5 @@ public class GoiThauFilterDto
     public decimal? MaxGiaTri { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+    public bool? IsDeleted { get; set; }
 }

@@ -25,14 +25,18 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
 
     protected virtual IQueryable<TEntity> GetQueryable() => DbSet;
 
-    public virtual async Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public virtual async Task<PagedResult<TDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
         try
         {
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
 
-            IQueryable<TEntity> query = GetQueryable().AsNoTracking();
+            IQueryable<TEntity> query = isDeleted == true
+                ? GetQueryable().IgnoreQueryFilters().Where(e => e.IsDeleted).AsNoTracking()
+                : (isDeleted == false
+                    ? GetQueryable().Where(e => !e.IsDeleted).AsNoTracking()
+                    : GetQueryable().AsNoTracking());
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -143,6 +147,88 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
         try
         {
             var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
+            return entity is null ? null : Mapper.Map<TDto>(entity);
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    public virtual async Task<PagedResult<TDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        try
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
+            IQueryable<TEntity> query = GetQueryable().IgnoreQueryFilters().Where(e => e.IsDeleted).AsNoTracking();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                query = ApplySearchFilter(query, keyword);
+            }
+
+            bool isKeyset = TryParseCursor(cursor, out var lastCreatedAt, out var lastId);
+
+            var totalItems = await query.CountAsync();
+            List<TEntity> items;
+
+            if (isKeyset)
+            {
+                items = await query
+                    .Where(item => item.CreatedAt < lastCreatedAt || (item.CreatedAt == lastCreatedAt && item.Id.CompareTo(lastId) < 0))
+                    .OrderByDescending(item => item.CreatedAt)
+                    .ThenByDescending(item => item.Id)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+            else
+            {
+                items = await query
+                    .OrderByDescending(item => item.CreatedAt)
+                    .ThenByDescending(item => item.Id)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+
+            string? nextCursor = null;
+            if (items.Any())
+            {
+                var lastItem = items.Last();
+                var hasMore = await query
+                    .Where(item => item.CreatedAt < lastItem.CreatedAt || (item.CreatedAt == lastItem.CreatedAt && item.Id.CompareTo(lastItem.Id) < 0))
+                    .AnyAsync();
+                if (hasMore)
+                {
+                    nextCursor = EncodeCursor(lastItem.CreatedAt, lastItem.Id);
+                }
+            }
+
+            var dtos = Mapper.Map<List<TDto>>(items);
+
+            return new PagedResult<TDto>
+            {
+                Items = dtos,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                NextCursor = nextCursor
+            };
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    public virtual async Task<TDto?> GetXoaMemByIdAsync(Guid id)
+    {
+        try
+        {
+            var entity = await GetQueryable().IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id && e.IsDeleted);
             return entity is null ? null : Mapper.Map<TDto>(entity);
         }
         catch (Exception)

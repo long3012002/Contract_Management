@@ -19,4 +19,5 @@ public class DuAnFilterDto
     public string? Status { get; set; }
     public string? MergeType { get; set; } // 'all', 'normal', 'merged' (bị gộp), 'parent' (nhận gộp)
     public Guid? AllocatedProjectId { get; set; }
+    public bool? IsDeleted { get; set; }
 }

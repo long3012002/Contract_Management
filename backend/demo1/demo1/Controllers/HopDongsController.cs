@@ -37,9 +37,9 @@ public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDt
     /// </summary>
     [NonAction]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public override Task<ActionResult<PagedResult<HopDongDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null)
+    public override Task<ActionResult<PagedResult<HopDongDto>>> GetAll(string? search, int page = 1, int pageSize = 20, string? cursor = null, bool? isDeleted = null)
     {
-        return base.GetAll(search, page, pageSize, cursor);
+        return base.GetAll(search, page, pageSize, cursor, isDeleted);
     }
 
     /// <summary>

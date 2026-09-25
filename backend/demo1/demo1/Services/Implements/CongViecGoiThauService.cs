@@ -109,9 +109,9 @@ public class CongViecGoiThauService
         return dto;
     }
 
-    public override async Task<PagedResult<CongViecGoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null)
+    public override async Task<PagedResult<CongViecGoiThauDto>> GetAllAsync(string? search, int page, int pageSize, string? cursor = null, bool? isDeleted = null)
     {
-        var result = await base.GetAllAsync(search, page, pageSize, cursor);
+        var result = await base.GetAllAsync(search, page, pageSize, cursor, isDeleted);
         if (result.Items != null && result.Items.Any())
         {
             var dtos = result.Items.ToList();
@@ -119,6 +119,35 @@ public class CongViecGoiThauService
             await PopulateCommentCountsAsync(dtos);
         }
         return result;
+    }
+
+    public override async Task<PagedResult<CongViecGoiThauDto>> GetXoaMemAsync(string? search, int page, int pageSize, string? cursor = null)
+    {
+        var result = await base.GetXoaMemAsync(search, page, pageSize, cursor);
+        if (result.Items != null && result.Items.Any())
+        {
+            var dtos = result.Items.ToList();
+            await PopulateAttachmentsAsync(dtos);
+            await PopulateCommentCountsAsync(dtos);
+        }
+        return result;
+    }
+
+    public override async Task<CongViecGoiThauDto?> GetXoaMemByIdAsync(Guid id)
+    {
+        var entity = await DbSet.IgnoreQueryFilters().AsNoTracking()
+            .Include(e => e.NguoiLienQuans)
+                .ThenInclude(n => n.User)
+            .Include(e => e.CreateUser)
+            .Include(e => e.ModifiedUser)
+            .FirstOrDefaultAsync(e => e.Id == id && e.IsDeleted);
+
+        if (entity == null) return null;
+
+        var dto = Mapper.Map<CongViecGoiThauDto>(entity);
+        await PopulateAttachmentsAsync(new List<CongViecGoiThauDto> { dto });
+        await PopulateCommentCountsAsync(new List<CongViecGoiThauDto> { dto });
+        return dto;
     }
 
     public override async Task<IReadOnlyList<CongViecGoiThauDto>> GetAllItemsAsync()
