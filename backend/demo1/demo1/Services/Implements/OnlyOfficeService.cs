@@ -101,98 +101,94 @@ namespace demo1.Services.Implements
         {
             var isEditMode = string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase);
 
-            if (isEditMode)
+            var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+            if (user == null)
             {
-                var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
-                var hasEditPermission = false;
-                if (user != null)
+                throw new UnauthorizedAccessException("Người dùng không hợp lệ hoặc đã bị khóa.");
+            }
+
+            if (!user.IsSystemAdmin)
+            {
+                var entityId = attachment.EntityId;
+                var featureCode = attachment.EntityType;
+                Guid? duAnId = null;
+
+                if (string.Equals(featureCode, "DU_AN", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (user.IsSystemAdmin)
+                    duAnId = entityId;
+                }
+                else if (string.Equals(featureCode, "GOI_THAU", StringComparison.OrdinalIgnoreCase))
+                {
+                    var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                    duAnId = gt?.DuAnId;
+                    if (duAnId == null)
                     {
-                        hasEditPermission = true;
+                        var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                        if (cv != null)
+                        {
+                            var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
+                            duAnId = pgt?.DuAnId;
+                        }
+                    }
+                }
+                else if (string.Equals(featureCode, "QUAN_LY_HOP_DONG", StringComparison.OrdinalIgnoreCase))
+                {
+                    var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
+                    duAnId = hd?.DuAnId;
+                }
+
+                var hasAccess = false;
+
+                // 1. Kiểm tra nếu là Chủ dự án hoặc Người liên quan trong dự án
+                if (duAnId.HasValue)
+                {
+                    var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
+                    if (isProjectOwner)
+                    {
+                        hasAccess = true;
                     }
                     else
                     {
-                        // 1. Tìm Project ID tương ứng chứa thực thể cha
-                        var entityId = attachment.EntityId;
-                        var featureCode = attachment.EntityType;
-                        Guid? duAnId = null;
-
-                        if (string.Equals(featureCode, "DU_AN", StringComparison.OrdinalIgnoreCase))
+                        var isRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                            .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value);
+                        if (isRelatedUser)
                         {
-                            duAnId = entityId;
-                        }
-                        else if (string.Equals(featureCode, "GOI_THAU", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var gt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
-                            duAnId = gt?.DuAnId;
-                            if (duAnId == null)
-                            {
-                                var cv = await _dbContext.CongViecGoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
-                                if (cv != null)
-                                {
-                                    var pgt = await _dbContext.GoiThaus.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cv.GoiThauId);
-                                    duAnId = pgt?.DuAnId;
-                                }
-                            }
-                        }
-                        else if (string.Equals(featureCode, "QUAN_LY_HOP_DONG", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var hd = await _dbContext.HopDongs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == entityId);
-                            duAnId = hd?.DuAnId;
-                        }
-
-                        // 2. Nếu là Chủ dự án (Project Owner) hoặc Người liên quan (Stakeholder) -> Có toàn quyền đối với tất cả tài nguyên con thuộc dự án
-                        if (duAnId.HasValue)
-                        {
-                            var isProjectOwner = await _dbContext.DuAns.AnyAsync(da => da.Id == duAnId.Value && da.CreatedByUserId == userId);
-                            if (isProjectOwner)
-                            {
-                                hasEditPermission = true;
-                            }
-                            else
-                            {
-                                var isRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
-                                    .AnyAsync(n => n.UserId == userId && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value);
-                                if (isRelatedUser)
-                                {
-                                    hasEditPermission = true;
-                                }
-                            }
-                        }
-
-                        if (!hasEditPermission)
-                        {
-                            var isDirectRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
-                                .AnyAsync(n => n.UserId == userId && (n.CongViecGoiThauId == entityId || (string.Equals(featureCode, "GOI_THAU", StringComparison.OrdinalIgnoreCase) && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == entityId)));
-                            if (isDirectRelatedUser)
-                            {
-                                hasEditPermission = true;
-                            }
-                        }
-
-                        // 3. Nếu không phải chủ dự án, kiểm tra quyền chi tiết trong bảng UserPermissions (yêu cầu quyền EDIT trên thực thể cha)
-                        if (!hasEditPermission)
-                        {
-                            hasEditPermission = await _dbContext.UserPermissions
-                                .AsNoTracking()
-                                .Include(up => up.Permission)
-                                .AnyAsync(up =>
-                                    up.UserId == userId &&
-                                    (
-                                        ((up.FeatureCode.ToLower() == featureCode.ToLower() || string.IsNullOrEmpty(up.FeatureCode)) && up.EntityId == entityId.ToString()) ||
-                                        (duAnId.HasValue && up.FeatureCode == "DU_AN" && up.DuAnId == duAnId.Value)
-                                    ) &&
-                                    up.Permission != null && up.Permission.Code == "EDIT");
+                            hasAccess = true;
                         }
                     }
                 }
 
-                if (!hasEditPermission)
+                if (!hasAccess)
                 {
-                    _logger.LogWarning("User {UserId} ({UserName}) bị từ chối quyền EDIT đối với FileAttachment {FileId} (Entity: {EntityType}/{EntityId})",
-                        userId, userName, attachment.Id, attachment.EntityType, attachment.EntityId);
-                    throw new UnauthorizedAccessException("Bạn không có quyền chỉnh sửa tệp tin đính kèm này.");
+                    var isDirectRelatedUser = await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                        .AnyAsync(n => n.UserId == userId && (n.CongViecGoiThauId == entityId || (string.Equals(featureCode, "GOI_THAU", StringComparison.OrdinalIgnoreCase) && n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThauId == entityId)));
+                    if (isDirectRelatedUser)
+                    {
+                        hasAccess = true;
+                    }
+                }
+
+                // 2. Kiểm tra chi tiết trong UserPermissions
+                if (!hasAccess)
+                {
+                    var requiredPerms = isEditMode ? new[] { "EDIT" } : new[] { "VIEW", "EDIT" };
+                    hasAccess = await _dbContext.UserPermissions
+                        .AsNoTracking()
+                        .Include(up => up.Permission)
+                        .AnyAsync(up =>
+                            up.UserId == userId &&
+                            (
+                                ((up.FeatureCode.ToLower() == featureCode.ToLower() || string.IsNullOrEmpty(up.FeatureCode)) && up.EntityId == entityId.ToString()) ||
+                                (duAnId.HasValue && up.FeatureCode == "DU_AN" && up.DuAnId == duAnId.Value)
+                            ) &&
+                            up.Permission != null && requiredPerms.Contains(up.Permission.Code.ToUpper()));
+                }
+
+                if (!hasAccess)
+                {
+                    _logger.LogWarning("User {UserId} ({UserName}) bị từ chối quyền {Mode} đối với FileAttachment {FileId} (Entity: {EntityType}/{EntityId})",
+                        userId, userName, mode.ToUpper(), attachment.Id, attachment.EntityType, attachment.EntityId);
+                    throw new UnauthorizedAccessException($"Bạn không có quyền { (isEditMode ? "chỉnh sửa" : "xem") } tệp tin đính kèm này.");
                 }
             }
 
@@ -204,12 +200,9 @@ namespace demo1.Services.Implements
 
             var downloadToken = GenerateDownloadToken(attachment.Id);
             
-            // Client domain (Public domain mà Trình duyệt Client dùng để truy cập)
             var clientBaseUrl = GetClientPublicBaseUrl();
-            var downloadUrl = $"{clientBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
-
-            // Callback domain (Nếu có PublicBaseUrl nội bộ như http://backend:8080 thì ưu tiên dùng cho OnlyOffice Container gọi về)
             var internalBaseUrl = !string.IsNullOrWhiteSpace(_publicBaseUrl) ? _publicBaseUrl : clientBaseUrl;
+            var downloadUrl = $"{internalBaseUrl}/api/HeThong/files/onlyoffice-download/{attachment.Id}?token={downloadToken}";
             var callbackUrl = $"{internalBaseUrl}/api/HeThong/files/onlyoffice-callback";
 
             var config = new OnlyOfficeConfigDto
