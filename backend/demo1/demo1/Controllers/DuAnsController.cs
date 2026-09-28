@@ -66,7 +66,7 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     /// <param name="filter">Bộ lọc danh sách dự án</param>
     /// <returns>Danh sách dự án phân trang</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(typeof(PagedResult<DuAnDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<DuAnDto>>> GetAll([FromQuery] DuAnFilterDto filter)
     {

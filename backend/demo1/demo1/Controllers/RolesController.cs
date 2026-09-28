@@ -37,7 +37,7 @@ namespace demo1.Controllers
         /// <returns>Danh sách vai trò</returns>
         /// <response code="200">Lấy danh sách vai trò thành công</response>
         /// <response code="403">Không có quyền xem vai trò</response>
-        [HttpGet]
+        [HttpGet("GetAll")]
         [ProducesResponseType(typeof(IEnumerable<Role>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetRoles()

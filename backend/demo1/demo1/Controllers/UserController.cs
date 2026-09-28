@@ -28,7 +28,7 @@ namespace demo1.Controllers
         /// <param name="filter">Bộ lọc danh sách người dùng</param>
         /// <returns>Danh sách người dùng phân trang</returns>
         /// <response code="200">Lấy danh sách người dùng thành công</response>
-        [HttpGet]
+        [HttpGet("GetFilter")]
         [ProducesResponseType(typeof(PagedResult<UserWithRolesDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUsers([FromQuery] UserFilterDto filter)
         {

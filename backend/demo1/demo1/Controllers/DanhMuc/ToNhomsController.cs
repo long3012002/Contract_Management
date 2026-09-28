@@ -38,7 +38,7 @@ namespace demo1.Controllers
         /// Lấy tất cả danh sách Tổ nhóm trong hệ thống.
         /// </summary>
         /// <returns>Danh sách tổ nhóm</returns>
-        [HttpGet]
+        [HttpGet("GetAll")]
         [ProducesResponseType(typeof(IEnumerable<ToNhomDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {

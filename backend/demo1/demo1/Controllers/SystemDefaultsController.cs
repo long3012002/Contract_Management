@@ -17,7 +17,7 @@ public class SystemDefaultsController : ControllerBase
     /// </summary>
     /// <returns>Metadata giá trị mặc định của Hợp đồng, License, v.v.</returns>
     /// <response code="200">Lấy dữ liệu mặc định thành công</response>
-    [HttpGet]
+    [HttpGet("GetAll")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GetBusinessDefaults()
     {

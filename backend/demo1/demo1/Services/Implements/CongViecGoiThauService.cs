@@ -1195,4 +1195,103 @@ public class CongViecGoiThauService
         await DbContext.SaveChangesAsync();
         return true;
     }
+
+    public async Task<(bool Success, string Message)> SyncStakeholdersForGoiThauAsync(Guid idGoiThau, DongBoNguoiLienQuanGoiThauDto dto)
+    {
+        var tasks = await DbSet.Where(t => t.GoiThauId == idGoiThau && !t.IsDeleted).ToListAsync();
+        if (!tasks.Any())
+        {
+            return (false, "Không tìm thấy công việc nào thuộc gói thầu được chỉ định.");
+        }
+
+        var targetUserIds = (dto.UserIds ?? new List<Guid>()).Distinct().ToList();
+        var validUsers = await DbContext.Users.Where(u => targetUserIds.Contains(u.Id) && u.IsActive).ToListAsync();
+        var validUserIds = validUsers.Select(u => u.Id).ToList();
+
+        var taskIds = tasks.Select(t => t.Id).ToList();
+        var existingStakeholders = await DbContext.CongViecNguoiLienQuans
+            .Where(n => taskIds.Contains(n.CongViecGoiThauId))
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+
+        foreach (var task in tasks)
+        {
+            var taskExisting = existingStakeholders.Where(n => n.CongViecGoiThauId == task.Id).ToList();
+
+            if (dto.IsOverride)
+            {
+                // Xóa người liên quan cũ không nằm trong danh sách mới
+                var toDelete = taskExisting.Where(n => !validUserIds.Contains(n.UserId)).ToList();
+                if (toDelete.Any())
+                {
+                    foreach (var delRecord in toDelete)
+                    {
+                        _reminderService.CancelReminders(delRecord);
+                    }
+                    DbContext.CongViecNguoiLienQuans.RemoveRange(toDelete);
+
+                    var removedUserIds = toDelete.Select(n => n.UserId).ToList();
+                    var taskLink = $"/goi-thau/cong-viec/{task.Id}";
+                    var notificationsToRemove = await DbContext.Notifications
+                        .Where(n => n.UserId.HasValue && removedUserIds.Contains(n.UserId.Value) && n.Link == taskLink)
+                        .ToListAsync();
+                    if (notificationsToRemove.Any())
+                    {
+                        DbContext.Notifications.RemoveRange(notificationsToRemove);
+                    }
+                }
+
+                var remainingUserIds = taskExisting.Except(toDelete).Select(n => n.UserId).ToList();
+                var toAddUserIds = validUserIds.Where(uid => !remainingUserIds.Contains(uid)).ToList();
+                var usersToAdd = validUsers.Where(u => toAddUserIds.Contains(u.Id)).ToList();
+
+                foreach (var addUser in usersToAdd)
+                {
+                    var record = new CongViecNguoiLienQuan
+                    {
+                        Id = Guid.NewGuid(),
+                        CongViecGoiThauId = task.Id,
+                        UserId = addUser.Id,
+                        Code = $"NLQ-{Guid.NewGuid():N}",
+                        Name = $"Stakeholder-{addUser.Id}",
+                        TrangThaiXacNhan = "Pending",
+                        HanXacNhanAt = GetHanXacNhanAt(now),
+                        CreatedAt = now,
+                        IsActive = true
+                    };
+                    await _reminderService.ScheduleRemindersForStakeholderAsync(record, task, addUser);
+                    DbContext.CongViecNguoiLienQuans.Add(record);
+                }
+            }
+            else
+            {
+                // Bổ sung / Merge: chỉ thêm người chưa có trong công việc
+                var existingUserIds = taskExisting.Select(n => n.UserId).ToList();
+                var toAddUserIds = validUserIds.Where(uid => !existingUserIds.Contains(uid)).ToList();
+                var usersToAdd = validUsers.Where(u => toAddUserIds.Contains(u.Id)).ToList();
+
+                foreach (var addUser in usersToAdd)
+                {
+                    var record = new CongViecNguoiLienQuan
+                    {
+                        Id = Guid.NewGuid(),
+                        CongViecGoiThauId = task.Id,
+                        UserId = addUser.Id,
+                        Code = $"NLQ-{Guid.NewGuid():N}",
+                        Name = $"Stakeholder-{addUser.Id}",
+                        TrangThaiXacNhan = "Pending",
+                        HanXacNhanAt = GetHanXacNhanAt(now),
+                        CreatedAt = now,
+                        IsActive = true
+                    };
+                    await _reminderService.ScheduleRemindersForStakeholderAsync(record, task, addUser);
+                    DbContext.CongViecNguoiLienQuans.Add(record);
+                }
+            }
+        }
+
+        await DbContext.SaveChangesAsync();
+        return (true, $"Đã đồng bộ thành công người liên quan cho {tasks.Count} công việc thuộc gói thầu.");
+    }
 }

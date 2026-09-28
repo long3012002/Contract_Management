@@ -181,4 +181,32 @@ public class CongViecGoiThausController : CrudControllerBase<CongViecGoiThauDto,
         var history = await _congViecGoiThauService.GetForwardHistoryAsync(id);
         return Ok(history);
     }
+
+    /// <summary>
+    /// Đồng bộ / Áp dụng hàng loạt danh sách người liên quan cho toàn bộ công việc của một Gói thầu.
+    /// </summary>
+    /// <param name="idGoiThau">Mã định danh Gói thầu (GUID)</param>
+    /// <param name="dto">Dữ liệu đồng bộ danh sách người liên quan</param>
+    /// <response code="200">Đồng bộ thành công</response>
+    /// <response code="400">Dữ liệu không hợp lệ hoặc lỗi xử lý</response>
+    /// <response code="404">Không tìm thấy công việc nào thuộc gói thầu</response>
+    [HttpPost("goi-thau/{idGoiThau:guid}/dong-bo-nguoi-lien-quan")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SyncStakeholdersForGoiThau(
+        Guid idGoiThau,
+        [FromBody] DongBoNguoiLienQuanGoiThauDto dto)
+    {
+        var (success, message) = await _congViecGoiThauService.SyncStakeholdersForGoiThauAsync(idGoiThau, dto);
+        if (!success)
+        {
+            if (message.Contains("Không tìm thấy"))
+            {
+                return NotFound(new { success = false, message });
+            }
+            return BadRequest(new { success = false, message });
+        }
+        return Ok(new { success = true, message });
+    }
 }

@@ -45,7 +45,7 @@ namespace demo1.Controllers
         /// <returns>Danh sách thông báo phân trang</returns>
         /// <response code="200">Lấy thông báo thành công</response>
         /// <response code="401">Chưa xác thực hoặc tài khoản bị khóa</response>
-        [HttpGet]
+        [HttpGet("GetFilter")]
         [ProducesResponseType(typeof(PagedResult<NotificationDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<PagedResult<NotificationDto>>> GetNotifications([FromQuery] NotificationFilterDto filter)

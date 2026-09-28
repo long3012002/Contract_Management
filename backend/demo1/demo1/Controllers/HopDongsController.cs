@@ -24,7 +24,7 @@ public class HopDongsController : CrudControllerBase<HopDongDto, CreateHopDongDt
     /// <param name="filter">Bộ lọc danh sách hợp đồng</param>
     /// <returns>Danh sách hợp đồng phân trang</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(typeof(PagedResult<HopDongDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<HopDongDto>>> GetAll([FromQuery] HopDongFilterDto filter)
     {

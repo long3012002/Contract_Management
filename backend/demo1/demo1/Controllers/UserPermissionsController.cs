@@ -52,7 +52,7 @@ namespace demo1.Controllers
         /// <param name="grouped">Nếu true, gom nhóm danh sách quyền theo khối tính năng. Mặc định: false</param>
         /// <returns>Danh sách quyền chi tiết của người dùng (dạng phẳng hoặc dạng nhóm)</returns>
         /// <response code="200">Lấy danh sách quyền thành công</response>
-        [HttpGet]
+        [HttpGet("GetFilter")]
         [ProducesResponseType(typeof(IEnumerable<UserPermissionDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetUserPermissions(
             [FromQuery] Guid? userId, 

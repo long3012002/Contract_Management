@@ -38,7 +38,7 @@ namespace demo1.Controllers
         /// </summary>
         /// <returns>Danh sách phòng ban</returns>
         /// <response code="200">Lấy danh sách thành công</response>
-        [HttpGet]
+        [HttpGet("GetAll")]
         [ProducesResponseType(typeof(IEnumerable<PhongBanDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAll()
         {

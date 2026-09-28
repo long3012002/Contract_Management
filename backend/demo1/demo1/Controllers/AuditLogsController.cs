@@ -33,7 +33,7 @@ namespace demo1.Controllers
         /// <param name="pageSize">Kích thước trang (Mặc định: 20)</param>
         /// <returns>Danh sách Audit Logs phân trang</returns>
         /// <response code="200">Lấy nhật ký hệ thống thành công</response>
-        [HttpGet]
+        [HttpGet("GetFilter")]
         [ProducesResponseType(typeof(PagedResult<AuditLog>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAuditLogs(
             [FromQuery] string? userId,

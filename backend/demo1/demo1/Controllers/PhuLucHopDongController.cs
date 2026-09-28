@@ -38,6 +38,7 @@ public class PhuLucHopDongController : ControllerBase
     /// <summary>
     /// Lấy chi tiết một Phụ lục hợp đồng.
     /// </summary>
+    [HttpGet("GetById/{id:guid}")]
     [HttpGet("phu-luc/{id}")]
     [HttpGet("phu-luc-hop-dong/{id}")]
     [ProducesResponseType(typeof(PhuLucHopDongDto), StatusCodes.Status200OK)]

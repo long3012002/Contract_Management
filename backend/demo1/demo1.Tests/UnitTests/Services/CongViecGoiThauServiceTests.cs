@@ -237,6 +237,69 @@ namespace demo1.Tests.UnitTests.Services
             removalNotification!.Content.Should().Contain(updateDto.TenTaiLieu);
         }
 
+        [Fact]
+        public async Task SyncStakeholdersForGoiThauAsync_Should_Merge_And_Override_Correctly()
+        {
+            // Arrange
+            var goiThau = new GoiThau { Id = Guid.NewGuid(), Code = "GT-SYNC", Name = "Gói thầu test sync" };
+            _dbContext.GoiThaus.Add(goiThau);
+
+            var user1 = new User { Id = Guid.NewGuid(), Username = "user1", FullName = "User 1", IsActive = true };
+            var user2 = new User { Id = Guid.NewGuid(), Username = "user2", FullName = "User 2", IsActive = true };
+            var user3 = new User { Id = Guid.NewGuid(), Username = "user3", FullName = "User 3", IsActive = true };
+            _dbContext.Users.AddRange(user1, user2, user3);
+
+            var task1 = new CongViecGoiThau { Id = Guid.NewGuid(), GoiThauId = goiThau.Id, Code = "CV-01", TenTaiLieu = "CV 1" };
+            var task2 = new CongViecGoiThau { Id = Guid.NewGuid(), GoiThauId = goiThau.Id, Code = "CV-02", TenTaiLieu = "CV 2" };
+            _dbContext.CongViecGoiThaus.AddRange(task1, task2);
+
+            // task1 already has user1
+            _dbContext.CongViecNguoiLienQuans.Add(new CongViecNguoiLienQuan
+            {
+                Id = Guid.NewGuid(),
+                CongViecGoiThauId = task1.Id,
+                UserId = user1.Id,
+                Code = "NLQ-01",
+                Name = "Stakeholder-01",
+                IsActive = true
+            });
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Merge user2 and user3 into all tasks
+            var mergeDto = new DongBoNguoiLienQuanGoiThauDto
+            {
+                UserIds = new List<Guid> { user2.Id, user3.Id },
+                IsOverride = false
+            };
+            var (success1, msg1) = await _congViecService.SyncStakeholdersForGoiThauAsync(goiThau.Id, mergeDto);
+
+            // Assert 1
+            success1.Should().BeTrue();
+            msg1.Should().Contain("2 công việc");
+
+            var task1Stakeholders = _dbContext.CongViecNguoiLienQuans.Where(n => n.CongViecGoiThauId == task1.Id).Select(n => n.UserId).ToList();
+            task1Stakeholders.Should().BeEquivalentTo(new[] { user1.Id, user2.Id, user3.Id });
+
+            var task2Stakeholders = _dbContext.CongViecNguoiLienQuans.Where(n => n.CongViecGoiThauId == task2.Id).Select(n => n.UserId).ToList();
+            task2Stakeholders.Should().BeEquivalentTo(new[] { user2.Id, user3.Id });
+
+            // Act 2: Override with only user1
+            var overrideDto = new DongBoNguoiLienQuanGoiThauDto
+            {
+                UserIds = new List<Guid> { user1.Id },
+                IsOverride = true
+            };
+            var (success2, msg2) = await _congViecService.SyncStakeholdersForGoiThauAsync(goiThau.Id, overrideDto);
+
+            // Assert 2
+            success2.Should().BeTrue();
+            var task1AfterOverride = _dbContext.CongViecNguoiLienQuans.Where(n => n.CongViecGoiThauId == task1.Id).Select(n => n.UserId).ToList();
+            task1AfterOverride.Should().BeEquivalentTo(new[] { user1.Id });
+
+            var task2AfterOverride = _dbContext.CongViecNguoiLienQuans.Where(n => n.CongViecGoiThauId == task2.Id).Select(n => n.UserId).ToList();
+            task2AfterOverride.Should().BeEquivalentTo(new[] { user1.Id });
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

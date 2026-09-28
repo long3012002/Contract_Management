@@ -24,7 +24,7 @@ public class GoiThausController : CrudControllerBase<GoiThauDto, CreateGoiThauDt
     /// <param name="filter">Bộ lọc danh sách gói thầu</param>
     /// <returns>Danh sách gói thầu phân trang</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(typeof(PagedResult<GoiThauDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<GoiThauDto>>> GetAll([FromQuery] GoiThauFilterDto filter)
     {

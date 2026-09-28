@@ -34,7 +34,7 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     /// <returns>Danh sách phân trang kèm tổng số bản ghi</returns>
     /// <response code="200">Lấy danh sách thành công</response>
     /// <response code="401">Chưa xác thực (Chưa truyền JWT Token)</response>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public virtual async Task<ActionResult<PagedResult<TDto>>> GetAll(
@@ -98,7 +98,7 @@ public abstract class CrudControllerBase<TDto, TCreateDto, TUpdateDto> : Control
     /// <returns>Thông tin chi tiết bản ghi đã xóa mềm</returns>
     /// <response code="200">Tìm thấy bản ghi đã xóa mềm</response>
     /// <response code="404">Không tìm thấy bản ghi hoặc bản ghi chưa bị xóa</response>
-    [HttpGet("GetXoaMem/{id:guid}")]
+    [HttpGet("GetXoaMemById/{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public virtual async Task<ActionResult<TDto>> GetXoaMemById(Guid id)

@@ -69,6 +69,7 @@ namespace demo1.Services.Implements
                 bool isDevUserBypass = isDevEnv && (
                     string.Equals(request.Username, "admin", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "quangmd", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(request.Username, "ninhnpt", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "anhld2", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "anhlt", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(request.Username, "dungpt", StringComparison.OrdinalIgnoreCase) ||

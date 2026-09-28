@@ -31,7 +31,7 @@ public class KeHoachVonController : ControllerBase
     /// <summary>
     /// Lấy danh sách các đợt Kế hoạch vốn có lọc theo Năm, Loại KHV (1: 6T, 2: Cả năm, 3: Bổ sung) và Trạng thái.
     /// </summary>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(typeof(PagedResult<KeHoachVonDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<KeHoachVonDto>>> GetAll([FromQuery] KeHoachVonFilterDto filter)
     {

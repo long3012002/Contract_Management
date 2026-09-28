@@ -39,7 +39,7 @@ namespace demo1.Controllers
         /// <returns>Danh sách Chức vụ</returns>
         /// <response code="200">Lấy danh sách thành công</response>
         /// <response code="403">Chưa được cấp quyền truy cập danh mục Chức vụ</response>
-        [HttpGet]
+        [HttpGet("GetAll")]
         [ProducesResponseType(typeof(IEnumerable<ChucVuDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetAll()

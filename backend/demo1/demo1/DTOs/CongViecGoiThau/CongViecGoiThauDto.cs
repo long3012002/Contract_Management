@@ -162,3 +162,19 @@ public class CongViecGoiThauReportDto
     public int SoCongViecDaHoanThanh { get; set; }
     public int SoCongViecDangThucHien { get; set; }
 }
+
+public class DongBoNguoiLienQuanGoiThauDto
+{
+    /// <summary>
+    /// Danh sách User ID cần đồng bộ làm người liên quan
+    /// </summary>
+    public List<Guid> UserIds { get; set; } = new();
+
+    /// <summary>
+    /// Phương thức đồng bộ:
+    /// - false (Mặc định - Merge/Bổ sung): Thêm UserIds mới vào tất cả công việc (giữ nguyên người cũ)
+    /// - true (Override/Ghi đè): Xóa người liên quan cũ của tất cả công việc và thế bằng UserIds mới này
+    /// </summary>
+    public bool IsOverride { get; set; } = false;
+}
+

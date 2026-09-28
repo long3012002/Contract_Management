@@ -28,7 +28,7 @@ public class HangHoaDichVusController : CrudControllerBase<HangHoaDichVuDto, Cre
     /// <summary>
     /// Lấy danh sách bản ghi có phân trang và hỗ trợ lọc theo loại (Hàng hóa, License, Dịch vụ).
     /// </summary>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public override async Task<ActionResult<demo1.DTOs.PagedResult<HangHoaDichVuDto>>> GetAll(
         [FromQuery] string? search,

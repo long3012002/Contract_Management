@@ -31,7 +31,7 @@ public class LicensesController : CrudControllerBase<LicenseDto, CreateLicenseDt
     /// <param name="filter">Bộ lọc danh sách License</param>
     /// <returns>Danh sách License phân trang</returns>
     /// <response code="200">Lấy danh sách thành công</response>
-    [HttpGet]
+    [HttpGet("GetFilter")]
     [ProducesResponseType(typeof(PagedResult<LicenseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<PagedResult<LicenseDto>>> GetAll([FromQuery] LicenseFilterDto filter)
     {

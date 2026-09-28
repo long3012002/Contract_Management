@@ -118,7 +118,7 @@ namespace demo1.Controllers
         /// </summary>
         /// <returns>Danh sách tính năng</returns>
         /// <response code="200">Lấy danh sách tính năng thành công</response>
-        [HttpGet]
+        [HttpGet("GetAll")]
         [ProducesResponseType(typeof(IEnumerable<Feature>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetFeatures()
         {
