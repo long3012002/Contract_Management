@@ -578,56 +578,124 @@ namespace demo1.Services.Implements
         }
 
         /// <summary>
-        /// Lấy danh sách quyền hạn hiệu lực của user (tổng hợp từ tất cả Roles đã được gán).
+        /// Lấy danh sách quyền hạn hiệu lực của user (tổng hợp từ Roles và UserPermissions / Dự án).
         /// Mỗi Feature chỉ xuất hiện một lần (merge CanAccess = OR, Permissions = UNION).
         /// </summary>
         private async Task<List<RolePermissionDto>> GetEffectivePermissionsAsync(Guid userId)
         {
-            // Lấy tất cả RoleId của user
+            var resultDict = new Dictionary<string, RolePermissionDto>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Lấy quyền theo Nhóm / Vai trò (RolePermissions)
             var roleIds = await _dbContext.UserRoles
                 .AsNoTracking()
                 .Where(ur => ur.UserId == userId)
                 .Select(ur => ur.RoleId)
                 .ToListAsync();
 
-            if (roleIds.Count == 0)
-                return new List<RolePermissionDto>();
+            if (roleIds.Count > 0)
+            {
+                var rolePerms = await _dbContext.RolePermissions
+                    .AsNoTracking()
+                    .Include(rp => rp.Feature)
+                    .Where(rp => roleIds.Contains(rp.RoleId) && rp.Feature != null)
+                    .ToListAsync();
 
-            // Lấy tất cả RolePermissions của các roles đó
-            var rolePerms = await _dbContext.RolePermissions
-                .AsNoTracking()
-                .Include(rp => rp.Feature)
-                .Where(rp => roleIds.Contains(rp.RoleId) && rp.Feature != null)
-                .ToListAsync();
-
-            // Merge theo FeatureId: CanAccess = OR giữa các roles, Permissions = UNION
-            var merged = rolePerms
-                .GroupBy(rp => rp.FeatureId)
-                .Select(g =>
+                foreach (var g in rolePerms.GroupBy(rp => rp.FeatureId))
                 {
                     var feature = g.First().Feature!;
                     var canAccess = g.Any(rp => rp.CanAccess);
+                    if (!canAccess) continue;
+
                     var allPerms = g
                         .Where(rp => !string.IsNullOrWhiteSpace(rp.Permissions))
-                        .SelectMany(rp => rp.Permissions.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries))
+                        .SelectMany(rp => rp.Permissions.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                         .Select(p => p.ToUpper())
                         .Distinct()
                         .ToList();
 
-                    return new RolePermissionDto
+                    resultDict[feature.Code] = new RolePermissionDto
                     {
                         FeatureId = feature.Id,
                         FeatureCode = feature.Code,
                         FeatureName = feature.Name,
-                        CanAccess = canAccess,
+                        CanAccess = true,
                         Permissions = string.Join(',', allPerms)
                     };
-                })
-                .Where(dto => dto.CanAccess) // Chỉ trả về features user thực sự có quyền truy cập
-                .OrderBy(dto => dto.FeatureCode)
-                .ToList();
+                }
+            }
 
-            return merged;
+            // 2. Lấy quyền trực tiếp từ bảng UserPermissions
+            var userPerms = await _dbContext.UserPermissions
+                .AsNoTracking()
+                .Include(up => up.Permission)
+                .Where(up => up.UserId == userId)
+                .ToListAsync();
+
+            var allFeatures = await _dbContext.Features.AsNoTracking().ToListAsync();
+            var featureMap = allFeatures.ToDictionary(f => f.Code, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var up in userPerms)
+            {
+                var featCode = up.FeatureCode;
+                if (string.IsNullOrWhiteSpace(featCode)) continue;
+
+                var permCode = up.Permission?.Code?.ToUpper() ?? "VIEW";
+
+                if (resultDict.TryGetValue(featCode, out var existing))
+                {
+                    var currentList = (existing.Permissions ?? "")
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(p => p.ToUpper())
+                        .ToList();
+
+                    if (!currentList.Contains(permCode))
+                    {
+                        currentList.Add(permCode);
+                        existing.Permissions = string.Join(',', currentList);
+                    }
+                }
+                else
+                {
+                    featureMap.TryGetValue(featCode, out var featEntity);
+                    resultDict[featCode] = new RolePermissionDto
+                    {
+                        FeatureId = featEntity?.Id ?? Guid.Empty,
+                        FeatureCode = featCode,
+                        FeatureName = featEntity?.Name ?? featCode,
+                        CanAccess = true,
+                        Permissions = permCode
+                    };
+                }
+            }
+
+            // 3. Tự động cấp quyền chức năng dự án nếu user là Chủ dự án hoặc Người liên quan (Thành viên)
+            var isProjectOwner = await _dbContext.DuAns.AsNoTracking()
+                .AnyAsync(da => da.CreatedByUserId == userId || da.ChuDuAnId == userId);
+
+            var isRelated = !isProjectOwner && await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+                .AnyAsync(n => n.UserId == userId);
+
+            if (isProjectOwner || isRelated)
+            {
+                var projectFeatures = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG" };
+                foreach (var featCode in projectFeatures)
+                {
+                    if (!resultDict.ContainsKey(featCode))
+                    {
+                        featureMap.TryGetValue(featCode, out var featEntity);
+                        resultDict[featCode] = new RolePermissionDto
+                        {
+                            FeatureId = featEntity?.Id ?? Guid.Empty,
+                            FeatureCode = featCode,
+                            FeatureName = featEntity?.Name ?? featCode,
+                            CanAccess = true,
+                            Permissions = isProjectOwner ? "VIEW,CREATE,EDIT,DELETE" : "VIEW"
+                        };
+                    }
+                }
+            }
+
+            return resultDict.Values.OrderBy(dto => dto.FeatureCode).ToList();
         }
 
         private string GenerateJwtToken(string username, double expiryInMinutes, bool isTemp = false, Guid? userId = null)
