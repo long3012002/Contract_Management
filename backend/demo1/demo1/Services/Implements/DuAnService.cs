@@ -466,6 +466,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         dto.KeHoachVonIds = null;
 
         Mapper.Map(dto, entity);
+        entity.DuToanPheDuyet = dto.DuToanPheDuyet;
 
         if (phanKyDtos != null)
         {
@@ -506,6 +507,15 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                     };
                     DbContext.DuAnPhanKyVons.Add(newPk);
                 }
+            }
+        }
+        else if (entity.PhanKyVons.Any())
+        {
+            decimal duToan = entity.DuToanPheDuyet;
+            foreach (var pk in entity.PhanKyVons)
+            {
+                pk.TyLePercent = duToan > 0 ? Math.Round((pk.SoTienPhanKy / duToan) * 100, 2) : 0;
+                pk.UpdatedAt = DateTime.UtcNow;
             }
         }
 

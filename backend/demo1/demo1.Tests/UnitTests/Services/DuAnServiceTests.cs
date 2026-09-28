@@ -532,6 +532,44 @@ namespace demo1.Tests.UnitTests.Services
             updatedProject.DanhSachKeHoachVon[0].GhiChu.Should().Be("Đã gán thành công");
         }
 
+        [Fact]
+        public async Task UpdateAsync_Should_Update_DuToanPheDuyet_And_Recalculate_PhanKyVon_Percentages()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-DUTOAN-001",
+                Name = "Dự án test cập nhật dự toán",
+                DuToanPheDuyet = 1000000000m,
+                PhanKyVons = new List<CreateDuAnPhanKyVonDto>
+                {
+                    new CreateDuAnPhanKyVonDto { Nam = 2025, SoTienPhanKy = 500000000m } // 50%
+                }
+            };
+            var created = await _duAnService.CreateAsync(createDto);
+
+            // Update DuToanPheDuyet to 2,000,000,000 without passing PhanKyVons
+            var updateDto = new UpdateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-DUTOAN-001",
+                Name = "Dự án test cập nhật dự toán (Đã sửa)",
+                DuToanPheDuyet = 2000000000m
+            };
+
+            var updateResult = await _duAnService.UpdateAsync(created.Id, updateDto);
+            updateResult.Should().BeTrue();
+
+            var updatedProject = await _duAnService.GetByIdAsync(created.Id);
+            updatedProject.Should().NotBeNull();
+            updatedProject!.DuToanPheDuyet.Should().Be(2000000000m);
+            updatedProject.PhanKyVons.Should().HaveCount(1);
+            updatedProject.PhanKyVons[0].SoTienPhanKy.Should().Be(500000000m);
+            updatedProject.PhanKyVons[0].TyLePercent.Should().Be(25.00m); // 500m / 2000m = 25%
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
