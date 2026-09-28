@@ -411,6 +411,78 @@ namespace demo1.Tests.UnitTests.Services
             item2.TrangThaiCalculatedText.Should().Be("Đã kết thúc / Thanh lý");
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_AutoGenerate_DotThanhToan_Code_When_Code_Is_Null()
+        {
+            // Arrange
+            var createDto = new CreateHopDongDto
+            {
+                Code = "HD-TEST-001",
+                Name = "Hợp đồng thử nghiệm",
+                GiaTriHopDong = 100000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1,
+                DotThanhToans = new List<CreateDotThanhToanDto>
+                {
+                    new CreateDotThanhToanDto { TenDot = "Đợt 1", TyLeThanhToan = 50, Code = null },
+                    new CreateDotThanhToanDto { TenDot = "Đợt 2", TyLeThanhToan = 50, Code = null }
+                }
+            };
+
+            // Act
+            var result = await _hopDongService.CreateAsync(createDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            var dots = await _dbContext.DotThanhToans.Where(d => d.HopDongId == result.Id).OrderBy(d => d.CreatedAt).ToListAsync();
+            dots.Should().HaveCount(2);
+            dots[0].Code.Should().NotBeNullOrWhiteSpace();
+            dots[1].Code.Should().NotBeNullOrWhiteSpace();
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Handle_New_And_Existing_DotThanhToan_With_Null_Code()
+        {
+            // Arrange
+            var createDto = new CreateHopDongDto
+            {
+                Code = "HD-TEST-002",
+                Name = "Hợp đồng thử nghiệm 2",
+                GiaTriHopDong = 100000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1,
+                DotThanhToans = new List<CreateDotThanhToanDto>
+                {
+                    new CreateDotThanhToanDto { TenDot = "Đợt 1", TyLeThanhToan = 50, Code = null }
+                }
+            };
+            var created = await _hopDongService.CreateAsync(createDto);
+            var initialDot = await _dbContext.DotThanhToans.FirstAsync(d => d.HopDongId == created.Id);
+
+            // Act: Update existing dot and add a new dot without code
+            var updateDto = new UpdateHopDongDto
+            {
+                Code = "HD-TEST-002",
+                Name = "Hợp đồng thử nghiệm 2 (Updated)",
+                GiaTriHopDong = 100000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1,
+                DotThanhToans = new List<CreateDotThanhToanDto>
+                {
+                    new CreateDotThanhToanDto { Id = initialDot.Id, TenDot = "Đợt 1", TyLeThanhToan = 40, Code = null },
+                    new CreateDotThanhToanDto { Id = null, TenDot = "Đợt 2", TyLeThanhToan = 60, Code = null }
+                }
+            };
+            var updated = await _hopDongService.UpdateAsync(created.Id, updateDto);
+
+            // Assert
+            updated.Should().BeTrue();
+            var dots = await _dbContext.DotThanhToans.Where(d => d.HopDongId == created.Id).OrderBy(d => d.CreatedAt).ToListAsync();
+            dots.Should().HaveCount(2);
+            dots[0].Code.Should().NotBeNullOrWhiteSpace();
+            dots[1].Code.Should().NotBeNullOrWhiteSpace();
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

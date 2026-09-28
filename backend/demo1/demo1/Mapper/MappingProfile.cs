@@ -195,7 +195,8 @@ namespace demo1.Mapper
 
             // DotThanhToan mappings
             CreateMap<DotThanhToan, DotThanhToanDto>();
-            CreateMap<CreateDotThanhToanDto, DotThanhToan>();
+            CreateMap<CreateDotThanhToanDto, DotThanhToan>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom((src, dest) => !string.IsNullOrWhiteSpace(src.Code) ? src.Code.Trim() : (dest.Code ?? string.Empty)));
 
             // LoaiHopDong mappings
             CreateMap<LoaiHopDong, LoaiHopDongDto>();
@@ -218,8 +219,6 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.HangHoaDichVus, opt => opt.MapFrom(src => src.HangHoaDichVus))
                 .ForMember(dest => dest.PhuLucHopDongs, opt => opt.MapFrom(src => src.PhuLucHopDongs.OrderByDescending(p => p.NgayKy).ToList()));
             CreateMap<PhuLucHopDong, PhuLucHopDongDto>();
-            CreateMap<DotThanhToan, DotThanhToanDto>();
-            CreateMap<CreateDotThanhToanDto, DotThanhToan>();
             CreateMap<CreateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))

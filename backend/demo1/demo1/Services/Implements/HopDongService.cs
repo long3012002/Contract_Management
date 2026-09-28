@@ -930,6 +930,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             {
                 var now = DateTime.UtcNow;
                 int index = 0;
+                var cleanHdCode = !string.IsNullOrWhiteSpace(entity.Code) ? entity.Code.Trim().Replace("/", "-").Replace(" ", "") : "HD000";
+                int nextDotSeq = existingDots.Count + 1;
+
                 foreach (var dotDto in dto.DotThanhToans)
                 {
                     if (dotDto.Id.HasValue)
@@ -938,6 +941,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         var existingDot = existingDots.FirstOrDefault(d => d.Id == dotDto.Id.Value);
                         if (existingDot != null)
                         {
+                            var originalCode = existingDot.Code;
                             if (existingDot.IsPaid)
                             {
                                 var targetGiaTri = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
@@ -955,6 +959,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                             else
                             {
                                 Mapper.Map(dotDto, existingDot);
+                                if (string.IsNullOrWhiteSpace(existingDot.Code))
+                                {
+                                    existingDot.Code = !string.IsNullOrWhiteSpace(originalCode) ? originalCode : $"TT-{cleanHdCode}-{(index + 1):D2}";
+                                }
                                 existingDot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (existingDot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                                 existingDot.NgayThanhToan = dotDto.NgayThanhToan;
                                 existingDot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;
@@ -986,6 +994,10 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                         var dot = Mapper.Map<DotThanhToan>(dotDto);
                         dot.Id = Guid.NewGuid();
                         dot.HopDongId = id;
+                        if (string.IsNullOrWhiteSpace(dot.Code))
+                        {
+                            dot.Code = await _codeGeneratorService.GenerateDotThanhToanCodeAsync(entity.Id, entity.CreatedAt.Year);
+                        }
                         dot.GiaTriThanhToan = dotDto.GiaTriThanhToan > 0 ? dotDto.GiaTriThanhToan : (dot.TyLeThanhToan * entity.GiaTriHopDong / 100);
                         dot.NgayThanhToan = dotDto.NgayThanhToan;
                         dot.NgayThanhToanThucTe = dotDto.NgayThanhToanThucTe;

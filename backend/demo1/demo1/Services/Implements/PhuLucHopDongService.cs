@@ -80,6 +80,10 @@ public class PhuLucHopDongService : IPhuLucHopDongService
         // Process DotThanhToans
         if (dto.DotThanhToans != null && dto.DotThanhToans.Any())
         {
+            var cleanHdCode = !string.IsNullOrWhiteSpace(hopDong.Code) ? hopDong.Code.Trim().Replace("/", "-").Replace(" ", "") : "HD000";
+            var existingDotsCount = await _context.DotThanhToans.CountAsync(d => d.HopDongId == dto.HopDongId);
+            int nextDotSeq = existingDotsCount + 1;
+
             foreach (var dot in dto.DotThanhToans)
             {
                 var dotEntity = new DotThanhToan
@@ -88,6 +92,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
                     HopDongId = dto.HopDongId,
                     PhuLucHopDongId = entity.Id,
                     TenDot = dot.TenDot,
+                    Code = !string.IsNullOrWhiteSpace(dot.Code) ? dot.Code.Trim() : $"TT-{cleanHdCode}-{nextDotSeq++:D2}",
                     TyLeThanhToan = dot.TyLeThanhToan,
                     GiaTriThanhToan = dot.GiaTriThanhToan,
                     NgayThanhToan = dot.NgayThanhToan,
