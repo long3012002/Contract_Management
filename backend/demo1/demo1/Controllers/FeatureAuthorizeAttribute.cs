@@ -438,6 +438,9 @@ namespace demo1.Controllers
                     codes.Add("DOITAC");
                     codes.Add("PARTNER");
                     codes.Add("PARTNERS");
+                    codes.Add("CONTRACTOR");
+                    codes.Add("CONTRACTORS");
+                    codes.Add("NHA_THAU");
                     break;
                 case "BAO_CAO":
                     codes.Add("BAO_CAO");
@@ -472,11 +475,14 @@ namespace demo1.Controllers
                 codes.Add("REPORTS");
             }
 
-            // Always include project codes as project-level permissions can grant access
-            codes.Add("DU_AN");
-            codes.Add("DUAN");
-            codes.Add("PROJECT");
-            codes.Add("PROJECTS");
+            // Only project sub-modules (GOI_THAU, QUAN_LY_HOP_DONG, CONG_VIEC) inherit project-level permissions
+            if (norm == "GOI_THAU" || norm == "QUAN_LY_HOP_DONG" || norm == "CONG_VIEC")
+            {
+                codes.Add("DU_AN");
+                codes.Add("DUAN");
+                codes.Add("PROJECT");
+                codes.Add("PROJECTS");
+            }
 
             return codes.ToList();
         }

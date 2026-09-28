@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using demo1.Data;
 using demo1.DTOs;
 using demo1.Entity;
@@ -17,17 +18,20 @@ namespace demo1.Services.Implements
         private readonly ICurrentUserService _currentUserService;
         private readonly ILogger<AdminService> _logger;
         private readonly IEntityNameCacheService? _entityNameCacheService;
+        private readonly IMemoryCache? _cache;
 
         public AdminService(
             AppDbContext dbContext,
             ICurrentUserService currentUserService,
             ILogger<AdminService> logger,
-            IEntityNameCacheService? entityNameCacheService = null)
+            IEntityNameCacheService? entityNameCacheService = null,
+            IMemoryCache? cache = null)
         {
             _dbContext = dbContext;
             _currentUserService = currentUserService;
             _logger = logger;
             _entityNameCacheService = entityNameCacheService;
+            _cache = cache;
         }
 
 
@@ -400,6 +404,21 @@ namespace demo1.Services.Implements
 
                 role.UpdatedAt = DateTime.UtcNow;
                 await _dbContext.SaveChangesAsync();
+
+                if (_cache != null)
+                {
+                    var affectedUserIds = await _dbContext.UserRoles
+                        .AsNoTracking()
+                        .Where(ur => ur.RoleId == roleId)
+                        .Select(ur => ur.UserId)
+                        .ToListAsync();
+
+                    foreach (var uid in affectedUserIds)
+                    {
+                        _cache.Remove($"user_role_perms_{uid}");
+                        _cache.Remove($"user_permissions_{uid}");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -591,6 +610,12 @@ namespace demo1.Services.Implements
                 }
 
                 await _dbContext.SaveChangesAsync();
+
+                if (_cache != null)
+                {
+                    _cache.Remove($"user_role_perms_{userId}");
+                    _cache.Remove($"user_permissions_{userId}");
+                }
             }
             catch (Exception ex)
             {
