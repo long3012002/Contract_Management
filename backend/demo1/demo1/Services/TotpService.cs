@@ -21,8 +21,9 @@ namespace demo1.Services
 
         public string GetQrCodeUrl(string username, string secret)
         {
-            string label = Uri.EscapeDataString($"ContractManagement:{username}@co-opbank.vn");
-            string issuer = Uri.EscapeDataString("ContractManagement");
+            const string issuerName = "QLDA Co-opBank";
+            string label = Uri.EscapeDataString($"{issuerName}:{username}");
+            string issuer = Uri.EscapeDataString(issuerName);
             return $"otpauth://totp/{label}?secret={secret}&issuer={issuer}";
         }
 

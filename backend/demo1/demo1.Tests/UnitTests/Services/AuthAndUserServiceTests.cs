@@ -260,6 +260,20 @@ namespace demo1.Tests.UnitTests.Services
             result.Errors.Should().NotBeEmpty();
         }
 
+        [Fact]
+        public void TotpService_GetQrCodeUrl_Should_Format_Correctly_With_QLDACoopBank_Issuer_And_Username()
+        {
+            // Arrange
+            string username = "anhld2";
+            string secret = "JBSWY3DPEHPK3PXP";
+
+            // Act
+            string qrUrl = _totpService.GetQrCodeUrl(username, secret);
+
+            // Assert
+            qrUrl.Should().Be("otpauth://totp/QLDA%20Co-opBank%3Aanhld2?secret=JBSWY3DPEHPK3PXP&issuer=QLDA%20Co-opBank");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();
