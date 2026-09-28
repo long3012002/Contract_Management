@@ -677,7 +677,7 @@ namespace demo1.Services.Implements
 
             if (isProjectOwner || isRelated)
             {
-                var projectFeatures = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG" };
+                var projectFeatures = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG", "THANH_TOAN" };
                 foreach (var featCode in projectFeatures)
                 {
                     if (!resultDict.ContainsKey(featCode))
