@@ -71,21 +71,21 @@ public class ReportService : IReportService
 
         switch (period)
         {
-            case 1: // 6 tháng đầu năm (Kỳ 1)
-                return (
-                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc),
-                    $"6T đầu năm {year}",
-                    "6T"
-                );
-            case 2: // Cả năm (Kỳ 2)
+            case 1: // Cả năm (Kỳ 1)
                 return (
                     new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
                     $"năm {year}",
                     "1N"
                 );
-            case 3: // 6 tháng cuối năm (Kỳ 2 cũ / Kỳ 3)
+            case 2: // 6 tháng đầu năm (Kỳ 2)
+                return (
+                    new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    new DateTime(year, 6, 30, 23, 59, 59, DateTimeKind.Utc),
+                    $"6T đầu năm {year}",
+                    "6T"
+                );
+            case 3: // 6 tháng cuối năm (Kỳ 3)
                 return (
                     new DateTime(year, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                     new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc),
@@ -285,8 +285,7 @@ public class ReportService : IReportService
             categoryList.Add(new { Id = Guid.Empty, Code = "PL_KHAC_FALLBACK", Name = "Dự án / Phân loại khác" });
         }
 
-        var groupBProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
-        var groupCProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
+        var categoryProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
 
         foreach (var project in projectsData)
         {
@@ -385,10 +384,6 @@ public class ReportService : IReportService
                 approvalDecision = $"{approvalDecision} ngày {project.NgayBatDau.Value.ToString("dd/MM/yyyy")} V/v phê duyệt dự án {project.Name}";
             }
 
-            // Phân loại nhóm dự án (Nhóm B >= 45 tỷ đồng)
-            bool isGroupB = (project.NhomDuAnCode != null && project.NhomDuAnCode.Equals("NHOM_B", StringComparison.OrdinalIgnoreCase)) || 
-                            (project.NhomDuAnId == null && totalBudgetVnd >= 45_000_000_000m);
-
             var row = new ReportRowDto
             {
                 RowType = "ProjectRow",
@@ -428,15 +423,13 @@ public class ReportService : IReportService
             };
 
             var catId = GetCategoryIdForProject(project.PhanLoaiDuAnId, project.PhanLoaiDuAnCode, project.PhanLoaiDuAnName);
-            if (isGroupB)
+            if (categoryProjectsMap.TryGetValue(catId, out var pList))
             {
-                if (groupBProjectsMap.TryGetValue(catId, out var bList)) bList.Add(row);
-                else groupBProjectsMap[categoryList.First().Id].Add(row);
+                pList.Add(row);
             }
             else
             {
-                if (groupCProjectsMap.TryGetValue(catId, out var cList)) cList.Add(row);
-                else groupCProjectsMap[categoryList.First().Id].Add(row);
+                categoryProjectsMap[categoryList.First().Id].Add(row);
             }
         }
 
@@ -462,118 +455,50 @@ public class ReportService : IReportService
             return sb.ToString();
         }
 
-        // 6. Tổ hợp hiển thị báo cáo dạng cây gom nhóm theo Phân loại Dự án (PhanLoaiDuAn)
+        // 6. Danh sách dự án (Đã bỏ/comment dòng gom nhóm và dòng tổng cộng theo yêu cầu)
         var rows = new List<ReportRowDto>();
+        // var subHeaders = new List<ReportRowDto>();
+        // int catIdx = 1;
+        int pIdx = 1;
 
-        // --- GROUP B ---
-        var groupBHeader = new ReportRowDto
-        {
-            Stt = "B",
-            RowType = "GroupHeader",
-            ProjectName = "Các dự án nhóm B"
-        };
-        var bSubHeaders = new List<ReportRowDto>();
-        var bRows = new List<ReportRowDto> { groupBHeader };
-
-        int bCatIdx = 1;
         foreach (var cat in categoryList)
         {
-            var pList = groupBProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
+            var pList = categoryProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
             if (!pList.Any()) continue;
 
+            // [COMMENTED] Bỏ dòng gom nhóm phân loại dự án (SubGroupHeader)
+            /*
             var subHeader = new ReportRowDto
             {
-                Stt = ToRomanNumber(bCatIdx++),
+                Stt = ToRomanNumber(catIdx++),
                 RowType = "SubGroupHeader",
                 ProjectName = cat.Name
             };
+            PopulateSubGroupSummary(subHeader, pList);
+            subHeaders.Add(subHeader);
+            rows.Add(subHeader);
+            */
 
-            int pIdx = 1;
             foreach (var pRow in pList)
             {
                 pRow.Stt = pIdx++.ToString();
             }
 
-            PopulateSubGroupSummary(subHeader, pList);
-            bSubHeaders.Add(subHeader);
-
-            bRows.Add(subHeader);
-            bRows.AddRange(pList);
+            rows.AddRange(pList);
         }
 
-        var groupBFooter = new ReportRowDto
+        // --- GRAND TOTAL (Dòng tổng cộng cho các cột giá trị số tiền) ---
+        if (rows.Any())
         {
-            RowType = "GroupFooter",
-            ProjectName = "Tổng (B)"
-        };
-        if (bSubHeaders.Any())
-        {
-            PopulateGroupSummary(groupBHeader, bSubHeaders);
-            PopulateGroupSummary(groupBFooter, bSubHeaders);
-            bRows.Add(groupBFooter);
-            rows.AddRange(bRows);
-        }
-
-        // --- GROUP C ---
-        var groupCHeader = new ReportRowDto
-        {
-            Stt = "C",
-            RowType = "GroupHeader",
-            ProjectName = "Các dự án khác"
-        };
-        var cSubHeaders = new List<ReportRowDto>();
-        var cRows = new List<ReportRowDto> { groupCHeader };
-
-        int cCatIdx = 1;
-        foreach (var cat in categoryList)
-        {
-            var pList = groupCProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
-            if (!pList.Any()) continue;
-
-            var subHeader = new ReportRowDto
+            var grandTotal = new ReportRowDto
             {
-                Stt = ToRomanNumber(cCatIdx++),
-                RowType = "SubGroupHeader",
-                ProjectName = cat.Name
+                Stt = "",
+                RowType = "GrandTotal",
+                ProjectName = "TỔNG CỘNG"
             };
-
-            int pIdx = 1;
-            foreach (var pRow in pList)
-            {
-                pRow.Stt = pIdx++.ToString();
-            }
-
-            PopulateSubGroupSummary(subHeader, pList);
-            cSubHeaders.Add(subHeader);
-
-            cRows.Add(subHeader);
-            cRows.AddRange(pList);
+            PopulateSubGroupSummary(grandTotal, rows);
+            rows.Add(grandTotal);
         }
-
-        var groupCFooter = new ReportRowDto
-        {
-            RowType = "GroupFooter",
-            ProjectName = "Tổng (C)"
-        };
-        if (cSubHeaders.Any())
-        {
-            PopulateGroupSummary(groupCHeader, cSubHeaders);
-            PopulateGroupSummary(groupCFooter, cSubHeaders);
-            cRows.Add(groupCFooter);
-            rows.AddRange(cRows);
-        }
-
-        // --- GRAND TOTAL ---
-        var grandTotal = new ReportRowDto
-        {
-            RowType = "GrandTotal",
-            ProjectName = "TỔNG CỘNG"
-        };
-        var activeFooters = new List<ReportRowDto>();
-        if (bSubHeaders.Any()) activeFooters.Add(groupBFooter);
-        if (cSubHeaders.Any()) activeFooters.Add(groupCFooter);
-        PopulateGroupSummary(grandTotal, activeFooters);
-        rows.Add(grandTotal);
 
         return new ReportResponseDto
         {
@@ -680,7 +605,9 @@ public class ReportService : IReportService
             worksheet.Cell("A6").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             worksheet.Range("A6:L6").Merge();
 
-            string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+            string periodText = (report.FromDate.HasValue && report.ToDate.HasValue && (period == 0 || fromDate.HasValue || toDate.HasValue))
+                ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}"
+                : (period == 2 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : (period == 3 ? $"Trong kỳ báo cáo 6T cuối năm {year}" : $"Trong kỳ báo cáo năm {year}"));
             worksheet.Cell("A7").Value = $"( {periodText} )";
             worksheet.Cell("A7").Style.Font.Bold = true;
             worksheet.Cell("A7").Style.Font.FontSize = 12;
@@ -694,7 +621,7 @@ public class ReportService : IReportService
             worksheet.Cell("L8").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
             // Dates for headers
-            string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
+            string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : (period == 2 ? $"30/06/{year}" : $"31/12/{year}");
 
             // Merged Headers row 10-12
             worksheet.Cell("A10").Value = "TT";
@@ -846,7 +773,7 @@ public class ReportService : IReportService
     public async Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
         var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
-        string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : (period == 1 ? $"30/06/{year}" : $"31/12/{year}");
+        string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : (period == 2 ? $"30/06/{year}" : $"31/12/{year}");
 
         using (var memoryStream = new MemoryStream())
         {
@@ -860,7 +787,9 @@ public class ReportService : IReportService
                 await writer.WriteLineAsync($"\"TRUNG TÂM CÔNG NGHỆ THÔNG TIN\"");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync($"\"TÌNH HÌNH ĐẦU TƯ VÀ HUY ĐỘNG VỐN ĐỂ ĐẦU TƯ VÀO CÁC DỰ ÁN HÌNH THÀNH TSCĐ VÀ XDCB\"");
-                string periodText = report.FromDate.HasValue && report.ToDate.HasValue ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}" : (period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}");
+                string periodText = (report.FromDate.HasValue && report.ToDate.HasValue && (period == 0 || fromDate.HasValue || toDate.HasValue))
+                    ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}"
+                    : (period == 2 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : (period == 3 ? $"Trong kỳ báo cáo 6T cuối năm {year}" : $"Trong kỳ báo cáo năm {year}"));
                 await writer.WriteLineAsync($"\"( {periodText} )\"");
                 await writer.WriteLineAsync();
                 await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
@@ -901,8 +830,10 @@ public class ReportService : IReportService
     public async Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
         var report = await GetInvestmentReportAsync(year, period, donViTinh, fromDate, toDate);
-        string dateStr = period == 1 ? $"30/06/{year}" : $"31/12/{year}";
-        string periodText = period == 1 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : $"Trong kỳ báo cáo năm {year}";
+        string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : (period == 2 ? $"30/06/{year}" : $"31/12/{year}");
+        string periodText = (report.FromDate.HasValue && report.ToDate.HasValue && (period == 0 || fromDate.HasValue || toDate.HasValue))
+            ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}"
+            : (period == 2 ? $"Trong kỳ báo cáo 6T đầu năm {year}" : (period == 3 ? $"Trong kỳ báo cáo 6T cuối năm {year}" : $"Trong kỳ báo cáo năm {year}"));
 
         var htmlBuilder = new System.Text.StringBuilder();
         htmlBuilder.AppendLine("<!DOCTYPE html>");
@@ -3474,7 +3405,26 @@ public class ReportService : IReportService
             worksheet.Cell(rowIdx, 13).Value = item.TenHopDong;
             worksheet.Cell(rowIdx, 14).Value = item.GiaTriHopDong;
             worksheet.Cell(rowIdx, 14).Style.NumberFormat.Format = "#,##0.##";
+            rowIdx++;
+        }
 
+        if (report.DanhSachChiTiet.Count > 0)
+        {
+            int endRow = rowIdx - 1;
+            worksheet.Cell(rowIdx, 1).Value = "TỔNG CỘNG";
+            worksheet.Range(rowIdx, 1, rowIdx, 13).Merge();
+            worksheet.Range(rowIdx, 1, rowIdx, 13).Style.Font.Bold = true;
+            worksheet.Range(rowIdx, 1, rowIdx, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(rowIdx, 14).FormulaA1 = $"=SUM(N5:N{endRow})";
+            worksheet.Cell(rowIdx, 14).Style.NumberFormat.Format = "#,##0.##";
+            worksheet.Cell(rowIdx, 14).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            var totalRowRange = worksheet.Range(rowIdx, 1, rowIdx, 14);
+            totalRowRange.Style.Font.Bold = true;
+            totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+            totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            totalRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
             rowIdx++;
         }
 
@@ -3653,7 +3603,9 @@ public class ReportService : IReportService
         worksheet.Range("B2:M2").Merge();
 
         // Subtitle Row 3
-        string periodText = period == 1 ? $"6 tháng đầu năm {year}" : $"Cả năm {year}";
+        string periodText = (report.FromDate.HasValue && report.ToDate.HasValue && (period == 0 || fromDate.HasValue || toDate.HasValue))
+            ? $"Từ {report.FromDate:dd/MM/yyyy} đến {report.ToDate:dd/MM/yyyy}"
+            : (period == 2 ? $"6 tháng đầu năm {year}" : (period == 3 ? $"6 tháng cuối năm {year}" : $"Cả năm {year}"));
         worksheet.Cell("B3").Value = $"(Kỳ báo cáo: {periodText} - Đơn vị tính: {report.Unit})";
         worksheet.Cell("B3").Style.Font.Italic = true;
         worksheet.Cell("B3").Style.Font.FontSize = 10;
@@ -3880,6 +3832,45 @@ public class ReportService : IReportService
 
                 currentRow++;
             }
+
+            // Dòng TỔNG CỘNG
+            int startRow = 4;
+            int endRow = currentRow - 1;
+            worksheet.Cell(currentRow, 3).Value = "TỔNG CỘNG";
+            worksheet.Range(currentRow, 3, currentRow, 6).Merge();
+            worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(currentRow, 7).FormulaA1 = $"=SUM(G{startRow}:G{endRow})";
+            worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 8).Value = string.Empty;
+            worksheet.Cell(currentRow, 9).Value = string.Empty;
+
+            worksheet.Cell(currentRow, 10).FormulaA1 = $"=SUM(J{startRow}:J{endRow})";
+            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 11).FormulaA1 = $"=SUM(K{startRow}:K{endRow})";
+            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 12).FormulaA1 = $"=SUM(L{startRow}:L{endRow})";
+            worksheet.Cell(currentRow, 12).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 13).FormulaA1 = $"=SUM(M{startRow}:M{endRow})";
+            worksheet.Cell(currentRow, 13).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 14).Value = string.Empty;
+
+            var totalRowRange = worksheet.Range(currentRow, 3, currentRow, 14);
+            totalRowRange.Style.Font.Bold = true;
+            totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+            totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            totalRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
         }
 
         worksheet.Columns(3, 14).AdjustToContents(10.0, 50.0);
@@ -3906,20 +3897,21 @@ public class ReportService : IReportService
         worksheet.Cell("C1").Style.Font.FontSize = 14;
         worksheet.Cell("C1").Style.Font.FontColor = XLColor.FromHtml("#1F4E78");
         worksheet.Cell("C1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("C1:N1").Merge();
+        worksheet.Range("C1:M1").Merge();
 
         // Subtitle Row 2
         worksheet.Cell("C2").Value = $"(Đơn vị tính: {report.Unit})";
         worksheet.Cell("C2").Style.Font.Italic = true;
         worksheet.Cell("C2").Style.Font.FontSize = 10;
         worksheet.Cell("C2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("C2:N2").Merge();
+        worksheet.Range("C2:M2").Merge();
 
         // Header Row 3
         string[] headers = [
             "STT", "Mã dự án", "Mã gói thầu", "Tên gói thầu", $"Giá trị dự toán ({report.Unit})",
             "Hình thức LCNT", "Phương thức LCNT", $"Tổng giá trị HĐ đã ký ({report.Unit})",
-            $"Giá trị tiết kiệm ({report.Unit})", "Tỷ lệ sử dụng dự toán (%)", "Tên nhà Thầu", "Trạng thái gói thầu"
+            // $"Giá trị tiết kiệm ({report.Unit})",
+            "Tỷ lệ sử dụng dự toán (%)", "Tên nhà Thầu", "Trạng thái gói thầu"
         ];
 
         for (int i = 0; i < headers.Length; i++)
@@ -3967,28 +3959,62 @@ public class ReportService : IReportService
             worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
             worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 11).Value = row.GiaTriTietKiem;
-            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
+            // worksheet.Cell(currentRow, 11).Value = row.GiaTriTietKiem;
+            // worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
+            // worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 11).Value = row.TyLeSuDungDuToanPercent / 100.0;
+            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "0.0%";
             worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 12).Value = row.TyLeSuDungDuToanPercent / 100.0;
-            worksheet.Cell(currentRow, 12).Style.NumberFormat.Format = "0.0%";
-            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 12).Value = row.TenNhaThauTrungThau;
+            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-            worksheet.Cell(currentRow, 13).Value = row.TenNhaThauTrungThau;
-            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            worksheet.Cell(currentRow, 13).Value = row.TrangThaiGoiThau;
+            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 14).Value = row.TrangThaiGoiThau;
-            worksheet.Cell(currentRow, 14).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-            var rowRange = worksheet.Range(currentRow, 3, currentRow, 14);
+            var rowRange = worksheet.Range(currentRow, 3, currentRow, 13);
             rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
             currentRow++;
         }
 
-        worksheet.Columns(3, 14).AdjustToContents(10.0, 50.0);
+        if (report.Rows.Count > 0)
+        {
+            int startRow = 4;
+            int endRow = currentRow - 1;
+            worksheet.Cell(currentRow, 3).Value = "TỔNG CỘNG";
+            worksheet.Range(currentRow, 3, currentRow, 6).Merge();
+            worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(currentRow, 7).FormulaA1 = $"=SUM(G{startRow}:G{endRow})";
+            worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 8).Value = string.Empty;
+            worksheet.Cell(currentRow, 9).Value = string.Empty;
+
+            worksheet.Cell(currentRow, 10).FormulaA1 = $"=SUM(J{startRow}:J{endRow})";
+            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 11).FormulaA1 = $"=IF(G{currentRow}>0, J{currentRow}/G{currentRow}, 0)";
+            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "0.0%";
+            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 12).Value = string.Empty;
+            worksheet.Cell(currentRow, 13).Value = string.Empty;
+
+            var totalRowRange = worksheet.Range(currentRow, 3, currentRow, 13);
+            totalRowRange.Style.Font.Bold = true;
+            totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+            totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            totalRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
+        }
+
+        worksheet.Columns(3, 13).AdjustToContents(10.0, 50.0);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
@@ -4115,6 +4141,39 @@ public class ReportService : IReportService
             currentRow++;
         }
 
+        if (report.Rows.Count > 0)
+        {
+            int startRow = 5;
+            int endRow = currentRow - 1;
+            worksheet.Cell(currentRow, 2).Value = "TỔNG CỘNG";
+            worksheet.Range(currentRow, 2, currentRow, 7).Merge();
+            worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(currentRow, 8).FormulaA1 = $"=SUM(H{startRow}:H{endRow})";
+            worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 9).FormulaA1 = $"=SUM(I{startRow}:I{endRow})";
+            worksheet.Cell(currentRow, 9).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 10).FormulaA1 = $"=SUM(J{startRow}:J{endRow})";
+            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 11).Value = string.Empty;
+            worksheet.Cell(currentRow, 12).Value = string.Empty;
+            worksheet.Cell(currentRow, 13).Value = string.Empty;
+            worksheet.Cell(currentRow, 14).Value = string.Empty;
+
+            var totalRowRange = worksheet.Range(currentRow, 2, currentRow, 14);
+            totalRowRange.Style.Font.Bold = true;
+            totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+            totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            totalRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
+        }
+
         worksheet.Columns(2, 14).AdjustToContents(10.0, 50.0);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
@@ -4225,6 +4284,31 @@ public class ReportService : IReportService
 
                 currentRow++;
             }
+
+            int startRow = 4;
+            int endRow = currentRow - 1;
+            worksheet.Cell(currentRow, 2).Value = "TỔNG CỘNG";
+            worksheet.Range(currentRow, 2, currentRow, 6).Merge();
+            worksheet.Cell(currentRow, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            worksheet.Cell(currentRow, 7).FormulaA1 = $"=SUM(G{startRow}:G{endRow})";
+            worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            worksheet.Cell(currentRow, 8).Value = string.Empty;
+            worksheet.Cell(currentRow, 9).Value = string.Empty;
+            worksheet.Cell(currentRow, 10).Value = string.Empty;
+
+            worksheet.Cell(currentRow, 11).FormulaA1 = $"=SUM(K{startRow}:K{endRow})";
+            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+            var totalRowRange = worksheet.Range(currentRow, 2, currentRow, 11);
+            totalRowRange.Style.Font.Bold = true;
+            totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
+            totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            totalRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
         }
 
         worksheet.Columns(2, 11).AdjustToContents(10.0, 50.0);

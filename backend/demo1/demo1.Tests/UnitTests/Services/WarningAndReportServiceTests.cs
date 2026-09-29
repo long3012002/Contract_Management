@@ -259,23 +259,23 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DotThanhToans.AddRange(dot1, dot2);
             await _dbContext.SaveChangesAsync();
 
-            // Act 1: Period 1 (6T đầu năm)
+            // Act 1: Period 1 (Cả năm)
             var reportP1 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
             var rowP1 = reportP1.Rows.FirstOrDefault(r => r.ProjectName == "Dự án cả năm 2026");
             rowP1.Should().NotBeNull();
-            rowP1!.KhoiLuongTrongKy.Should().Be(1000000000m); // Chỉ có đợt 1
+            rowP1!.KhoiLuongTrongKy.Should().Be(3000000000m); // Cả đợt 1 + đợt 2
             reportP1.Period.Should().Be(1);
             reportP1.FromDate.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-            reportP1.ToDate.Should().Be(new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc));
+            reportP1.ToDate.Should().Be(new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc));
 
-            // Act 2: Period 2 (Cả năm)
+            // Act 2: Period 2 (6T đầu năm)
             var reportP2 = await service.GetInvestmentReportAsync(2026, 2, "đồng");
             var rowP2 = reportP2.Rows.FirstOrDefault(r => r.ProjectName == "Dự án cả năm 2026");
             rowP2.Should().NotBeNull();
-            rowP2!.KhoiLuongTrongKy.Should().Be(3000000000m); // Cả đợt 1 + đợt 2
+            rowP2!.KhoiLuongTrongKy.Should().Be(1000000000m); // Chỉ có đợt 1
             reportP2.Period.Should().Be(2);
             reportP2.FromDate.Should().Be(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-            reportP2.ToDate.Should().Be(new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc));
+            reportP2.ToDate.Should().Be(new DateTime(2026, 6, 30, 23, 59, 59, DateTimeKind.Utc));
         }
 
         [Fact]
@@ -320,7 +320,7 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task ReportService_GetInvestmentReportAsync_Should_Categorize_GroupB_Projects()
+        public async Task ReportService_GetInvestmentReportAsync_Should_Group_Projects_Without_GroupABC_Headers()
         {
             // Arrange
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
@@ -330,44 +330,41 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DuAns.Add(projB);
             await _dbContext.SaveChangesAsync();
 
-            // Act
+            // Act: period 1 = Cả năm
             var report = await service.GetInvestmentReportAsync(2026, 1, "đồng");
 
-            // Assert
-            var groupBHeader = report.Rows.FirstOrDefault(r => r.Stt == "B" && r.RowType == "GroupHeader");
-            var groupBFooter = report.Rows.FirstOrDefault(r => r.ProjectName == "Tổng (B)" && r.RowType == "GroupFooter");
-            
-            groupBHeader.Should().NotBeNull();
-            groupBFooter.Should().NotBeNull();
-            groupBFooter!.TongMucDauTuTong.Should().BeGreaterThanOrEqualTo(50000000000m);
-
-            // Verify that Group C is excluded since it has no projects
+            // Assert: No Group B or Group C headers
+            report.Rows.Any(r => r.Stt == "B" && r.RowType == "GroupHeader").Should().BeFalse();
             report.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeFalse();
+            report.Rows.Any(r => r.ProjectName == "Tổng (B)").Should().BeFalse();
             report.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeFalse();
+
+            var projectRow = report.Rows.FirstOrDefault(r => r.ProjectName == "Dự án nhóm B quy mô lớn");
+            projectRow.Should().NotBeNull();
+            projectRow!.TongMucDauTuTong.Should().BeGreaterThanOrEqualTo(50000000000m);
         }
 
         [Fact]
-        public async Task ReportService_GetInvestmentReportAsync_Should_Exclude_Empty_Project_Groups()
+        public async Task ReportService_GetInvestmentReportAsync_Should_Exclude_Empty_Project_Categories()
         {
             // Arrange
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            // Case 1: No projects at all -> Neither Group B nor Group C should be in rows
+            // Case 1: No projects at all -> Rows should be empty
             var emptyReport = await service.GetInvestmentReportAsync(2026, 1, "đồng");
-            emptyReport.Rows.Any(r => r.RowType == "GroupHeader").Should().BeFalse();
-            emptyReport.Rows.Any(r => r.RowType == "GrandTotal").Should().BeTrue();
+            emptyReport.Rows.Should().BeEmpty();
 
-            // Case 2: Only Group C project (< 45B) -> Group B should be excluded, Group C included
-            var projC = new DuAn { Id = Guid.NewGuid(), Code = "DA-C-10B", Name = "Dự án nhóm C quy mô nhỏ", DuToanPheDuyet = 10000000000m, TrangThai = 1 };
-            _dbContext.DuAns.Add(projC);
+            // Case 2: Project with category -> Project row exists, no Group B/C
+            var pl = new PhanLoaiDuAn { Id = Guid.NewGuid(), Code = "PL_TEST", Name = "Phân loại Test", IsActive = true };
+            var proj = new DuAn { Id = Guid.NewGuid(), Code = "DA-TEST", Name = "Dự án Test", DuToanPheDuyet = 10000000000m, PhanLoaiDuAnId = pl.Id, TrangThai = 1 };
+            _dbContext.PhanLoaiDuAns.Add(pl);
+            _dbContext.DuAns.Add(proj);
             await _dbContext.SaveChangesAsync();
 
-            var reportWithC = await service.GetInvestmentReportAsync(2026, 1, "đồng");
-            reportWithC.Rows.Any(r => r.Stt == "B" && r.RowType == "GroupHeader").Should().BeFalse();
-            reportWithC.Rows.Any(r => r.ProjectName == "Tổng (B)").Should().BeFalse();
-            reportWithC.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeTrue();
-            reportWithC.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeTrue();
+            var reportWithProj = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            reportWithProj.Rows.Any(r => r.Stt == "B" || r.Stt == "C").Should().BeFalse();
+            reportWithProj.Rows.Any(r => r.ProjectName == "Dự án Test").Should().BeTrue();
         }
 
         [Fact]
@@ -386,7 +383,7 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-MULTI-CNTT",
                 Name = "Dự án CNTT Đa Năm",
-                DuToanPheDuyet = 60000000000m, // Group B
+                DuToanPheDuyet = 60000000000m,
                 PhanLoaiDuAnId = plCntt.Id,
                 TrangThai = 1,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -397,7 +394,7 @@ namespace demo1.Tests.UnitTests.Services
                 Id = Guid.NewGuid(),
                 Code = "DA-MULTI-XDCB",
                 Name = "Dự án XDCB Đa Năm",
-                DuToanPheDuyet = 10000000000m, // Group C
+                DuToanPheDuyet = 10000000000m,
                 PhanLoaiDuAnId = plXdcb.Id,
                 TrangThai = 1,
                 CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -447,8 +444,8 @@ namespace demo1.Tests.UnitTests.Services
             _dbContext.DotThanhToans.AddRange(dot2024, dot2025, dot2026);
             await _dbContext.SaveChangesAsync();
 
-            // Act 1: Báo cáo năm 2025 (Cả năm - period 2)
-            var report2025 = await service.GetInvestmentReportAsync(2025, 2, "đồng");
+            // Act 1: Báo cáo năm 2025 (Cả năm - period 1)
+            var report2025 = await service.GetInvestmentReportAsync(2025, 1, "đồng");
 
             // Assert 1: Năm 2025 -> Kỳ trước = 2024 (1 tỷ), Trong kỳ = 2025 (2 tỷ), Lũy kế = 3 tỷ
             var row2025 = report2025.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
@@ -457,8 +454,8 @@ namespace demo1.Tests.UnitTests.Services
             row2025.KhoiLuongTrongKy.Should().Be(2000000000m);
             row2025.KhoiLuongLuyKe.Should().Be(3000000000m);
 
-            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm - period 1)
-            var report2026 = await service.GetInvestmentReportAsync(2026, 1, "đồng");
+            // Act 2: Báo cáo năm 2026 (6 tháng đầu năm - period 2)
+            var report2026 = await service.GetInvestmentReportAsync(2026, 2, "đồng");
 
             // Assert 2: Năm 2026 -> Kỳ trước = 2024+2025 (3 tỷ), Trong kỳ = 2026 (3 tỷ), Lũy kế = 6 tỷ
             var row2026 = report2026.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT Đa Năm");
@@ -467,11 +464,8 @@ namespace demo1.Tests.UnitTests.Services
             row2026.KhoiLuongTrongKy.Should().Be(3000000000m);
             row2026.KhoiLuongLuyKe.Should().Be(6000000000m);
 
-            // Assert 3: Phân nhóm theo PhanLoaiDuAn (Dự án Công nghệ thông tin & Dự án Xây dựng cơ bản)
-            var subHeaderCntt = report2026.Rows.FirstOrDefault(r => r.RowType == "SubGroupHeader" && r.ProjectName == "Dự án Công nghệ thông tin");
-            var subHeaderXdcb = report2026.Rows.FirstOrDefault(r => r.RowType == "SubGroupHeader" && r.ProjectName == "Dự án Xây dựng cơ bản");
-            subHeaderCntt.Should().NotBeNull();
-            subHeaderXdcb.Should().NotBeNull();
+            // Assert 3: Dự án thuộc các danh mục xuất hiện với STT tuần tự
+            row2026.Stt.Should().Be("1");
         }
 
 
@@ -1044,7 +1038,7 @@ namespace demo1.Tests.UnitTests.Services
                 var ws = wbB3.Worksheet("Lựa chọn Nhà thầu");
                 ws.Cell("C3").GetString().Should().Be("STT");
                 ws.Cell("D3").GetString().Should().Be("Mã dự án");
-                ws.Cell("N3").GetString().Should().Be("Trạng thái gói thầu");
+                ws.Cell("M3").GetString().Should().Be("Trạng thái gói thầu");
             }
 
             // 4. Test Báo cáo 4: Quản lý Hợp đồng (V1 vs V2)

@@ -27,7 +27,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// Lấy dữ liệu báo cáo tổng hợp tình hình thực hiện đầu tư (dự án, gói thầu, hợp đồng).
     /// </summary>
     /// <param name="year">Năm báo cáo (mặc định: năm hiện tại)</param>
-    /// <param name="period">Kỳ báo cáo: 1 (6 tháng đầu năm), 2 (Cả năm)</param>
+    /// <param name="period">Kỳ báo cáo: 1 (Cả năm), 2 (6 tháng đầu năm), 3 (6 tháng cuối năm)</param>
     /// <param name="donViTinh">Đơn vị tính (1 hoặc đồng: Đồng, 2 hoặc nghìn: Nghìn đồng, 3 hoặc triệu: Triệu đồng, 4 hoặc tỷ: Tỷ đồng)</param>
     /// <returns>Bảng tổng hợp kinh phí đầu tư và danh sách chi tiết các dự án</returns>
     [HttpGet("dau-tu", Name = "GetInvestmentReport")]
