@@ -402,20 +402,22 @@ namespace demo1.Controllers
         }
 
         /// <summary>
-        /// Tải xuống hoặc xem trực tiếp tệp tin đính kèm bằng mã định danh duy nhất (GUID).
+        /// Lấy và mở xem/tải xuống tệp tin đính kèm bằng mã định danh duy nhất (GUID).
         /// Mặc định trả về inline để trình duyệt mở xem trước (PDF, hình ảnh). Truyền ?download=true nếu muốn tải về máy.
         /// </summary>
         /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
         /// <param name="download">Đặt true nếu muốn ép trình duyệt tải về thay vì xem</param>
         /// <response code="200">Trả về file stream</response>
         /// <response code="404">Không tìm thấy file</response>
+        [HttpGet("GetById/{id:guid}")]
+        [HttpGet("by-id/{id:guid}")]
         [HttpGet("download/by-id/{id:guid}", Name = "DownloadFileById")]
         [HttpGet("download/{id:guid}")]
         [HttpGet("preview/{id:guid}")]
         [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DownloadFileById(Guid id, [FromQuery] bool download = false)
+        public async Task<IActionResult> GetById(Guid id, [FromQuery] bool download = false)
         {
             var attachment = await _dbContext.FileAttachments.FindAsync(id);
             if (attachment == null || !attachment.IsActive)
@@ -456,19 +458,22 @@ namespace demo1.Controllers
         }
 
         /// <summary>
-        /// Tải xuống hoặc xem trực tiếp tệp tin đính kèm bằng đường dẫn tương đối (Relative Path).
+        /// Lấy và mở xem/tải xuống tệp tin đính kèm bằng đường dẫn tương đối (Relative Path).
         /// </summary>
         /// <param name="relativePath">Đường dẫn tương đối của file</param>
         /// <param name="download">Đặt true nếu muốn ép trình duyệt tải về</param>
         /// <response code="200">Trả về file stream</response>
         /// <response code="400">Tham số hoặc đường dẫn không hợp lệ (Directory Traversal)</response>
         /// <response code="404">Không tìm thấy file</response>
+        [HttpGet("GetByRelativePath")]
+        [HttpGet("by-path")]
         [HttpGet("download", Name = "DownloadFileByPath")]
         [HttpGet("preview", Name = "PreviewFileByPath")]
+        [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DownloadFileByPath([FromQuery] string relativePath, [FromQuery] bool download = false)
+        public async Task<IActionResult> GetByRelativePath([FromQuery] string relativePath, [FromQuery] bool download = false)
         {
             if (string.IsNullOrWhiteSpace(relativePath))
                 return BadRequest(new { Message = "Đường dẫn file không được để trống." });
