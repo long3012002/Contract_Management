@@ -281,7 +281,7 @@ public class CongViecGoiThauService
     {
         try
         {
-            var entities = await DbSet.Where(e => e.GoiThauId == parentId).ToListAsync();
+            var entities = await DbSet.IgnoreQueryFilters().Where(e => e.GoiThauId == parentId).ToListAsync();
             if (!entities.Any())
             {
                 return true;

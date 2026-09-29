@@ -154,10 +154,11 @@ public static class ServiceConfiguration
             {
                 OnMessageReceived = context =>
                 {
-                    var accessToken = context.Request.Query["access_token"];
+                    var accessToken = context.Request.Query["access_token"].FirstOrDefault() 
+                                      ?? context.Request.Query["token"].FirstOrDefault();
                     var path = context.HttpContext.Request.Path;
                     if (!string.IsNullOrEmpty(accessToken) &&
-                        path.StartsWithSegments("/hub/notifications"))
+                        (path.StartsWithSegments("/hub/notifications") || path.StartsWithSegments("/api/HeThong/files")))
                     {
                         context.Token = accessToken;
                         return Task.CompletedTask;
@@ -171,6 +172,11 @@ public static class ServiceConfiguration
                     if (string.IsNullOrEmpty(token))
                     {
                         token = context.Request.Cookies["access_token"];
+                    }
+
+                    if (string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(accessToken))
+                    {
+                        token = accessToken;
                     }
 
                     context.Token = token;

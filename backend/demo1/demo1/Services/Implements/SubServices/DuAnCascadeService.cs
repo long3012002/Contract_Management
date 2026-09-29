@@ -28,14 +28,14 @@ public class DuAnCascadeService : IDuAnCascadeService
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var entity = await _dbContext.DuAns.FirstOrDefaultAsync(da => da.Id == id);
+        var entity = await _dbContext.DuAns.IgnoreQueryFilters().FirstOrDefaultAsync(da => da.Id == id);
         if (entity is null)
         {
             return false;
         }
 
         // 1. Tìm và xoá tất cả hợp đồng liên quan tới dự án hoặc gói thầu thuộc dự án
-        var hopDongs = await _dbContext.HopDongs
+        var hopDongs = await _dbContext.HopDongs.IgnoreQueryFilters()
             .Where(hd => hd.DuAnId == id || (hd.GoiThau != null && hd.GoiThau.DuAnId == id))
             .ToListAsync();
         if (hopDongs.Any())
@@ -44,7 +44,7 @@ public class DuAnCascadeService : IDuAnCascadeService
         }
 
         // 2. Tìm và xoá tất cả gói thầu thuộc dự án
-        var goiThaus = await _dbContext.GoiThaus
+        var goiThaus = await _dbContext.GoiThaus.IgnoreQueryFilters()
             .Where(gt => gt.DuAnId == id)
             .ToListAsync();
         if (goiThaus.Any())
@@ -52,7 +52,32 @@ public class DuAnCascadeService : IDuAnCascadeService
             _dbContext.GoiThaus.RemoveRange(goiThaus);
         }
 
+        // 3. Xoá Kế hoạch vốn dự án
+        var keHoachVonLinks = await _dbContext.KeHoachVonDuAns
+            .Where(kd => kd.DuAnId == id)
+            .ToListAsync();
+        if (keHoachVonLinks.Any())
+        {
+            _dbContext.KeHoachVonDuAns.RemoveRange(keHoachVonLinks);
+        }
 
+        // 4. Xoá License
+        var licenses = await _dbContext.Licenses.IgnoreQueryFilters()
+            .Where(l => l.DuAnId == id)
+            .ToListAsync();
+        if (licenses.Any())
+        {
+            _dbContext.Licenses.RemoveRange(licenses);
+        }
+
+        // 5. Xoá DuAnGopLinks liên quan
+        var gopLinks = await _dbContext.DuAnGopLinks
+            .Where(l => l.SourceDuAnId == id || l.TargetDuAnId == id)
+            .ToListAsync();
+        if (gopLinks.Any())
+        {
+            _dbContext.DuAnGopLinks.RemoveRange(gopLinks);
+        }
 
         _dbContext.DuAns.Remove(entity);
         await _dbContext.SaveChangesAsync();

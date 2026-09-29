@@ -220,8 +220,14 @@ public class KeHoachVonService : IKeHoachVonService
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var entity = await _context.KeHoachVons.FirstOrDefaultAsync(k => k.Id == id);
+        var entity = await _context.KeHoachVons.IgnoreQueryFilters().FirstOrDefaultAsync(k => k.Id == id);
         if (entity == null) return false;
+
+        var links = await _context.KeHoachVonDuAns.Where(kd => kd.KeHoachVonId == id).ToListAsync();
+        if (links.Any())
+        {
+            _context.KeHoachVonDuAns.RemoveRange(links);
+        }
 
         _context.KeHoachVons.Remove(entity);
         await _context.SaveChangesAsync();

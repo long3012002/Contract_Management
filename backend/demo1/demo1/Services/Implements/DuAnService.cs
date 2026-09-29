@@ -1042,7 +1042,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public override async Task<bool> DeleteAsync(Guid id)
     {
-        var entity = await DbSet.FirstOrDefaultAsync(d => d.Id == id);
+        var entity = await DbSet.IgnoreQueryFilters().FirstOrDefaultAsync(d => d.Id == id);
         if (entity == null) return false;
 
         await _securityService.EnsureUserHasProjectAccessAsync(entity, "DELETE");

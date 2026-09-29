@@ -179,26 +179,26 @@ namespace demo1.Controllers
             try
             {
                 using var stream = file.OpenReadStream();
-                using var reader = new BinaryReader(stream);
-                var headerBytes = reader.ReadBytes(8);
-                if (headerBytes.Length < 2) return false;
+                var buffer = new byte[Math.Min(1024, (int)Math.Max(1, file.Length))];
+                var bytesRead = stream.Read(buffer, 0, buffer.Length);
+                if (bytesRead < 2) return false;
 
                 return extension switch
                 {
-                    ".pdf" => headerBytes.Length >= 4 &&
-                              headerBytes[0] == 0x25 && headerBytes[1] == 0x50 && headerBytes[2] == 0x44 && headerBytes[3] == 0x46, // %PDF
-                    ".png" => headerBytes.Length >= 8 &&
-                              headerBytes[0] == 0x89 && headerBytes[1] == 0x50 && headerBytes[2] == 0x4E && headerBytes[3] == 0x47 &&
-                              headerBytes[4] == 0x0D && headerBytes[5] == 0x0A && headerBytes[6] == 0x1A && headerBytes[7] == 0x0A,
-                    ".jpg" or ".jpeg" => headerBytes.Length >= 3 &&
-                                         headerBytes[0] == 0xFF && headerBytes[1] == 0xD8 && headerBytes[2] == 0xFF,
-                    ".docx" or ".xlsx" => headerBytes.Length >= 4 &&
-                                          headerBytes[0] == 0x50 && headerBytes[1] == 0x4B &&
-                                          (headerBytes[2] == 0x03 || headerBytes[2] == 0x05 || headerBytes[2] == 0x07) &&
-                                          (headerBytes[3] == 0x04 || headerBytes[3] == 0x06 || headerBytes[3] == 0x08), // PK.. (ZIP archive header)
-                    ".doc" or ".xls" => headerBytes.Length >= 8 &&
-                                        headerBytes[0] == 0xD0 && headerBytes[1] == 0xCF && headerBytes[2] == 0x11 && headerBytes[3] == 0xE0 &&
-                                        headerBytes[4] == 0xA1 && headerBytes[5] == 0xB1 && headerBytes[6] == 0x1A && headerBytes[7] == 0xE1, // OLE compound document
+                    ".pdf" => HasPdfSignature(buffer, bytesRead),
+                    ".png" => bytesRead >= 8 &&
+                              buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47 &&
+                              buffer[4] == 0x0D && buffer[5] == 0x0A && buffer[6] == 0x1A && buffer[7] == 0x0A,
+                    ".jpg" or ".jpeg" => bytesRead >= 3 &&
+                                         buffer[0] == 0xFF && buffer[1] == 0xD8 && buffer[2] == 0xFF,
+                    ".docx" or ".xlsx" => bytesRead >= 4 &&
+                                          buffer[0] == 0x50 && buffer[1] == 0x4B &&
+                                          (buffer[2] == 0x03 || buffer[2] == 0x05 || buffer[2] == 0x07) &&
+                                          (buffer[3] == 0x04 || buffer[3] == 0x06 || buffer[3] == 0x08), // PK.. (ZIP archive header)
+                    ".doc" or ".xls" => (bytesRead >= 8 &&
+                                        buffer[0] == 0xD0 && buffer[1] == 0xCF && buffer[2] == 0x11 && buffer[3] == 0xE0 &&
+                                        buffer[4] == 0xA1 && buffer[5] == 0xB1 && buffer[6] == 0x1A && buffer[7] == 0xE1)
+                                        || (extension == ".xls" && (System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("<html", StringComparison.OrdinalIgnoreCase) || System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead).Contains("<?xml", StringComparison.OrdinalIgnoreCase))),
                     _ => true // Các định dạng khác chưa có chữ ký cứng cho qua nếu thuộc danh sách cho phép
                 };
             }
@@ -206,6 +206,19 @@ namespace demo1.Controllers
             {
                 return false;
             }
+        }
+
+        private static bool HasPdfSignature(byte[] buffer, int length)
+        {
+            // Theo chuẩn ISO 32000-1, header %PDF- có thể nằm trong 1024 bytes đầu tiên
+            for (int i = 0; i <= length - 4; i++)
+            {
+                if (buffer[i] == 0x25 && buffer[i + 1] == 0x50 && buffer[i + 2] == 0x44 && buffer[i + 3] == 0x46)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -369,16 +382,20 @@ namespace demo1.Controllers
         }
 
         /// <summary>
-        /// Tải xuống tệp tin đính kèm bằng mã định danh duy nhất (GUID).
-        /// Khuyên dùng cho môi trường bảo mật cao và tối ưu RAM tối đa.
+        /// Tải xuống hoặc xem trực tiếp tệp tin đính kèm bằng mã định danh duy nhất (GUID).
+        /// Mặc định trả về inline để trình duyệt mở xem trước (PDF, hình ảnh). Truyền ?download=true nếu muốn tải về máy.
         /// </summary>
         /// <param name="id">Mã định danh của FileAttachment (GUID)</param>
+        /// <param name="download">Đặt true nếu muốn ép trình duyệt tải về thay vì xem</param>
         /// <response code="200">Trả về file stream</response>
         /// <response code="404">Không tìm thấy file</response>
         [HttpGet("download/by-id/{id:guid}", Name = "DownloadFileById")]
+        [HttpGet("download/{id:guid}")]
+        [HttpGet("preview/{id:guid}")]
+        [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DownloadFileById(Guid id)
+        public async Task<IActionResult> DownloadFileById(Guid id, [FromQuery] bool download = false)
         {
             var attachment = await _dbContext.FileAttachments.FindAsync(id);
             if (attachment == null || !attachment.IsActive)
@@ -402,22 +419,36 @@ namespace demo1.Controllers
             if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { Message = "Tệp tin không tồn tại trên ổ đĩa server." });
 
-            // Trả về trực tiếp qua Kernel stream (Zero memory pressure), hỗ trợ Resume Download
-            return PhysicalFile(fullPath, attachment.ContentType, attachment.FileName, enableRangeProcessing: true);
+            var contentType = string.IsNullOrWhiteSpace(attachment.ContentType)
+                ? GetContentType(fullPath)
+                : attachment.ContentType;
+
+            if (download)
+            {
+                return PhysicalFile(fullPath, contentType, attachment.FileName, enableRangeProcessing: true);
+            }
+
+            // Mở xem trực tiếp (Inline) trên trình duyệt
+            var encodedFileName = Uri.EscapeDataString(attachment.FileName);
+            Response.Headers["Content-Disposition"] = $"inline; filename=\"{encodedFileName}\"; filename*=UTF-8''{encodedFileName}";
+
+            return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
         }
 
         /// <summary>
-        /// Tải xuống tệp tin đính kèm bằng đường dẫn tương đối (Relative Path).
+        /// Tải xuống hoặc xem trực tiếp tệp tin đính kèm bằng đường dẫn tương đối (Relative Path).
         /// </summary>
         /// <param name="relativePath">Đường dẫn tương đối của file</param>
+        /// <param name="download">Đặt true nếu muốn ép trình duyệt tải về</param>
         /// <response code="200">Trả về file stream</response>
         /// <response code="400">Tham số hoặc đường dẫn không hợp lệ (Directory Traversal)</response>
         /// <response code="404">Không tìm thấy file</response>
         [HttpGet("download", Name = "DownloadFileByPath")]
+        [HttpGet("preview", Name = "PreviewFileByPath")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DownloadFileByPath([FromQuery] string relativePath)
+        public async Task<IActionResult> DownloadFileByPath([FromQuery] string relativePath, [FromQuery] bool download = false)
         {
             if (string.IsNullOrWhiteSpace(relativePath))
                 return BadRequest(new { Message = "Đường dẫn file không được để trống." });
@@ -445,8 +476,15 @@ namespace demo1.Controllers
             var originalFileName = attachment?.FileName ?? Path.GetFileName(fullPath);
             var contentType = attachment?.ContentType ?? GetContentType(fullPath);
 
-            // Trả về PhysicalFile stream tối ưu RAM
-            return PhysicalFile(fullPath, contentType, originalFileName, enableRangeProcessing: true);
+            if (download)
+            {
+                return PhysicalFile(fullPath, contentType, originalFileName, enableRangeProcessing: true);
+            }
+
+            var encodedFileName = Uri.EscapeDataString(originalFileName);
+            Response.Headers["Content-Disposition"] = $"inline; filename=\"{encodedFileName}\"; filename*=UTF-8''{encodedFileName}";
+
+            return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
         }
 
         private string GetContentType(string path)

@@ -192,7 +192,7 @@ public class PhuLucHopDongService : IPhuLucHopDongService
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var entity = await _context.PhuLucHopDongs.FindAsync(id);
+        var entity = await _context.PhuLucHopDongs.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == id);
         if (entity == null) return false;
 
         var hopDongId = entity.HopDongId;

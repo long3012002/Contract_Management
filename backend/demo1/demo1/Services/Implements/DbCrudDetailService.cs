@@ -110,7 +110,7 @@ public abstract class DbCrudDetailService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entities = await DbSet.Where(e => e.ParentId == parentId).ToListAsync();
+            var entities = await DbSet.IgnoreQueryFilters().Where(e => e.ParentId == parentId).ToListAsync();
             if (!entities.Any())
             {
                 return true;

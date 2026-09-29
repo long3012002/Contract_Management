@@ -334,7 +334,7 @@ public abstract class DbCrudService<TEntity, TDto, TCreateDto, TUpdateDto>
     {
         try
         {
-            var entity = await GetQueryable().FirstOrDefaultAsync(e => e.Id == id);
+            var entity = await GetQueryable().IgnoreQueryFilters().FirstOrDefaultAsync(e => e.Id == id);
             if (entity is null)
             {
                 return false;
