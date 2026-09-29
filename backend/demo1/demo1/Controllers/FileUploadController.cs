@@ -226,8 +226,28 @@ namespace demo1.Controllers
             if (entityId == Guid.Empty)
                 return BadRequest(new { Message = "Mã thực thể (entityId) không hợp lệ." });
 
-            var attachments = await _dbContext.FileAttachments
-                .Where(fa => fa.EntityType == featureCode.Trim() && fa.EntityId == entityId && fa.IsActive)
+            IQueryable<FileAttachment> query = _dbContext.FileAttachments.AsNoTracking().Where(fa => fa.IsActive);
+
+            var code = featureCode.Trim().ToUpper();
+            if (code == "GOI_THAU")
+            {
+                var taskIds = await _dbContext.CongViecGoiThaus
+                    .AsNoTracking()
+                    .Where(cv => cv.GoiThauId == entityId && !cv.IsDeleted)
+                    .Select(cv => cv.Id)
+                    .ToListAsync();
+
+                query = query.Where(fa =>
+                    (fa.EntityType == "GOI_THAU" && fa.EntityId == entityId) ||
+                    ((fa.EntityType == "CONG_VIEC_GOI_THAU" || fa.EntityType == "CONG_VIEC") && taskIds.Contains(fa.EntityId))
+                );
+            }
+            else
+            {
+                query = query.Where(fa => fa.EntityType == featureCode.Trim() && fa.EntityId == entityId);
+            }
+
+            var attachments = await query
                 .OrderByDescending(fa => fa.CreatedAt)
                 .Select(fa => new FileAttachmentDto
                 {
