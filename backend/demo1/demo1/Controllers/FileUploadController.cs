@@ -244,6 +244,131 @@ namespace demo1.Controllers
         }
 
         /// <summary>
+        /// Lấy toàn bộ danh sách tài liệu đính kèm phân cấp của một Dự án (bao gồm cấp Dự án, Gói thầu, Hợp đồng và Công việc).
+        /// </summary>
+        /// <param name="projectId">Mã định danh dự án (GUID)</param>
+        /// <response code="200">Trả về danh sách tất cả tài liệu đính kèm kèm thông tin đối tượng cha</response>
+        [HttpGet("by-project/{projectId:guid}")]
+        [ProducesResponseType(typeof(IEnumerable<ProjectFileAttachmentDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ProjectFileAttachmentDto>>> GetProjectHierarchyAttachments(Guid projectId)
+        {
+            if (projectId == Guid.Empty)
+                return BadRequest(new { Message = "Mã dự án (projectId) không hợp lệ." });
+
+            var project = await _dbContext.DuAns
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId && !p.IsDeleted);
+
+            if (project == null)
+                return NotFound(new { Message = "Không tìm thấy dự án tương ứng." });
+
+            // 1. Lấy danh sách Gói thầu thuộc dự án
+            var goiThaus = await _dbContext.GoiThaus
+                .AsNoTracking()
+                .Where(gt => gt.DuAnId == projectId && !gt.IsDeleted)
+                .Select(gt => new { gt.Id, gt.Name, gt.Code })
+                .ToListAsync();
+
+            var goiThauIds = goiThaus.Select(gt => gt.Id).ToList();
+            var goiThauDict = goiThaus.ToDictionary(gt => gt.Id);
+
+            // 2. Lấy danh sách Hợp đồng thuộc dự án (hoặc thuộc các gói thầu của dự án)
+            var hopDongs = await _dbContext.HopDongs
+                .AsNoTracking()
+                .Where(hd => !hd.IsDeleted && (hd.DuAnId == projectId || (hd.GoiThauId.HasValue && goiThauIds.Contains(hd.GoiThauId.Value))))
+                .Select(hd => new { hd.Id, hd.Name, hd.Code, hd.GoiThauId })
+                .ToListAsync();
+
+            var hopDongIds = hopDongs.Select(hd => hd.Id).ToList();
+            var hopDongDict = hopDongs.ToDictionary(hd => hd.Id);
+
+            // 3. Lấy danh sách Công việc gói thầu
+            var congViecs = await _dbContext.CongViecGoiThaus
+                .AsNoTracking()
+                .Where(cv => !cv.IsDeleted && goiThauIds.Contains(cv.GoiThauId))
+                .Select(cv => new { cv.Id, cv.TenTaiLieu, cv.Stt, cv.GoiThauId })
+                .ToListAsync();
+
+            var congViecIds = congViecs.Select(cv => cv.Id).ToList();
+            var congViecDict = congViecs.ToDictionary(cv => cv.Id);
+
+            // 4. Lấy tất cả FileAttachment liên quan
+            var allEntityIds = new HashSet<Guid> { projectId };
+            foreach (var id in goiThauIds) allEntityIds.Add(id);
+            foreach (var id in hopDongIds) allEntityIds.Add(id);
+            foreach (var id in congViecIds) allEntityIds.Add(id);
+
+            var attachments = await _dbContext.FileAttachments
+                .AsNoTracking()
+                .Where(fa => fa.IsActive && allEntityIds.Contains(fa.EntityId))
+                .OrderByDescending(fa => fa.CreatedAt)
+                .ToListAsync();
+
+            // 5. Ánh xạ dữ liệu trả về với Metadata phân cấp
+            var result = new List<ProjectFileAttachmentDto>();
+
+            foreach (var file in attachments)
+            {
+                var dto = new ProjectFileAttachmentDto
+                {
+                    Id = file.Id,
+                    FileName = file.FileName,
+                    FilePath = file.FilePath,
+                    ContentType = file.ContentType,
+                    FileSize = file.FileSize,
+                    CreatedAt = file.CreatedAt,
+                    EntityType = file.EntityType,
+                    EntityId = file.EntityId,
+                };
+
+                if (file.EntityId == projectId)
+                {
+                    dto.CategoryLevel = "DU_AN";
+                    dto.EntityName = project.Name;
+                    dto.EntityCode = project.Code;
+                }
+                else if (goiThauDict.TryGetValue(file.EntityId, out var gt))
+                {
+                    dto.CategoryLevel = "GOI_THAU";
+                    dto.EntityName = gt.Name;
+                    dto.EntityCode = gt.Code;
+                    dto.GoiThauId = gt.Id;
+                    dto.GoiThauName = gt.Name;
+                }
+                else if (hopDongDict.TryGetValue(file.EntityId, out var hd))
+                {
+                    dto.CategoryLevel = "HOP_DONG";
+                    dto.EntityName = hd.Name;
+                    dto.EntityCode = hd.Code;
+                    if (hd.GoiThauId.HasValue && goiThauDict.TryGetValue(hd.GoiThauId.Value, out var parentGt))
+                    {
+                        dto.GoiThauId = parentGt.Id;
+                        dto.GoiThauName = parentGt.Name;
+                    }
+                }
+                else if (congViecDict.TryGetValue(file.EntityId, out var cv))
+                {
+                    dto.CategoryLevel = "CONG_VIEC";
+                    dto.EntityName = $"Công việc #{cv.Stt}: {cv.TenTaiLieu}";
+                    if (goiThauDict.TryGetValue(cv.GoiThauId, out var parentGt))
+                    {
+                        dto.GoiThauId = parentGt.Id;
+                        dto.GoiThauName = parentGt.Name;
+                    }
+                }
+                else
+                {
+                    dto.CategoryLevel = file.EntityType;
+                    dto.EntityName = file.EntityType;
+                }
+
+                result.Add(dto);
+            }
+
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Tải xuống tệp tin đính kèm bằng mã định danh duy nhất (GUID).
         /// Khuyên dùng cho môi trường bảo mật cao và tối ưu RAM tối đa.
         /// </summary>
