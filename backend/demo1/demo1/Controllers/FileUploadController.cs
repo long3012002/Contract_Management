@@ -410,10 +410,6 @@ namespace demo1.Controllers
         /// <response code="200">Trả về file stream</response>
         /// <response code="404">Không tìm thấy file</response>
         [HttpGet("GetById/{id:guid}")]
-        [HttpGet("by-id/{id:guid}")]
-        [HttpGet("download/by-id/{id:guid}", Name = "DownloadFileById")]
-        [HttpGet("download/{id:guid}")]
-        [HttpGet("preview/{id:guid}")]
         [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -466,9 +462,6 @@ namespace demo1.Controllers
         /// <response code="400">Tham số hoặc đường dẫn không hợp lệ (Directory Traversal)</response>
         /// <response code="404">Không tìm thấy file</response>
         [HttpGet("GetByRelativePath")]
-        [HttpGet("by-path")]
-        [HttpGet("download", Name = "DownloadFileByPath")]
-        [HttpGet("preview", Name = "PreviewFileByPath")]
         [AllowAnonymous]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
