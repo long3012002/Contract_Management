@@ -518,8 +518,10 @@ public class DuAnAuditService : IDuAnAuditService
         foreach (var key in allKeys)
         {
             var keyLower = key.ToLowerInvariant().Replace(" ", "").Replace("_", "");
-            // Bỏ qua các trường kỹ thuật nội bộ không cần hiển thị cho người dùng
-            if (keyLower == "daketthuc" || keyLower == "isactive" || keyLower == "isdeleted" || keyLower == "trangthaixoa")
+            // Bỏ qua các trường kỹ thuật nội bộ, mã người dùng không liên quan
+            if (keyLower == "daketthuc" || keyLower == "isactive" || keyLower == "isdeleted" || keyLower == "trangthaixoa"
+                || keyLower.EndsWith("userid") || keyLower.StartsWith("nguoitao") || keyLower.StartsWith("nguoicapnhat")
+                || keyLower == "id" || keyLower == "userid")
                 continue;
 
             translatedOld.TryGetValue(key, out var rawOld);

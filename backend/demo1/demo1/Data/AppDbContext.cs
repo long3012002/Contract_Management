@@ -16,12 +16,21 @@ namespace demo1.Data
         private static readonly System.Collections.Generic.HashSet<string> IgnoredAuditProperties = new(System.StringComparer.OrdinalIgnoreCase)
         {
             "Id",
-            "CreatedAt",
+            "UserId",
             "CreatedBy",
             "CreatedByUserId",
-            "UpdatedAt",
             "UpdatedBy",
-            "UpdatedByUserId"
+            "UpdatedByUserId",
+            "CreateUserId",
+            "ModifiedUserId",
+            "CreatedAt",
+            "UpdatedAt",
+            "IsDeleted",
+            "DeletedAt",
+            "DeletedByUserId",
+            "PasswordHash",
+            "SecurityStamp",
+            "ConcurrencyStamp"
         };
 
         public AppDbContext(
