@@ -58,12 +58,20 @@ namespace demo1.Services.Implements
                     EnableSsl = _emailSettings.EnableSsl
                 };
 
+                // Nếu có cấu hình Username thì dùng xác thực, nếu không thì dùng chế độ Anonymous Relay (Không User/Password - theo IP Whitelist)
                 if (!string.IsNullOrWhiteSpace(_emailSettings.Username))
                 {
+                    smtpClient.UseDefaultCredentials = false;
                     smtpClient.Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password);
                 }
+                else
+                {
+                    smtpClient.UseDefaultCredentials = false;
+                    smtpClient.Credentials = null;
+                }
 
-                _logger.LogInformation("Attempting to send email to {ToEmail} with subject: {Subject}", toEmail, subject);
+                _logger.LogInformation("Attempting to send email to {ToEmail} with subject: {Subject} via SMTP {Host}:{Port} (Auth: {HasAuth})", 
+                    toEmail, subject, _emailSettings.Host, _emailSettings.Port, !string.IsNullOrWhiteSpace(_emailSettings.Username));
                 
                 // For development/mock purposes, if host is not configured properly, log it as mock
                 if (_emailSettings.Host == "smtp.gmail.com" && _emailSettings.Username == "your_email@gmail.com")
