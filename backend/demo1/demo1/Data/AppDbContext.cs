@@ -692,6 +692,15 @@ namespace demo1.Data
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.UserId, e.CreatedAt })
+                    .HasDatabaseName("IX_Notifications_UserId_CreatedAt");
+
+                entity.HasIndex(e => new { e.UserId, e.IsRead })
+                    .HasDatabaseName("IX_Notifications_UserId_IsRead");
+
+                entity.HasIndex(e => new { e.IsRead, e.CreatedAt })
+                    .HasDatabaseName("IX_Notifications_IsRead_CreatedAt");
             });
 
             // Configure CommentCongViecGoiThau entity

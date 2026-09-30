@@ -250,5 +250,179 @@ namespace demo1.Controllers
 
             return Ok(new { Message = "Đã đánh dấu tất cả thông báo là đã đọc.", Count = unreadNotifications.Count });
         }
+
+        /// <summary>
+        /// Xóa một thông báo cụ thể theo ID của người dùng hiện tại.
+        /// </summary>
+        /// <param name="id">Mã định danh Thông báo (GUID)</param>
+        /// <response code="200">Xóa thông báo thành công</response>
+        /// <response code="404">Không tìm thấy thông báo hoặc không có quyền xóa</response>
+        [HttpDelete("{id:guid}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteNotification(Guid id)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            var deleted = await _dbContext.Notifications
+                .Where(n => n.Id == id && n.UserId == user.Id)
+                .ExecuteDeleteAsync();
+
+            if (deleted == 0)
+            {
+                return NotFound(new { Message = "Không tìm thấy thông báo hoặc bạn không có quyền xóa thông báo này." });
+            }
+
+            return Ok(new { Message = "Đã xóa thông báo thành công." });
+        }
+
+        /// <summary>
+        /// Xóa hàng loạt thông báo theo danh sách IDs của người dùng hiện tại.
+        /// </summary>
+        /// <param name="dto">Danh sách ID thông báo cần xóa</param>
+        /// <response code="200">Xóa danh sách thông báo thành công</response>
+        [HttpPost("bulk-delete")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> BulkDeleteNotifications([FromBody] demo1.DTOs.Notification.BulkDeleteNotificationDto dto)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            if (dto.Ids == null || dto.Ids.Count == 0)
+            {
+                return Ok(new { Message = "Không có thông báo nào được chọn để xóa.", Count = 0 });
+            }
+
+            var deletedCount = await _dbContext.Notifications
+                .Where(n => dto.Ids.Contains(n.Id) && n.UserId == user.Id)
+                .ExecuteDeleteAsync();
+
+            return Ok(new { Message = $"Đã xóa {deletedCount} thông báo.", Count = deletedCount });
+        }
+
+        /// <summary>
+        /// Xóa tất cả các thông báo đã đọc của người dùng hiện tại.
+        /// </summary>
+        /// <response code="200">Xóa tất cả thông báo đã đọc thành công</response>
+        [HttpDelete("clear-read")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> ClearReadNotifications()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            var deletedCount = await _dbContext.Notifications
+                .Where(n => n.UserId == user.Id && n.IsRead)
+                .ExecuteDeleteAsync();
+
+            return Ok(new { Message = $"Đã xóa {deletedCount} thông báo đã đọc.", Count = deletedCount });
+        }
+
+        /// <summary>
+        /// Thống kê dữ liệu thông báo phục vụ quản trị và dọn dẹp hệ thống (Chỉ dành cho System Admin).
+        /// </summary>
+        /// <returns>Thống kê số lượng thông báo theo trạng thái và thời gian</returns>
+        [HttpGet("retention-stats")]
+        [ProducesResponseType(typeof(demo1.DTOs.Notification.NotificationRetentionStatsDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetRetentionStats()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            if (!user.IsSystemAdmin)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { Message = "Chỉ Quản trị viên hệ thống mới có quyền xem thông tin này." });
+            }
+
+            var now = DateTime.UtcNow;
+            var cutoff14 = now.AddDays(-14);
+            var cutoff30 = now.AddDays(-30);
+            var cutoff60 = now.AddDays(-60);
+
+            var total = await _dbContext.Notifications.CountAsync();
+            var totalRead = await _dbContext.Notifications.CountAsync(n => n.IsRead);
+            var totalUnread = total - totalRead;
+
+            var readOlder14 = await _dbContext.Notifications.CountAsync(n => n.IsRead && n.CreatedAt < cutoff14);
+            var readOlder30 = await _dbContext.Notifications.CountAsync(n => n.IsRead && n.CreatedAt < cutoff30);
+            var readOlder60 = await _dbContext.Notifications.CountAsync(n => n.IsRead && n.CreatedAt < cutoff60);
+
+            var stats = new demo1.DTOs.Notification.NotificationRetentionStatsDto
+            {
+                TotalNotifications = total,
+                TotalRead = totalRead,
+                TotalUnread = totalUnread,
+                ReadOlderThan14Days = readOlder14,
+                ReadOlderThan30Days = readOlder30,
+                ReadOlderThan60Days = readOlder60
+            };
+
+            return Ok(stats);
+        }
+
+        /// <summary>
+        /// Kích hoạt dọn dẹp thủ công thông báo đã đọc quá hạn (Chỉ dành cho System Admin).
+        /// </summary>
+        /// <param name="dto">Tham số yêu cầu dọn dẹp</param>
+        /// <returns>Kết quả dọn dẹp</returns>
+        [HttpPost("admin/cleanup")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> AdminCleanup([FromBody] demo1.DTOs.Notification.AdminNotificationCleanupRequestDto dto)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không hợp lệ hoặc tài khoản đã bị khóa." });
+            }
+
+            if (!user.IsSystemAdmin)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { Message = "Chỉ Quản trị viên hệ thống mới có quyền thực hiện dọn dẹp." });
+            }
+
+            var days = Math.Max(1, dto.ReadRetentionDays);
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+
+            var eligibleQuery = _dbContext.Notifications
+                .Where(n => n.IsRead && n.CreatedAt < cutoff);
+
+            var eligibleCount = await eligibleQuery.CountAsync();
+
+            if (dto.DryRun)
+            {
+                return Ok(new
+                {
+                    Mode = "DryRun",
+                    Message = $"Có {eligibleCount} thông báo đã đọc quá {days} ngày đủ điều kiện dọn dẹp.",
+                    EligibleCount = eligibleCount,
+                    DeletedCount = 0
+                });
+            }
+
+            var deletedCount = await eligibleQuery.ExecuteDeleteAsync();
+
+            return Ok(new
+            {
+                Mode = "Execute",
+                Message = $"Đã dọn dẹp thành công {deletedCount} thông báo đã đọc quá {days} ngày.",
+                EligibleCount = eligibleCount,
+                DeletedCount = deletedCount
+            });
+        }
     }
 }

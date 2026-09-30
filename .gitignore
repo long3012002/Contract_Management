@@ -73,3 +73,7 @@ database/backups/
 # Local maintenance scripts
 remove-360-*.ps1
 
+# Uploads
+uploads/
+**/uploads/
+

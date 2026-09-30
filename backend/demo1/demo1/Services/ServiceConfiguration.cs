@@ -279,6 +279,7 @@ public static class ServiceConfiguration
         services.AddScoped<IEntityNameCacheService, EntityNameCacheService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddHostedService<AuditLogRetentionWorker>();
+        services.AddHostedService<NotificationRetentionWorker>();
         services.AddHostedService<ContractScanWorker>();
         services.AddHostedService<StakeholderConfirmationCheckWorker>();
         services.AddHostedService<DotThanhToanScanWorker>();
