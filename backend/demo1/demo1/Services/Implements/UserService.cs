@@ -64,7 +64,23 @@ namespace demo1.Services.Implements
             var inputPhongBans = GetUniqueTrimmedNames(dtos, d => d.TenPhongBan);
             var inputChucVus = GetUniqueTrimmedNames(dtos, d => d.TenChucVu);
             var inputDonVis = GetUniqueTrimmedNames(dtos, d => d.TenDonVi);
-            var inputRoles = GetUniqueTrimmedNames(dtos, d => d.Role);
+            var inputRoles = dtos
+                .SelectMany(d =>
+                {
+                    var list = new List<string>();
+                    if (d.Roles != null && d.Roles.Count > 0)
+                    {
+                        list.AddRange(d.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()));
+                    }
+                    if (!string.IsNullOrWhiteSpace(d.Role))
+                    {
+                        list.AddRange(d.Role.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()));
+                    }
+                    return list;
+                })
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
             var inputToNhoms = GetUniqueTrimmedNames(dtos, d => d.TenToNhom);
 
             var phongBanMap = await EnsureLookupsExistAsync(
@@ -212,8 +228,19 @@ namespace demo1.Services.Implements
                     user.IsSystemAdmin = dto.IsSystemAdmin;
                     user.CanViewHopDong = dto.CanViewHopDong;
 
-                    // Xử lý cập nhật vai trò (Role)
-                    if (targetRole != null)
+                    // Xử lý danh sách vai trò (Roles) cho user
+                    var userRoleNames = new List<string>();
+                    if (dto.Roles != null && dto.Roles.Count > 0)
+                    {
+                        userRoleNames.AddRange(dto.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim().ToLower()));
+                    }
+                    if (!string.IsNullOrWhiteSpace(dto.Role))
+                    {
+                        userRoleNames.AddRange(dto.Role.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim().ToLower()));
+                    }
+                    userRoleNames = userRoleNames.Distinct().ToList();
+
+                    if (userRoleNames.Count > 0)
                     {
                         var currentRoles = existingUserRoles.Where(ur => ur.UserId == user.Id).ToList();
                         if (currentRoles.Any())
@@ -222,14 +249,20 @@ namespace demo1.Services.Implements
                             existingUserRoles.RemoveAll(ur => ur.UserId == user.Id);
                         }
 
-                        var newUr = new UserRole
+                        foreach (var rName in userRoleNames)
                         {
-                            UserId = user.Id,
-                            RoleId = targetRole.Id,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        _dbContext.UserRoles.Add(newUr);
-                        existingUserRoles.Add(newUr);
+                            if (roleMap.TryGetValue(rName, out var targetRole) && targetRole != null)
+                            {
+                                var newUr = new UserRole
+                                {
+                                    UserId = user.Id,
+                                    RoleId = targetRole.Id,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                _dbContext.UserRoles.Add(newUr);
+                                existingUserRoles.Add(newUr);
+                            }
+                        }
                     }
                 }
 
@@ -473,38 +506,51 @@ namespace demo1.Services.Implements
                 user.CanViewHopDong = dto.CanViewHopDong;
                 user.UpdatedAt = DateTime.UtcNow;
 
-                // Xử lý vai trò (Role)
+                // Xử lý danh sách vai trò (Roles)
+                var updateRoleNames = new List<string>();
+                if (dto.Roles != null)
+                {
+                    updateRoleNames.AddRange(dto.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()));
+                }
                 if (!string.IsNullOrWhiteSpace(dto.Role))
                 {
-                    var roleNameTrimmed = dto.Role.Trim();
-                    var role = await _dbContext.Roles
-                        .FirstOrDefaultAsync(r => r.Name.ToLower() == roleNameTrimmed.ToLower());
-                    if (role == null)
-                    {
-                        role = new Role 
-                        { 
-                            Id = Guid.NewGuid(), 
-                            Name = roleNameTrimmed, 
-                            Description = $"Mô tả cho vai trò {roleNameTrimmed} (Tạo tự động khi cập nhật)", 
-                            IsActive = true, 
-                            CreatedAt = DateTime.UtcNow 
-                        };
-                        _dbContext.Roles.Add(role);
-                        await _dbContext.SaveChangesAsync();
-                    }
+                    updateRoleNames.AddRange(dto.Role.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()));
+                }
+                updateRoleNames = updateRoleNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
+                if (dto.Roles != null || !string.IsNullOrWhiteSpace(dto.Role))
+                {
                     var currentRoles = await _dbContext.UserRoles.Where(ur => ur.UserId == user.Id).ToListAsync();
                     if (currentRoles.Any())
                     {
                         _dbContext.UserRoles.RemoveRange(currentRoles);
                     }
 
-                    _dbContext.UserRoles.Add(new UserRole
+                    foreach (var roleNameTrimmed in updateRoleNames)
                     {
-                        UserId = user.Id,
-                        RoleId = role.Id,
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        var role = await _dbContext.Roles
+                            .FirstOrDefaultAsync(r => r.Name.ToLower() == roleNameTrimmed.ToLower());
+                        if (role == null)
+                        {
+                            role = new Role 
+                            { 
+                                Id = Guid.NewGuid(), 
+                                Name = roleNameTrimmed, 
+                                Description = $"Mô tả cho vai trò {roleNameTrimmed} (Tạo tự động khi cập nhật)", 
+                                IsActive = true, 
+                                CreatedAt = DateTime.UtcNow 
+                            };
+                            _dbContext.Roles.Add(role);
+                            await _dbContext.SaveChangesAsync();
+                        }
+
+                        _dbContext.UserRoles.Add(new UserRole
+                        {
+                            UserId = user.Id,
+                            RoleId = role.Id,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
                 }
 
                 await _dbContext.SaveChangesAsync();
