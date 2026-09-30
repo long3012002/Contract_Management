@@ -27,18 +27,11 @@ public static class NotificationMapper
         return new NotificationDto
         {
             Id = n.Id,
-            Title = n.Title,
-            Content = content,
             Link = n.Link,
-            FeatureCode = n.FeatureCode,
-            EntityName = n.EntityName,
-            EntityId = n.EntityId,
             IsRead = n.IsRead,
             CreatedAt = n.CreatedAt,
             Category = category,
             ActorName = actorName,
-            ActionBadgeText = actionBadge,
-            ActionBadgeVariant = badgeVariant,
             Message = message ?? content,
             TargetName = targetName
         };
