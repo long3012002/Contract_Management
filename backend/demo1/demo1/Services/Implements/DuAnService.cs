@@ -398,6 +398,19 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             }
         }
 
+        if (createdId != Guid.Empty)
+        {
+            var createdEntity = await DbSet.AsNoTracking().FirstOrDefaultAsync(da => da.Id == createdId);
+            if (createdEntity != null && createdEntity.ChuDuAnId.HasValue)
+            {
+                var currentUsername = _currentUserService.GetUsername();
+                var currentUser = await DbContext.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+                var actorName = currentUser?.FullName ?? currentUser?.Username ?? "Hệ thống";
+
+                await _notificationService.NotifyProjectOwnerAssignedAsync(createdEntity, createdEntity.ChuDuAnId.Value, actorName);
+            }
+        }
+
         return (await GetByIdAsync(createdId))!;
     }
 
@@ -1016,11 +1029,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
     public async Task<bool> ChangeOwnerAsync(Guid projectId, Guid newOwnerId)
     {
-        var duAn = await DbContext.DuAns.FindAsync(projectId);
-        if (duAn == null) return false;
-        duAn.CreatedByUserId = newOwnerId;
-        await DbContext.SaveChangesAsync();
-        return true;
+        return await _notificationService.ChangeOwnerAsync(projectId, newOwnerId);
     }
 
     public async Task<IReadOnlyList<DuAnLookupDto>> GetLookupAsync()

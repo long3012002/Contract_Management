@@ -30,15 +30,22 @@ namespace demo1.Services.Implements
 
             try
             {
+                var senderEmail = !string.IsNullOrWhiteSpace(_emailSettings.SenderEmail) 
+                    ? _emailSettings.SenderEmail.Trim() 
+                    : "no-reply-qlda@co-opbank.vn";
+                var senderName = !string.IsNullOrWhiteSpace(_emailSettings.SenderName) 
+                    ? _emailSettings.SenderName.Trim() 
+                    : "Hệ thống quản lý hợp đồng Coopbank";
+
                 using var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(_emailSettings.SenderEmail, _emailSettings.SenderName),
+                    From = new MailAddress(senderEmail, senderName),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
                 };
 
-                mailMessage.To.Add(toEmail);
+                mailMessage.To.Add(toEmail.Trim());
 
                 if (_emailSettings.BypassCertificateValidation)
                 {
