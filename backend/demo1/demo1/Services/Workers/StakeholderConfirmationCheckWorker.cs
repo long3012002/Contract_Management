@@ -152,7 +152,7 @@ namespace demo1.Services.Workers
                             .ForUser(record.UserId)
                             .WithTarget(taskTitle)
                             .WithBadge("Đã quá hạn", "destructive")
-                            .WithMessage("quá hạn xác nhận công việc")
+                            .WithMessage("Bạn đã quá hạn xác nhận công việc")
                             .Build();
 
                         dbContext.Notifications.Add(notification);
@@ -185,7 +185,7 @@ namespace demo1.Services.Workers
                                 .WithActor(memberName)
                                 .WithTarget(taskTitle)
                                 .WithBadge("Đã quá hạn", "destructive")
-                                .WithMessage("đã quá hạn xác nhận")
+                                .WithMessage("đã quá hạn xác nhận công việc")
                                 .Build();
                             dbContext.Notifications.Add(overdueNotification);
                             notificationsToPush.Add((targetUser.Username, overdueNotification));
@@ -253,15 +253,8 @@ namespace demo1.Services.Workers
             foreach (var item in notificationsToPush)
             {
                 _logger.LogInformation("[StakeholderCheck] Pushing realtime notification to user {Username}", item.TargetUsername);
-                await _hubContext.Clients.User(item.TargetUsername).SendAsync("ReceiveNotification", new
-                {
-                    id = item.NotificationPayload.Id,
-                    title = item.NotificationPayload.Title,
-                    content = item.NotificationPayload.Content,
-                    link = item.NotificationPayload.Link,
-                    isRead = item.NotificationPayload.IsRead,
-                    createdAt = item.NotificationPayload.CreatedAt
-                });
+                var dto = NotificationMapper.MapToDto(item.NotificationPayload);
+                await _hubContext.Clients.User(item.TargetUsername).SendAsync("ReceiveNotification", dto);
             }
 
             _logger.LogInformation("Finished stakeholder check. Processed {ExpiredCount} expired records, sent {NotifCount} notifications.",

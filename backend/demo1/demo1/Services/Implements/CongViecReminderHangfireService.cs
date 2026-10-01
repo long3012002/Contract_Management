@@ -156,12 +156,14 @@ namespace demo1.Services.Implements
                     .ForUser(record.UserId)
                     .WithTarget(taskTitle)
                     .WithBadge("Nhắc nhở", "warning")
+                    .WithMessage("Nhắc nhở xác nhận công việc")
                     .Build();
 
                 _db.Notifications.Add(notification);
                 await _db.SaveChangesAsync();
 
-                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", notification);
+                var dto = NotificationMapper.MapToDto(notification);
+                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", dto);
 
                 _logger.LogInformation("Sent reminder job for record {RecordId} to user {Username}", recordId, record.User.Username);
             }
@@ -200,10 +202,12 @@ namespace demo1.Services.Implements
                     .ForUser(record.UserId)
                     .WithTarget(taskTitle)
                     .WithBadge("Đã quá hạn", "destructive")
+                    .WithMessage("Bạn đã quá hạn xác nhận công việc")
                     .Build();
 
                 _db.Notifications.Add(notification);
-                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", notification);
+                var notiDto = NotificationMapper.MapToDto(notification);
+                await _hubContext.Clients.User(record.User.Username).SendAsync("ReceiveNotification", notiDto);
 
                 // Notify CreateUser and ModifiedUser
                 var task = await _db.CongViecGoiThaus
@@ -236,9 +240,11 @@ namespace demo1.Services.Implements
                             .WithActor(memberName)
                             .WithTarget(taskTitle)
                             .WithBadge("Đã quá hạn", "destructive")
+                            .WithMessage("đã quá hạn xác nhận công việc")
                             .Build();
                         _db.Notifications.Add(overdueNotification);
-                        await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", overdueNotification);
+                        var overdueDto = NotificationMapper.MapToDto(overdueNotification);
+                        await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", overdueDto);
                     }
                 }
 

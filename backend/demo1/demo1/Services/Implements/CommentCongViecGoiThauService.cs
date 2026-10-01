@@ -140,6 +140,7 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     .WithActor(actorName)
                     .WithTarget(congViec.TenTaiLieu)
                     .WithBadge("Nhắc tên", "info")
+                    .WithMessage("đã nhắc đến bạn trong công việc")
                     .Build();
 
                 _context.Notifications.Add(notification);
@@ -167,6 +168,7 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
                     .WithActor(actorName)
                     .WithTarget(congViec.TenTaiLieu)
                     .WithBadge("Trả lời", "info")
+                    .WithMessage("đã trả lời bình luận của bạn trong công việc")
                     .Build();
 
                 _context.Notifications.Add(notification);
@@ -192,15 +194,8 @@ public class CommentCongViecGoiThauService : ICommentCongViecGoiThauService
         // 2. Push Real-time Notification to Tagged / Notified Users
         foreach (var notif in notificationsToPush)
         {
-            await _hubContext.Clients.User(notif.TargetUsername).SendAsync("ReceiveNotification", new
-            {
-                id = notif.NotificationPayload.Id,
-                title = notif.NotificationPayload.Title,
-                content = notif.NotificationPayload.Content,
-                link = notif.NotificationPayload.Link,
-                isRead = notif.NotificationPayload.IsRead,
-                createdAt = notif.NotificationPayload.CreatedAt
-            });
+            var dtoNoti = NotificationMapper.MapToDto(notif.NotificationPayload);
+            await _hubContext.Clients.User(notif.TargetUsername).SendAsync("ReceiveNotification", dtoNoti);
         }
 
         return resultDto;

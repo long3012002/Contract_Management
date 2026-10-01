@@ -1759,6 +1759,21 @@ public class ReportService : IReportService
             }
         }
 
+        if (year.HasValue)
+        {
+            var startOfYear = new DateTime(year.Value, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endOfYear = new DateTime(year.Value, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+
+            query = query.Where(h =>
+                (h.NgayKy.HasValue ? h.NgayKy.Value.Year == year.Value : (h.NgayHieuLuc.HasValue ? h.NgayHieuLuc.Value.Year == year.Value : h.CreatedAt.Year == year.Value)) ||
+                (h.DotThanhToans.Any(d => (d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == year.Value) ||
+                                          (d.NgayThanhToanThucTe.HasValue && d.NgayThanhToanThucTe.Value.Year == year.Value))) ||
+                ((h.NgayKy ?? h.NgayHieuLuc ?? h.CreatedAt) <= endOfYear &&
+                 (!h.ExpiredDate.HasValue && !h.NgayKetThucThucTe.HasValue ||
+                  (h.NgayKetThucThucTe.HasValue ? h.NgayKetThucThucTe.Value >= startOfYear : h.ExpiredDate!.Value >= startOfYear)))
+            );
+        }
+
         if (loaiHopDongIds != null && loaiHopDongIds.Count > 0)
         {
             query = query.Where(h => h.LoaiHopDongId.HasValue && loaiHopDongIds.Contains(h.LoaiHopDongId.Value));

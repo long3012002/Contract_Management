@@ -306,7 +306,9 @@ namespace demo1.Tests.UnitTests.Services
             var budgetService = new demo1.Services.Implements.SubServices.DuAnBudgetService(context, mapper, securityService);
             var cascadeService = new demo1.Services.Implements.SubServices.DuAnCascadeService(context, mockUserService.Object, nguonLinkService);
             var auditService = new demo1.Services.Implements.SubServices.DuAnAuditService(context, securityService);
-            var notificationService = new demo1.Services.Implements.SubServices.DuAnNotificationService(context, mockUserService.Object, mockHubContext.Object);
+            var mockEmailService = new Mock<demo1.Services.Interfaces.IEmailService>();
+            var mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<demo1.Services.Implements.SubServices.DuAnNotificationService>>();
+            var notificationService = new demo1.Services.Implements.SubServices.DuAnNotificationService(context, mockUserService.Object, mockHubContext.Object, mockEmailService.Object, mockLogger.Object);
 
             var codeGeneratorService = new demo1.Services.Implements.CodeGeneratorService(context);
             var duAnService = new demo1.Services.Implements.DuAnService(context, mapper, mockUserService.Object, securityService, nguonLinkService, budgetService, cascadeService, auditService, notificationService, codeGeneratorService);

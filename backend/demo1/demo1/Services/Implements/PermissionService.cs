@@ -336,6 +336,7 @@ namespace demo1.Services.Implements
                 .WithActor(reviewerName)
                 .WithTarget(request.EntityTitle)
                 .WithBadge(dto.IsApproved ? "Đã duyệt" : "Từ chối", dto.IsApproved ? "success" : "destructive")
+                .WithMessage(dto.IsApproved ? "Yêu cầu quyền truy cập đã được duyệt tại" : "Yêu cầu quyền truy cập đã bị từ chối tại")
                 .Build();
             _context.Notifications.Add(notification);
             await SendSignalRNotificationAsync(request.User?.Username, notification);
@@ -419,6 +420,7 @@ namespace demo1.Services.Implements
                 .WithActor(adminActorName)
                 .WithTarget(targetProjectName)
                 .WithBadge("Cấp quyền", "success")
+                .WithMessage($"Bạn đã được cấp quyền '{permCatalog.Name}' tại")
                 .Build();
             _context.Notifications.Add(userNoti);
             await SendSignalRNotificationAsync(user?.Username, userNoti);
@@ -434,6 +436,7 @@ namespace demo1.Services.Implements
                     .WithActor(adminActorName)
                     .WithTarget(targetProjectName)
                     .WithBadge("Cấp quyền", "success")
+                    .WithMessage($"đã cấp quyền '{permCatalog.Name}' cho '{user?.FullName ?? user?.Username}' tại")
                     .Build();
                 _context.Notifications.Add(adminNoti);
                 await SendSignalRNotificationAsync(admin.Username, adminNoti);
@@ -521,22 +524,19 @@ namespace demo1.Services.Implements
                 }
 
                 // Create notification for target user
-                var userNoti = new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = user.Id,
-                    Title = "Phân quyền: Cấp quyền truy cập",
-                    Content = $"Bạn đã được cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' bởi '{admin?.Username ?? "Hệ thống"}'.",
-                    FeatureCode = "USER_PERMISSION",
-                    EntityName = "UserPermission",
-                    EntityId = permIdToNotify.ToString(),
-                    IsRead = false,
-                    CreatedAt = now
-                };
+                var userNoti = NotificationBuilder.Create()
+                    .WithTitle("Phân quyền: Cấp quyền truy cập")
+                    .WithContent($"Bạn đã được cấp quyền '{permCatalog.Name}' trên dự án '{project?.Name ?? duAnId?.ToString() ?? dto.EntityId}' bởi '{admin?.Username ?? "Hệ thống"}'.")
+                    .WithFeatureCode("USER_PERMISSION")
+                    .WithEntity("UserPermission", permIdToNotify.ToString())
+                    .ForUser(user.Id)
+                    .WithActor(admin?.FullName ?? admin?.Username ?? "Hệ thống")
+                    .WithTarget(project?.Name ?? duAnId?.ToString() ?? dto.EntityId)
+                    .WithBadge("Cấp quyền", "success")
+                    .WithMessage($"Bạn đã được cấp quyền '{permCatalog.Name}' tại")
+                    .Build();
                 _context.Notifications.Add(userNoti);
                 await SendSignalRNotificationAsync(user.Username, userNoti);
-
-
             }
 
             await _context.SaveChangesAsync();
@@ -606,6 +606,7 @@ namespace demo1.Services.Implements
                 .WithActor(adminActorName)
                 .WithTarget(targetProjectName)
                 .WithBadge("Cập nhật quyền", "primary")
+                .WithMessage($"Quyền truy cập của bạn đã được cập nhật thành '{newPermCatalog.Name}' tại")
                 .Build();
             _context.Notifications.Add(userNoti);
             if (perm.User != null)
@@ -659,6 +660,7 @@ namespace demo1.Services.Implements
                 .WithActor(adminActorName)
                 .WithTarget(targetProjectName)
                 .WithBadge("Thu hồi", "destructive")
+                .WithMessage($"Quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' của bạn đã bị thu hồi tại")
                 .Build();
             _context.Notifications.Add(userNoti);
             await SendSignalRNotificationAsync(perm.User?.Username, userNoti);
@@ -674,6 +676,7 @@ namespace demo1.Services.Implements
                     .WithActor(adminActorName)
                     .WithTarget(targetProjectName)
                     .WithBadge("Thu hồi", "destructive")
+                    .WithMessage($"đã thu hồi quyền '{perm.Permission?.Name ?? perm.PermissionId.ToString()}' của '{perm.User?.FullName ?? perm.User?.Username}' tại")
                     .Build();
                 _context.Notifications.Add(adminNoti);
                 await SendSignalRNotificationAsync(admin.Username, adminNoti);
@@ -1394,6 +1397,7 @@ namespace demo1.Services.Implements
                     .WithActor(requesterName)
                     .WithTarget(entityTitleText)
                     .WithBadge("Xin quyền", "warning")
+                    .WithMessage($"đã yêu cầu xin quyền '{targetPermCatalog.Name}' cho")
                     .Build();
                 _context.Notifications.Add(noti);
                 await SendSignalRNotificationAsync(recipient.Username, noti);
@@ -1405,7 +1409,8 @@ namespace demo1.Services.Implements
             if (_hubContext == null || string.IsNullOrWhiteSpace(username)) return;
             try
             {
-                await _hubContext.Clients.User(username).SendAsync("ReceiveNotification", notification);
+                var dto = NotificationMapper.MapToDto(notification);
+                await _hubContext.Clients.User(username).SendAsync("ReceiveNotification", dto);
             }
             catch (Exception ex)
             {

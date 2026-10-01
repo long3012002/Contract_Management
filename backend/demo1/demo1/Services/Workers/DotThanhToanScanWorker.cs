@@ -189,15 +189,15 @@ namespace demo1.Services.Workers
                     string dotMessage;
                     if (daysRemaining < 0)
                     {
-                        dotMessage = $"đã quá hạn {Math.Abs(daysRemaining)} ngày ({formattedAmount}, hạn: {formattedDate})";
+                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {formattedDate}, {formattedAmount}) của";
                     }
                     else if (daysRemaining == 0)
                     {
-                        dotMessage = $"đến hạn thanh toán hôm nay ({formattedAmount}, {formattedDate})";
+                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' đến hạn hôm nay ({formattedDate}, {formattedAmount}) của";
                     }
                     else
                     {
-                        dotMessage = $"sắp đến hạn (còn {daysRemaining} ngày, {formattedAmount}, hạn: {formattedDate})";
+                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' sắp đến hạn (còn {daysRemaining} ngày, hạn: {formattedDate}, {formattedAmount}) của";
                     }
 
                     var targetName = string.IsNullOrWhiteSpace(phase.HopDong?.Name) ? (phase.HopDong?.Code ?? phase.TenDot) : phase.HopDong.Name;
@@ -225,15 +225,8 @@ namespace demo1.Services.Workers
 
                 foreach (var item in notificationsToPush)
                 {
-                    await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", new
-                    {
-                        id = item.Notification.Id,
-                        title = item.Notification.Title,
-                        content = item.Notification.Content,
-                        link = item.Notification.Link,
-                        isRead = item.Notification.IsRead,
-                        createdAt = item.Notification.CreatedAt
-                    });
+                    var dto = NotificationMapper.MapToDto(item.Notification);
+                    await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", dto);
                 }
             }
 

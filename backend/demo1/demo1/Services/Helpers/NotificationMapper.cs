@@ -18,8 +18,8 @@ public static class NotificationMapper
         var message = n.Message;
         var targetName = n.TargetName;
 
-        // Auto fallback extraction for older records in DB if structured fields are null or message is missing
-        if (string.IsNullOrWhiteSpace(actionBadge) || string.IsNullOrWhiteSpace(message))
+        // Auto fallback extraction for older records in DB if structured fields are null or message is missing or truncated (e.g. '265 ngày')
+        if (string.IsNullOrWhiteSpace(actionBadge) || string.IsNullOrWhiteSpace(message) || Regex.IsMatch(message ?? "", @"^\d+\s*ngày$", RegexOptions.IgnoreCase))
         {
             EnrichLegacyMetadata(n.Title, content, category, ref actionBadge, ref badgeVariant, ref actorName, ref message, ref targetName);
         }
@@ -78,66 +78,115 @@ public static class NotificationMapper
         {
             if (content.Contains("Được duyệt", StringComparison.OrdinalIgnoreCase) || title.Contains("Được duyệt", StringComparison.OrdinalIgnoreCase))
             {
-                actionBadge = "Được duyệt";
-                badgeVariant = "info";
-                message = "Yêu cầu quyền truy cập đã được duyệt";
+                actionBadge = "Đã duyệt";
+                badgeVariant = "success";
+                message = "Yêu cầu quyền truy cập đã được duyệt tại";
             }
             else if (content.Contains("Bị từ chối", StringComparison.OrdinalIgnoreCase) || title.Contains("Bị từ chối", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Từ chối";
                 badgeVariant = "destructive";
-                message = "Yêu cầu quyền truy cập đã bị từ chối";
+                message = "Yêu cầu quyền truy cập đã bị từ chối tại";
             }
-            else if (content.Contains("cấp quyền", StringComparison.OrdinalIgnoreCase))
+            else if (content.Contains("thu hồi", StringComparison.OrdinalIgnoreCase) || title.Contains("Thu hồi", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Thu hồi";
+                badgeVariant = "destructive";
+                message = "Quyền truy cập của bạn đã bị thu hồi tại";
+            }
+            else if (content.Contains("cập nhật", StringComparison.OrdinalIgnoreCase) || title.Contains("Cập nhật", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Cập nhật";
+                badgeVariant = "info";
+                message = "Quyền truy cập của bạn đã được cập nhật tại";
+            }
+            else if (content.Contains("cấp quyền", StringComparison.OrdinalIgnoreCase) || title.Contains("Cấp quyền", StringComparison.OrdinalIgnoreCase))
             {
                 var matchPerm = Regex.Match(content, @"quyền\s+['""]?([^'""]+)['""]?\s+trên dự án\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
                 if (matchPerm.Success)
                 {
-                    actionBadge = matchPerm.Groups[1].Value.Trim();
+                    actionBadge = "Cấp quyền";
                     targetName = matchPerm.Groups[2].Value.Trim();
-                    message = "Bạn được cấp quyền tại";
-                    badgeVariant = "info";
+                    message = $"Bạn được cấp quyền '{matchPerm.Groups[1].Value.Trim()}' tại";
+                    badgeVariant = "success";
                 }
                 else
                 {
-                    actionBadge = "Xem";
-                    badgeVariant = "info";
-                    message = "Bạn được cấp quyền truy cập";
+                    actionBadge = "Cấp quyền";
+                    badgeVariant = "success";
+                    message = "Bạn được cấp quyền truy cập tại";
                 }
             }
             return;
         }
 
-        // 2. Hợp đồng / Quá hạn / Sắp hết hạn
-        if (category == "Hợp đồng" || title.Contains("Hợp đồng") || title.Contains("License"))
+        // 2. Dự án
+        if (category == "Dự án" || title.Contains("Dự án", StringComparison.OrdinalIgnoreCase))
         {
-            var nameMatch = Regex.Match(content, @"(?:Hợp đồng|License)\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
-            if (nameMatch.Success)
+            var matchProj = Regex.Match(content, @"dự án:\s*([^()]+)", RegexOptions.IgnoreCase);
+            if (matchProj.Success && string.IsNullOrWhiteSpace(targetName))
+            {
+                targetName = matchProj.Groups[1].Value.Trim();
+            }
+
+            if (content.Contains("thôi giữ chức vụ", StringComparison.OrdinalIgnoreCase) || content.Contains("thôi", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Bàn giao";
+                badgeVariant = "destructive";
+                message = "Bạn thôi làm Chủ dự án của";
+            }
+            else
+            {
+                actionBadge = "Bổ nhiệm";
+                badgeVariant = "info";
+                message = "Bạn được phân công làm Chủ dự án của";
+            }
+            return;
+        }
+
+        // 3. Hợp đồng / License / Đợt thanh toán
+        if (category == "Hợp đồng" || title.Contains("Hợp đồng") || title.Contains("License") || title.Contains("thanh toán") || title.Contains("Đợt"))
+        {
+            var isDotThanhToan = title.Contains("thanh toán", StringComparison.OrdinalIgnoreCase) || content.Contains("Đợt thanh toán", StringComparison.OrdinalIgnoreCase);
+            var isLicense = title.Contains("License", StringComparison.OrdinalIgnoreCase) || content.Contains("License", StringComparison.OrdinalIgnoreCase);
+            var entityType = isDotThanhToan ? "Đợt thanh toán" : (isLicense ? "Bản quyền (License)" : "Hợp đồng");
+
+            var nameMatch = Regex.Match(content, @"(?:Hợp đồng|License|Đợt thanh toán)\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+            if (nameMatch.Success && string.IsNullOrWhiteSpace(targetName))
             {
                 targetName = nameMatch.Groups[1].Value.Trim();
             }
+
+            var dateMatch = Regex.Match(content, @"(?:hạn|ngày hết hạn|Hạn thanh toán):\s*(\d{1,2}/\d{1,2}(?:/\d{4})?)", RegexOptions.IgnoreCase);
+            var dateSuffix = dateMatch.Success ? $" (hạn: {dateMatch.Groups[1].Value})" : "";
 
             if (content.Contains("quá hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("đã hết hạn", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Đã quá hạn";
                 badgeVariant = "destructive";
                 var daysMatch = Regex.Match(content, @"(?:quá hạn|hết hạn)\s+(\d+)\s*ngày", RegexOptions.IgnoreCase);
-                message = daysMatch.Success ? $"{daysMatch.Groups[1].Value} ngày" : "đã quá hạn";
+                var daysText = daysMatch.Success ? $" đã quá hạn {daysMatch.Groups[1].Value} ngày" : " đã quá hạn";
+                message = $"{entityType}{daysText}{dateSuffix}:";
             }
-            else if (content.Contains("sắp hết hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("còn", StringComparison.OrdinalIgnoreCase))
+            else if (content.Contains("hôm nay", StringComparison.OrdinalIgnoreCase))
             {
-                actionBadge = null;
+                actionBadge = "Hôm nay";
+                badgeVariant = "warning";
+                message = $"{entityType} hết hạn hôm nay{dateSuffix}:";
+            }
+            else if (content.Contains("sắp hết hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("sắp đến hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("còn", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Sắp hết hạn";
+                badgeVariant = "warning";
                 var daysMatch = Regex.Match(content, @"còn\s+(\d+)\s*ngày", RegexOptions.IgnoreCase);
-                var dateMatch = Regex.Match(content, @"hạn:\s*(\d{1,2}/\d{1,2}(?:/\d{4})?)", RegexOptions.IgnoreCase);
-                var daysPart = daysMatch.Success ? $"còn {daysMatch.Groups[1].Value} ngày" : "sắp hết hạn";
-                var datePart = dateMatch.Success ? $" (hạn {dateMatch.Groups[1].Value})" : "";
-                message = $"{daysPart}{datePart}";
+                var daysText = daysMatch.Success ? $" sắp hết hạn (còn {daysMatch.Groups[1].Value} ngày{dateSuffix})" : $" sắp hết hạn{dateSuffix}";
+                message = $"{entityType} {daysText}:";
             }
             return;
         }
 
-        // 3. Công việc / Bình luận
-        if (category == "Công việc" || title.Contains("Công việc") || title.Contains("Bình luận"))
+        // 4. Công việc / Bình luận
+        if (category == "Công việc" || title.Contains("Công việc") || title.Contains("Bình luận") || title.Contains("Xác nhận") || title.Contains("Nhắc nhở"))
         {
             if (title.Contains("nhắc tên", StringComparison.OrdinalIgnoreCase) || content.Contains("đã nhắc đến bạn", StringComparison.OrdinalIgnoreCase))
             {
@@ -148,26 +197,75 @@ public static class NotificationMapper
                 {
                     actorName = match.Groups[1].Value.Trim();
                     targetName = match.Groups[2].Value.Trim();
-                    message = "đã nhắc đến bạn trong";
                 }
+                message = "đã nhắc đến bạn trong công việc";
+            }
+            else if (title.Contains("Phản hồi", StringComparison.OrdinalIgnoreCase) || content.Contains("đã trả lời bình luận", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Trả lời";
+                badgeVariant = "info";
+                var match = Regex.Match(content, @"^(.*?)\s+đã trả lời bình luận của bạn trong\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    actorName = match.Groups[1].Value.Trim();
+                    targetName = match.Groups[2].Value.Trim();
+                }
+                message = "đã trả lời bình luận của bạn trong công việc";
             }
             else if (title.Contains("Xác nhận", StringComparison.OrdinalIgnoreCase) || content.Contains("đã xác nhận", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Xác nhận";
                 badgeVariant = "success";
-                var match = Regex.Match(content, @"Thành viên\s+(.*?)\s+đã xác nhận công việc\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                var match = Regex.Match(content, @"(?:Thành viên\s+)?(.*?)\s+đã xác nhận công việc\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
                 if (match.Success)
                 {
                     actorName = match.Groups[1].Value.Trim();
                     targetName = match.Groups[2].Value.Trim();
-                    message = "đã xác nhận công việc";
                 }
+                message = "đã xác nhận công việc";
+            }
+            else if (title.Contains("Giao việc", StringComparison.OrdinalIgnoreCase) || content.Contains("thêm làm người liên quan", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Gán công việc";
+                badgeVariant = "info";
+                var match = Regex.Match(content, @"công việc\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    targetName = match.Groups[1].Value.Trim();
+                }
+                message = "Bạn được thêm làm người liên quan công việc";
+            }
+            else if (title.Contains("Loại bỏ", StringComparison.OrdinalIgnoreCase) || content.Contains("gỡ bỏ", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Thay đổi";
+                badgeVariant = "secondary";
+                var match = Regex.Match(content, @"công việc\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    targetName = match.Groups[1].Value.Trim();
+                }
+                message = "Bạn đã được gỡ khỏi người liên quan của công việc";
             }
             else if (title.Contains("Quá hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("quá hạn", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Đã quá hạn";
                 badgeVariant = "destructive";
-                message = "quá hạn xác nhận công việc";
+                var matchMember = Regex.Match(content, @"Thành viên\s+(.*?)\s+đã quá hạn", RegexOptions.IgnoreCase);
+                if (matchMember.Success)
+                {
+                    actorName = matchMember.Groups[1].Value.Trim();
+                    message = "đã quá hạn xác nhận công việc";
+                }
+                else
+                {
+                    message = "Bạn đã quá hạn xác nhận công việc";
+                }
+            }
+            else if (title.Contains("Nhắc nhở", StringComparison.OrdinalIgnoreCase) || content.Contains("Nhắc nhở", StringComparison.OrdinalIgnoreCase))
+            {
+                actionBadge = "Nhắc nhở";
+                badgeVariant = "warning";
+                message = "Nhắc nhở xác nhận công việc";
             }
         }
     }

@@ -179,32 +179,30 @@ namespace demo1.Services.Workers
                             continue;
                         }
 
-                        string? actionBadge = null;
-                        string? actionBadgeVariant = null;
-                        string message;
-
-                        if (daysRemaining < 0)
-                        {
-                            actionBadge = "Đã quá hạn";
-                            actionBadgeVariant = "destructive";
-                            message = $"{Math.Abs(daysRemaining)} ngày";
-                        }
-                        else if (daysRemaining == 0)
-                        {
-                            actionBadge = "Hôm nay";
-                            actionBadgeVariant = "warning";
-                            message = "hết hạn hôm nay";
-                        }
-                        else
-                        {
-                            actionBadge = null;
-                            message = $"còn {daysRemaining} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy})";
-                        }
-
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
                         var badgeVariant = isOverdue ? "destructive" : "warning";
                         var targetName = string.IsNullOrWhiteSpace(contract.Name) ? contract.Code : contract.Name;
+
+                        string message;
+                        if (daysRemaining < 0)
+                        {
+                            badgeText = "Đã quá hạn";
+                            badgeVariant = "destructive";
+                            message = $"Hợp đồng đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                        }
+                        else if (daysRemaining == 0)
+                        {
+                            badgeText = "Hôm nay";
+                            badgeVariant = "warning";
+                            message = $"Hợp đồng hết hạn hôm nay ({contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                        }
+                        else
+                        {
+                            badgeText = "Sắp hết hạn";
+                            badgeVariant = "warning";
+                            message = $"Hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                        }
 
                         var notification = NotificationBuilder.Create()
                             .WithTitle(title)
@@ -292,15 +290,15 @@ namespace demo1.Services.Workers
                         string licMessage;
                         if (daysRemaining < 0)
                         {
-                            licMessage = $"đã hết hạn {Math.Abs(daysRemaining)} ngày (ngày hết hạn: {license.NgayKetThuc.Value:dd/MM/yyyy})";
+                            licMessage = $"Bản quyền (License) đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
                         else if (daysRemaining == 0)
                         {
-                            licMessage = $"hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy})";
+                            licMessage = $"Bản quyền (License) hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
                         else
                         {
-                            licMessage = $"sắp hết hạn (còn {daysRemaining} ngày)";
+                            licMessage = $"Bản quyền (License) sắp hết hạn (còn {daysRemaining} ngày, hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
 
                         var targetName = string.IsNullOrWhiteSpace(license.Name) ? license.Code : license.Name;
@@ -416,15 +414,15 @@ namespace demo1.Services.Workers
                         string hhhMessage;
                         if (daysRemaining < 0)
                         {
-                            hhhMessage = $"đã hết hạn {Math.Abs(daysRemaining)} ngày (ngày hết hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy})";
+                            hhhMessage = $"License thuộc hợp đồng đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
                         else if (daysRemaining == 0)
                         {
-                            hhhMessage = $"hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy})";
+                            hhhMessage = $"License thuộc hợp đồng hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
                         else
                         {
-                            hhhMessage = $"sắp hết hạn (còn {daysRemaining} ngày)";
+                            hhhMessage = $"License thuộc hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
                         }
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
@@ -454,15 +452,8 @@ namespace demo1.Services.Workers
                 foreach (var item in notificationsToPush)
                 {
                     _logger.LogInformation("[ContractScan] Đang push realtime thông báo cho user {Username} qua SignalR", item.Username);
-                    await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", new
-                    {
-                        id = item.Notification.Id,
-                        title = item.Notification.Title,
-                        content = item.Notification.Content,
-                        link = item.Notification.Link,
-                        isRead = item.Notification.IsRead,
-                        createdAt = item.Notification.CreatedAt
-                    });
+                    var dto = NotificationMapper.MapToDto(item.Notification);
+                    await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", dto);
                 }
             }
 

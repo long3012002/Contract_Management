@@ -736,7 +736,8 @@ public class CongViecGoiThauService
                     .Build();
 
                 DbContext.Notifications.Add(notification);
-                await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+                var dto = NotificationMapper.MapToDto(notification);
+                await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", dto);
             }
         }
 
@@ -851,6 +852,7 @@ public class CongViecGoiThauService
                         .ForUser(targetUser.Id)
                         .WithTarget(task.TenTaiLieu)
                         .WithBadge("Gán công việc", "info")
+                        .WithMessage("Bạn được thêm làm người liên quan công việc")
                         .Build();
 
                     DbContext.Notifications.Add(notification);
@@ -865,7 +867,8 @@ public class CongViecGoiThauService
 
             foreach (var item in notificationsToSend)
             {
-                await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", item.Notification);
+                var dto = NotificationMapper.MapToDto(item.Notification);
+                await _hubContext.Clients.User(item.Username).SendAsync("ReceiveNotification", dto);
             }
         }
     }
@@ -885,10 +888,12 @@ public class CongViecGoiThauService
                 .ForUser(targetUser.Id)
                 .WithTarget(task.TenTaiLieu)
                 .WithBadge("Gán công việc", "info")
+                .WithMessage("Bạn được thêm làm người liên quan công việc")
                 .Build();
 
             DbContext.Notifications.Add(notification);
-            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+            var dto = NotificationMapper.MapToDto(notification);
+            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", dto);
         }
         await DbContext.SaveChangesAsync();
     }
@@ -908,10 +913,12 @@ public class CongViecGoiThauService
                 .ForUser(targetUser.Id)
                 .WithTarget(task.TenTaiLieu)
                 .WithBadge("Thay đổi", "secondary")
+                .WithMessage("Bạn đã được gỡ khỏi người liên quan của công việc")
                 .Build();
 
             DbContext.Notifications.Add(notification);
-            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", notification);
+            var dto = NotificationMapper.MapToDto(notification);
+            await _hubContext.Clients.User(targetUser.Username).SendAsync("ReceiveNotification", dto);
         }
         await DbContext.SaveChangesAsync();
     }

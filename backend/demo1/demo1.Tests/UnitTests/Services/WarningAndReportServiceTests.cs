@@ -1071,6 +1071,49 @@ namespace demo1.Tests.UnitTests.Services
             }
         }
 
+        [Fact]
+        public async Task TheoDoiHopDongReport_Should_Filter_By_Year_Correctly()
+        {
+            // Arrange
+            var reportService = new demo1.Services.Implements.ReportService(_dbContext, null!);
+
+            var hd2025 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-2025",
+                Name = "Hợp đồng năm 2025",
+                NgayKy = new DateTime(2025, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+                NgayHieuLuc = new DateTime(2025, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+                ExpiredDate = new DateTime(2025, 11, 30, 0, 0, 0, DateTimeKind.Utc),
+                GiaTriHopDong = 100000000,
+                IsActive = true
+            };
+
+            var hd2026 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-2026",
+                Name = "Hợp đồng năm 2026",
+                NgayKy = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc),
+                NgayHieuLuc = new DateTime(2026, 3, 15, 0, 0, 0, DateTimeKind.Utc),
+                ExpiredDate = new DateTime(2026, 12, 31, 0, 0, 0, DateTimeKind.Utc),
+                GiaTriHopDong = 200000000,
+                IsActive = true
+            };
+
+            _dbContext.HopDongs.AddRange(hd2025, hd2026);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: Query for year 2026
+            var report2026 = await reportService.GetTheoDoiHopDongReportAsync(2026, null, null, null, "đồng");
+
+            // Assert: Only HD-2026 should be returned
+            report2026.Rows.Should().ContainSingle(r => r.SoHopDong == "HD-2026");
+            report2026.Rows.Should().NotContain(r => r.SoHopDong == "HD-2025");
+            report2026.Summary.TongSoHopDong.Should().Be(1);
+            report2026.Summary.TongGiaTriHopDong.Should().Be(200000000);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

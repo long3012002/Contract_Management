@@ -59,7 +59,8 @@ public class DuAnNotificationService : IDuAnNotificationService
             _dbContext.Notifications.Add(newOwnerNotification);
             await _dbContext.SaveChangesAsync();
 
-            await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerNotification);
+            var newOwnerDto = NotificationMapper.MapToDto(newOwnerNotification);
+            await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerDto);
 
             // 2. Gửi Email thông báo tới Chủ dự án
             if (!string.IsNullOrWhiteSpace(newOwner.Email))
@@ -158,7 +159,8 @@ public class DuAnNotificationService : IDuAnNotificationService
                     .WithMessage("Bạn thôi làm Chủ dự án của")
                     .Build();
                 _dbContext.Notifications.Add(oldOwnerNotification);
-                await _hubContext.Clients.User(oldOwner.Username).SendAsync("ReceiveNotification", oldOwnerNotification);
+                var oldOwnerDto = NotificationMapper.MapToDto(oldOwnerNotification);
+                await _hubContext.Clients.User(oldOwner.Username).SendAsync("ReceiveNotification", oldOwnerDto);
                 await _dbContext.SaveChangesAsync();
             }
         }
