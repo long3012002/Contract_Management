@@ -388,7 +388,7 @@ namespace demo1.Services.Workers
                     }
                     else
                     {
-                        targetUsers = await dbContext.Users.AsNoTracking().Where(u => u.IsActive && u.IsSystemAdmin).ToListAsync();
+                        targetUsers = await dbContext.Users.AsNoTracking().Where(u => u.IsActive && !u.IsSystemAdmin).ToListAsync();
                     }
 
                     foreach (var user in targetUsers)
@@ -473,14 +473,6 @@ namespace demo1.Services.Workers
         {
             var targetUserIds = new HashSet<Guid>();
 
-            // 1. System Admins
-            var adminIds = await dbContext.Users
-                .AsNoTracking()
-                .Where(u => u.IsActive && u.IsSystemAdmin)
-                .Select(u => u.Id)
-                .ToListAsync();
-            foreach (var id in adminIds) targetUserIds.Add(id);
-
             // Get associated DuAnId if available
             Guid? duAnId = contract.DuAnId;
             if (!duAnId.HasValue && contract.GoiThau != null)
@@ -488,7 +480,7 @@ namespace demo1.Services.Workers
                 duAnId = contract.GoiThau.DuAnId;
             }
 
-            // 2. Project Owner / Creator
+            // 1. Project Owner / Creator
             if (duAnId.HasValue && duAnId.Value != Guid.Empty)
             {
                 var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == duAnId.Value);
@@ -498,7 +490,7 @@ namespace demo1.Services.Workers
                 }
             }
 
-            // 3. Creators / Modifiers from AuditLogs for this contract
+            // 2. Creators / Modifiers from AuditLogs for this contract
             var contractIdStr = contract.Id.ToString();
             var auditUserStrIds = await dbContext.AuditLogs
                 .AsNoTracking()
@@ -514,7 +506,7 @@ namespace demo1.Services.Workers
                 }
             }
 
-            // 4. Users with explicit permissions in UserPermissions for this contract or project
+            // 3. Users with explicit permissions in UserPermissions for this contract or project
             var permissionUserIds = await dbContext.UserPermissions
                 .AsNoTracking()
                 .Where(up => (duAnId.HasValue && up.DuAnId == duAnId.Value) || 
@@ -524,7 +516,7 @@ namespace demo1.Services.Workers
                 .ToListAsync();
             foreach (var id in permissionUserIds) targetUserIds.Add(id);
 
-            // 5. Related users (stakeholders) on tasks of the project
+            // 4. Related users (stakeholders) on tasks of the project
             if (duAnId.HasValue && duAnId.Value != Guid.Empty)
             {
                 var stakeholderUserIds = await dbContext.CongViecNguoiLienQuans
@@ -538,15 +530,15 @@ namespace demo1.Services.Workers
 
             var targetUsers = await dbContext.Users
                 .AsNoTracking()
-                .Where(u => u.IsActive && targetUserIds.Contains(u.Id))
+                .Where(u => u.IsActive && !u.IsSystemAdmin && targetUserIds.Contains(u.Id))
                 .ToListAsync();
 
-            // Fallback: If no specific target users found (e.g. minimal seed data), notify active users
+            // Fallback: If no specific target users found (e.g. minimal seed data), notify active non-admin users
             if (!targetUsers.Any())
             {
                 targetUsers = await dbContext.Users
                     .AsNoTracking()
-                    .Where(u => u.IsActive)
+                    .Where(u => u.IsActive && !u.IsSystemAdmin)
                     .ToListAsync();
             }
 
@@ -557,15 +549,7 @@ namespace demo1.Services.Workers
         {
             var targetUserIds = new HashSet<Guid>();
 
-            // 1. System Admins
-            var adminIds = await dbContext.Users
-                .AsNoTracking()
-                .Where(u => u.IsActive && u.IsSystemAdmin)
-                .Select(u => u.Id)
-                .ToListAsync();
-            foreach (var id in adminIds) targetUserIds.Add(id);
-
-            // 2. Project Owner
+            // 1. Project Owner
             if (license.DuAnId != Guid.Empty)
             {
                 var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == license.DuAnId);
@@ -575,7 +559,7 @@ namespace demo1.Services.Workers
                 }
             }
 
-            // 3. AuditLog Creators / Modifiers
+            // 2. AuditLog Creators / Modifiers
             var licenseIdStr = license.Id.ToString();
             var auditUserStrIds = await dbContext.AuditLogs
                 .AsNoTracking()
@@ -591,7 +575,7 @@ namespace demo1.Services.Workers
                 }
             }
 
-            // 4. UserPermissions
+            // 3. UserPermissions
             var permissionUserIds = await dbContext.UserPermissions
                 .AsNoTracking()
                 .Where(up => up.DuAnId == license.DuAnId || (up.EntityName == "License" && up.EntityId == licenseIdStr))
@@ -602,14 +586,14 @@ namespace demo1.Services.Workers
 
             var targetUsers = await dbContext.Users
                 .AsNoTracking()
-                .Where(u => u.IsActive && targetUserIds.Contains(u.Id))
+                .Where(u => u.IsActive && !u.IsSystemAdmin && targetUserIds.Contains(u.Id))
                 .ToListAsync();
 
             if (!targetUsers.Any())
             {
                 targetUsers = await dbContext.Users
                     .AsNoTracking()
-                    .Where(u => u.IsActive)
+                    .Where(u => u.IsActive && !u.IsSystemAdmin)
                     .ToListAsync();
             }
 
