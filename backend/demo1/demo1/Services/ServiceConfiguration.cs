@@ -16,6 +16,7 @@ using demo1.Services.Implements.SubServices;
 using demo1.Services.Interfaces;
 using demo1.Services.Interfaces.SubServices;
 using demo1.Services.Workers;
+using demo1.Services.EmailNotifications;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -254,6 +255,7 @@ public static class ServiceConfiguration
         services.AddScoped<IUserService, UserService>();
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<ISystemConfigService, SystemConfigService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IPhongBanService, PhongBanService>();
@@ -282,6 +284,13 @@ public static class ServiceConfiguration
         services.AddHostedService<ContractScanWorker>();
         services.AddHostedService<StakeholderConfirmationCheckWorker>();
         services.AddHostedService<DotThanhToanScanWorker>();
+
+        // Email notification handlers – thêm loại mới: chỉ cần tạo handler và đăng ký ở đây
+        services.AddScoped<IEmailNotificationHandler, demo1.Services.EmailNotifications.Handlers.ContractExpiryEmailHandler>();
+        services.AddScoped<IEmailNotificationHandler, demo1.Services.EmailNotifications.Handlers.LicenseExpiryEmailHandler>();
+        services.AddScoped<IEmailNotificationHandler, demo1.Services.EmailNotifications.Handlers.PaymentPhaseExpiryEmailHandler>();
+        services.AddHostedService<EmailNotificationWorker>();
+
         services.AddSignalR();
         services.AddSingleton<Microsoft.AspNetCore.SignalR.IUserIdProvider, CustomUserIdProvider>();
 

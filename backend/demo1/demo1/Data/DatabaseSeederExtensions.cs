@@ -50,6 +50,8 @@ public static class DatabaseSeederExtensions
             {
                 await ProductionSeeder.SeedProductionDataAsync(context, logger);
                 await SeedDefaultCatalogsAsync(context, logger);
+                // Seed cấu hình hệ thống mặc định (upsert – không ghi đè giá trị đã sửa)
+                await SystemConfigSeeder.SeedAsync(context, logger);
             }
 
             // 3. Seed dữ liệu mẫu nếu được bật (dành riêng cho Dev/Demo)
