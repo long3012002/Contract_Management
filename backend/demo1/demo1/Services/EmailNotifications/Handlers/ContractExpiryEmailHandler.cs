@@ -130,8 +130,8 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
     }
 
     private static string BuildSubject(int daysRemaining, string name) => daysRemaining < 0
-        ? $"[Co-opBank] Hợp đồng đã quá hạn: {name}"
+        ? $"[Quản lý Hợp đồng] Hợp đồng đã quá hạn: {name}"
         : daysRemaining == 0
-            ? $"[Co-opBank] Hợp đồng hết hạn HÔM NAY: {name}"
-            : $"[Co-opBank] Hợp đồng sắp hết hạn ({daysRemaining} ngày): {name}";
+            ? $"[Quản lý Hợp đồng] Hợp đồng hết hạn HÔM NAY: {name}"
+            : $"[Quản lý Hợp đồng] Hợp đồng sắp hết hạn ({daysRemaining} ngày): {name}";
 }

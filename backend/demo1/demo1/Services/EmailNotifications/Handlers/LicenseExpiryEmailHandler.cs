@@ -129,8 +129,8 @@ public class LicenseExpiryEmailHandler : IEmailNotificationHandler
     }
 
     private static string BuildSubject(int daysRemaining, string name) => daysRemaining < 0
-        ? $"[Co-opBank] License đã hết hạn: {name}"
+        ? $"[Quản lý Hợp đồng] License đã hết hạn: {name}"
         : daysRemaining == 0
-            ? $"[Co-opBank] License hết hạn HÔM NAY: {name}"
-            : $"[Co-opBank] License sắp hết hạn ({daysRemaining} ngày): {name}";
+            ? $"[Quản lý Hợp đồng] License hết hạn HÔM NAY: {name}"
+            : $"[Quản lý Hợp đồng] License sắp hết hạn ({daysRemaining} ngày): {name}";
 }

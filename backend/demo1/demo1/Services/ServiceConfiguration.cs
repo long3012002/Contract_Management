@@ -43,7 +43,10 @@ public static class ServiceConfiguration
         }
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        {
+            options.UseNpgsql(connectionString);
+            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        });
 
         services.AddAutoMapper(cfg =>
         {

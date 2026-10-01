@@ -115,7 +115,7 @@ public class SystemConfigController(
 
         await emailService.SendEmailAsync(
             dto.ToEmail,
-            "[Co-opBank] Test email từ trang Cấu hình Hệ thống",
+            "[Quản lý Hợp đồng] Test email từ trang Cấu hình Hệ thống",
             $"<p>Đây là email kiểm tra gửi từ trang <strong>Cấu hình Hệ thống</strong>.</p>" +
             $"<p>Thời điểm gửi: {DateTime.Now:dd/MM/yyyy HH:mm:ss}</p>" +
             $"<p>Nếu bạn nhận được email này, cấu hình SMTP đang hoạt động bình thường.</p>");

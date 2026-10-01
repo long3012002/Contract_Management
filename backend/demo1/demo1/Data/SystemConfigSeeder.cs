@@ -88,8 +88,8 @@ public static class SystemConfigSeeder
         new SystemConfig
         {
             Key          = "Email:SenderName",
-            Value        = "Quản lý dự án Coopbank",
-            DefaultValue = "Quản lý dự án Coopbank",
+            Value        = "Quản lý Hợp đồng",
+            DefaultValue = "Quản lý Hợp đồng",
             DataType     = "string",
             Group        = "EMAIL",
             Label        = "Tên người gửi email",

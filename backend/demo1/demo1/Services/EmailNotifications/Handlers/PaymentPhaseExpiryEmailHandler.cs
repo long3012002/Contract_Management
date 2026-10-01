@@ -133,8 +133,8 @@ public class PaymentPhaseExpiryEmailHandler : IEmailNotificationHandler
     }
 
     private static string BuildSubject(int daysRemaining, string tenDot, string contractName) => daysRemaining < 0
-        ? $"[Co-opBank] Đợt thanh toán quá hạn: {tenDot} ({contractName})"
+        ? $"[Quản lý Hợp đồng] Đợt thanh toán quá hạn: {tenDot} ({contractName})"
         : daysRemaining == 0
-            ? $"[Co-opBank] Đợt thanh toán đến hạn HÔM NAY: {tenDot} ({contractName})"
-            : $"[Co-opBank] Đợt thanh toán sắp đến hạn ({daysRemaining} ngày): {tenDot} ({contractName})";
+            ? $"[Quản lý Hợp đồng] Đợt thanh toán đến hạn HÔM NAY: {tenDot} ({contractName})"
+            : $"[Quản lý Hợp đồng] Đợt thanh toán sắp đến hạn ({daysRemaining} ngày): {tenDot} ({contractName})";
 }
