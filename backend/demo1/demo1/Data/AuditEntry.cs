@@ -25,6 +25,11 @@ namespace demo1.Data
         public string? IpAddress { get; set; }
         public string? Description { get; set; }
 
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
         public Entity.AuditLog ToAuditLog()
         {
             return new Entity.AuditLog
@@ -34,10 +39,10 @@ namespace demo1.Data
                 Username = Username,
                 Action = Action,
                 TableName = TableName,
-                EntityId = KeyValues.Count == 1 ? KeyValues.Values.First().ToString()! : JsonSerializer.Serialize(KeyValues),
-                OldValues = OldValues.Count == 0 ? null : JsonSerializer.Serialize(OldValues),
-                NewValues = NewValues.Count == 0 ? null : JsonSerializer.Serialize(NewValues),
-                ChangedColumns = ChangedColumns.Count == 0 ? null : JsonSerializer.Serialize(ChangedColumns),
+                EntityId = KeyValues.Count == 1 ? KeyValues.Values.First().ToString()! : JsonSerializer.Serialize(KeyValues, JsonOptions),
+                OldValues = OldValues.Count == 0 ? null : JsonSerializer.Serialize(OldValues, JsonOptions),
+                NewValues = NewValues.Count == 0 ? null : JsonSerializer.Serialize(NewValues, JsonOptions),
+                ChangedColumns = ChangedColumns.Count == 0 ? null : JsonSerializer.Serialize(ChangedColumns, JsonOptions),
                 Timestamp = DateTime.UtcNow,
                 IpAddress = IpAddress,
                 Description = Description

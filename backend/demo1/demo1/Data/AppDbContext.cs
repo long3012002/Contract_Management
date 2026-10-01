@@ -30,7 +30,16 @@ namespace demo1.Data
             "DeletedByUserId",
             "PasswordHash",
             "SecurityStamp",
-            "ConcurrencyStamp"
+            "ConcurrencyStamp",
+            "TwoFactorSecret",
+            "IsTwoFactorEnabled",
+            "RefreshToken",
+            "RefreshTokenHash",
+            "RefreshTokenExpiryTime",
+            "TenPhongBan",
+            "TenChucVu",
+            "TenDonVi",
+            "TenToNhom"
         };
 
         public AppDbContext(
@@ -882,19 +891,16 @@ namespace demo1.Data
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            var username = _currentUserService?.GetUsername();
             var userId = _currentUserService?.GetUserId();
             Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
 
-            if (!resolvedUserId.HasValue)
+            if (!resolvedUserId.HasValue && !string.IsNullOrEmpty(username))
             {
-                var username = _currentUserService?.GetUsername();
-                if (!string.IsNullOrEmpty(username))
+                var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+                if (user != null)
                 {
-                    var user = await Users.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
-                    if (user != null)
-                    {
-                        resolvedUserId = user.Id;
-                    }
+                    resolvedUserId = user.Id;
                 }
             }
 
@@ -913,6 +919,14 @@ namespace demo1.Data
                     }
                 }
             }
+
+            // Chỉ lưu audit log khi có thao tác người dùng thực tế từ API (không phải do system / background job tự động chạy)
+            bool isUserAction = !string.IsNullOrEmpty(username) && !username.Equals("System/BackgroundJob", StringComparison.OrdinalIgnoreCase);
+            if (!isUserAction)
+            {
+                return await base.SaveChangesAsync(cancellationToken);
+            }
+
             // Detect UserPermission changes and load all descriptions!
             var userPermissionLogs = await PrepareUserPermissionAuditLogsAsync(cancellationToken);
             if (userPermissionLogs.Any())
@@ -947,20 +961,34 @@ namespace demo1.Data
         {
             ChangeTracker.DetectChanges();
             var auditEntries = new List<AuditEntry>();
-            var username = _currentUserService?.GetUsername() ?? "System/BackgroundJob";
+            var username = _currentUserService?.GetUsername();
+            if (string.IsNullOrEmpty(username) || username.Equals("System/BackgroundJob", StringComparison.OrdinalIgnoreCase))
+            {
+                return auditEntries;
+            }
+
             var ipAddress = _currentUserService?.GetIpAddress();
+            var userId = _currentUserService?.GetUserId()?.ToString();
 
             foreach (var entry in ChangeTracker.Entries())
             {
-                if (entry.Entity is AuditLog || entry.Entity is UserPermission || entry.Entity is CongViecNguoiLienQuan || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                if (entry.Entity is AuditLog ||
+                    entry.Entity is UserPermission ||
+                    entry.Entity is CongViecNguoiLienQuan ||
+                    entry.State == EntityState.Detached ||
+                    entry.State == EntityState.Unchanged)
+                {
                     continue;
+                }
 
                 var auditEntry = new AuditEntry(entry)
                 {
                     TableName = entry.Metadata.GetTableName() ?? entry.Metadata.Name,
                     Username = username,
+                    UserId = userId,
                     IpAddress = ipAddress
                 };
+
                 foreach (var property in entry.Properties)
                 {
                     string propertyName = property.Metadata.Name;
@@ -970,21 +998,39 @@ namespace demo1.Data
                         continue;
                     }
 
+                    // Không lưu các trường do hệ thống tự sinh hoặc quản lý nội bộ
+                    if (IgnoredAuditProperties.Contains(propertyName))
+                    {
+                        continue;
+                    }
+
                     switch (entry.State)
                     {
                         case EntityState.Added:
-                            auditEntry.Action = "CREATE";
-                            auditEntry.NewValues[TranslateColumnName(propertyName)] = property.CurrentValue ?? "";
+                            if (property.CurrentValue != null)
+                            {
+                                var valStr = property.CurrentValue.ToString();
+                                if (!string.IsNullOrWhiteSpace(valStr))
+                                {
+                                    auditEntry.Action = "CREATE";
+                                    auditEntry.NewValues[TranslateColumnName(propertyName)] = property.CurrentValue;
+                                }
+                            }
                             break;
 
                         case EntityState.Deleted:
-                            auditEntry.Action = "DELETE";
-                            auditEntry.OldValues[TranslateColumnName(propertyName)] = property.OriginalValue ?? "";
+                            if (property.OriginalValue != null)
+                            {
+                                var valStr = property.OriginalValue.ToString();
+                                if (!string.IsNullOrWhiteSpace(valStr))
+                                {
+                                    auditEntry.Action = "DELETE";
+                                    auditEntry.OldValues[TranslateColumnName(propertyName)] = property.OriginalValue;
+                                }
+                            }
                             break;
 
                         case EntityState.Modified:
-                            if (IgnoredAuditProperties.Contains(propertyName))
-                                break;
                             if (property.IsModified)
                             {
                                 if (!Equals(property.OriginalValue, property.CurrentValue))
@@ -1000,8 +1046,19 @@ namespace demo1.Data
                     }
                 }
 
-                // If entity state is Modified but no unignored property actually changed value, skip audit log creation
+                // Nếu là cập nhật nhưng không có trường dữ liệu thực tế nào do người dùng nhập bị đổi, bỏ qua
                 if (entry.State == EntityState.Modified && auditEntry.ChangedColumns.Count == 0)
+                {
+                    continue;
+                }
+
+                // Nếu là thêm mới hoặc xóa nhưng không có giá trị nào, bỏ qua
+                if (entry.State == EntityState.Added && auditEntry.NewValues.Count == 0)
+                {
+                    continue;
+                }
+
+                if (entry.State == EntityState.Deleted && auditEntry.OldValues.Count == 0)
                 {
                     continue;
                 }
@@ -1073,7 +1130,12 @@ namespace demo1.Data
             if (!entries.Any())
                 return auditLogs;
 
-            var username = _currentUserService?.GetUsername() ?? "System/BackgroundJob";
+            var username = _currentUserService?.GetUsername();
+            if (string.IsNullOrEmpty(username) || username.Equals("System/BackgroundJob", StringComparison.OrdinalIgnoreCase))
+            {
+                return auditLogs;
+            }
+
             var ipAddress = _currentUserService?.GetIpAddress();
             var userId = _currentUserService?.GetUserId();
             Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
@@ -1299,7 +1361,12 @@ namespace demo1.Data
             if (!entries.Any())
                 return auditLogs;
 
-            var username = _currentUserService?.GetUsername() ?? "System/BackgroundJob";
+            var username = _currentUserService?.GetUsername();
+            if (string.IsNullOrEmpty(username) || username.Equals("System/BackgroundJob", StringComparison.OrdinalIgnoreCase))
+            {
+                return auditLogs;
+            }
+
             var ipAddress = _currentUserService?.GetIpAddress();
             var userId = _currentUserService?.GetUserId();
             Guid? resolvedUserId = (userId.HasValue && userId.Value != System.Guid.Empty) ? userId.Value : null;
@@ -1600,6 +1667,11 @@ namespace demo1.Data
                     var entityNameVi = GetEntityTypeNameVietnamese(entityType);
                     return $"{auditEntry.Username} đã chuyển trạng thái {entityNameVi} [{recordName}] từ [{oldStatusStr}] sang [{newStatusStr}]";
                 }
+            }
+
+            if (entityType.Equals("User", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"{auditEntry.Username} {actionText} người dùng [{recordName}]";
             }
 
             return $"{auditEntry.Username} {actionText} {recordName}".Trim();

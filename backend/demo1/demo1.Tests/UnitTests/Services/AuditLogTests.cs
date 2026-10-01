@@ -402,5 +402,132 @@ namespace demo1.Tests.UnitTests.Services
             Assert.Equal("Test User FullName", resolvedMap2[user.Id.ToString()]);
             Assert.Equal("Dự án Cache Test", resolvedMap2[duAn.Id.ToString()]);
         }
+        [Fact]
+        public async Task SaveChangesAsync_BackgroundWorkerOrSystem_DoesNotGenerateAuditLog()
+        {
+            // Arrange: Simulated background worker with no authenticated user or System/BackgroundJob
+            var (context1, _) = CreateDbContextWithUser("");
+            var duAn1 = new DuAn { Code = "DA_SYS1", Name = "Dự án Worker 1" };
+            context1.DuAns.Add(duAn1);
+            await context1.SaveChangesAsync();
+
+            Assert.Empty(context1.AuditLogs);
+
+            var (context2, _) = CreateDbContextWithUser("System/BackgroundJob");
+            var duAn2 = new DuAn { Code = "DA_SYS2", Name = "Dự án Worker 2" };
+            context2.DuAns.Add(duAn2);
+            await context2.SaveChangesAsync();
+
+            Assert.Empty(context2.AuditLogs);
+        }
+
+
+        [Fact]
+        public async Task SaveChangesAsync_CreateEntity_ExcludesSystemAndIgnoredProperties()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("admin");
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "user_test",
+                FullName = "User Test",
+                PasswordHash = "secret_hash",
+                TwoFactorSecret = "secret_2fa",
+                RefreshTokenHash = "ref_hash",
+                RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Act
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            // Assert
+            var auditLog = await context.AuditLogs.FirstOrDefaultAsync(a => a.TableName == "Users" && a.Action == "Tạo mới");
+            Assert.NotNull(auditLog);
+            Assert.NotNull(auditLog.NewValues);
+
+            // Should contain user business data
+            Assert.Contains("Tên đăng nhập", auditLog.NewValues);
+            Assert.Contains("Họ và tên", auditLog.NewValues);
+
+            // Should NOT contain system/internal fields
+            Assert.DoesNotContain("Mật khẩu mã hóa", auditLog.NewValues);
+            Assert.DoesNotContain("PasswordHash", auditLog.NewValues);
+            Assert.DoesNotContain("TwoFactorSecret", auditLog.NewValues);
+            Assert.DoesNotContain("RefreshTokenHash", auditLog.NewValues);
+            Assert.DoesNotContain("RefreshTokenExpiryTime", auditLog.NewValues);
+            Assert.DoesNotContain("CreatedAt", auditLog.NewValues);
+            Assert.DoesNotContain("UpdatedAt", auditLog.NewValues);
+        }
+
+        [Fact]
+        public async Task SaveChangesAsync_UpdateUser_UserSubmittedFields_GeneratesAuditLogWithOnlyChangedFields()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("admin");
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "nguyenvanb",
+                FullName = "Nguyễn Văn B",
+                Email = "nguyenvanb@co-opbank.vn",
+                Phone = "0912345678",
+                IsActive = true
+            };
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            // Act: Admin updates user info submitted from form
+            user.FullName = "Nguyễn Văn B (Cập nhật)";
+            user.Phone = "0988888888";
+            user.UpdatedAt = DateTime.UtcNow; // ignored
+            context.Users.Update(user);
+            await context.SaveChangesAsync();
+
+            // Assert
+            var auditLog = await context.AuditLogs
+                .OrderByDescending(a => a.Timestamp)
+                .FirstOrDefaultAsync(a => a.TableName == "Users" && a.Action == "Cập nhật");
+
+            Assert.NotNull(auditLog);
+            Assert.Equal("admin", auditLog.Username);
+            Assert.Equal("admin cập nhật người dùng [Nguyễn Văn B (Cập nhật)]", auditLog.Description);
+            Assert.NotNull(auditLog.ChangedColumns);
+            Assert.Contains("Họ và tên", auditLog.ChangedColumns);
+            Assert.Contains("Số điện thoại", auditLog.ChangedColumns);
+            Assert.DoesNotContain("UpdatedAt", auditLog.ChangedColumns);
+            Assert.DoesNotContain("Ngày cập nhật", auditLog.ChangedColumns);
+        }
+
+        [Fact]
+        public async Task SaveChangesAsync_UpdateUser_CodeAutomatedChangesOnly_DoesNotGenerateAuditLog()
+        {
+            // Arrange
+            var (context, _) = CreateDbContextWithUser("user_login");
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "user_login",
+                FullName = "User Login",
+                Email = "user_login@co-opbank.vn"
+            };
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            int initialAuditLogCount = await context.AuditLogs.CountAsync();
+
+            // Act: Code modifies refresh token & expiration during login/token refresh
+            user.RefreshTokenHash = "new_hash_abc";
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
+            user.UpdatedAt = DateTime.UtcNow;
+            context.Users.Update(user);
+            await context.SaveChangesAsync();
+
+            // Assert: No new audit log should be recorded for automated token changes
+            int currentAuditLogCount = await context.AuditLogs.CountAsync();
+            Assert.Equal(initialAuditLogCount, currentAuditLogCount);
+        }
     }
 }
