@@ -533,7 +533,7 @@ namespace demo1.Services.Workers
             return targetUsers;
         }
 
-        private static async Task<List<User>> GetTargetUsersForLicenseAsync(AppDbContext dbContext, License license)
+        public static async Task<List<User>> GetTargetUsersForLicenseAsync(AppDbContext dbContext, License license)
         {
             var targetUserIds = new HashSet<Guid>();
 

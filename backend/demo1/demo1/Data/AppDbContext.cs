@@ -83,6 +83,8 @@ namespace demo1.Data
         public DbSet<FileVersion> FileVersions { get; set; } = null!;
         public DbSet<DuAnPhanKyVon> DuAnPhanKyVons { get; set; } = null!;
         public DbSet<DuAnNguonVon> DuAnNguonVons { get; set; } = null!;
+        public DbSet<EmailNotificationLog> EmailNotificationLogs { get; set; } = null!;
+        public DbSet<SystemConfig> SystemConfigs { get; set; } = null!;
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -701,6 +703,35 @@ namespace demo1.Data
 
                 entity.HasIndex(e => new { e.IsRead, e.CreatedAt })
                     .HasDatabaseName("IX_Notifications_IsRead_CreatedAt");
+            });
+
+            // Configure EmailNotificationLog entity – dùng để chống gửi email trùng
+            modelBuilder.Entity<EmailNotificationLog>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.EntityType).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.EntityId).HasMaxLength(255).IsRequired();
+                entity.Property(e => e.Subject).HasMaxLength(500).IsRequired();
+                // Index tổng hợp: truy vấn check trùng chạy nhanh
+                entity.HasIndex(e => new { e.UserId, e.EntityType, e.EntityId, e.SentAt })
+                    .HasDatabaseName("IX_EmailNotificationLog_Dedup");
+            });
+
+            // Configure SystemConfig entity – cấu hình hệ thống quản lý qua UI
+            modelBuilder.Entity<SystemConfig>(entity =>
+            {
+                entity.HasKey(e => e.Key);
+                entity.Property(e => e.Key).HasMaxLength(100).IsRequired();
+                entity.Property(e => e.Value).HasMaxLength(2000).IsRequired();
+                entity.Property(e => e.DataType).HasMaxLength(20).IsRequired();
+                entity.Property(e => e.Group).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.Label).HasMaxLength(200).IsRequired();
+                entity.Property(e => e.Description).HasMaxLength(500);
+                entity.Property(e => e.DefaultValue).HasMaxLength(2000);
+                entity.Property(e => e.UpdatedByUsername).HasMaxLength(100);
+                // Index sắp xếp UI
+                entity.HasIndex(e => new { e.Group, e.SortOrder })
+                    .HasDatabaseName("IX_SystemConfig_Group_SortOrder");
             });
 
             // Configure CommentCongViecGoiThau entity

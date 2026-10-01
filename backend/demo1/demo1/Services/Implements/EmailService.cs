@@ -1,9 +1,12 @@
 using System;
-using System.Net;
-using System.Net.Mail;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MimeKit;
 using demo1.DTOs.Common;
 using demo1.Services.Interfaces;
 
@@ -28,41 +31,59 @@ namespace demo1.Services.Implements
                 return;
             }
 
+            // Mock mode: chưa cấu hình SMTP thật
+            if (_emailSettings.Host == "smtp.gmail.com" && _emailSettings.Username == "your_email@gmail.com")
+            {
+                _logger.LogWarning(
+                    "SMTP is not configured with real credentials. Logging email body instead:\nTo: {ToEmail}\nSubject: {Subject}\nBody: {Body}",
+                    toEmail, subject, body);
+                return;
+            }
+
             try
             {
-                var senderEmail = !string.IsNullOrWhiteSpace(_emailSettings.SenderEmail) 
-                    ? _emailSettings.SenderEmail.Trim() 
-                    : "no-reply-qlda@co-opbank.vn";
-                var senderName = !string.IsNullOrWhiteSpace(_emailSettings.SenderName) 
-                    ? _emailSettings.SenderName.Trim() 
-                    : "Hệ thống quản lý hợp đồng Coopbank";
-
-                using var mailMessage = new MailMessage
+                // Lấy password: ưu tiên EncryptedPassword, fallback về Password plain text
+                string effectivePassword = _emailSettings.Password ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(_emailSettings.EncryptedPassword))
                 {
-                    From = new MailAddress(senderEmail, senderName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-
-                mailMessage.To.Add(toEmail.Trim());
-
-                if (_emailSettings.BypassCertificateValidation)
-                {
-                    ServicePointManager.ServerCertificateValidationCallback =
-                        (sender, certificate, chain, sslPolicyErrors) => true;
+                    var decrypted = demo1.Services.Helpers.SecretProtector.Decrypt(_emailSettings.EncryptedPassword);
+                    if (!string.IsNullOrEmpty(decrypted))
+                        effectivePassword = decrypted;
                 }
 
-                using var smtpClient = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
-                {
-                    EnableSsl = _emailSettings.EnableSsl
-                };
+                // Build message
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.SenderEmail));
+                message.To.Add(MailboxAddress.Parse(toEmail));
+                message.Subject = subject;
+                message.Body = new TextPart("html") { Text = body };
 
-                // Nếu có cấu hình Username thì dùng xác thực, nếu không thì dùng chế độ Anonymous Relay (Không User/Password - theo IP Whitelist)
+                _logger.LogInformation(
+                    "Attempting to send email to {ToEmail} with subject: {Subject}", toEmail, subject);
+
+                using var client = new SmtpClient();
+
+                // Bypass certificate validation nếu được cấu hình (dùng cho cert tự ký nội bộ)
+                if (_emailSettings.BypassCertificateValidation)
+                {
+                    client.ServerCertificateValidationCallback =
+                        (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
+                            => true;
+                }
+
+                // Chọn SecureSocketOptions dựa trên EnableSsl:
+                //   true  → thử STARTTLS, nếu server không hỗ trợ thì fallback về None
+                //   false → kết nối plain text hoàn toàn
+                var socketOptions = _emailSettings.EnableSsl
+                    ? SecureSocketOptions.StartTlsWhenAvailable
+                    : SecureSocketOptions.None;
+
+                await client.ConnectAsync(_emailSettings.Host, _emailSettings.Port, socketOptions);
+
+                // Xác thực nếu có username (MailKit dùng AUTH PLAIN/LOGIN, không cần libgssapi_krb5)
                 if (!string.IsNullOrWhiteSpace(_emailSettings.Username))
                 {
-                    smtpClient.UseDefaultCredentials = false;
-                    smtpClient.Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password);
+                    await client.AuthenticateAsync(_emailSettings.Username, effectivePassword);
                 }
                 else
                 {
@@ -70,17 +91,9 @@ namespace demo1.Services.Implements
                     smtpClient.Credentials = null;
                 }
 
-                _logger.LogInformation("Attempting to send email to {ToEmail} with subject: {Subject} via SMTP {Host}:{Port} (Auth: {HasAuth})", 
-                    toEmail, subject, _emailSettings.Host, _emailSettings.Port, !string.IsNullOrWhiteSpace(_emailSettings.Username));
-                
-                // For development/mock purposes, if host is not configured properly, log it as mock
-                if (_emailSettings.Host == "smtp.gmail.com" && _emailSettings.Username == "your_email@gmail.com")
-                {
-                    _logger.LogWarning("SMTP is not configured with real credentials. Logging email body instead:\nTo: {ToEmail}\nSubject: {Subject}\nBody: {Body}", toEmail, subject, body);
-                    return;
-                }
+                await client.SendAsync(message);
+                await client.DisconnectAsync(true);
 
-                await smtpClient.SendMailAsync(mailMessage);
                 _logger.LogInformation("Email sent successfully to {ToEmail}.", toEmail);
             }
             catch (Exception ex)

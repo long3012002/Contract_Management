@@ -37,7 +37,7 @@ public class HealthController : ControllerBase
     /// <response code="200">Gửi mail thử nghiệm thành công</response>
     [HttpGet("test-email")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> TestEmail([FromServices] IEmailService emailService, [FromQuery] string toEmail = "quangmd@co-opbank.vn")
+    public async Task<IActionResult> TestEmail([FromServices] IEmailService emailService, [FromQuery] string toEmail = "anhld2@co-opbank.vn")
     {
         await emailService.SendEmailAsync(toEmail, "Test Email from Contract Management System", "This is a test email sent from the Co-opBank Contract Management system to verify SMTP configuration.");
         return Ok(new { Message = $"Test email triggered to {toEmail}." });

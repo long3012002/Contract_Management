@@ -245,12 +245,12 @@ namespace demo1.Services.Implements
 
                         foreach (var rName in userRoleNames)
                         {
-                            if (roleMap.TryGetValue(rName, out var matchedRole) && matchedRole != null)
+                            if (roleMap.TryGetValue(rName, out var mappedRole) && mappedRole != null)
                             {
                                 var newUr = new UserRole
                                 {
                                     UserId = user.Id,
-                                    RoleId = matchedRole.Id,
+                                    RoleId = mappedRole.Id,
                                     CreatedAt = DateTime.UtcNow
                                 };
                                 _dbContext.UserRoles.Add(newUr);
