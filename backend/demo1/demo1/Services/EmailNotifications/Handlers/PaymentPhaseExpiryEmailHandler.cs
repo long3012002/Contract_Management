@@ -82,12 +82,24 @@ public class PaymentPhaseExpiryEmailHandler : IEmailNotificationHandler
 
             foreach (var user in emailUsers)
             {
-                var alreadySent = await _db.EmailNotificationLogs
-                    .AnyAsync(e => e.UserId == user.Id
-                                   && e.EntityType == "DotThanhToan"
-                                   && e.EntityId == phase.Id.ToString()
-                                   && e.Subject == subject
-                                   && e.SentAt.Date == DateTime.UtcNow.Date);
+                bool alreadySent;
+                if (daysRemaining < 0)
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "DotThanhToan"
+                                       && e.EntityId == phase.Id.ToString()
+                                       && e.Subject.Contains("quá hạn"));
+                }
+                else
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "DotThanhToan"
+                                       && e.EntityId == phase.Id.ToString()
+                                       && e.Subject == subject
+                                       && e.SentAt.Date == DateTime.UtcNow.Date);
+                }
                 if (alreadySent) continue;
 
                 var displayName = $"{phase.TenDot} – {contractName}";

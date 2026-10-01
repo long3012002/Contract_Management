@@ -85,11 +85,6 @@ namespace demo1.Services.Implements
                 {
                     await client.AuthenticateAsync(_emailSettings.Username, effectivePassword);
                 }
-                else
-                {
-                    smtpClient.UseDefaultCredentials = false;
-                    smtpClient.Credentials = null;
-                }
 
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);

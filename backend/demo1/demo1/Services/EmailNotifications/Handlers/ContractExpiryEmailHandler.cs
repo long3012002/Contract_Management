@@ -80,13 +80,25 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
 
             foreach (var user in emailUsers)
             {
-                // Chống spam: kiểm tra đã gửi email với tiêu đề này trong ngày chưa
-                var alreadySent = await _db.EmailNotificationLogs
-                    .AnyAsync(e => e.UserId == user.Id
-                                   && e.EntityType == "HopDong"
-                                   && e.EntityId == contract.Id.ToString()
-                                   && e.Subject == subject
-                                   && e.SentAt.Date == DateTime.UtcNow.Date);
+                // Chống spam: nếu đã quá hạn (< 0) thì chỉ gửi 1 lần duy nhất trong toàn hệ thống
+                bool alreadySent;
+                if (daysRemaining < 0)
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "HopDong"
+                                       && e.EntityId == contract.Id.ToString()
+                                       && e.Subject.Contains("đã quá hạn"));
+                }
+                else
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "HopDong"
+                                       && e.EntityId == contract.Id.ToString()
+                                       && e.Subject == subject
+                                       && e.SentAt.Date == DateTime.UtcNow.Date);
+                }
                 if (alreadySent) continue;
 
                 var body = EmailTemplateBuilder.BuildExpiryEmail(

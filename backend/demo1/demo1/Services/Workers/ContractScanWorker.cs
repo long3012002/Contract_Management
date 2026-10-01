@@ -156,7 +156,13 @@ namespace demo1.Services.Workers
                     foreach (var user in targetUsers)
                     {
                         bool alreadyNotified;
-                        if (intervalDays <= 0)
+                        if (daysRemaining < 0)
+                        {
+                            // Thông báo quá hạn chỉ gửi 1 lần duy nhất
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == "Hợp đồng: Đã hết hạn");
+                        }
+                        else if (intervalDays <= 0)
                         {
                             alreadyNotified = await dbContext.Notifications
                                 .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
@@ -266,8 +272,17 @@ namespace demo1.Services.Workers
 
                     foreach (var user in targetUsers)
                     {
-                        var alreadyNotified = await dbContext.Notifications
-                            .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                        bool alreadyNotified;
+                        if (daysRemaining < 0)
+                        {
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == "License: Đã hết hạn");
+                        }
+                        else
+                        {
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);
+                        }
 
                         if (alreadyNotified) continue;
 
@@ -379,7 +394,12 @@ namespace demo1.Services.Workers
                     foreach (var user in targetUsers)
                     {
                         bool alreadyNotified;
-                        if (intervalDays <= 0)
+                        if (daysRemaining < 0)
+                        {
+                            alreadyNotified = await dbContext.Notifications
+                                .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == "License Hợp đồng: Đã hết hạn");
+                        }
+                        else if (intervalDays <= 0)
                         {
                             alreadyNotified = await dbContext.Notifications
                                 .AnyAsync(n => n.UserId == user.Id && n.Link == link && n.Title == title);

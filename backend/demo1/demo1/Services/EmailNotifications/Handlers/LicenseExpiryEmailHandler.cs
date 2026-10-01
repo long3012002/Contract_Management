@@ -80,12 +80,24 @@ public class LicenseExpiryEmailHandler : IEmailNotificationHandler
 
             foreach (var user in emailUsers)
             {
-                var alreadySent = await _db.EmailNotificationLogs
-                    .AnyAsync(e => e.UserId == user.Id
-                                   && e.EntityType == "License"
-                                   && e.EntityId == license.Id.ToString()
-                                   && e.Subject == subject
-                                   && e.SentAt.Date == DateTime.UtcNow.Date);
+                bool alreadySent;
+                if (daysRemaining < 0)
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "License"
+                                       && e.EntityId == license.Id.ToString()
+                                       && e.Subject.Contains("đã hết hạn"));
+                }
+                else
+                {
+                    alreadySent = await _db.EmailNotificationLogs
+                        .AnyAsync(e => e.UserId == user.Id
+                                       && e.EntityType == "License"
+                                       && e.EntityId == license.Id.ToString()
+                                       && e.Subject == subject
+                                       && e.SentAt.Date == DateTime.UtcNow.Date);
+                }
                 if (alreadySent) continue;
 
                 var body = EmailTemplateBuilder.BuildExpiryEmail(
