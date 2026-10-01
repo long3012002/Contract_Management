@@ -189,15 +189,15 @@ namespace demo1.Services.Workers
                     string dotMessage;
                     if (daysRemaining < 0)
                     {
-                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {formattedDate}, {formattedAmount}) của";
+                        dotMessage = $"nhắc nhở đợt thanh toán '{phase.TenDot}' đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {formattedDate}, {formattedAmount}) của";
                     }
                     else if (daysRemaining == 0)
                     {
-                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' đến hạn hôm nay ({formattedDate}, {formattedAmount}) của";
+                        dotMessage = $"nhắc nhở đợt thanh toán '{phase.TenDot}' đến hạn hôm nay ({formattedDate}, {formattedAmount}) của";
                     }
                     else
                     {
-                        dotMessage = $"Đợt thanh toán '{phase.TenDot}' sắp đến hạn (còn {daysRemaining} ngày, hạn: {formattedDate}, {formattedAmount}) của";
+                        dotMessage = $"nhắc nhở đợt thanh toán '{phase.TenDot}' sắp đến hạn (còn {daysRemaining} ngày, hạn: {formattedDate}, {formattedAmount}) của";
                     }
 
                     var targetName = string.IsNullOrWhiteSpace(phase.HopDong?.Name) ? (phase.HopDong?.Code ?? phase.TenDot) : phase.HopDong.Name;
@@ -209,6 +209,7 @@ namespace demo1.Services.Workers
                         .WithFeatureCode("QUAN_LY_HOP_DONG")
                         .WithEntity("DotThanhToan", phase.Id.ToString())
                         .ForUser(user.Id)
+                        .WithActor("Hệ thống")
                         .WithTarget(targetName)
                         .WithBadge(badgeText, badgeVariant)
                         .WithMessage(dotMessage)

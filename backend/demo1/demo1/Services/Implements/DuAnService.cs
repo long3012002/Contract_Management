@@ -93,6 +93,17 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         {
             query = query.Where(item => item.TrangThai == filter.TrangThai.Value);
         }
+        else if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            if (int.TryParse(filter.Status, out var sInt))
+            {
+                query = query.Where(item => item.TrangThai == sInt);
+            }
+            else if (Enum.TryParse<TrangThaiDuAn>(filter.Status, true, out var sEnum))
+            {
+                query = query.Where(item => item.TrangThai == (int)sEnum);
+            }
+        }
 
         if (filter.Nam.HasValue && filter.Nam.Value > 0)
         {
@@ -102,6 +113,11 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         if (filter.PhanLoaiDuAnId.HasValue && filter.PhanLoaiDuAnId.Value != Guid.Empty)
         {
             query = query.Where(item => item.PhanLoaiDuAnId == filter.PhanLoaiDuAnId.Value);
+        }
+
+        if (filter.AllocatedProjectId.HasValue)
+        {
+            query = query.Where(item => item.DanhSachNguonVon.Any(nv => nv.DuAnId == filter.AllocatedProjectId.Value));
         }
 
         if (filter.StartDate.HasValue)

@@ -274,6 +274,95 @@ namespace demo1.Tests.UnitTests.Services
             qrUrl.Should().Be("otpauth://totp/QLDA%20Co-opBank%3Aanhld2?secret=JBSWY3DPEHPK3PXP&issuer=QLDA%20Co-opBank");
         }
 
+        [Fact]
+        public async Task GetMeAsync_Should_Return_Empty_Permissions_When_User_Role_Has_No_Permissions()
+        {
+            // Arrange
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "test_noperm",
+                FullName = "Test No Perm",
+                IsActive = true,
+                IsSystemAdmin = false
+            };
+            var role = new Role
+            {
+                Id = Guid.NewGuid(),
+                Name = "RoleWithNoPerm",
+                IsActive = true
+            };
+            var userRole = new UserRole
+            {
+                UserId = user.Id,
+                RoleId = role.Id
+            };
+
+            _dbContext.Users.Add(user);
+            _dbContext.Roles.Add(role);
+            _dbContext.UserRoles.Add(userRole);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _authService.GetMeAsync("test_noperm");
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
+            result.Response.Should().NotBeNull();
+            result.Response.Permissions.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetMeAsync_Should_Return_GoiThau_View_Permission_When_User_Is_Stakeholder_In_Task()
+        {
+            // Arrange
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Username = "test_stakeholder",
+                FullName = "Test Stakeholder",
+                IsActive = true,
+                IsSystemAdmin = false
+            };
+            var goiThau = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                Code = "GT-01",
+                Name = "Gói thầu 01",
+                IsActive = true
+            };
+            var congViec = new CongViecGoiThau
+            {
+                Id = Guid.NewGuid(),
+                GoiThauId = goiThau.Id,
+                TenTaiLieu = "Khảo sát",
+                IsActive = true
+            };
+            var nguoiLienQuan = new CongViecNguoiLienQuan
+            {
+                Id = Guid.NewGuid(),
+                CongViecGoiThauId = congViec.Id,
+                UserId = user.Id,
+                TrangThaiXacNhan = "Pending"
+            };
+
+            _dbContext.Users.Add(user);
+            _dbContext.GoiThaus.Add(goiThau);
+            _dbContext.CongViecGoiThaus.Add(congViec);
+            _dbContext.CongViecNguoiLienQuans.Add(nguoiLienQuan);
+            await _dbContext.SaveChangesAsync();
+
+            // Act
+            var result = await _authService.GetMeAsync("test_stakeholder");
+
+            // Assert
+            result.Should().NotBeNull();
+            result.IsSuccess.Should().BeTrue();
+            result.Response.Should().NotBeNull();
+            result.Response.Permissions.Should().ContainSingle(p => p.FeatureCode == "GOI_THAU" && p.CanAccess && p.CanView);
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

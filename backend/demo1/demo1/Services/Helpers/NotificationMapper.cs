@@ -80,25 +80,29 @@ public static class NotificationMapper
             {
                 actionBadge = "Đã duyệt";
                 badgeVariant = "success";
-                message = "Yêu cầu quyền truy cập đã được duyệt tại";
+                message = "đã phê duyệt yêu cầu quyền truy cập của bạn tại";
             }
             else if (content.Contains("Bị từ chối", StringComparison.OrdinalIgnoreCase) || title.Contains("Bị từ chối", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Từ chối";
                 badgeVariant = "destructive";
-                message = "Yêu cầu quyền truy cập đã bị từ chối tại";
+                message = "đã từ chối yêu cầu quyền truy cập của bạn tại";
             }
             else if (content.Contains("thu hồi", StringComparison.OrdinalIgnoreCase) || title.Contains("Thu hồi", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Thu hồi";
                 badgeVariant = "destructive";
-                message = "Quyền truy cập của bạn đã bị thu hồi tại";
+                var matchPerm = Regex.Match(content, @"quyền\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                var permText = matchPerm.Success ? $" '{matchPerm.Groups[1].Value.Trim()}'" : "";
+                message = $"đã thu hồi quyền{permText} của bạn tại";
             }
             else if (content.Contains("cập nhật", StringComparison.OrdinalIgnoreCase) || title.Contains("Cập nhật", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Cập nhật";
                 badgeVariant = "info";
-                message = "Quyền truy cập của bạn đã được cập nhật tại";
+                var matchPerm = Regex.Match(content, @"thành\s+['""]?([^'""]+)['""]?", RegexOptions.IgnoreCase);
+                var permText = matchPerm.Success ? $" thành '{matchPerm.Groups[1].Value.Trim()}'" : "";
+                message = $"đã cập nhật quyền của bạn{permText} tại";
             }
             else if (content.Contains("cấp quyền", StringComparison.OrdinalIgnoreCase) || title.Contains("Cấp quyền", StringComparison.OrdinalIgnoreCase))
             {
@@ -107,14 +111,14 @@ public static class NotificationMapper
                 {
                     actionBadge = "Cấp quyền";
                     targetName = matchPerm.Groups[2].Value.Trim();
-                    message = $"Bạn được cấp quyền '{matchPerm.Groups[1].Value.Trim()}' tại";
+                    message = $"đã cấp quyền '{matchPerm.Groups[1].Value.Trim()}' cho bạn tại";
                     badgeVariant = "success";
                 }
                 else
                 {
                     actionBadge = "Cấp quyền";
                     badgeVariant = "success";
-                    message = "Bạn được cấp quyền truy cập tại";
+                    message = "đã cấp quyền truy cập cho bạn tại";
                 }
             }
             return;
@@ -129,17 +133,17 @@ public static class NotificationMapper
                 targetName = matchProj.Groups[1].Value.Trim();
             }
 
-            if (content.Contains("thôi giữ chức vụ", StringComparison.OrdinalIgnoreCase) || content.Contains("thôi", StringComparison.OrdinalIgnoreCase))
+            if (content.Contains("thôi giữ chức vụ", StringComparison.OrdinalIgnoreCase) || content.Contains("chuyển giao", StringComparison.OrdinalIgnoreCase) || content.Contains("thôi", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Bàn giao";
                 badgeVariant = "destructive";
-                message = "Bạn thôi làm Chủ dự án của";
+                message = "đã chuyển giao quyền Chủ dự án của";
             }
             else
             {
                 actionBadge = "Bổ nhiệm";
                 badgeVariant = "info";
-                message = "Bạn được phân công làm Chủ dự án của";
+                message = "đã phân công bạn làm Chủ dự án của";
             }
             return;
         }
@@ -224,7 +228,7 @@ public static class NotificationMapper
                 }
                 message = "đã xác nhận công việc";
             }
-            else if (title.Contains("Giao việc", StringComparison.OrdinalIgnoreCase) || content.Contains("thêm làm người liên quan", StringComparison.OrdinalIgnoreCase))
+            else if (title.Contains("Giao việc", StringComparison.OrdinalIgnoreCase) || content.Contains("thêm làm người liên quan", StringComparison.OrdinalIgnoreCase) || content.Contains("thêm bạn vào", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Gán công việc";
                 badgeVariant = "info";
@@ -233,9 +237,9 @@ public static class NotificationMapper
                 {
                     targetName = match.Groups[1].Value.Trim();
                 }
-                message = "Bạn được thêm làm người liên quan công việc";
+                message = "đã thêm bạn vào danh sách người liên quan của công việc";
             }
-            else if (title.Contains("Loại bỏ", StringComparison.OrdinalIgnoreCase) || content.Contains("gỡ bỏ", StringComparison.OrdinalIgnoreCase))
+            else if (title.Contains("Loại bỏ", StringComparison.OrdinalIgnoreCase) || content.Contains("gỡ bỏ", StringComparison.OrdinalIgnoreCase) || content.Contains("gỡ bạn", StringComparison.OrdinalIgnoreCase))
             {
                 actionBadge = "Thay đổi";
                 badgeVariant = "secondary";
@@ -244,7 +248,7 @@ public static class NotificationMapper
                 {
                     targetName = match.Groups[1].Value.Trim();
                 }
-                message = "Bạn đã được gỡ khỏi người liên quan của công việc";
+                message = "đã gỡ bạn khỏi danh sách người liên quan của công việc";
             }
             else if (title.Contains("Quá hạn", StringComparison.OrdinalIgnoreCase) || content.Contains("quá hạn", StringComparison.OrdinalIgnoreCase))
             {

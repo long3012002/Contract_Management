@@ -43,17 +43,18 @@ public class DuAnNotificationService : IDuAnNotificationService
             if (newOwner == null) return;
 
             // 1. Gửi thông báo trong hệ thống (Notification CSDL & Realtime Hub)
+            var displayActor = actorName ?? "Hệ thống";
             var newOwnerNotification = NotificationBuilder.Create()
                 .WithTitle("Được phân công làm Chủ dự án")
-                .WithContent($"Bạn đã được phân công làm Chủ dự án cho dự án: {project.Name} ({project.Code})")
+                .WithContent($"{displayActor} đã phân công bạn làm Chủ dự án '{project.Name}' ({project.Code}).")
                 .WithLink($"/du-an/{project.Id}")
                 .WithFeatureCode("DU_AN")
                 .WithEntity("DuAn", project.Id.ToString())
                 .ForUser(newOwnerId)
-                .WithActor(actorName)
+                .WithActor(displayActor)
                 .WithTarget(project.Name)
                 .WithBadge("Bổ nhiệm", "info")
-                .WithMessage("Bạn được phân công làm Chủ dự án của")
+                .WithMessage("đã phân công bạn làm Chủ dự án của")
                 .Build();
 
             _dbContext.Notifications.Add(newOwnerNotification);
@@ -148,7 +149,7 @@ public class DuAnNotificationService : IDuAnNotificationService
             {
                 var oldOwnerNotification = NotificationBuilder.Create()
                     .WithTitle("Thôi chức vụ Chủ dự án")
-                    .WithContent($"Bạn đã thôi giữ chức vụ Chủ dự án cho dự án: {project.Name}")
+                    .WithContent($"{actorName} đã chuyển giao quyền Chủ dự án '{project.Name}' cho {newOwner.FullName ?? newOwner.Username}.")
                     .WithLink($"/du-an/{project.Id}")
                     .WithFeatureCode("DU_AN")
                     .WithEntity("DuAn", project.Id.ToString())
@@ -156,7 +157,7 @@ public class DuAnNotificationService : IDuAnNotificationService
                     .WithActor(actorName)
                     .WithTarget(project.Name)
                     .WithBadge("Bàn giao", "destructive")
-                    .WithMessage("Bạn thôi làm Chủ dự án của")
+                    .WithMessage("đã chuyển giao quyền Chủ dự án của")
                     .Build();
                 _dbContext.Notifications.Add(oldOwnerNotification);
                 var oldOwnerDto = NotificationMapper.MapToDto(oldOwnerNotification);

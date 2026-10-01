@@ -613,6 +613,8 @@ namespace demo1.Services.Implements
                         .Distinct()
                         .ToList();
 
+                    if (allPerms.Count == 0) continue;
+
                     resultDict[feature.Code] = new RolePermissionDto
                     {
                         FeatureId = feature.Id,
@@ -639,7 +641,8 @@ namespace demo1.Services.Implements
                 var featCode = up.FeatureCode;
                 if (string.IsNullOrWhiteSpace(featCode)) continue;
 
-                var permCode = up.Permission?.Code?.ToUpper() ?? "VIEW";
+                var permCode = up.Permission?.Code?.ToUpper();
+                if (string.IsNullOrWhiteSpace(permCode)) continue;
 
                 if (resultDict.TryGetValue(featCode, out var existing))
                 {
@@ -668,30 +671,38 @@ namespace demo1.Services.Implements
                 }
             }
 
-            // 3. Tự động cấp quyền chức năng dự án nếu user là Chủ dự án hoặc Người liên quan (Thành viên)
-            var isProjectOwner = await _dbContext.DuAns.AsNoTracking()
-                .AnyAsync(da => da.CreatedByUserId == userId || da.ChuDuAnId == userId);
-
-            var isRelated = !isProjectOwner && await _dbContext.CongViecNguoiLienQuans.AsNoTracking()
+            // 3. Nếu là người liên quan trong công việc, cho phép xem chức năng gói thầu (GOI_THAU)
+            var isLienQuan = await _dbContext.CongViecNguoiLienQuans
+                .AsNoTracking()
                 .AnyAsync(n => n.UserId == userId);
 
-            if (isProjectOwner || isRelated)
+            if (isLienQuan)
             {
-                var projectFeatures = new[] { "DU_AN", "GOI_THAU", "QUAN_LY_HOP_DONG", "THANH_TOAN" };
-                foreach (var featCode in projectFeatures)
+                var featCode = "GOI_THAU";
+                if (resultDict.TryGetValue(featCode, out var existing))
                 {
-                    if (!resultDict.ContainsKey(featCode))
+                    var currentList = (existing.Permissions ?? "")
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(p => p.ToUpper())
+                        .ToList();
+
+                    if (!currentList.Contains("VIEW"))
                     {
-                        featureMap.TryGetValue(featCode, out var featEntity);
-                        resultDict[featCode] = new RolePermissionDto
-                        {
-                            FeatureId = featEntity?.Id ?? Guid.Empty,
-                            FeatureCode = featCode,
-                            FeatureName = featEntity?.Name ?? featCode,
-                            CanAccess = true,
-                            Permissions = isProjectOwner ? "VIEW,CREATE,EDIT,DELETE" : "VIEW"
-                        };
+                        currentList.Add("VIEW");
+                        existing.Permissions = string.Join(',', currentList);
                     }
+                }
+                else
+                {
+                    featureMap.TryGetValue(featCode, out var featEntity);
+                    resultDict[featCode] = new RolePermissionDto
+                    {
+                        FeatureId = featEntity?.Id ?? Guid.Empty,
+                        FeatureCode = featCode,
+                        FeatureName = featEntity?.Name ?? "Quản lý gói thầu",
+                        CanAccess = true,
+                        Permissions = "VIEW"
+                    };
                 }
             }
 

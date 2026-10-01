@@ -377,15 +377,12 @@ namespace demo1.Services.Implements
                         if (dto.CanEdit == true && !actionsList.Contains("EDIT", StringComparer.OrdinalIgnoreCase)) actionsList.Add("EDIT");
                         if (dto.CanDelete == true && !actionsList.Contains("DELETE", StringComparer.OrdinalIgnoreCase)) actionsList.Add("DELETE");
 
-                        bool canAccess = dto.CanAccess || (dto.CanView ?? false) || actionsList.Any();
+                        bool hasAnyAction = actionsList.Any() || (dto.CanView == true) || (dto.CanCreate == true) || (dto.CanEdit == true) || (dto.CanDelete == true);
+                        bool canAccess = dto.CanAccess && hasAnyAction;
 
-                        if (!canAccess && (dto.CanView == null || dto.CanView == false) && dto.CanCreate != true && dto.CanEdit != true && dto.CanDelete != true)
+                        if (!canAccess)
                         {
-                            if (dto.CanAccess == false)
-                            {
-                                canAccess = false;
-                                actionsList.Clear();
-                            }
+                            actionsList.Clear();
                         }
 
                         return new RolePermission

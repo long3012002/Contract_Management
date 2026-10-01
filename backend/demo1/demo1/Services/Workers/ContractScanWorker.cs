@@ -189,19 +189,19 @@ namespace demo1.Services.Workers
                         {
                             badgeText = "Đã quá hạn";
                             badgeVariant = "destructive";
-                            message = $"Hợp đồng đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                            message = $"cảnh báo hợp đồng đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}) tại";
                         }
                         else if (daysRemaining == 0)
                         {
                             badgeText = "Hôm nay";
                             badgeVariant = "warning";
-                            message = $"Hợp đồng hết hạn hôm nay ({contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                            message = $"cảnh báo hợp đồng hết hạn hôm nay ({contract.ExpiredDate.Value:dd/MM/yyyy}) tại";
                         }
                         else
                         {
                             badgeText = "Sắp hết hạn";
                             badgeVariant = "warning";
-                            message = $"Hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}):";
+                            message = $"cảnh báo hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {contract.ExpiredDate.Value:dd/MM/yyyy}) tại";
                         }
 
                         var notification = NotificationBuilder.Create()
@@ -211,6 +211,7 @@ namespace demo1.Services.Workers
                             .WithFeatureCode("QUAN_LY_HOP_DONG")
                             .WithEntity("HopDong", contract.Id.ToString())
                             .ForUser(user.Id)
+                            .WithActor("Hệ thống")
                             .WithTarget(targetName)
                             .WithBadge(badgeText, badgeVariant)
                             .WithMessage(message)
@@ -290,15 +291,15 @@ namespace demo1.Services.Workers
                         string licMessage;
                         if (daysRemaining < 0)
                         {
-                            licMessage = $"Bản quyền (License) đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            licMessage = $"cảnh báo bản quyền phần mềm đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
                         else if (daysRemaining == 0)
                         {
-                            licMessage = $"Bản quyền (License) hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            licMessage = $"cảnh báo bản quyền phần mềm hết hạn hôm nay ({license.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
                         else
                         {
-                            licMessage = $"Bản quyền (License) sắp hết hạn (còn {daysRemaining} ngày, hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            licMessage = $"cảnh báo bản quyền phần mềm sắp hết hạn (còn {daysRemaining} ngày, hạn: {license.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
 
                         var targetName = string.IsNullOrWhiteSpace(license.Name) ? license.Code : license.Name;
@@ -310,6 +311,7 @@ namespace demo1.Services.Workers
                             .WithFeatureCode("LICENSE")
                             .WithEntity("License", license.Id.ToString())
                             .ForUser(user.Id)
+                            .WithActor("Hệ thống")
                             .WithTarget(targetName)
                             .WithBadge(badgeText, badgeVariant)
                             .WithMessage(licMessage)
@@ -414,15 +416,15 @@ namespace demo1.Services.Workers
                         string hhhMessage;
                         if (daysRemaining < 0)
                         {
-                            hhhMessage = $"License thuộc hợp đồng đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            hhhMessage = $"cảnh báo license thuộc hợp đồng đã hết hạn {Math.Abs(daysRemaining)} ngày (hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
                         else if (daysRemaining == 0)
                         {
-                            hhhMessage = $"License thuộc hợp đồng hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            hhhMessage = $"cảnh báo license thuộc hợp đồng hết hạn hôm nay ({hhh.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
                         else
                         {
-                            hhhMessage = $"License thuộc hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}):";
+                            hhhMessage = $"cảnh báo license thuộc hợp đồng sắp hết hạn (còn {daysRemaining} ngày, hạn: {hhh.NgayKetThuc.Value:dd/MM/yyyy}) tại";
                         }
                         var isOverdue = daysRemaining < 0;
                         var badgeText = isOverdue ? "Đã quá hạn" : "Sắp hết hạn";
@@ -435,6 +437,7 @@ namespace demo1.Services.Workers
                             .WithFeatureCode("QUAN_LY_HOP_DONG")
                             .WithEntity("HangHoaDichVu", hhh.Id.ToString())
                             .ForUser(user.Id)
+                            .WithActor("Hệ thống")
                             .WithTarget(licenseName)
                             .WithBadge(badgeText, badgeVariant)
                             .WithMessage(hhhMessage)

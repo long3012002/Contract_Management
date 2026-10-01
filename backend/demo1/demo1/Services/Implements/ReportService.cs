@@ -1177,6 +1177,18 @@ public class ReportService : IReportService
             }
         }
 
+        var startOfYear = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var endOfYear = new DateTime(year, 12, 31, 23, 59, 59, DateTimeKind.Utc);
+
+        query = query.Where(h =>
+            (h.NgayKy.HasValue ? h.NgayKy.Value.Year == year : (h.NgayHieuLuc.HasValue ? h.NgayHieuLuc.Value.Year == year : h.CreatedAt.Year == year)) ||
+            (h.DotThanhToans.Any(d => (d.NgayThanhToan.HasValue && d.NgayThanhToan.Value.Year == year) ||
+                                      (d.NgayThanhToanThucTe.HasValue && d.NgayThanhToanThucTe.Value.Year == year))) ||
+            ((h.NgayKy ?? h.NgayHieuLuc ?? h.CreatedAt) <= endOfYear &&
+             (!h.ExpiredDate.HasValue && !h.NgayKetThucThucTe.HasValue ||
+              (h.NgayKetThucThucTe.HasValue ? h.NgayKetThucThucTe.Value >= startOfYear : h.ExpiredDate!.Value >= startOfYear)))
+        );
+
         if (loaiHopDong.HasValue && loaiHopDong.Value > 0)
         {
             query = query.Where(h => h.LoaiHopDong == loaiHopDong.Value);

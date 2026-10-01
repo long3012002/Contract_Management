@@ -326,8 +326,8 @@ namespace demo1.Tests.UnitTests.Services
             var config = await _onlyOfficeService.GenerateConfigAsync(attachment, "view", adminUser.Id, adminUser.Username);
 
             config.Should().NotBeNull();
-            config.Document.Url.Should().StartWith("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-download/");
-            config.EditorConfig.CallbackUrl.Should().Be("http://10.225.10.78:64950/api/HeThong/files/onlyoffice-callback");
+            config.Document.Url.Should().StartWith("http://127.0.0.1:5000/api/HeThong/files/onlyoffice-download/");
+            config.EditorConfig.CallbackUrl.Should().Be("http://127.0.0.1:5000/api/HeThong/files/onlyoffice-callback");
             config.Document.Permissions.Chat.Should().BeFalse();
             config.EditorConfig.Customization.Chat.Should().BeNull();
         }

@@ -145,14 +145,15 @@ namespace demo1.Services.Workers
                     {
                         var notification = NotificationBuilder.Create()
                             .WithTitle("Cảnh báo: Quá hạn công việc")
-                            .WithContent($"Bạn đã quá hạn xác nhận công việc '{taskTitle}'.")
+                            .WithContent($"Hệ thống thông báo bạn đã quá hạn xác nhận công việc '{taskTitle}'.")
                             .WithLink(link)
                             .WithFeatureCode("CONG_VIEC")
                             .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
                             .ForUser(record.UserId)
+                            .WithActor("Hệ thống")
                             .WithTarget(taskTitle)
                             .WithBadge("Đã quá hạn", "destructive")
-                            .WithMessage("Bạn đã quá hạn xác nhận công việc")
+                            .WithMessage("thông báo bạn đã quá hạn xác nhận công việc tại")
                             .Build();
 
                         dbContext.Notifications.Add(notification);
@@ -177,7 +178,7 @@ namespace demo1.Services.Workers
                         {
                             var overdueNotification = NotificationBuilder.Create()
                                 .WithTitle("Quá hạn: Người liên quan")
-                                .WithContent($"Thành viên {memberName} đã quá hạn xác nhận '{taskTitle}'.")
+                                .WithContent($"{memberName} đã quá hạn xác nhận công việc '{taskTitle}'.")
                                 .WithLink(link)
                                 .WithFeatureCode("CONG_VIEC")
                                 .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
@@ -185,7 +186,7 @@ namespace demo1.Services.Workers
                                 .WithActor(memberName)
                                 .WithTarget(taskTitle)
                                 .WithBadge("Đã quá hạn", "destructive")
-                                .WithMessage("đã quá hạn xác nhận công việc")
+                                .WithMessage("đã quá hạn xác nhận công việc tại")
                                 .Build();
                             dbContext.Notifications.Add(overdueNotification);
                             notificationsToPush.Add((targetUser.Username, overdueNotification));
@@ -228,14 +229,15 @@ namespace demo1.Services.Workers
                     {
                         var notification = NotificationBuilder.Create()
                             .WithTitle("Nhắc nhở: Sắp hết hạn")
-                            .WithContent($"Công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).")
+                            .WithContent($"Hệ thống nhắc nhở công việc '{taskTitle}' sắp hết hạn (còn {hoursLeft} giờ).")
                             .WithLink(link)
                             .WithFeatureCode("CONG_VIEC")
                             .WithEntity("CongViecGoiThau", record.CongViecGoiThauId.ToString())
                             .ForUser(record.UserId)
+                            .WithActor("Hệ thống")
                             .WithTarget(taskTitle)
                             .WithBadge("Sắp hết hạn", "warning")
-                            .WithMessage($"sắp hết hạn (còn {hoursLeft} giờ để xác nhận)")
+                            .WithMessage($"nhắc nhở công việc sắp hết hạn (còn {hoursLeft} giờ để xác nhận) tại")
                             .Build();
 
                         dbContext.Notifications.Add(notification);

@@ -838,6 +838,7 @@ public class CongViecGoiThauService
         {
             if (task.NguoiLienQuans == null || !task.NguoiLienQuans.Any()) continue;
 
+            var actorName = task.CreateUser?.FullName ?? task.CreateUser?.Username ?? "Hệ thống";
             var taskUserIds = task.NguoiLienQuans.Select(n => n.UserId).Distinct().ToList();
             foreach (var userId in taskUserIds)
             {
@@ -845,14 +846,15 @@ public class CongViecGoiThauService
                 {
                     var notification = NotificationBuilder.Create()
                         .WithTitle("Công việc: Giao việc mới")
-                        .WithContent($"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
+                        .WithContent($"{actorName} đã thêm bạn vào danh sách người liên quan của công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
                         .WithLink($"/bid-packages/{task.GoiThauId}")
                         .WithFeatureCode("CONG_VIEC")
                         .WithEntity("CongViecGoiThau", task.Id.ToString())
                         .ForUser(targetUser.Id)
+                        .WithActor(actorName)
                         .WithTarget(task.TenTaiLieu)
                         .WithBadge("Gán công việc", "info")
-                        .WithMessage("Bạn được thêm làm người liên quan công việc")
+                        .WithMessage("đã thêm bạn vào danh sách người liên quan của công việc")
                         .Build();
 
                     DbContext.Notifications.Add(notification);
@@ -877,18 +879,20 @@ public class CongViecGoiThauService
     {
         if (targetUsers == null || !targetUsers.Any()) return;
 
+        var actorName = task.ModifiedUser?.FullName ?? task.ModifiedUser?.Username ?? task.CreateUser?.FullName ?? task.CreateUser?.Username ?? "Hệ thống";
         foreach (var targetUser in targetUsers)
         {
             var notification = NotificationBuilder.Create()
                 .WithTitle("Công việc: Giao việc mới")
-                .WithContent($"Bạn được thêm làm người liên quan công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
+                .WithContent($"{actorName} đã thêm bạn vào danh sách người liên quan của công việc '{task.TenTaiLieu}' (thời hạn 24 giờ).")
                 .WithLink($"/bid-packages/{task.GoiThauId}")
                 .WithFeatureCode("CONG_VIEC")
                 .WithEntity("CongViecGoiThau", task.Id.ToString())
                 .ForUser(targetUser.Id)
+                .WithActor(actorName)
                 .WithTarget(task.TenTaiLieu)
                 .WithBadge("Gán công việc", "info")
-                .WithMessage("Bạn được thêm làm người liên quan công việc")
+                .WithMessage("đã thêm bạn vào danh sách người liên quan của công việc")
                 .Build();
 
             DbContext.Notifications.Add(notification);
@@ -902,18 +906,20 @@ public class CongViecGoiThauService
     {
         if (targetUsers == null || !targetUsers.Any()) return;
 
+        var actorName = task.ModifiedUser?.FullName ?? task.ModifiedUser?.Username ?? "Hệ thống";
         foreach (var targetUser in targetUsers)
         {
             var notification = NotificationBuilder.Create()
                 .WithTitle("Công việc: Loại bỏ người liên quan")
-                .WithContent($"Bạn đã bị gỡ bỏ khỏi danh sách người liên quan của công việc '{task.TenTaiLieu}'.")
+                .WithContent($"{actorName} đã gỡ bạn khỏi danh sách người liên quan của công việc '{task.TenTaiLieu}'.")
                 .WithLink($"/bid-packages/{task.GoiThauId}")
                 .WithFeatureCode("CONG_VIEC")
                 .WithEntity("CongViecGoiThau", task.Id.ToString())
                 .ForUser(targetUser.Id)
+                .WithActor(actorName)
                 .WithTarget(task.TenTaiLieu)
                 .WithBadge("Thay đổi", "secondary")
-                .WithMessage("Bạn đã được gỡ khỏi người liên quan của công việc")
+                .WithMessage("đã gỡ bạn khỏi danh sách người liên quan của công việc")
                 .Build();
 
             DbContext.Notifications.Add(notification);
