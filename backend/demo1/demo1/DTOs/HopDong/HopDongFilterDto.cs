@@ -26,4 +26,8 @@ public class HopDongFilterDto
     public decimal? MinGiaTri { get; set; }
     public decimal? MaxGiaTri { get; set; }
     public bool? IsDeleted { get; set; }
+    /// <summary>
+    /// Lọc theo trạng thái hợp đồng: "Active", "Expired", "expiring_soon", "Draft", "Terminated"
+    /// </summary>
+    public string? Status { get; set; }
 }

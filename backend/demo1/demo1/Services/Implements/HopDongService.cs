@@ -165,6 +165,71 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             query = query.Where(item => item.GiaTriHopDong <= filter.MaxGiaTri.Value);
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Status) && !string.Equals(filter.Status, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            var today = DateTime.Today;
+            var statusLower = filter.Status.Trim().ToLowerInvariant();
+
+            switch (statusLower)
+            {
+                case "draft":
+                    query = query.Where(item => item.NgayHieuLuc.HasValue && item.NgayHieuLuc.Value.Date > today);
+                    break;
+                case "terminated":
+                    query = query.Where(item => item.DaKetThuc);
+                    break;
+                case "expired":
+                    query = query.Where(item => !item.DaKetThuc &&
+                        (
+                            (item.PhuLucHopDongs.Any(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                ? item.PhuLucHopDongs.Where(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                    .OrderByDescending(p => p.NgayKy)
+                                    .Select(p => p.ExpiredDateMoi)
+                                    .FirstOrDefault()
+                                : item.ExpiredDate) < today
+                        ));
+                    break;
+                case "expiring_soon":
+                    var thirtyDaysLater = today.AddDays(30);
+                    query = query.Where(item => !item.DaKetThuc &&
+                        (
+                            (item.PhuLucHopDongs.Any(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                ? item.PhuLucHopDongs.Where(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                    .OrderByDescending(p => p.NgayKy)
+                                    .Select(p => p.ExpiredDateMoi)
+                                    .FirstOrDefault()
+                                : item.ExpiredDate) >= today
+                        ) &&
+                        (
+                            (item.PhuLucHopDongs.Any(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                ? item.PhuLucHopDongs.Where(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                    .OrderByDescending(p => p.NgayKy)
+                                    .Select(p => p.ExpiredDateMoi)
+                                    .FirstOrDefault()
+                                : item.ExpiredDate) <= thirtyDaysLater
+                        ));
+                    break;
+                case "active":
+                    query = query.Where(item => !item.DaKetThuc &&
+                        (!item.NgayHieuLuc.HasValue || item.NgayHieuLuc.Value.Date <= today) &&
+                        (
+                            (item.PhuLucHopDongs.Any(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                ? item.PhuLucHopDongs.Where(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                    .OrderByDescending(p => p.NgayKy)
+                                    .Select(p => p.ExpiredDateMoi)
+                                    .FirstOrDefault()
+                                : item.ExpiredDate) == null ||
+                            (item.PhuLucHopDongs.Any(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                ? item.PhuLucHopDongs.Where(p => p.TrangThai == TrangThaiPhuLuc.Active && p.ExpiredDateMoi.HasValue)
+                                    .OrderByDescending(p => p.NgayKy)
+                                    .Select(p => p.ExpiredDateMoi)
+                                    .FirstOrDefault()
+                                : item.ExpiredDate) >= today
+                        ));
+                    break;
+            }
+        }
+
         var totalItems = await query.CountAsync();
         List<HopDong> items;
         bool isKeyset = TryParseCursor(filter.Cursor, out var lastCreatedAt, out var lastId);
@@ -1199,23 +1264,27 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
                 }
             }
 
-            // 3. Chuẩn hóa trạng thái hợp đồng (TrangThaiCalculatedText)
+            // 3. Chuẩn hóa trạng thái hợp đồng (TrangThaiCalculatedText và Status code)
             var effEnd = dto.ExpiredDateHienTai ?? dto.ExpiredDate;
-            if (dto.DaKetThuc)
+            if (dto.DaKetThuc || !dto.IsActive)
             {
                 dto.TrangThaiCalculatedText = "Đã kết thúc / Thanh lý";
+                dto.Status = "Terminated";
             }
             else if (effEnd.HasValue && effEnd.Value.Date < DateTime.Today)
             {
                 dto.TrangThaiCalculatedText = "Đã hết hạn";
+                dto.Status = "Expired";
             }
             else if (dto.NgayHieuLuc.HasValue && dto.NgayHieuLuc.Value.Date > DateTime.Today)
             {
                 dto.TrangThaiCalculatedText = "Dự thảo / Chưa hiệu lực";
+                dto.Status = "Draft";
             }
             else
             {
                 dto.TrangThaiCalculatedText = "Đang hiệu lực";
+                dto.Status = "Active";
             }
         }
     }

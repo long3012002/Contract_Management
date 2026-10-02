@@ -63,6 +63,11 @@ public class HopDongDto : IHasId
     /// </summary>
     public string TrangThaiCalculatedText { get; set; } = "Đang hiệu lực";
 
+    /// <summary>
+    /// Mã trạng thái kỹ thuật (Active, Expired, Draft, Terminated) cho Frontend
+    /// </summary>
+    public string Status { get; set; } = "Active";
+
     public List<DotThanhToanDto> DotThanhToans { get; set; } = new();
 
     public List<NhaThauGoiThauDto> NhaThauGoiThaus { get; set; } = new();
