@@ -22,10 +22,20 @@ public class DoiTacService : DbCrudService<DoiTac, DoiTacDto, CreateDoiTacDto, U
         if (result.Items != null && result.Items.Any())
         {
             var doiTacIds = result.Items.Select(x => x.Id).ToList();
-            var contractCounts = await DbContext.HopDongs
-                .Where(h => h.NhaThauId != null && doiTacIds.Contains(h.NhaThauId.Value))
-                .GroupBy(h => h.NhaThauId)
-                .Select(g => new { DoiTacId = g.Key!.Value, Count = g.Count() })
+
+            var directContracts = DbContext.HopDongs
+                .Where(h => !h.IsDeleted && h.NhaThauId.HasValue && doiTacIds.Contains(h.NhaThauId.Value))
+                .Select(h => new { DoiTacId = h.NhaThauId!.Value, HopDongId = h.Id });
+
+            var jointContracts = DbContext.NhaThauGoiThaus
+                .Where(nt => doiTacIds.Contains(nt.NhaThauId) && nt.HopDong != null && !nt.HopDong.IsDeleted)
+                .Select(nt => new { DoiTacId = nt.NhaThauId, HopDongId = nt.HopDongId });
+
+            var contractCounts = await directContracts
+                .Concat(jointContracts)
+                .Distinct()
+                .GroupBy(x => x.DoiTacId)
+                .Select(g => new { DoiTacId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.DoiTacId, x => x.Count);
 
             foreach (var item in result.Items)
@@ -41,7 +51,15 @@ public class DoiTacService : DbCrudService<DoiTac, DoiTacDto, CreateDoiTacDto, U
         var dto = await base.GetByIdAsync(id);
         if (dto != null)
         {
-            dto.ContractCount = await DbContext.HopDongs.CountAsync(h => h.NhaThauId == id);
+            var direct = DbContext.HopDongs
+                .Where(h => !h.IsDeleted && h.NhaThauId == id)
+                .Select(h => h.Id);
+
+            var joint = DbContext.NhaThauGoiThaus
+                .Where(nt => nt.NhaThauId == id && nt.HopDong != null && !nt.HopDong.IsDeleted)
+                .Select(nt => nt.HopDongId);
+
+            dto.ContractCount = await direct.Concat(joint).Distinct().CountAsync();
         }
         return dto;
     }
