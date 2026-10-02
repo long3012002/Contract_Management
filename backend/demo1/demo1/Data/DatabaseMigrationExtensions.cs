@@ -71,11 +71,13 @@ public static class DatabaseMigrationExtensions
                     DROP TABLE IF EXISTS public.""aggregatedcounter"" CASCADE;
                     DROP TABLE IF EXISTS public.""hash"" CASCADE;
                     DROP TABLE IF EXISTS public.""server"" CASCADE;
+                    DROP INDEX IF EXISTS public.""IX_HangHoaDichVus_Code"";
+                    DROP INDEX IF EXISTS public.""IX_HangHoaDichVus_Loai_Code"";
                 ");
             }
             catch (Exception ex)
             {
-                logger?.LogDebug(ex, "Bỏ qua dọn dẹp bảng Hangfire cũ trong public schema.");
+                logger?.LogDebug(ex, "Bỏ qua dọn dẹp bảng Hangfire/index cũ trong public schema.");
             }
 
             logger?.LogInformation("Bắt đầu áp dụng EF Core Migrations (Database.MigrateAsync)...");

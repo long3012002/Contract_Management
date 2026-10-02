@@ -143,18 +143,25 @@ WHERE NOT EXISTS (
 INSERT INTO "DonViTinhs" ("Id", "Code", "Name", "Description", "IsActive", "CreatedAt", "IsDeleted")
 SELECT gen_random_uuid(), val.code, val.name, val.descr, TRUE, NOW() AT TIME ZONE 'UTC', FALSE
 FROM (VALUES
-    ('CAI',      'Cái',       'Đơn vị tính: Cái'),
-    ('BO',       'Bộ',        'Đơn vị tính: Bộ'),
-    ('GOI',      'Gói',       'Đơn vị tính: Gói'),
-    ('NAM',      'Năm',       'Đơn vị tính thời gian: Năm'),
-    ('THANG',    'Tháng',     'Đơn vị tính thời gian: Tháng'),
-    ('LUOT',     'Lượt',      'Đơn vị tính: Lượt'),
-    ('HE_THONG', 'Hệ thống',  'Đơn vị tính: Hệ thống'),
-    ('LICENSE',  'License',   'Đơn vị tính bản quyền: License / User / Core'),
-    ('CHIEC',    'Chiếc',     'Đơn vị tính: Chiếc'),
-    ('THIET_BI', 'Thiết bị',  'Đơn vị tính: Thiết bị'),
-    ('GIO',      'Giờ',       'Đơn vị tính thời gian: Giờ công / Man-hour'),
-    ('NGAY',     'Ngày',      'Đơn vị tính thời gian: Ngày công / Man-day')
+    ('LICENSE',   'License',    'Đơn vị tính: License / Bản quyền'),
+    ('BAN_QUYEN', 'Bản quyền', 'Đơn vị tính: Bản quyền'),
+    ('USER',      'User',       'Đơn vị tính: Người dùng (User / Account)'),
+    ('CORE',      'Core',       'Đơn vị tính: Core / vCPU'),
+    ('SOCKET',    'Socket',     'Đơn vị tính: Socket / CPU Socket'),
+    ('NODE',      'Node',       'Đơn vị tính: Node / Instance'),
+    ('MODULE',    'Module',     'Đơn vị tính: Module phần mềm'),
+    ('GOI',       'Gói',        'Đơn vị tính: Gói dịch vụ / Phần mềm'),
+    ('HE_THONG',  'Hệ thống',   'Đơn vị tính: Hệ thống'),
+    ('SERVER',    'Máy chủ',    'Đơn vị tính: Máy chủ / Server'),
+    ('THIET_BI',  'Thiết bị',   'Đơn vị tính: Thiết bị'),
+    ('BO',        'Bộ',         'Đơn vị tính: Bộ'),
+    ('CAI',       'Cái',        'Đơn vị tính: Cái'),
+    ('CHIEC',     'Chiếc',      'Đơn vị tính: Chiếc'),
+    ('NAM',       'Năm',        'Đơn vị tính thời gian: Năm'),
+    ('THANG',     'Tháng',      'Đơn vị tính thời gian: Tháng'),
+    ('GIO',       'Giờ',        'Đơn vị tính thời gian: Giờ công / Man-hour'),
+    ('NGAY',      'Ngày',       'Đơn vị tính thời gian: Ngày công / Man-day'),
+    ('LUOT',      'Lượt',       'Đơn vị tính: Lượt / Lần')
 ) AS val(code, name, descr)
 WHERE NOT EXISTS (
     SELECT 1 FROM "DonViTinhs" WHERE "Code" = val.code AND "IsDeleted" = FALSE

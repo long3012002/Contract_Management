@@ -26,6 +26,13 @@ public class HangHoaService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, Cre
     {
         var entity = base.CreateEntity(dto);
         entity.Loai = LoaiHangHoaDichVu.HangHoa;
+        var name = !string.IsNullOrWhiteSpace(dto.DanhMucHangHoa)
+            ? dto.DanhMucHangHoa.Trim()
+            : (!string.IsNullOrWhiteSpace(dto.TenDichVu) ? dto.TenDichVu.Trim() : (dto.KyMaHieu?.Trim() ?? "HangHoa"));
+        entity.Name = name;
+        entity.DanhMucHangHoa = name;
+        entity.TenDichVu = name;
+        entity.Code = $"HH-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..45];
         return entity;
     }
 
@@ -33,6 +40,16 @@ public class HangHoaService : DbCrudService<HangHoaDichVu, HangHoaDichVuDto, Cre
     {
         base.UpdateEntity(entity, dto);
         entity.Loai = LoaiHangHoaDichVu.HangHoa;
+        var name = !string.IsNullOrWhiteSpace(dto.DanhMucHangHoa)
+            ? dto.DanhMucHangHoa.Trim()
+            : (!string.IsNullOrWhiteSpace(dto.TenDichVu) ? dto.TenDichVu.Trim() : (dto.KyMaHieu?.Trim() ?? "HangHoa"));
+        entity.Name = name;
+        entity.DanhMucHangHoa = name;
+        entity.TenDichVu = name;
+        if (string.IsNullOrWhiteSpace(entity.Code))
+        {
+            entity.Code = $"HH-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..45];
+        }
     }
 
     public async Task<IEnumerable<HangHoaDichVuDto>> GetByIdParentAsync(Guid idParent)

@@ -27,6 +27,76 @@ public class HangHoaDichVuService : DbCrudService<HangHoaDichVu, HangHoaDichVuDt
             .Include(h => h.DonViTinh);
     }
 
+    protected override HangHoaDichVu CreateEntity(CreateHangHoaDichVuDto dto)
+    {
+        var entity = base.CreateEntity(dto);
+        var name = !string.IsNullOrWhiteSpace(dto.DanhMucHangHoa)
+            ? dto.DanhMucHangHoa.Trim()
+            : (!string.IsNullOrWhiteSpace(dto.TenDichVu) ? dto.TenDichVu.Trim() : (dto.KyMaHieu?.Trim() ?? "HHDV"));
+        entity.Name = name;
+        entity.DanhMucHangHoa = name;
+        entity.TenDichVu = name;
+
+        var prefix = entity.Loai switch
+        {
+            LoaiHangHoaDichVu.License => "LIC",
+            LoaiHangHoaDichVu.DichVu => "DV",
+            _ => "HH"
+        };
+
+        var kyMaHieuClean = !string.IsNullOrWhiteSpace(dto.KyMaHieu) ? dto.KyMaHieu.Trim() : null;
+        entity.KyMaHieu = kyMaHieuClean;
+        entity.Code = $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..45];
+
+        var moTa = !string.IsNullOrWhiteSpace(dto.CauHinhTinhNangKyThuatCoBan)
+            ? dto.CauHinhTinhNangKyThuatCoBan.Trim()
+            : dto.MoTaDichVu?.Trim();
+        entity.CauHinhTinhNangKyThuatCoBan = moTa;
+        entity.MoTaDichVu = moTa;
+        entity.Description = moTa;
+
+        if (entity.Loai != LoaiHangHoaDichVu.License)
+        {
+            entity.NgayKetThuc = null;
+        }
+
+        return entity;
+    }
+
+    protected override void UpdateEntity(HangHoaDichVu entity, UpdateHangHoaDichVuDto dto)
+    {
+        base.UpdateEntity(entity, dto);
+        var name = !string.IsNullOrWhiteSpace(dto.DanhMucHangHoa)
+            ? dto.DanhMucHangHoa.Trim()
+            : (!string.IsNullOrWhiteSpace(dto.TenDichVu) ? dto.TenDichVu.Trim() : (dto.KyMaHieu?.Trim() ?? "HHDV"));
+        entity.Name = name;
+        entity.DanhMucHangHoa = name;
+        entity.TenDichVu = name;
+
+        if (string.IsNullOrWhiteSpace(entity.Code))
+        {
+            var prefix = entity.Loai switch
+            {
+                LoaiHangHoaDichVu.License => "LIC",
+                LoaiHangHoaDichVu.DichVu => "DV",
+                _ => "HH"
+            };
+            entity.Code = $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..45];
+        }
+
+        var moTa = !string.IsNullOrWhiteSpace(dto.CauHinhTinhNangKyThuatCoBan)
+            ? dto.CauHinhTinhNangKyThuatCoBan.Trim()
+            : dto.MoTaDichVu?.Trim();
+        entity.CauHinhTinhNangKyThuatCoBan = moTa;
+        entity.MoTaDichVu = moTa;
+        entity.Description = moTa;
+
+        if (entity.Loai != LoaiHangHoaDichVu.License)
+        {
+            entity.NgayKetThuc = null;
+        }
+    }
+
     public async Task<PagedResult<HangHoaDichVuDto>> GetAllAsync(string? search, int page, int pageSize, LoaiHangHoaDichVu? loai, string? cursor = null)
     {
         page = Math.Max(1, page);

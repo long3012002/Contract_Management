@@ -791,15 +791,14 @@ namespace demo1.Data
             {
                 ConfigureBaseEntity(entity, uniqueCode: false);
 
+                entity.Property(h => h.Code)
+                    .IsRequired(false);
+
                 entity.Property(h => h.DonGia)
                     .HasColumnType("decimal(18,2)");
 
                 entity.Property(h => h.ThanhTien)
                     .HasColumnType("decimal(18,2)");
-
-                entity.HasIndex(h => new { h.Loai, h.Code })
-                    .HasFilter("\"IsDeleted\" = false")
-                    .IsUnique();
 
                 entity.HasOne(h => h.XuatXu)
                     .WithMany()
