@@ -6,9 +6,12 @@ namespace demo1.DTOs;
 
 public class UpdateHopDongDto
 {
+    [StringLength(100)]
+    public string? SoHopDong { get; set; } // Số hợp đồng
+
     [Required]
     [StringLength(50)]
-    public string Code { get; set; } = string.Empty; // Số ký hiệu
+    public string Code { get; set; } = string.Empty; // Mã hợp đồng
 
     [Required]
     [StringLength(255)]

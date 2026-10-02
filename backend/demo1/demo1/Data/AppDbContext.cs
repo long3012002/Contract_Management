@@ -464,6 +464,9 @@ namespace demo1.Data
                 .Property(hd => hd.GiaTriHopDong)
                 .HasPrecision(18, 2);
             modelBuilder.Entity<HopDong>()
+                .Property(hd => hd.SoHopDong)
+                .HasMaxLength(100);
+            modelBuilder.Entity<HopDong>()
                 .Property(hd => hd.ThoiHanThucHien)
                 .HasMaxLength(255);
             modelBuilder.Entity<HopDong>()

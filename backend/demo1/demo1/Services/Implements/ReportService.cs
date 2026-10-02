@@ -1204,6 +1204,7 @@ public class ReportService : IReportService
             string searchLower = search.Trim().ToLower();
             query = query.Where(h =>
                 (h.Code != null && h.Code.ToLower().Contains(searchLower)) ||
+                (h.SoHopDong != null && h.SoHopDong.ToLower().Contains(searchLower)) ||
                 (h.Name != null && h.Name.ToLower().Contains(searchLower)) ||
                 (h.DuAn != null && h.DuAn.Name.ToLower().Contains(searchLower)) ||
                 (h.GoiThau != null && h.GoiThau.Name.ToLower().Contains(searchLower)) ||
@@ -1796,6 +1797,7 @@ public class ReportService : IReportService
             string searchLower = search.Trim().ToLower();
             query = query.Where(h =>
                 (h.Code != null && h.Code.ToLower().Contains(searchLower)) ||
+                (h.SoHopDong != null && h.SoHopDong.ToLower().Contains(searchLower)) ||
                 (h.Name != null && h.Name.ToLower().Contains(searchLower)) ||
                 (h.DuAn != null && h.DuAn.Name.ToLower().Contains(searchLower)) ||
                 (h.GoiThau != null && h.GoiThau.Name.ToLower().Contains(searchLower)) ||
@@ -1871,7 +1873,7 @@ public class ReportService : IReportService
             {
                 Stt = stt++,
                 HopDongId = contract.Id,
-                SoHopDong = contract.Code,
+                SoHopDong = !string.IsNullOrWhiteSpace(contract.SoHopDong) ? contract.SoHopDong : contract.Code,
                 TenHopDong = contract.Name,
                 NgayKyHopDong = contract.NgayHieuLuc,
                 NgayKetThucDuKien = contract.ExpiredDate,
@@ -4375,6 +4377,7 @@ public class ReportService : IReportService
             var keyword = search.Trim().ToLower();
             query = query.Where(h => h.Name.ToLower().Contains(keyword) ||
                                      h.Code.ToLower().Contains(keyword) ||
+                                     (h.SoHopDong != null && h.SoHopDong.ToLower().Contains(keyword)) ||
                                      (h.DuAn != null && h.DuAn.Name.ToLower().Contains(keyword)) ||
                                      (h.GoiThau != null && h.GoiThau.Name.ToLower().Contains(keyword)) ||
                                      (h.NhaThau != null && h.NhaThau.Name.ToLower().Contains(keyword)));
@@ -4454,7 +4457,7 @@ public class ReportService : IReportService
                 TenNhaThau = hd.NhaThau?.Name ?? string.Empty,
                 MaSoThue = hd.NhaThau?.TaxCode,
                 DiaChi = hd.NhaThau?.Address,
-                SoHopDong = hd.Code,
+                SoHopDong = !string.IsNullOrWhiteSpace(hd.SoHopDong) ? hd.SoHopDong : hd.Code,
                 NgayKy = hd.NgayKy ?? hd.NgayHieuLuc,
                 ThoiGianThucHien = hd.ThoiHanThucHien,
                 GiaTriHopDong = giaTriHopDongConverted,

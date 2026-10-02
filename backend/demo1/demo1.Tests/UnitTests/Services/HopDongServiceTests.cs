@@ -483,6 +483,101 @@ namespace demo1.Tests.UnitTests.Services
             dots[1].Code.Should().NotBeNullOrWhiteSpace();
         }
 
+        [Fact]
+        public async Task CreateAsync_Should_AutoGenerate_HopDong_Code_When_Code_Is_Null_Or_Empty()
+        {
+            // Arrange
+            var createDto = new CreateHopDongDto
+            {
+                Code = null, // Auto generate
+                SoHopDong = "123/2026/HĐKT",
+                Name = "Hợp đồng kiểm thử tự sinh mã",
+                GiaTriHopDong = 500000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1
+            };
+
+            // Act
+            var result = await _hopDongService.CreateAsync(createDto);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Code.Should().MatchRegex(@"^HD-\d{4}-\d{3}$");
+            result.SoHopDong.Should().Be("123/2026/HĐKT");
+
+            var dbContract = await _dbContext.HopDongs.FindAsync(result.Id);
+            dbContract.Should().NotBeNull();
+            dbContract!.Code.Should().Be(result.Code);
+            dbContract.SoHopDong.Should().Be("123/2026/HĐKT");
+        }
+
+        [Fact]
+        public async Task GetAllAsync_Should_Search_And_Filter_By_SoHopDong()
+        {
+            // Arrange
+            var hd1 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-2026-099",
+                SoHopDong = "999/2026/HĐMB",
+                Name = "Hợp đồng số 999",
+                GiaTriHopDong = 100000000
+            };
+            var hd2 = new HopDong
+            {
+                Id = Guid.NewGuid(),
+                Code = "HD-2026-100",
+                SoHopDong = "888/2026/HĐKT",
+                Name = "Hợp đồng số 888",
+                GiaTriHopDong = 200000000
+            };
+            _dbContext.HopDongs.AddRange(hd1, hd2);
+            await _dbContext.SaveChangesAsync();
+
+            // Act 1: Search by SoHopDong keyword
+            var searchResult = await _hopDongService.GetAllAsync(new HopDongFilterDto { Search = "999/2026" });
+            searchResult.Items.Should().ContainSingle(h => h.Id == hd1.Id);
+
+            // Act 2: Filter by SoHopDong explicitly
+            var filterResult = await _hopDongService.GetAllAsync(new HopDongFilterDto { SoHopDong = "888" });
+            filterResult.Items.Should().ContainSingle(h => h.Id == hd2.Id);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Update_SoHopDong()
+        {
+            // Arrange
+            var createDto = new CreateHopDongDto
+            {
+                Code = "HD-TEST-UPDATE-SO",
+                SoHopDong = "01/2026/HĐ-BAN-DAU",
+                Name = "Hợp đồng ban đầu",
+                GiaTriHopDong = 100000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1
+            };
+            var created = await _hopDongService.CreateAsync(createDto);
+
+            // Act
+            var updateDto = new UpdateHopDongDto
+            {
+                Code = "HD-TEST-UPDATE-SO",
+                SoHopDong = "01/2026/HĐ-CAP-NHAT",
+                Name = "Hợp đồng đã sửa",
+                GiaTriHopDong = 100000000,
+                LoaiHopDong = 1,
+                HinhThucThanhToan = 1
+            };
+            var updateResult = await _hopDongService.UpdateAsync(created.Id, updateDto);
+
+            // Assert
+            updateResult.Should().BeTrue();
+            var dbContract = await _dbContext.HopDongs.FindAsync(created.Id);
+            dbContract.Should().NotBeNull();
+            dbContract!.SoHopDong.Should().Be("01/2026/HĐ-CAP-NHAT");
+            dbContract.Name.Should().Be("Hợp đồng đã sửa");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

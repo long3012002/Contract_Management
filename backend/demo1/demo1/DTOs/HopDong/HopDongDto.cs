@@ -7,7 +7,8 @@ namespace demo1.DTOs;
 public class HopDongDto : IHasId
 {
     public Guid Id { get; set; }
-    public string Code { get; set; } = string.Empty; // Số ký hiệu
+    public string? SoHopDong { get; set; } // Số hợp đồng
+    public string Code { get; set; } = string.Empty; // Mã hợp đồng
     public string Name { get; set; } = string.Empty; // Tên hợp đồng
     public string? Description { get; set; }
 

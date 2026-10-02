@@ -5,6 +5,8 @@ namespace demo1.Entity;
 
 public class HopDong : BaseEntity
 {
+    public string? SoHopDong { get; set; }
+
     public Guid? GoiThauId { get; set; }
     public virtual GoiThau? GoiThau { get; set; }
 

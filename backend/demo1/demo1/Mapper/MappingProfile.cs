@@ -221,6 +221,7 @@ namespace demo1.Mapper
             CreateMap<PhuLucHopDong, PhuLucHopDongDto>();
             CreateMap<CreateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.SoHopDong, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoHopDong)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
                 .ForMember(dest => dest.ThoiHanThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiHanThucHien)))
@@ -229,6 +230,7 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NhaThauGoiThaus, opt => opt.Ignore()); // Handled manually in service
             CreateMap<UpdateHopDongDto, HopDong>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.SoHopDong, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoHopDong)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
                 .ForMember(dest => dest.ThoiHanThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ThoiHanThucHien)))

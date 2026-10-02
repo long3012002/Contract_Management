@@ -5,6 +5,7 @@ namespace demo1.DTOs;
 public class HopDongFilterDto
 {
     public string? Search { get; set; }
+    public string? SoHopDong { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
     public string? Cursor { get; set; }

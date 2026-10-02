@@ -10,11 +10,16 @@ namespace demo1.DTOs;
 public class CreateHopDongDto
 {
     /// <summary>
-    /// Số hiệu / Ký hiệu hợp đồng
+    /// Số hợp đồng (người dùng nhập)
     /// </summary>
-    [Required]
+    [StringLength(100)]
+    public string? SoHopDong { get; set; }
+
+    /// <summary>
+    /// Mã hợp đồng (tự sinh tăng dần HD-YYYY-XXX nếu để trống)
+    /// </summary>
     [StringLength(50)]
-    public string Code { get; set; } = string.Empty;
+    public string? Code { get; set; }
 
     /// <summary>
     /// Tên hợp đồng

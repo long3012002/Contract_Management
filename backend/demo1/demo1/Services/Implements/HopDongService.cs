@@ -90,8 +90,15 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
             var keyword = filter.Search.Trim();
             query = query.Where(item => 
                 EF.Functions.Like(item.Code, $"%{keyword}%") || 
+                (item.SoHopDong != null && EF.Functions.Like(item.SoHopDong, $"%{keyword}%")) ||
                 EF.Functions.Like(item.Name, $"%{keyword}%") ||
                 (item.Description != null && EF.Functions.Like(item.Description, $"%{keyword}%")));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.SoHopDong))
+        {
+            var soHd = filter.SoHopDong.Trim();
+            query = query.Where(item => item.SoHopDong != null && EF.Functions.Like(item.SoHopDong, $"%{soHd}%"));
         }
 
         if (filter.DuAnId.HasValue)
@@ -434,9 +441,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
     {
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
-            // dto.Code = await _codeGeneratorService.GenerateHopDongCodeAsync();
-            throw new ArgumentException("Vui lòng nhập Số/Mã hợp đồng.");
+            dto.Code = await _codeGeneratorService.GenerateHopDongCodeAsync();
         }
         else
         {
@@ -650,10 +655,38 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         var dtoList = dtos.ToList();
         if (!dtoList.Any()) return Enumerable.Empty<HopDongDto>();
 
-        // 1. Xác thực các hợp đồng locally
+        // 1. Xác thực các hợp đồng locally và tự sinh mã nếu chưa có
+        int targetYear = DateTime.UtcNow.Year;
+        int currentMaxSeq = -1;
         foreach (var dto in dtoList)
         {
-            dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+            if (string.IsNullOrWhiteSpace(dto.Code))
+            {
+                if (currentMaxSeq == -1)
+                {
+                    var firstCode = await _codeGeneratorService.GenerateHopDongCodeAsync(targetYear);
+                    var match = System.Text.RegularExpressions.Regex.Match(firstCode, @"\d+$");
+                    if (match.Success && int.TryParse(match.Value, out int parsed))
+                    {
+                        currentMaxSeq = parsed;
+                    }
+                    else
+                    {
+                        currentMaxSeq = 1;
+                    }
+                    dto.Code = firstCode;
+                }
+                else
+                {
+                    currentMaxSeq++;
+                    dto.Code = $"HD-{targetYear}-{currentMaxSeq:D3}";
+                }
+            }
+            else
+            {
+                dto.Code = CodePrefixValidator.FormatHopDongCode(dto.Code);
+            }
+
             if (dto.DotThanhToans != null)
             {
                 foreach (var d in dto.DotThanhToans)
