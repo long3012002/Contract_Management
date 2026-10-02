@@ -75,7 +75,7 @@ public class LicenseExpiryEmailHandler : IEmailNotificationHandler
             var subject = BuildSubject(daysRemaining, displayName);
             var link = string.IsNullOrEmpty(baseUrl) ? null : $"{baseUrl}/licenses/{license.Id}";
 
-            var targetUsers = await ContractScanWorker.GetTargetUsersForLicenseAsync(_db, license);
+            var targetUsers = await ContractScanWorker.GetTargetUsersForLicenseAsync(_db, license, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
 
             foreach (var user in emailUsers)

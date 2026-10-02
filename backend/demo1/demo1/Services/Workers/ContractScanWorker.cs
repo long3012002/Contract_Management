@@ -463,7 +463,10 @@ namespace demo1.Services.Workers
             _logger.LogInformation("Finished contract & license expiration scan. Generated {Count} notifications.", notificationsToPush.Count);
         }
 
-        public static async Task<List<User>> GetTargetUsersForContractAsync(AppDbContext dbContext, HopDong contract)
+        public static async Task<List<User>> GetTargetUsersForContractAsync(
+            AppDbContext dbContext,
+            HopDong contract,
+            ISystemConfigService? systemConfig = null)
         {
             var targetUserIds = new HashSet<Guid>();
 
@@ -474,122 +477,168 @@ namespace demo1.Services.Workers
                 duAnId = contract.GoiThau.DuAnId;
             }
 
-            // 1. Project Owner / Creator
-            if (duAnId.HasValue && duAnId.Value != Guid.Empty)
+            bool notifyOwner = systemConfig == null || await systemConfig.GetBoolAsync("Email:NotifyProjectOwner", true);
+            bool notifyMembers = systemConfig == null || await systemConfig.GetBoolAsync("Email:NotifyProjectMembers", true);
+
+            // 1. Project Owner (ChuDuAnId & CreatedByUserId)
+            if (notifyOwner && duAnId.HasValue && duAnId.Value != Guid.Empty)
             {
                 var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == duAnId.Value);
+                if (duAn?.ChuDuAnId != null && duAn.ChuDuAnId.Value != Guid.Empty)
+                {
+                    targetUserIds.Add(duAn.ChuDuAnId.Value);
+                }
                 if (duAn?.CreatedByUserId != null && duAn.CreatedByUserId.Value != Guid.Empty)
                 {
                     targetUserIds.Add(duAn.CreatedByUserId.Value);
                 }
             }
 
-            // 2. Creators / Modifiers from AuditLogs for this contract
-            var contractIdStr = contract.Id.ToString();
-            var auditUserStrIds = await dbContext.AuditLogs
-                .AsNoTracking()
-                .Where(a => (a.TableName == "HopDongs" || a.TableName == "HopDong") && a.EntityId == contractIdStr && a.UserId != null)
-                .Select(a => a.UserId!)
-                .Distinct()
-                .ToListAsync();
-            foreach (var uidStr in auditUserStrIds)
+            // 2. Project Members (Permissions, Stakeholders in Tasks, Creators/Modifiers)
+            if (notifyMembers)
             {
-                if (Guid.TryParse(uidStr, out var parsedGuid))
+                var contractIdStr = contract.Id.ToString();
+
+                // 2a. Users with explicit permissions on this project or contract
+                var permissionUserIds = await dbContext.UserPermissions
+                    .AsNoTracking()
+                    .Where(up => (duAnId.HasValue && up.DuAnId == duAnId.Value) || 
+                                 (up.EntityName == "HopDong" && up.EntityId == contractIdStr))
+                    .Select(up => up.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in permissionUserIds) targetUserIds.Add(id);
+
+                // 2b. Related users (stakeholders) on tasks of the project
+                if (duAnId.HasValue && duAnId.Value != Guid.Empty)
                 {
-                    targetUserIds.Add(parsedGuid);
+                    var stakeholderUserIds = await dbContext.CongViecNguoiLienQuans
+                        .AsNoTracking()
+                        .Where(n => n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value)
+                        .Select(n => n.UserId)
+                        .Distinct()
+                        .ToListAsync();
+                    foreach (var id in stakeholderUserIds) targetUserIds.Add(id);
+                }
+
+                // 2c. Creators / Modifiers from AuditLogs for this contract
+                var auditUserStrIds = await dbContext.AuditLogs
+                    .AsNoTracking()
+                    .Where(a => (a.TableName == "HopDongs" || a.TableName == "HopDong") && a.EntityId == contractIdStr && a.UserId != null)
+                    .Select(a => a.UserId!)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var uidStr in auditUserStrIds)
+                {
+                    if (Guid.TryParse(uidStr, out var parsedGuid))
+                    {
+                        targetUserIds.Add(parsedGuid);
+                    }
                 }
             }
 
-            // 3. Users with explicit permissions in UserPermissions for this contract or project
-            var permissionUserIds = await dbContext.UserPermissions
-                .AsNoTracking()
-                .Where(up => (duAnId.HasValue && up.DuAnId == duAnId.Value) || 
-                             (up.EntityName == "HopDong" && up.EntityId == contractIdStr))
-                .Select(up => up.UserId)
-                .Distinct()
-                .ToListAsync();
-            foreach (var id in permissionUserIds) targetUserIds.Add(id);
-
-            // 4. Related users (stakeholders) on tasks of the project
-            if (duAnId.HasValue && duAnId.Value != Guid.Empty)
+            // 3. Additional Recipients from SystemConfig (e.g. Board of Directors, Managers...)
+            if (systemConfig != null)
             {
-                var stakeholderUserIds = await dbContext.CongViecNguoiLienQuans
-                    .AsNoTracking()
-                    .Where(n => n.CongViecGoiThau != null && n.CongViecGoiThau.GoiThau != null && n.CongViecGoiThau.GoiThau.DuAnId == duAnId.Value)
-                    .Select(n => n.UserId)
-                    .Distinct()
-                    .ToListAsync();
-                foreach (var id in stakeholderUserIds) targetUserIds.Add(id);
+                var additionalUserIdsRaw = await systemConfig.GetStringAsync("Email:AdditionalRecipientUserIds", "");
+                if (!string.IsNullOrWhiteSpace(additionalUserIdsRaw))
+                {
+                    var splitIds = additionalUserIdsRaw
+                        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var rawId in splitIds)
+                    {
+                        if (Guid.TryParse(rawId.Trim(), out var parsedId))
+                        {
+                            targetUserIds.Add(parsedId);
+                        }
+                    }
+                }
             }
 
             var targetUsers = await dbContext.Users
                 .AsNoTracking()
                 .Where(u => u.IsActive && !u.IsSystemAdmin && targetUserIds.Contains(u.Id))
                 .ToListAsync();
-
-            // Fallback: If no specific target users found (e.g. minimal seed data), notify active non-admin users
-            if (!targetUsers.Any())
-            {
-                targetUsers = await dbContext.Users
-                    .AsNoTracking()
-                    .Where(u => u.IsActive && !u.IsSystemAdmin)
-                    .ToListAsync();
-            }
 
             return targetUsers;
         }
 
-        public static async Task<List<User>> GetTargetUsersForLicenseAsync(AppDbContext dbContext, License license)
+        public static async Task<List<User>> GetTargetUsersForLicenseAsync(
+            AppDbContext dbContext,
+            License license,
+            ISystemConfigService? systemConfig = null)
         {
             var targetUserIds = new HashSet<Guid>();
 
-            // 1. Project Owner
-            if (license.DuAnId != Guid.Empty)
+            bool notifyOwner = systemConfig == null || await systemConfig.GetBoolAsync("Email:NotifyProjectOwner", true);
+            bool notifyMembers = systemConfig == null || await systemConfig.GetBoolAsync("Email:NotifyProjectMembers", true);
+
+            // 1. Project Owner (ChuDuAnId & CreatedByUserId)
+            if (notifyOwner && license.DuAnId != Guid.Empty)
             {
                 var duAn = await dbContext.DuAns.AsNoTracking().FirstOrDefaultAsync(d => d.Id == license.DuAnId);
+                if (duAn?.ChuDuAnId != null && duAn.ChuDuAnId.Value != Guid.Empty)
+                {
+                    targetUserIds.Add(duAn.ChuDuAnId.Value);
+                }
                 if (duAn?.CreatedByUserId != null && duAn.CreatedByUserId.Value != Guid.Empty)
                 {
                     targetUserIds.Add(duAn.CreatedByUserId.Value);
                 }
             }
 
-            // 2. AuditLog Creators / Modifiers
-            var licenseIdStr = license.Id.ToString();
-            var auditUserStrIds = await dbContext.AuditLogs
-                .AsNoTracking()
-                .Where(a => (a.TableName == "Licenses" || a.TableName == "License") && a.EntityId == licenseIdStr && a.UserId != null)
-                .Select(a => a.UserId!)
-                .Distinct()
-                .ToListAsync();
-            foreach (var uidStr in auditUserStrIds)
+            // 2. Project Members
+            if (notifyMembers)
             {
-                if (Guid.TryParse(uidStr, out var parsedGuid))
+                var licenseIdStr = license.Id.ToString();
+
+                // 2a. UserPermissions
+                var permissionUserIds = await dbContext.UserPermissions
+                    .AsNoTracking()
+                    .Where(up => up.DuAnId == license.DuAnId || (up.EntityName == "License" && up.EntityId == licenseIdStr))
+                    .Select(up => up.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var id in permissionUserIds) targetUserIds.Add(id);
+
+                // 2b. AuditLog Creators / Modifiers
+                var auditUserStrIds = await dbContext.AuditLogs
+                    .AsNoTracking()
+                    .Where(a => (a.TableName == "Licenses" || a.TableName == "License") && a.EntityId == licenseIdStr && a.UserId != null)
+                    .Select(a => a.UserId!)
+                    .Distinct()
+                    .ToListAsync();
+                foreach (var uidStr in auditUserStrIds)
                 {
-                    targetUserIds.Add(parsedGuid);
+                    if (Guid.TryParse(uidStr, out var parsedGuid))
+                    {
+                        targetUserIds.Add(parsedGuid);
+                    }
                 }
             }
 
-            // 3. UserPermissions
-            var permissionUserIds = await dbContext.UserPermissions
-                .AsNoTracking()
-                .Where(up => up.DuAnId == license.DuAnId || (up.EntityName == "License" && up.EntityId == licenseIdStr))
-                .Select(up => up.UserId)
-                .Distinct()
-                .ToListAsync();
-            foreach (var id in permissionUserIds) targetUserIds.Add(id);
+            // 3. Additional Recipients from SystemConfig
+            if (systemConfig != null)
+            {
+                var additionalUserIdsRaw = await systemConfig.GetStringAsync("Email:AdditionalRecipientUserIds", "");
+                if (!string.IsNullOrWhiteSpace(additionalUserIdsRaw))
+                {
+                    var splitIds = additionalUserIdsRaw
+                        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var rawId in splitIds)
+                    {
+                        if (Guid.TryParse(rawId.Trim(), out var parsedId))
+                        {
+                            targetUserIds.Add(parsedId);
+                        }
+                    }
+                }
+            }
 
             var targetUsers = await dbContext.Users
                 .AsNoTracking()
                 .Where(u => u.IsActive && !u.IsSystemAdmin && targetUserIds.Contains(u.Id))
                 .ToListAsync();
-
-            if (!targetUsers.Any())
-            {
-                targetUsers = await dbContext.Users
-                    .AsNoTracking()
-                    .Where(u => u.IsActive && !u.IsSystemAdmin)
-                    .ToListAsync();
-            }
 
             return targetUsers;
         }

@@ -36,100 +36,79 @@ public static class EmailTemplateBuilder
         string? detailUrl = null,
         string? extraInfo = null)
     {
-        var badgeColor = daysRemaining < 0 ? DangerColor : WarningColor;
-        var badgeText = daysRemaining < 0
-            ? $"Đã quá hạn {Math.Abs(daysRemaining)} ngày"
-            : daysRemaining == 0
-                ? "Hết hạn hôm nay"
-                : $"Còn {daysRemaining} ngày";
-
         var statusSentence = daysRemaining < 0
-            ? $"đã <strong>quá hạn {Math.Abs(daysRemaining)} ngày</strong> (ngày hết hạn: {deadlineDate:dd/MM/yyyy})."
+            ? $"đã <span style=\"color:{DangerColor};font-weight:bold;\">quá hạn {Math.Abs(daysRemaining)} ngày</span> (hạn chót: <strong>{deadlineDate:dd/MM/yyyy}</strong>)."
             : daysRemaining == 0
-                ? $"<strong>hết hạn hôm nay</strong> ({deadlineDate:dd/MM/yyyy})."
-                : $"sẽ <strong>hết hạn sau {daysRemaining} ngày</strong> (ngày hết hạn: {deadlineDate:dd/MM/yyyy}).";
+                ? $"<span style=\"color:{DangerColor};font-weight:bold;\">hết hạn HÔM NAY</span> (ngày <strong>{deadlineDate:dd/MM/yyyy}</strong>)."
+                : $"sẽ <span style=\"color:{WarningColor};font-weight:bold;\">hết hạn sau {daysRemaining} ngày</span> (hạn chót: <strong>{deadlineDate:dd/MM/yyyy}</strong>).";
+
+        var previewText = $"{entityType} \"{entityName}\" {statusSentence.Replace("<span style=\"color:" + DangerColor + ";font-weight:bold;\">", "").Replace("<span style=\"color:" + WarningColor + ";font-weight:bold;\">", "").Replace("</span>", "").Replace("<strong>", "").Replace("</strong>", "")}";
 
         var sb = new StringBuilder();
-        sb.Append($@"
-<!DOCTYPE html>
+        sb.Append($@"<!DOCTYPE html>
 <html lang=""vi"">
 <head>
   <meta charset=""UTF-8"" />
   <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
-  <title>{title}</title>
+  <title>{System.Net.WebUtility.HtmlEncode(title)}</title>
 </head>
-<body style=""margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;"">
-  <table width=""100%"" cellpadding=""0"" cellspacing=""0"" style=""background:#f5f5f5;padding:32px 0;"">
-    <tr>
-      <td align=""center"">
-        <table width=""600"" cellpadding=""0"" cellspacing=""0"" style=""background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);"">
+<body style=""margin:0;padding:20px;background:#ffffff;font-family:Segoe UI,Tahoma,Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#242424;"">
 
-          <!-- Header -->
-          <tr>
-            <td style=""background:{AccentColor};padding:24px 32px;"">
-              <p style=""margin:0;color:#ffffff;font-size:13px;opacity:.85;"">Hệ thống quản lý hợp đồng</p>
-              <h1 style=""margin:4px 0 0;color:#ffffff;font-size:20px;font-weight:700;"">{title}</h1>
-            </td>
-          </tr>
+  <!-- Preheader cho hộp thư đến Outlook để đọc nhanh mà không bị lặp tiêu đề -->
+  <div style=""display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;"">
+    {System.Net.WebUtility.HtmlEncode(previewText)}
+  </div>
 
-          <!-- Body -->
-          <tr>
-            <td style=""padding:32px 32px 24px;"">
-              <p style=""margin:0 0 16px;color:#374151;font-size:15px;"">Xin chào <strong>{System.Net.WebUtility.HtmlEncode(recipientName)}</strong>,</p>
+  <div style=""max-width:700px;text-align:left;"">
+    <p style=""margin:0 0 16px 0;"">
+      Kính gửi Ông/Bà <strong>{System.Net.WebUtility.HtmlEncode(recipientName)}</strong>,
+    </p>
 
-              <!-- Badge -->
-              <p style=""margin:0 0 20px;"">
-                <span style=""display:inline-block;background:{badgeColor};color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;"">{badgeText}</span>
-              </p>
+    <p style=""margin:0 0 16px 0;"">
+      Hệ thống Quản lý Hợp đồng Co-opBank xin thông báo {entityType.ToLower()} dưới đây {statusSentence}
+    </p>
 
-              <!-- Info card -->
-              <table width=""100%"" cellpadding=""0"" cellspacing=""0""
-                     style=""background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:20px;"">
-                <tr>
-                  <td style=""padding:16px 20px;"">
-                    <p style=""margin:0 0 8px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.5px;"">{entityType}</p>
-                    <p style=""margin:0;color:#111827;font-size:16px;font-weight:700;"">{System.Net.WebUtility.HtmlEncode(entityName)}</p>
-                    {(extraInfo != null ? $@"<p style=""margin:6px 0 0;color:#374151;font-size:14px;"">{System.Net.WebUtility.HtmlEncode(extraInfo)}</p>" : "")}
-                  </td>
-                </tr>
-              </table>
+    <table cellpadding=""0"" cellspacing=""0"" style=""border-collapse:collapse;margin:16px 0 20px 0;width:100%;max-width:650px;border-left:3px solid {AccentColor};background:#f8f9fa;"">
+      <tr>
+        <td style=""padding:12px 16px;"">
+          <div style=""font-size:12px;color:#666666;text-transform:uppercase;font-weight:600;margin-bottom:4px;"">
+            {System.Net.WebUtility.HtmlEncode(entityType)}
+          </div>
+          <div style=""font-size:15px;font-weight:bold;color:#111827;"">
+            {System.Net.WebUtility.HtmlEncode(entityName)}
+          </div>
+          <div style=""font-size:13px;color:#444444;margin-top:6px;"">
+            Thời hạn: <strong style=""color:#111827;"">{deadlineDate:dd/MM/yyyy}</strong>
+            {(daysRemaining < 0
+              ? $@" (<span style=""color:{DangerColor};font-weight:bold;"">Đã quá hạn {Math.Abs(daysRemaining)} ngày</span>)"
+              : daysRemaining == 0
+                ? $@" (<span style=""color:{DangerColor};font-weight:bold;"">Hết hạn hôm nay</span>)"
+                : $@" (<span style=""color:{WarningColor};font-weight:bold;"">Còn {daysRemaining} ngày</span>)")}
+          </div>
+          {(extraInfo != null ? $@"<div style=""font-size:13px;color:#444444;margin-top:4px;"">{System.Net.WebUtility.HtmlEncode(extraInfo)}</div>" : "")}
+        </td>
+      </tr>
+    </table>
 
-              <p style=""margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;"">
-                {entityType} trên {statusSentence}
-                Vui lòng kiểm tra và xử lý kịp thời.
-              </p>
+    <p style=""margin:0 0 20px 0;"">
+      Đề nghị Anh/Chị vui lòng kiểm tra và thực hiện các thủ tục cần thiết theo đúng quy định.
+    </p>
 
-              {(detailUrl != null ? $@"
-              <table cellpadding=""0"" cellspacing=""0"">
-                <tr>
-                  <td style=""background:{AccentColor};border-radius:6px;"">
-                    <a href=""{detailUrl}""
-                       style=""display:inline-block;padding:12px 28px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;"">
-                      Xem chi tiết →
-                    </a>
-                  </td>
-                </tr>
-              </table>" : "")}
-            </td>
-          </tr>
+    {(detailUrl != null ? $@"
+    <p style=""margin:0 0 24px 0;"">
+      👉 <a href=""{detailUrl}"" style=""color:{AccentColor};font-weight:bold;text-decoration:underline;"">Bấm vào đây để xem chi tiết trên hệ thống</a>
+    </p>" : "")}
 
-          <!-- Footer -->
-          <tr>
-            <td style=""background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 32px;"">
-              <p style=""margin:0;color:#9ca3af;font-size:12px;"">
-                Đây là email tự động từ <strong>Hệ thống quản lý hợp đồng Co-opBank</strong>.
-                Vui lòng không trả lời email này.
-              </p>
-            </td>
-          </tr>
+    <hr style=""border:none;border-top:1px solid #e5e7eb;margin:24px 0 16px 0;"" />
 
-        </table>
-      </td>
-    </tr>
-  </table>
+    <p style=""margin:0;font-size:12px;color:#6b7280;line-height:1.5;"">
+      Email này được gửi tự động từ <strong>Hệ thống Quản lý Hợp đồng & Dự án - Ngân hàng Hợp tác xã Việt Nam (Co-opBank)</strong>.<br />
+      Vui lòng không trả lời thư này.
+    </p>
+  </div>
+
 </body>
-</html>
-");
+</html>");
         return sb.ToString();
     }
 }

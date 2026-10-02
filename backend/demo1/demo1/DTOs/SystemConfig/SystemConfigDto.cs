@@ -43,3 +43,11 @@ public class TestEmailDto
 {
     public string ToEmail { get; set; } = string.Empty;
 }
+
+/// <summary>Request body cho test email cảnh báo hợp đồng.</summary>
+public class TestContractExpiryEmailDto
+{
+    public Guid? ContractId { get; set; }
+    public List<Guid>? UserIds { get; set; }
+    public string? ManualEmail { get; set; }
+}
