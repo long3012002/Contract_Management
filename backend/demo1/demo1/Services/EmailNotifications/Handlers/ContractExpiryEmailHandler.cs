@@ -72,7 +72,7 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
         foreach (var contract in toWarn)
         {
             var daysRemaining = (contract.ExpiredDate!.Value.Date - today).Days;
-            var subject = BuildSubject(daysRemaining, contract.Name ?? contract.Code);
+            var subject = BuildSubject(daysRemaining);
             var link = string.IsNullOrEmpty(baseUrl) ? null : $"{baseUrl}/contracts/{contract.Id}";
 
             var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, contract, _systemConfig);
@@ -134,9 +134,9 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
         _logger.LogInformation("[{Handler}] Hoàn thành.", HandlerName);
     }
 
-    private static string BuildSubject(int daysRemaining, string name) => daysRemaining < 0
-        ? $"[Quản lý Hợp đồng] Hợp đồng đã quá hạn: {name}"
+    private static string BuildSubject(int daysRemaining) => daysRemaining < 0
+        ? "[Quản lý Dự án] Hợp đồng đã quá hạn"
         : daysRemaining == 0
-            ? $"[Quản lý Hợp đồng] Hợp đồng hết hạn HÔM NAY: {name}"
-            : $"[Quản lý Hợp đồng] Hợp đồng sắp hết hạn ({daysRemaining} ngày): {name}";
+            ? "[Quản lý Dự án] Hợp đồng hết hạn HÔM NAY"
+            : $"[Quản lý Dự án] Hợp đồng sắp đến hạn (còn {daysRemaining} ngày)";
 }

@@ -179,10 +179,10 @@ public class SystemConfigController(
         var contractName = contract.Name ?? contract.Code ?? "Hợp đồng";
         var contractId = contract.Id;
         var subject = daysRemaining < 0
-            ? $"[Quản lý Hợp đồng] Hợp đồng đã quá hạn: {contractName}"
+            ? "[Quản lý Dự án] Hợp đồng đã quá hạn"
             : daysRemaining == 0
-                ? $"[Quản lý Hợp đồng] Hợp đồng hết hạn HÔM NAY: {contractName}"
-                : $"[Quản lý Hợp đồng] Hợp đồng sắp hết hạn ({daysRemaining} ngày): {contractName}";
+                ? "[Quản lý Dự án] Hợp đồng hết hạn HÔM NAY"
+                : $"[Quản lý Dự án] Hợp đồng sắp đến hạn (còn {daysRemaining} ngày)";
 
         var baseUrl = config.GetValue<string>("App:BaseUrl", "https://hopdong.co-opbank.vn").TrimEnd('/');
         var link = $"{baseUrl}/contracts/{contractId}";
@@ -293,10 +293,10 @@ public class SystemConfigController(
 
         var contractName = contract.Name ?? contract.Code ?? "Hợp đồng";
         var subject = daysRemaining < 0
-            ? $"[Quản lý Hợp đồng] Hợp đồng đã quá hạn: {contractName}"
+            ? "[Quản lý Dự án] Hợp đồng đã quá hạn"
             : daysRemaining == 0
-                ? $"[Quản lý Hợp đồng] Hợp đồng hết hạn HÔM NAY: {contractName}"
-                : $"[Quản lý Hợp đồng] Hợp đồng sắp hết hạn ({daysRemaining} ngày): {contractName}";
+                ? "[Quản lý Dự án] Hợp đồng hết hạn HÔM NAY"
+                : $"[Quản lý Dự án] Hợp đồng sắp đến hạn (còn {daysRemaining} ngày)";
 
         var baseUrl = config.GetValue<string>("App:BaseUrl", "https://hopdong.co-opbank.vn").TrimEnd('/');
         var link = $"{baseUrl}/contracts/{contract.Id}";

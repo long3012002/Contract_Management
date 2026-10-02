@@ -65,7 +65,7 @@ public static class EmailTemplateBuilder
     </p>
 
     <p style=""margin:0 0 16px 0;"">
-      Hệ thống Quản lý Hợp đồng Co-opBank xin thông báo {entityType.ToLower()} dưới đây {statusSentence}
+      Hệ thống Quản lý Dự án xin thông báo {entityType.ToLower()} <strong>{System.Net.WebUtility.HtmlEncode(entityName)}</strong> {statusSentence}
     </p>
 
     <table cellpadding=""0"" cellspacing=""0"" style=""border-collapse:collapse;margin:16px 0 20px 0;width:100%;max-width:650px;border-left:3px solid {AccentColor};background:#f8f9fa;"">
@@ -90,10 +90,6 @@ public static class EmailTemplateBuilder
       </tr>
     </table>
 
-    <p style=""margin:0 0 20px 0;"">
-      Đề nghị Anh/Chị vui lòng kiểm tra và thực hiện các thủ tục cần thiết theo đúng quy định.
-    </p>
-
     {(detailUrl != null ? $@"
     <p style=""margin:0 0 24px 0;"">
       👉 <a href=""{detailUrl}"" style=""color:{AccentColor};font-weight:bold;text-decoration:underline;"">Bấm vào đây để xem chi tiết trên hệ thống</a>
@@ -102,8 +98,7 @@ public static class EmailTemplateBuilder
     <hr style=""border:none;border-top:1px solid #e5e7eb;margin:24px 0 16px 0;"" />
 
     <p style=""margin:0;font-size:12px;color:#6b7280;line-height:1.5;"">
-      Email này được gửi tự động từ <strong>Hệ thống Quản lý Hợp đồng & Dự án - Ngân hàng Hợp tác xã Việt Nam (Co-opBank)</strong>.<br />
-      Vui lòng không trả lời thư này.
+      Email này được gửi tự động từ <strong>Hệ thống Quản lý Dự án</strong>. Vui lòng không trả lời thư này.
     </p>
   </div>
 
