@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using demo1.Services.EmailNotifications;
+using demo1.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -91,6 +92,17 @@ public class EmailNotificationWorker : BackgroundService
         _logger.LogInformation("EmailNotificationWorker: Bắt đầu chạy tất cả handlers...");
 
         using var scope = _serviceProvider.CreateScope();
+
+        var systemConfig = scope.ServiceProvider.GetService<ISystemConfigService>();
+        if (systemConfig != null)
+        {
+            var emailEnabled = await systemConfig.GetBoolAsync("Email:Enabled", true);
+            if (!emailEnabled)
+            {
+                _logger.LogInformation("EmailNotificationWorker: Cấu hình Email:Enabled = false trong SystemConfig. Bỏ qua chạy các handlers.");
+                return;
+            }
+        }
 
         // Lấy tất cả handler đã đăng ký – thêm handler mới chỉ cần đăng ký DI, không sửa code ở đây
         var handlers = scope.ServiceProvider.GetServices<IEmailNotificationHandler>();

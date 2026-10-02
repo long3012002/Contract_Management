@@ -77,6 +77,11 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
 
             var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, contract, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
+            if (emailUsers.Count == 0)
+            {
+                _logger.LogWarning("[{Handler}] Không tìm thấy người nhận có email hợp lệ cho hợp đồng mã {Code} (ID: {Id}). Bỏ qua gửi email.", HandlerName, contract.Code, contract.Id);
+                continue;
+            }
 
             foreach (var user in emailUsers)
             {

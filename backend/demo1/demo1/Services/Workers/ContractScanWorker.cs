@@ -152,6 +152,11 @@ namespace demo1.Services.Workers
 
                     // Get target users (Creators, Modifiers, Viewers/Editors, Project Owner, System Admins)
                     var targetUsers = await GetTargetUsersForContractAsync(dbContext, contract);
+                    if (!targetUsers.Any())
+                    {
+                        _logger.LogWarning("[ContractScanWorker] Không tìm thấy người dùng nhận thông báo cho hợp đồng mã {Code} (ID: {Id}).", contract.Code, contract.Id);
+                        continue;
+                    }
 
                     foreach (var user in targetUsers)
                     {
@@ -268,6 +273,11 @@ namespace demo1.Services.Workers
 
                     // Determine target users for License (Project Owner, System Admins, Viewers/Editors)
                     var targetUsers = await GetTargetUsersForLicenseAsync(dbContext, license);
+                    if (!targetUsers.Any())
+                    {
+                        _logger.LogWarning("[ContractScanWorker] Không tìm thấy người dùng nhận thông báo cho license mã {Code} (ID: {Id}).", license.Code, license.Id);
+                        continue;
+                    }
 
                     foreach (var user in targetUsers)
                     {

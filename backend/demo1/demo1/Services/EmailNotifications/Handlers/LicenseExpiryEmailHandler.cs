@@ -77,6 +77,11 @@ public class LicenseExpiryEmailHandler : IEmailNotificationHandler
 
             var targetUsers = await ContractScanWorker.GetTargetUsersForLicenseAsync(_db, license, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
+            if (emailUsers.Count == 0)
+            {
+                _logger.LogWarning("[{Handler}] Không tìm thấy người nhận có email hợp lệ cho license mã {Code} (ID: {Id}). Bỏ qua gửi email.", HandlerName, license.Code, license.Id);
+                continue;
+            }
 
             foreach (var user in emailUsers)
             {

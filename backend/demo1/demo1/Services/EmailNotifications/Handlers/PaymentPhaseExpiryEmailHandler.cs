@@ -79,6 +79,11 @@ public class PaymentPhaseExpiryEmailHandler : IEmailNotificationHandler
 
             var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, phase.HopDong!, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
+            if (emailUsers.Count == 0)
+            {
+                _logger.LogWarning("[{Handler}] Không tìm thấy người nhận có email hợp lệ cho đợt thanh toán '{TenDot}' (Hợp đồng: {ContractCode}). Bỏ qua gửi email.", HandlerName, phase.TenDot, phase.HopDong?.Code ?? "N/A");
+                continue;
+            }
 
             foreach (var user in emailUsers)
             {

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using demo1.Data;
 using demo1.DTOs.SystemConfig;
+using demo1.Entity;
 using demo1.Services.EmailNotifications.Templates;
 using demo1.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -140,7 +141,7 @@ public class SystemConfigController(
         if (!await IsAdminAsync()) return Forbid();
 
         var targetContractId = dto?.ContractId;
-        demo1.Models.HopDong? contract = null;
+        HopDong? contract = null;
 
         if (targetContractId.HasValue && targetContractId.Value != Guid.Empty)
         {
@@ -219,7 +220,7 @@ public class SystemConfigController(
         if (!await IsAdminAsync()) return Forbid();
 
         var targetContractId = dto?.ContractId;
-        demo1.Models.HopDong? contract = null;
+        HopDong? contract = null;
 
         if (targetContractId.HasValue && targetContractId.Value != Guid.Empty)
         {
