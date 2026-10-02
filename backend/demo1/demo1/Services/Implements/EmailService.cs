@@ -72,13 +72,31 @@ namespace demo1.Services.Implements
                 }
 
                 // Chọn SecureSocketOptions dựa trên EnableSsl:
-                //   true  → thử STARTTLS, nếu server không hỗ trợ thì fallback về None
-                //   false → kết nối plain text hoàn toàn
+                //   true  → StartTls: BẮT BUỘC STARTTLS, ném exception nếu server không hỗ trợ
+                //           (KHÔNG fallback về plain text như StartTlsWhenAvailable)
+                //   false → kết nối plain text hoàn toàn (chỉ dùng trong môi trường test nội bộ)
                 var socketOptions = _emailSettings.EnableSsl
-                    ? SecureSocketOptions.StartTlsWhenAvailable
+                    ? SecureSocketOptions.StartTls
                     : SecureSocketOptions.None;
 
                 await client.ConnectAsync(_emailSettings.Host, _emailSettings.Port, socketOptions);
+
+                // ── TLS diagnostics (dùng property sẵn có của MailKit, không cần package thêm) ──
+                _logger.LogInformation(
+                    "[SMTP-TLS] Host={Host}:{Port} | IsEncrypted={IsEncrypted} | Protocol={SslProtocol} | Cipher={CipherAlgorithm}",
+                    _emailSettings.Host,
+                    _emailSettings.Port,
+                    client.IsEncrypted,
+                    client.SslProtocol,
+                    client.SslCipherAlgorithm);
+
+                if (!client.IsEncrypted)
+                {
+                    _logger.LogWarning(
+                        "[SMTP-TLS] ⚠️ Kết nối tới {Host}:{Port} KHÔNG được mã hóa (plain text)!",
+                        _emailSettings.Host, _emailSettings.Port);
+                }
+                // ─────────────────────────────────────────────────────────────────────────────────
 
                 // Xác thực nếu có username (MailKit dùng AUTH PLAIN/LOGIN, không cần libgssapi_krb5)
                 if (!string.IsNullOrWhiteSpace(_emailSettings.Username))
