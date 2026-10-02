@@ -75,7 +75,7 @@ public class ContractExpiryEmailHandler : IEmailNotificationHandler
             var subject = BuildSubject(daysRemaining, contract.Name ?? contract.Code);
             var link = string.IsNullOrEmpty(baseUrl) ? null : $"{baseUrl}/contracts/{contract.Id}";
 
-            var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, contract);
+            var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, contract, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
 
             foreach (var user in emailUsers)

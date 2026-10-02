@@ -19,6 +19,7 @@ public class DuAnNotificationService : IDuAnNotificationService
     private readonly ICurrentUserService _currentUserService;
     private readonly IHubContext<NotificationHub> _hubContext;
     private readonly IEmailService _emailService;
+    private readonly ISystemConfigService? _systemConfig;
     private readonly ILogger<DuAnNotificationService> _logger;
 
     public DuAnNotificationService(
@@ -26,13 +27,15 @@ public class DuAnNotificationService : IDuAnNotificationService
         ICurrentUserService currentUserService,
         IHubContext<NotificationHub> hubContext,
         IEmailService emailService,
-        ILogger<DuAnNotificationService> logger)
+        ILogger<DuAnNotificationService> logger,
+        ISystemConfigService? systemConfig = null)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
         _hubContext = hubContext;
         _emailService = emailService;
         _logger = logger;
+        _systemConfig = systemConfig;
     }
 
     public async Task NotifyProjectOwnerAssignedAsync(DuAn project, Guid newOwnerId, string? actorName = null)
@@ -63,9 +66,19 @@ public class DuAnNotificationService : IDuAnNotificationService
             var newOwnerDto = NotificationMapper.MapToDto(newOwnerNotification);
             await _hubContext.Clients.User(newOwner.Username).SendAsync("ReceiveNotification", newOwnerDto);
 
-            // 2. Gửi Email thông báo tới Chủ dự án
+            // 2. Gửi Email thông báo tới Chủ dự án (nếu không bật chế độ Chỉ gửi cảnh báo đến hạn)
             if (!string.IsNullOrWhiteSpace(newOwner.Email))
             {
+                if (_systemConfig != null)
+                {
+                    var emailEnabled = await _systemConfig.GetBoolAsync("Email:Enabled", true);
+                    var onlyExpiry = await _systemConfig.GetBoolAsync("Email:OnlySendExpiryAlerts", true);
+                    if (!emailEnabled || onlyExpiry)
+                    {
+                        return;
+                    }
+                }
+
                 var subject = $"[CoopBank QLDA] Thông báo phân công Chủ dự án: {project.Name}";
                 var body = $@"
                     <div style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px;'>

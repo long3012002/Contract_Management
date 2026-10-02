@@ -97,6 +97,54 @@ public static class SystemConfigSeeder
             SortOrder    = 5,
             UpdatedAt    = DateTime.UtcNow
         },
+        new SystemConfig
+        {
+            Key          = "Email:NotifyProjectOwner",
+            Value        = "true",
+            DefaultValue = "true",
+            DataType     = "bool",
+            Group        = "EMAIL",
+            Label        = "Gửi email cho Chủ dự án",
+            Description  = "Gửi cảnh báo đến Chủ dự án của hợp đồng/đợt thanh toán/license.",
+            SortOrder    = 6,
+            UpdatedAt    = DateTime.UtcNow
+        },
+        new SystemConfig
+        {
+            Key          = "Email:NotifyProjectMembers",
+            Value        = "true",
+            DefaultValue = "true",
+            DataType     = "bool",
+            Group        = "EMAIL",
+            Label        = "Gửi email cho Thành viên dự án",
+            Description  = "Gửi cảnh báo đến các thành viên có quyền hoặc tham gia công việc trong dự án.",
+            SortOrder    = 7,
+            UpdatedAt    = DateTime.UtcNow
+        },
+        new SystemConfig
+        {
+            Key          = "Email:OnlySendExpiryAlerts",
+            Value        = "true",
+            DefaultValue = "true",
+            DataType     = "bool",
+            Group        = "EMAIL",
+            Label        = "Chỉ gửi email cảnh báo sắp/đã đến hạn",
+            Description  = "Chỉ gửi mail cho các mục sắp/đã hết hạn (Hợp đồng, Đợt thanh toán, License). Bỏ qua các sự kiện khác.",
+            SortOrder    = 8,
+            UpdatedAt    = DateTime.UtcNow
+        },
+        new SystemConfig
+        {
+            Key          = "Email:AdditionalRecipientUserIds",
+            Value        = "",
+            DefaultValue = "",
+            DataType     = "user-select",
+            Group        = "EMAIL",
+            Label        = "Người nhận bổ sung (Ban GĐ, Lãnh đạo...)",
+            Description  = "Chọn thêm các cá nhân nhận email cảnh báo (Giám đốc, Phó GĐ, người giám sát...).",
+            SortOrder    = 9,
+            UpdatedAt    = DateTime.UtcNow
+        },
 
         // ── Nhóm NOTIFICATION ───────────────────────────────────────────────
         new SystemConfig

@@ -77,7 +77,7 @@ public class PaymentPhaseExpiryEmailHandler : IEmailNotificationHandler
             var link = string.IsNullOrEmpty(baseUrl) ? null : $"{baseUrl}/contracts/{phase.HopDongId}";
             var amountInfo = $"Số tiền: {phase.GiaTriThanhToan:N0} VNĐ";
 
-            var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, phase.HopDong!);
+            var targetUsers = await ContractScanWorker.GetTargetUsersForContractAsync(_db, phase.HopDong!, _systemConfig);
             var emailUsers = targetUsers.Where(u => !string.IsNullOrWhiteSpace(u.Email)).ToList();
 
             foreach (var user in emailUsers)
