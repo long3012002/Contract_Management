@@ -550,9 +550,10 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
         if (nguonVonDtos != null)
         {
-            var incomingKeys = nguonVonDtos.Select(x => (x.NguonVonId, x.Nam)).ToHashSet();
+            var incomingDtosWithId = nguonVonDtos.Where(x => x.Id.HasValue && x.Id.Value != Guid.Empty).ToList();
+            var incomingIds = incomingDtosWithId.Select(x => x.Id!.Value).ToHashSet();
 
-            var toDelete = entity.DanhSachNguonVon.Where(x => !incomingKeys.Contains((x.NguonVonId, x.Nam))).ToList();
+            var toDelete = entity.DanhSachNguonVon.Where(x => !incomingIds.Contains(x.Id)).ToList();
             foreach (var item in toDelete)
             {
                 DbContext.DuAnNguonVons.Remove(item);
@@ -561,17 +562,25 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
 
             foreach (var nvDto in nguonVonDtos)
             {
-                var existing = entity.DanhSachNguonVon.FirstOrDefault(x => x.NguonVonId == nvDto.NguonVonId && x.Nam == nvDto.Nam);
+                DuAnNguonVon? existing = null;
+                if (nvDto.Id.HasValue && nvDto.Id.Value != Guid.Empty)
+                {
+                    existing = entity.DanhSachNguonVon.FirstOrDefault(x => x.Id == nvDto.Id.Value);
+                }
+
                 if (existing != null)
                 {
+                    existing.NguonVonId = nvDto.NguonVonId;
+                    existing.Nam = nvDto.Nam;
                     existing.SoTien = nvDto.SoTien;
                     existing.GhiChu = nvDto.GhiChu;
+                    existing.UpdatedAt = DateTime.UtcNow;
                 }
                 else
                 {
                     var newNv = new DuAnNguonVon
                     {
-                        Id = Guid.NewGuid(),
+                        Id = nvDto.Id.HasValue && nvDto.Id.Value != Guid.Empty ? nvDto.Id.Value : Guid.NewGuid(),
                         DuAnId = entity.Id,
                         NguonVonId = nvDto.NguonVonId,
                         Nam = nvDto.Nam,
@@ -580,6 +589,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
                         CreatedAt = DateTime.UtcNow
                     };
                     DbContext.DuAnNguonVons.Add(newNv);
+                    entity.DanhSachNguonVon.Add(newNv);
                 }
             }
         }

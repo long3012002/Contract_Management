@@ -134,10 +134,14 @@ namespace demo1.Mapper
             CreateMap<CreateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
+                .ForMember(dest => dest.HinhThucLcnt, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.HinhThucLcnt)))
+                .ForMember(dest => dest.PhuongThucLcnt, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.PhuongThucLcnt)));
             CreateMap<UpdateGoiThauDto, GoiThau>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
-                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)))
+                .ForMember(dest => dest.HinhThucLcnt, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.HinhThucLcnt)))
+                .ForMember(dest => dest.PhuongThucLcnt, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.PhuongThucLcnt)));
 
             CreateMap<NhaThauGoiThau, NhaThauGoiThauDto>()
                 .ForMember(dest => dest.NhaThauName, opt => opt.MapFrom(src => src.NhaThau != null ? src.NhaThau.Name : null))

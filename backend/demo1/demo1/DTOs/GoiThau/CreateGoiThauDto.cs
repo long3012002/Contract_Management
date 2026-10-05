@@ -41,4 +41,16 @@ public class CreateGoiThauDto
 
     public string? SoQuyetDinhKQLCNT { get; set; }
     public DateTime? NgayPheDuyetKQLCNT { get; set; }
+
+    /// <summary>
+    /// Hình thức lựa chọn nhà thầu (Đấu thầu rộng rãi qua mạng, Chỉ định thầu...)
+    /// </summary>
+    [StringLength(255)]
+    public string? HinhThucLcnt { get; set; }
+
+    /// <summary>
+    /// Phương thức lựa chọn nhà thầu (1 GĐ 1 THS, 1 GĐ 2 THS...)
+    /// </summary>
+    [StringLength(255)]
+    public string? PhuongThucLcnt { get; set; }
 }

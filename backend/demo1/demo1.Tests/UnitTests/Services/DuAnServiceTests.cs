@@ -572,6 +572,60 @@ namespace demo1.Tests.UnitTests.Services
             updatedProject.PhanKyVons[0].TyLePercent.Should().Be(25.00m); // 500m / 2000m = 25%
         }
 
+        [Fact]
+        public async Task Create_And_Update_With_Duplicate_NguonVon_Same_Year_Should_Save_Both()
+        {
+            var user = new User { Username = "test_admin", FullName = "Admin Test", IsActive = true, IsSystemAdmin = true };
+            _dbContext.Users.Add(user);
+
+            var nguonVon = new demo1.Entity.DanhMuc.NguonVon { Id = Guid.NewGuid(), Code = "VCSH", Name = "Vốn chủ sở hữu" };
+            _dbContext.NguonVons.Add(nguonVon);
+            await _dbContext.SaveChangesAsync();
+
+            var createDto = new CreateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-NV-001",
+                Name = "Dự án test trùng nguồn vốn cùng năm",
+                DuToanPheDuyet = 500000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { NguonVonId = nguonVon.Id, Nam = 2026, SoTien = 100000000m, GhiChu = "Đợt 1" },
+                    new CreateDuAnNguonVonDto { NguonVonId = nguonVon.Id, Nam = 2026, SoTien = 200000000m, GhiChu = "Đợt 2" }
+                }
+            };
+
+            var created = await _duAnService.CreateAsync(createDto);
+            created.Should().NotBeNull();
+            created.DanhSachNguonVon.Should().HaveCount(2);
+            created.DanhSachNguonVon.Sum(x => x.SoTien).Should().Be(300000000m);
+
+            // Update preserving both IDs
+            var nv1 = created.DanhSachNguonVon[0];
+            var nv2 = created.DanhSachNguonVon[1];
+
+            var updateDto = new UpdateDuAnDto
+            {
+                Code = "PRJ_SRC-DA-NV-001",
+                Name = "Dự án test trùng nguồn vốn cùng năm (Đã sửa)",
+                DuToanPheDuyet = 500000000m,
+                DanhSachNguonVon = new List<CreateDuAnNguonVonDto>
+                {
+                    new CreateDuAnNguonVonDto { Id = nv1.Id, NguonVonId = nguonVon.Id, Nam = 2026, SoTien = 150000000m, GhiChu = "Đợt 1 sửa" },
+                    new CreateDuAnNguonVonDto { Id = nv2.Id, NguonVonId = nguonVon.Id, Nam = 2026, SoTien = 250000000m, GhiChu = "Đợt 2 sửa" }
+                }
+            };
+
+            var updateResult = await _duAnService.UpdateAsync(created.Id, updateDto);
+            updateResult.Should().BeTrue();
+
+            var reloaded = await _duAnService.GetByIdAsync(created.Id);
+            reloaded.Should().NotBeNull();
+            reloaded!.DanhSachNguonVon.Should().HaveCount(2);
+            reloaded.DanhSachNguonVon.Sum(x => x.SoTien).Should().Be(400000000m);
+            reloaded.DanhSachNguonVon.Should().Contain(x => x.Id == nv1.Id && x.SoTien == 150000000m && x.GhiChu == "Đợt 1 sửa");
+            reloaded.DanhSachNguonVon.Should().Contain(x => x.Id == nv2.Id && x.SoTien == 250000000m && x.GhiChu == "Đợt 2 sửa");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

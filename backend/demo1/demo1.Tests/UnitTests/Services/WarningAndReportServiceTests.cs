@@ -144,7 +144,8 @@ namespace demo1.Tests.UnitTests.Services
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-INV-CALC", Name = "Dự án CNTT tính toán", DuToanPheDuyet = 10000000000m, TrangThai = 1 };
+            var userPm = new demo1.Entity.User { Id = Guid.NewGuid(), Username = "pm_user", FullName = "Nguyễn Văn PM" };
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA-INV-CALC", Name = "Dự án CNTT tính toán", DuToanPheDuyet = 10000000000m, TrangThai = 1, ChuDuAnId = userPm.Id, ChuDuAn = userPm };
             var hopDong = new HopDong { Id = Guid.NewGuid(), DuAnId = project.Id, Code = "HD-INV-CALC", GiaTriHopDong = 8000000000m, IsActive = true, IsDeleted = false };
             
             // Đợt 1: Kỳ trước (năm 2025)
@@ -171,6 +172,7 @@ namespace demo1.Tests.UnitTests.Services
                 NgayThanhToan = new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc)
             };
 
+            _dbContext.Users.Add(userPm);
             _dbContext.DuAns.Add(project);
             _dbContext.HopDongs.Add(hopDong);
             _dbContext.DotThanhToans.AddRange(dotKyTruoc, dotTrongKy);
@@ -183,6 +185,7 @@ namespace demo1.Tests.UnitTests.Services
             report.Should().NotBeNull();
             var projectRow = report.Rows.FirstOrDefault(r => r.ProjectName == "Dự án CNTT tính toán");
             projectRow.Should().NotBeNull();
+            projectRow!.PmPhuTrach.Should().Be("Nguyễn Văn PM");
 
             // 1. Kỳ trước chuyển sang = tất cả về trước (2,000,000,000)
             projectRow!.KhoiLuongKyTruoc.Should().Be(2000000000m);
@@ -857,6 +860,7 @@ namespace demo1.Tests.UnitTests.Services
                 Name = "Gói thầu thiết bị",
                 DuAnId = proj.Id,
                 GiaTriGoiThau = 500000000m,
+                HinhThucLcnt = "Chào hàng cạnh tranh",
                 IsActive = true
             };
             var contractor = new DoiTac
@@ -896,6 +900,7 @@ namespace demo1.Tests.UnitTests.Services
             report.Summary.TyLeTietKiemChungPercent.Should().Be(3.0);
 
             var row = report.Rows.First();
+            row.HinhThucLcnt.Should().Be("Chào hàng cạnh tranh");
             row.TenNhaThauTrungThau.Should().Be("Công ty CP Công nghệ X");
             row.TrangThaiGoiThau.Should().Be("Đã hoàn thành LCNT");
             row.TyLeSuDungDuToanPercent.Should().Be(97.0);

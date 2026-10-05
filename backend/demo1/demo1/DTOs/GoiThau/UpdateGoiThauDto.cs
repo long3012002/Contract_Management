@@ -23,4 +23,10 @@ public class UpdateGoiThauDto
 
     public string? SoQuyetDinhKQLCNT { get; set; }
     public DateTime? NgayPheDuyetKQLCNT { get; set; }
+
+    [StringLength(255)]
+    public string? HinhThucLcnt { get; set; }
+
+    [StringLength(255)]
+    public string? PhuongThucLcnt { get; set; }
 }

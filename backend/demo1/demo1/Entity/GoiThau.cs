@@ -12,6 +12,9 @@ public class GoiThau : BaseEntity
     public string? SoQuyetDinhKQLCNT { get; set; }
     public DateTime? NgayPheDuyetKQLCNT { get; set; }
 
+    public string? HinhThucLcnt { get; set; }
+    public string? PhuongThucLcnt { get; set; }
+
     public virtual ICollection<CongViecGoiThau> CongViecGoiThaus { get; set; } = new List<CongViecGoiThau>();
 }
 

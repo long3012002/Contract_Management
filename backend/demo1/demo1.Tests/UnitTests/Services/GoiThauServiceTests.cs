@@ -60,7 +60,9 @@ namespace demo1.Tests.UnitTests.Services
                 DuAnId = project.Id,
                 Code = "PKG-SERVER-01",
                 Name = "Gói thầu Mua sắm máy chủ",
-                GiaTriGoiThau = 2000000000
+                GiaTriGoiThau = 2000000000,
+                HinhThucLcnt = "Chỉ định thầu",
+                PhuongThucLcnt = "1 GĐ 1 THS"
             };
 
             // Act
@@ -70,6 +72,49 @@ namespace demo1.Tests.UnitTests.Services
             result.Should().NotBeNull();
             result.DuAnId.Should().Be(project.Id);
             result.Name.Should().Be("Gói thầu Mua sắm máy chủ");
+            result.HinhThucLcnt.Should().Be("Chỉ định thầu");
+            result.PhuongThucLcnt.Should().Be("1 GĐ 1 THS");
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Update_HinhThucLcnt_And_PhuongThucLcnt()
+        {
+            // Arrange
+            var project = new DuAn { Id = Guid.NewGuid(), Code = "DA2026_02", Name = "Dự án CNTT 2", DuToanPheDuyet = 5000000000 };
+            _dbContext.DuAns.Add(project);
+
+            var goiThau = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                DuAnId = project.Id,
+                Code = "PKG-UP-01",
+                Name = "Gói thầu nâng cấp",
+                GiaTriGoiThau = 1000000000,
+                HinhThucLcnt = "Chào hàng cạnh tranh",
+                PhuongThucLcnt = "1 GĐ 1 THS"
+            };
+            _dbContext.GoiThaus.Add(goiThau);
+            await _dbContext.SaveChangesAsync();
+
+            var updateDto = new UpdateGoiThauDto
+            {
+                Code = "PKG-UP-01",
+                Name = "Gói thầu nâng cấp cập nhật",
+                DuAnId = project.Id,
+                GiaTriGoiThau = 1200000000,
+                HinhThucLcnt = "Đấu thầu rộng rãi qua mạng",
+                PhuongThucLcnt = "1 GĐ 2 THS"
+            };
+
+            // Act
+            var updated = await _goiThauService.UpdateAsync(goiThau.Id, updateDto);
+            var reloaded = await _goiThauService.GetByIdAsync(goiThau.Id);
+
+            // Assert
+            updated.Should().BeTrue();
+            reloaded.Should().NotBeNull();
+            reloaded!.HinhThucLcnt.Should().Be("Đấu thầu rộng rãi qua mạng");
+            reloaded.PhuongThucLcnt.Should().Be("1 GĐ 2 THS");
         }
 
         [Fact]

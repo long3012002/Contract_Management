@@ -16,6 +16,7 @@ public class DuAnNguonVonDto
 
 public class CreateDuAnNguonVonDto
 {
+    public Guid? Id { get; set; }
     public Guid NguonVonId { get; set; }
     public int? Nam { get; set; }
     public decimal SoTien { get; set; }
