@@ -1048,6 +1048,76 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return Mapper.Map<List<HopDongDto>>(entities);
     }
 
+    public async Task<DuAnHierarchyDto> GetHierarchyAsync(Guid id)
+    {
+        // Query 1: Lấy tất cả hợp đồng của dự án (kèm NhaThau để lấy tên)
+        var hopDongEntities = await DbContext.HopDongs
+            .AsNoTracking()
+            .Include(h => h.NhaThau)
+            .Where(h => h.DuAnId == id && !h.IsDeleted)
+            .ToListAsync();
+
+        // Query 2: Lấy tất cả gói thầu của dự án
+        var goiThauEntities = await DbContext.GoiThaus
+            .AsNoTracking()
+            .Where(g => g.DuAnId == id && !g.IsDeleted)
+            .ToListAsync();
+
+        // Map hợp đồng → DTO gọn
+        var hopDongDtos = hopDongEntities.Select(h => new HopDongInHierarchyDto
+        {
+            Id = h.Id,
+            Code = h.Code,
+            Name = h.Name,
+            SoHopDong = h.SoHopDong,
+            NhaThauName = h.NhaThau?.Name,
+            TenLienDanhNhaThau = h.NhaThau?.Name, // đơn giản hóa; liên danh cần NhaThauGoiThaus
+            GiaTriHopDong = h.GiaTriHopDong,
+            TongGiaTriHienTai = h.GiaTriHopDong, // phụ lục được tính bởi HopDongService, dùng giá trị gốc ở đây
+            NgayKy = h.NgayKy,
+            TrangThaiCalculatedText = h.DaKetThuc ? "Đã kết thúc / Thanh lý"
+                : (h.ExpiredDate.HasValue && h.ExpiredDate < DateTime.UtcNow) ? "Đã hết hạn"
+                : (!h.NgayHieuLuc.HasValue || h.NgayHieuLuc > DateTime.UtcNow) ? "Dự thảo / Chưa hiệu lực"
+                : "Đang hiệu lực",
+            Status = h.DaKetThuc ? "Terminated"
+                : (h.ExpiredDate.HasValue && h.ExpiredDate < DateTime.UtcNow) ? "Expired"
+                : (!h.NgayHieuLuc.HasValue || h.NgayHieuLuc > DateTime.UtcNow) ? "Draft"
+                : "Active",
+            GoiThauId = h.GoiThauId,
+            DuAnId = h.DuAnId,
+        }).ToList();
+
+        // Group hợp đồng theo GoiThauId để join in-memory
+        var contractsByGoiThau = hopDongDtos
+            .Where(h => h.GoiThauId.HasValue)
+            .GroupBy(h => h.GoiThauId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Map gói thầu → DTO gọn, tính TongGiaTriHopDong và TrangThaiGoiThau từ data đã có
+        var goiThauDtos = goiThauEntities.Select(g =>
+        {
+            var childContracts = contractsByGoiThau.TryGetValue(g.Id, out var list) ? list : new List<HopDongInHierarchyDto>();
+            var tongGiaTri = childContracts.Sum(h => h.GiaTriHopDong);
+            return new GoiThauInHierarchyDto
+            {
+                Id = g.Id,
+                Code = g.Code,
+                Name = g.Name,
+                GiaTriGoiThau = g.GiaTriGoiThau,
+                TongGiaTriHopDong = tongGiaTri,
+                TrangThaiGoiThau = childContracts.Any() ? "Đã hoàn thành LCNT" : "Đang lựa chọn nhà thầu",
+                HopDongs = childContracts,
+            };
+        }).ToList();
+
+        return new DuAnHierarchyDto
+        {
+            DuAnId = id,
+            GoiThaus = goiThauDtos,
+            UnassignedContracts = hopDongDtos.Where(h => !h.GoiThauId.HasValue).ToList(),
+        };
+    }
+
     public async Task<IReadOnlyList<AuditLog>> GetAuditLogsByProjectIdAsync(Guid id)
     {
         return await _auditService.GetAuditLogsByProjectIdAsync(id);
