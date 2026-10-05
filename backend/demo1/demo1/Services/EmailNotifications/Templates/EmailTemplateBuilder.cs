@@ -36,13 +36,20 @@ public static class EmailTemplateBuilder
         string? detailUrl = null,
         string? extraInfo = null)
     {
+        var deadlineFormatted = deadlineDate.ToString("dd/MM/yyyy");
         var statusSentence = daysRemaining < 0
-            ? $"đã <span style=\"color:{DangerColor};font-weight:bold;\">quá hạn {Math.Abs(daysRemaining)} ngày</span> (hạn chót: <strong>{deadlineDate:dd/MM/yyyy}</strong>)."
+            ? $"đã <span style=\"color:{DangerColor};font-weight:bold;\">quá hạn {Math.Abs(daysRemaining)} ngày</span> <span style=\"white-space:nowrap;\">(hạn&nbsp;chót:&nbsp;<strong>{deadlineFormatted}</strong>)</span>."
             : daysRemaining == 0
-                ? $"<span style=\"color:{DangerColor};font-weight:bold;\">hết hạn HÔM NAY</span> (ngày <strong>{deadlineDate:dd/MM/yyyy}</strong>)."
-                : $"sẽ <span style=\"color:{WarningColor};font-weight:bold;\">hết hạn sau {daysRemaining} ngày</span> (hạn chót: <strong>{deadlineDate:dd/MM/yyyy}</strong>).";
+                ? $"<span style=\"color:{DangerColor};font-weight:bold;\">hết hạn HÔM NAY</span> <span style=\"white-space:nowrap;\">(ngày&nbsp;<strong>{deadlineFormatted}</strong>)</span>."
+                : $"sẽ <span style=\"color:{WarningColor};font-weight:bold;\">hết hạn sau {daysRemaining} ngày</span> <span style=\"white-space:nowrap;\">(hạn&nbsp;chót:&nbsp;<strong>{deadlineFormatted}</strong>)</span>.";
 
-        var previewText = $"{entityType} \"{entityName}\" {statusSentence.Replace("<span style=\"color:" + DangerColor + ";font-weight:bold;\">", "").Replace("<span style=\"color:" + WarningColor + ";font-weight:bold;\">", "").Replace("</span>", "").Replace("<strong>", "").Replace("</strong>", "")}";
+        var plainStatusSentence = daysRemaining < 0
+            ? $"đã quá hạn {Math.Abs(daysRemaining)} ngày (hạn chót: {deadlineFormatted})."
+            : daysRemaining == 0
+                ? $"hết hạn HÔM NAY (ngày {deadlineFormatted})."
+                : $"sẽ hết hạn sau {daysRemaining} ngày (hạn chót: {deadlineFormatted}).";
+
+        var previewText = $"{entityType} \"{entityName}\" {plainStatusSentence}";
 
         var sb = new StringBuilder();
         sb.Append($@"<!DOCTYPE html>
@@ -80,10 +87,10 @@ public static class EmailTemplateBuilder
           <div style=""font-size:13px;color:#444444;margin-top:6px;"">
             Thời hạn: <strong style=""color:#111827;"">{deadlineDate:dd/MM/yyyy}</strong>
             {(daysRemaining < 0
-              ? $@" (<span style=""color:{DangerColor};font-weight:bold;"">Đã quá hạn {Math.Abs(daysRemaining)} ngày</span>)"
+              ? $@" (<span style=""color:{DangerColor};font-weight:bold;white-space:nowrap;"">Đã quá hạn {Math.Abs(daysRemaining)} ngày</span>)"
               : daysRemaining == 0
-                ? $@" (<span style=""color:{DangerColor};font-weight:bold;"">Hết hạn hôm nay</span>)"
-                : $@" (<span style=""color:{WarningColor};font-weight:bold;"">Còn {daysRemaining} ngày</span>)")}
+                ? $@" (<span style=""color:{DangerColor};font-weight:bold;white-space:nowrap;"">Hết hạn hôm nay</span>)"
+                : $@" (<span style=""color:{WarningColor};font-weight:bold;white-space:nowrap;"">Còn {daysRemaining} ngày</span>)")}
           </div>
           {(extraInfo != null ? $@"<div style=""font-size:13px;color:#444444;margin-top:4px;"">{System.Net.WebUtility.HtmlEncode(extraInfo)}</div>" : "")}
         </td>

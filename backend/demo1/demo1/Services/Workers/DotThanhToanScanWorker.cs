@@ -13,6 +13,7 @@ using demo1.Entity;
 using Microsoft.AspNetCore.SignalR;
 using demo1.Hubs;
 using demo1.Services.Helpers;
+using demo1.Services.Interfaces;
 
 namespace demo1.Services.Workers
 {
@@ -93,11 +94,20 @@ namespace demo1.Services.Workers
 
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var systemConfig = scope.ServiceProvider.GetService<ISystemConfigService>();
 
             var today = DateTime.Today;
 
-            var warnDaysBefore = _configuration.GetValue<int>("DotThanhToanScan:WarnDaysBefore", 30);
-            var intervalDays = _configuration.GetValue<int>("DotThanhToanScan:NotificationIntervalDays", 1);
+            var defaultWarnDays = _configuration.GetValue<int>("DotThanhToanScan:WarnDaysBefore", 30);
+            var defaultIntervalDays = _configuration.GetValue<int>("DotThanhToanScan:NotificationIntervalDays", 1);
+            var warnDaysBefore = defaultWarnDays;
+            var intervalDays = defaultIntervalDays;
+
+            if (systemConfig != null)
+            {
+                warnDaysBefore = await systemConfig.GetIntAsync("Email:WarnDaysPayment", defaultWarnDays);
+                intervalDays = await systemConfig.GetIntAsync("Notification:IntervalDays", defaultIntervalDays);
+            }
 
             // Fetch active payment phases where contract is active and is not paid yet
             var pendingPaymentPhases = await dbContext.DotThanhToans

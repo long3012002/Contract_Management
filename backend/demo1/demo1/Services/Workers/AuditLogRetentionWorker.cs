@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using demo1.Data;
+using demo1.Services.Interfaces;
 
 namespace demo1.Services.Workers
 {
@@ -50,22 +51,33 @@ namespace demo1.Services.Workers
 
         private async Task CleanExpiredLogsAsync()
         {
-            var retentionDays = _configuration.GetValue<int>("AuditLogs:RetentionDays", 1);
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var systemConfig = scope.ServiceProvider.GetService<ISystemConfigService>();
+
+            // Ưu tiên đọc từ SystemConfigs (DB) do người dùng cấu hình trên UI (key "Audit:RetentionDays")
+            var defaultDays = _configuration.GetValue<int>("AuditLogs:RetentionDays", 90);
+            var retentionDays = defaultDays;
+            if (systemConfig != null)
+            {
+                retentionDays = await systemConfig.GetIntAsync("Audit:RetentionDays", defaultDays);
+            }
+
+            if (retentionDays <= 0)
+            {
+                retentionDays = 1;
+            }
+
             _logger.LogInformation("Cleaning audit logs older than {RetentionDays} days.", retentionDays);
 
             var cutoffTime = DateTime.UtcNow.AddDays(-retentionDays);
 
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            // Deletes records older than retention time directly in the DB
+            var deletedCount = await dbContext.AuditLogs
+                .Where(log => log.Timestamp < cutoffTime)
+                .ExecuteDeleteAsync();
 
-                // Deletes records older than retention time directly in the DB
-                var deletedCount = await dbContext.AuditLogs
-                    .Where(log => log.Timestamp < cutoffTime)
-                    .ExecuteDeleteAsync();
-
-                _logger.LogInformation("Cleaned {DeletedCount} expired audit log entries.", deletedCount);
-            }
+            _logger.LogInformation("Cleaned {DeletedCount} expired audit log entries.", deletedCount);
         }
     }
 }

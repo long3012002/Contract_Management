@@ -169,7 +169,7 @@ public static class SystemConfigSeeder
             DataType     = "int",
             Group        = "AUDIT",
             Label        = "Số ngày lưu trữ audit log",
-            Description  = "Audit log cũ hơn số ngày này sẽ bị xóa tự động. Tối thiểu 7 ngày.",
+            Description  = "Audit log cũ hơn số ngày này sẽ bị xóa tự động. Đặt 1 ngày trở lên.",
             SortOrder    = 1,
             UpdatedAt    = DateTime.UtcNow
         },
