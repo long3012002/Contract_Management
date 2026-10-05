@@ -211,6 +211,37 @@ public class DuAnsController : CrudControllerBase<DuAnDto, CreateDuAnDto, Update
     }
 
     /// <summary>
+    /// Lấy cấu trúc phân cấp Gói thầu và Hợp đồng của Dự án trong một request duy nhất.
+    /// Trả về danh sách gói thầu (mỗi gói thầu kèm hợp đồng con) và hợp đồng chưa gán gói thầu.
+    /// </summary>
+    /// <param name="id">Mã định danh Dự án (GUID)</param>
+    /// <returns>Cấu trúc phân cấp của Dự án</returns>
+    /// <response code="200">Lấy cấu trúc thành công</response>
+    /// <response code="403">Không có quyền truy cập</response>
+    /// <response code="404">Không tìm thấy dự án</response>
+    [HttpGet("{id:guid}/hierarchy")]
+    [ProducesResponseType(typeof(DuAnHierarchyDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DuAnHierarchyDto>> GetHierarchy(Guid id)
+    {
+        try
+        {
+            var result = await _duAnService.GetHierarchyAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+    }
+
+
+    /// <summary>
     /// Lấy danh sách Audit Log (nhật ký thay đổi) của Dự án.
     /// </summary>
     /// <param name="id">Mã định danh Dự án (GUID)</param>
