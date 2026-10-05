@@ -337,6 +337,7 @@ namespace demo1.Data
                 entity.Property(e => e.GhiChu).HasMaxLength(1000);
 
                 entity.HasIndex(e => e.SourceDuAnId).IsUnique();
+                entity.HasIndex(e => e.TargetDuAnId);
 
                 entity.HasOne(e => e.SourceDuAn)
                     .WithOne(d => d.MergedToGopLink)
@@ -460,6 +461,9 @@ namespace demo1.Data
                 .HasForeignKey(l => l.NhaCungCapId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<License>()
+                .HasIndex(l => new { l.NgayKetThuc, l.TrangThai });
+
             modelBuilder.Entity<HopDong>()
                 .Property(hd => hd.GiaTriHopDong)
                 .HasPrecision(18, 2);
@@ -477,6 +481,9 @@ namespace demo1.Data
             modelBuilder.Entity<HopDong>()
                 .HasIndex(hd => hd.GoiThauId)
                 .IsUnique();
+
+            modelBuilder.Entity<HopDong>()
+                .HasIndex(hd => new { hd.DuAnId, hd.IsActive, hd.IsDeleted });
 
             modelBuilder.Entity<HopDong>()
                 .HasOne(hd => hd.GoiThau)
@@ -565,6 +572,12 @@ namespace demo1.Data
                 .WithMany(h => h.DotThanhToans)
                 .HasForeignKey(d => d.HopDongId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DotThanhToan>()
+                .HasIndex(d => new { d.HopDongId, d.IsPaid });
+
+            modelBuilder.Entity<DotThanhToan>()
+                .HasIndex(d => d.NgayThanhToanThucTe);
 
             modelBuilder.Entity<DotThanhToan>()
                 .HasOne(d => d.PhuLucHopDong)
