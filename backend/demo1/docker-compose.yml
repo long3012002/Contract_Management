@@ -7,21 +7,14 @@ services:
     container_name: qlda-backend-container
     ports:
       - "64950:8080"
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=qlda-postgres-container;Port=5432;Database=QLDA;Username=quangmd;Password=31122001;
+      - ConnectionStrings__DefaultConnection=Host=${DB_HOST:-10.225.11.156};Port=${DB_PORT:-5432};Database=${DB_NAME:-QLDA};Username=${DB_USER:-quangmd};Password=${DB_PASSWORD:-31122001};
       - Database__AutoMigrate=false
       - Database__SeedSampleData=true
       - Auth__EnableDevBypass=true
       - Auth__EnableLocalPasswordLogin=true
-      - Radius__Enabled=true
-      - Radius__Server=10.224.0.94
-      - Radius__Port=1812
-      - Radius__Timeout=30000
-    networks:
-      - qlda-network
+      - Radius__Enabled=false
     restart: always
-
-networks:
-  qlda-network:
-    external: true

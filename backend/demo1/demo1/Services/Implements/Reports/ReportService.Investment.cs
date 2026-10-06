@@ -1140,12 +1140,13 @@ public partial class ReportService
             })
             .ToListAsync();
 
-        // 3. Tải số liệu thanh toán giải ngân thực tế từ CSDL dựa trên các đợt thanh toán (DotThanhToan) của dự án
+        // 3. Tải số liệu thanh toán giải ngân thực tế từ CSDL: CHỈ TÍNH CÁC ĐỢT ĐÃ THANH TOÁN (IsPaid == true)
         var targetDuAnIds = rawProjects.Select(p => p.Id).ToList();
         var paymentRecords = targetDuAnIds.Any()
             ? await _context.DotThanhToans
                 .AsNoTracking()
-                .Where(dt => dt.HopDong != null 
+                .Where(dt => dt.IsPaid
+                    && dt.HopDong != null 
                     && dt.HopDong.IsActive 
                     && !dt.HopDong.IsDeleted 
                     && ((dt.HopDong.DuAnId.HasValue && targetDuAnIds.Contains(dt.HopDong.DuAnId.Value))
@@ -1154,8 +1155,7 @@ public partial class ReportService
                 {
                     DuAnId = dt.HopDong.DuAnId ?? dt.HopDong.GoiThau!.DuAnId!.Value,
                     PaymentDate = dt.NgayThanhToanThucTe ?? dt.NgayThanhToan ?? dt.CreatedAt,
-                    dt.GiaTriThanhToan,
-                    dt.IsPaid
+                    dt.GiaTriThanhToan
                 })
                 .ToListAsync()
             : new();
@@ -1193,6 +1193,8 @@ public partial class ReportService
             decimal rawVayVnd = 0;
             decimal rawKhacVnd = 0;
 
+            // Cột vốn huy động: theo yêu cầu không tính toán gì hết
+            rawVayVnd = 0m;
             if (p.DanhSachNguonVon != null && p.DanhSachNguonVon.Any())
             {
                 foreach (var nv in p.DanhSachNguonVon)
@@ -1200,15 +1202,11 @@ public partial class ReportService
                     var code = (nv.NguonVonCode ?? string.Empty).ToLowerInvariant();
                     var name = (nv.NguonVonName ?? string.Empty).ToLowerInvariant();
 
-                    if (code.Contains("vay") || name.Contains("vay") || name.Contains("tín dụng") || name.Contains("tin dung"))
-                    {
-                        rawVayVnd += nv.SoTien;
-                    }
-                    else if (code.Contains("khac") || code.Contains("nv_khac") || name.Contains("khác") || name.Contains("khac"))
+                    if (code.Contains("khac") || code.Contains("nv_khac") || name.Contains("khác") || name.Contains("khac"))
                     {
                         rawKhacVnd += nv.SoTien;
                     }
-                    else
+                    else if (!code.Contains("vay") && !name.Contains("vay") && !name.Contains("tín dụng") && !name.Contains("tin dung"))
                     {
                         rawVcshVnd += nv.SoTien;
                     }
@@ -1219,7 +1217,7 @@ public partial class ReportService
                 rawVcshVnd = totalBudgetVnd;
             }
 
-            if (rawVcshVnd == 0 && rawVayVnd == 0 && rawKhacVnd == 0 && totalBudgetVnd > 0)
+            if (rawVcshVnd == 0 && rawKhacVnd == 0 && totalBudgetVnd > 0)
             {
                 rawVcshVnd = totalBudgetVnd;
             }
