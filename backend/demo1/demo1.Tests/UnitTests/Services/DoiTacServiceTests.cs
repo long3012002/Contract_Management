@@ -38,7 +38,7 @@ namespace demo1.Tests.UnitTests.Services
             // Arrange
             var createDto = new CreateDoiTacDto
             {
-                Code = "DT001",
+                Code = "NT-COOP",
                 Name = "Công ty TNHH Giải pháp CNTT Coop",
                 TaxCode = "0101234567",
                 Address = "Hà Nội",

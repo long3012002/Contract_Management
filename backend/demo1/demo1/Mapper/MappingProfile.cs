@@ -89,6 +89,10 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.NoiDung, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.NoiDung)))
                 .ForMember(dest => dest.HinhThucQuanLy, opt => opt.MapFrom(src => src.HinhThucQuanLy))
                 .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
+                .ForMember(dest => dest.SoQuyetDinh, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinh)))
+                .ForMember(dest => dest.SoQuyetDinhPheDuyetDuToan, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinhPheDuyetDuToan)))
+                .ForMember(dest => dest.SoQuyetDinhThanhLap, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinhThanhLap)))
+                .ForMember(dest => dest.NgayQuyetDinhThanhLap, opt => opt.MapFrom(src => src.NgayQuyetDinhThanhLap))
                 .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()) // Will be managed in service
                 .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()) // Will be managed in service
                 .ForMember(dest => dest.KeHoachVonDuAns, opt => opt.Ignore()); // Will be managed in service
@@ -103,6 +107,8 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.ToChucThucHien, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.ToChucThucHien)))
                 .ForMember(dest => dest.SoQuyetDinh, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinh)))
                 .ForMember(dest => dest.SoQuyetDinhPheDuyetDuToan, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinhPheDuyetDuToan)))
+                .ForMember(dest => dest.SoQuyetDinhThanhLap, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.SoQuyetDinhThanhLap)))
+                .ForMember(dest => dest.NgayQuyetDinhThanhLap, opt => opt.MapFrom(src => src.NgayQuyetDinhThanhLap))
                 .ForMember(dest => dest.DuToanPheDuyet, opt => opt.MapFrom(src => src.DuToanPheDuyet))
                 .ForMember(dest => dest.PhanKyVons, opt => opt.Ignore()) // Will be managed in service
                 .ForMember(dest => dest.DanhSachNguonVon, opt => opt.Ignore()) // Will be managed in service

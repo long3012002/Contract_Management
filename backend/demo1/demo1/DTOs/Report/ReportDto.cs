@@ -29,6 +29,13 @@ public class ReportRowDto
     // Giá trị tài sản đã hoàn thành đưa vào sử dụng
     public decimal TaiSanBanGiao { get; set; }
 
+    // Thông tin bổ sung cho Biểu 02.A
+    public decimal PhanTramVCSH => TongMucDauTuTong > 0 ? Math.Round((TongMucDauTuVCSH / TongMucDauTuTong) * 100, 2) : 0;
+    public decimal PhanTramVay => TongMucDauTuTong > 0 ? Math.Round((TongMucDauTuVay / TongMucDauTuTong) * 100, 2) : 0;
+    public string? ThoiGianThucHien { get; set; }
+    public string? ThoiHanVay { get; set; }
+    public decimal? LaiSuat { get; set; }
+
     // Thông tin bổ sung theo Mẫu Báo Cáo 1 (Tiến độ Dự án triển khai)
     public string? MaDuAn { get; set; }
     public string? DonViChuTri { get; set; }

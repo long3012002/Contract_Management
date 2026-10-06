@@ -412,7 +412,8 @@ public static class ProductionSeeder
             ("BAO_CAO_THANH_TOAN", "Báo cáo 5: Đợt thanh toán", "Báo cáo theo dõi giải ngân và các đợt thanh toán hợp đồng", "BAO_CAO", 65),
             ("BAO_CAO_DU_AN_THAU", "Báo cáo 6: TT Dự án thầu", "Báo cáo tiến độ thanh toán tổng hợp các dự án thầu", "BAO_CAO", 66),
             ("BAO_CAO_DAU_TU", "Báo cáo Tổng hợp Đầu tư", "Báo cáo tổng hợp tình hình thực hiện kinh phí đầu tư", "BAO_CAO", 67),
-            ("BAO_CAO_PHE_DUYET", "Danh mục Dự án phê duyệt", "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", "BAO_CAO", 68)
+            ("BAO_CAO_PHE_DUYET", "Danh mục Dự án phê duyệt", "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", "BAO_CAO", 68),
+            ("BAO_CAO_02A", "Báo cáo Biểu số 02.A", "Báo cáo tổng hợp tình hình thực hiện dự án đầu tư theo Thông tư 200 (Đơn vị: Tỷ đồng)", "BAO_CAO", 69)
         };
 
         foreach (var f in defaultFeatures)

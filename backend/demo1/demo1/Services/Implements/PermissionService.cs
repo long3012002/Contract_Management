@@ -1242,7 +1242,8 @@ namespace demo1.Services.Implements
                         new FeatureCatalogDto { Code = "BAO_CAO_THANH_TOAN", Name = "Báo cáo 5: Đợt thanh toán", Description = "Báo cáo theo dõi giải ngân và các đợt thanh toán hợp đồng", ParentCode = "BAO_CAO", SortOrder = 65 },
                         new FeatureCatalogDto { Code = "BAO_CAO_DU_AN_THAU", Name = "Báo cáo 6: TT Dự án thầu", Description = "Báo cáo tiến độ thanh toán tổng hợp các dự án thầu", ParentCode = "BAO_CAO", SortOrder = 66 },
                         new FeatureCatalogDto { Code = "BAO_CAO_DAU_TU", Name = "Báo cáo Tổng hợp Đầu tư", Description = "Báo cáo tổng hợp tình hình thực hiện kinh phí đầu tư", ParentCode = "BAO_CAO", SortOrder = 67 },
-                        new FeatureCatalogDto { Code = "BAO_CAO_PHE_DUYET", Name = "Danh mục Dự án phê duyệt", Description = "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", ParentCode = "BAO_CAO", SortOrder = 68 }
+                        new FeatureCatalogDto { Code = "BAO_CAO_PHE_DUYET", Name = "Danh mục Dự án phê duyệt", Description = "Báo cáo danh mục dự án phê duyệt và hạn License / SLA", ParentCode = "BAO_CAO", SortOrder = 68 },
+                        new FeatureCatalogDto { Code = "BAO_CAO_02A", Name = "Báo cáo Biểu số 02.A", Description = "Báo cáo tổng hợp tình hình thực hiện dự án đầu tư theo Thông tư 200 (Đơn vị: Tỷ đồng)", ParentCode = "BAO_CAO", SortOrder = 69, Aliases = new List<string> { "BAO_CAO_BIEU_02A", "BIEU_02A", "BIEU_MAU_02A", "REPORT_02A" } }
                     }
                 }
             };
@@ -1263,6 +1264,7 @@ namespace demo1.Services.Implements
                 "LICENSE" => new List<string> { "LICENSES", "BANQUYEN", "BAN_QUYEN" },
                 "KE_HOACH_VON" => new List<string> { "KEHOACHVON", "CAP_VON" },
                 "BAO_CAO" => new List<string> { "REPORT", "REPORTS", "BAOCAO" },
+                "BAO_CAO_02A" => new List<string> { "BAO_CAO_BIEU_02A", "BIEU_02A", "BIEU_MAU_02A", "REPORT_02A" },
                 _ => new List<string>()
             };
         }
@@ -1282,6 +1284,7 @@ namespace demo1.Services.Implements
                 "LICENSE" or "LICENSES" or "BANQUYEN" or "BAN_QUYEN" => "LICENSE",
                 "KEHOACHVON" or "KE_HOACH_VON" or "CAP_VON" => "KE_HOACH_VON",
                 "CATEGORY" or "CATEGORIES" or "DANHMUC" or "DANH_MUC" => "DANH_MUC",
+                "BAO_CAO_BIEU_02A" or "BIEU_02A" or "BIEU_MAU_02A" or "REPORT_02A" => "BAO_CAO_02A",
                 _ => code
             };
         }

@@ -51,6 +51,8 @@ public class UpdateDuAnDto
 
     public string? SoQuyetDinh { get; set; }
     public string? SoQuyetDinhPheDuyetDuToan { get; set; }
+    public string? SoQuyetDinhThanhLap { get; set; }
+    public DateTime? NgayQuyetDinhThanhLap { get; set; }
     
     public Guid? ChuDuAnId { get; set; }
 

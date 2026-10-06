@@ -32,6 +32,8 @@ public class DuAn : BaseEntity
     public bool? DaTrienKhai { get; set; }
     public string? SoQuyetDinh { get; set; }
     public string? SoQuyetDinhPheDuyetDuToan { get; set; }
+    public string? SoQuyetDinhThanhLap { get; set; }
+    public DateTime? NgayQuyetDinhThanhLap { get; set; }
 
     public Guid? CreatedByUserId { get; set; }
     public virtual User? CreatedByUser { get; set; }

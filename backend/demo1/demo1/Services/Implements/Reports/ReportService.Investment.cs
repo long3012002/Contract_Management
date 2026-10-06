@@ -1004,5 +1004,611 @@ public partial class ReportService
         return stream.ToArray();
     }
 
+    #region Biểu số 02.A (Đơn vị tính cố định: Tỷ đồng)
+
+    public async Task<ReportResponseDto> GetBieuMau02AReportAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        const decimal conversionFactor = 1_000_000_000m; // Cố định đơn vị tính: Tỷ đồng
+        const string unitName = "Tỷ đồng";
+
+        // 1. Tính toán thời gian kỳ báo cáo
+        var (startOfPeriod, endOfPeriod, periodDisplayName, periodName) = CalculateReportPeriod(year, period, fromDate, toDate);
+
+        // 2. Tải danh sách dự án hợp lệ
+        // QUY TẮC BẮT BUỘC: Chỉ lấy các dự án ĐÃ CÓ QUYẾT ĐỊNH THÀNH LẬP DỰ ÁN
+        var query = _context.DuAns
+            .AsNoTracking()
+            .Where(da => da.IsActive && !da.IsDeleted && da.TrangThai != (int)TrangThaiDuAn.Merged)
+            .Where(da => !string.IsNullOrWhiteSpace(da.SoQuyetDinhThanhLap) || da.NgayQuyetDinhThanhLap.HasValue);
+
+        // Phân quyền người dùng
+        if (_currentUserService != null)
+        {
+            var currentUsername = _currentUserService.GetUsername();
+            if (!string.IsNullOrEmpty(currentUsername))
+            {
+                var currentUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == currentUsername);
+                if (currentUser != null && !currentUser.IsSystemAdmin)
+                {
+                    query = query.Where(da => da.CreatedByUserId == currentUser.Id || da.ChuDuAnId == currentUser.Id
+                        || _context.UserPermissions.Any(up => up.UserId == currentUser.Id && up.DuAnId == da.Id)
+                        || _context.CongViecNguoiLienQuans.Any(nlq => nlq.UserId == currentUser.Id && nlq.CongViecGoiThau != null && nlq.CongViecGoiThau.GoiThau != null && nlq.CongViecGoiThau.GoiThau.DuAnId == da.Id)
+                        || (currentUser.CanViewHopDong && _context.HopDongs.Any(h => h.DuAnId == da.Id && h.LoaiHopDongNavigation != null && h.LoaiHopDongNavigation.Code == "01")));
+                }
+            }
+        }
+
+        var rawProjects = await query
+            .Select(da => new
+            {
+                da.Id,
+                da.Name,
+                da.Code,
+                da.DuToanPheDuyet,
+                da.SoQuyetDinh,
+                da.SoQuyetDinhPheDuyetDuToan,
+                da.SoQuyetDinhThanhLap,
+                da.NgayQuyetDinhThanhLap,
+                da.ThoiGianThucHien,
+                da.NgayBatDau,
+                da.NgayKetThuc,
+                da.NgayKetThucThucTe,
+                da.NamBatDau,
+                da.NamKetThuc,
+                da.UpdatedAt,
+                da.CreatedAt,
+                da.TrangThai,
+                da.DaKetThuc,
+                da.ToChucThucHien,
+                da.ChuDauTu,
+                PhanLoaiDuAnId = da.PhanLoaiDuAnId,
+                PhanLoaiDuAnCode = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Code : null,
+                PhanLoaiDuAnName = da.PhanLoaiDuAn != null ? da.PhanLoaiDuAn.Name : null,
+                DanhSachNguonVon = da.DanhSachNguonVon.Select(nv => new
+                {
+                    nv.Id,
+                    nv.SoTien,
+                    nv.NguonVonId,
+                    NguonVonCode = nv.NguonVon != null ? nv.NguonVon.Code : null,
+                    NguonVonName = nv.NguonVon != null ? nv.NguonVon.Name : null
+                }).ToList()
+            })
+            .ToListAsync();
+
+        // 3. Tải số liệu thanh toán giải ngân thực tế từ CSDL
+        var targetDuAnIds = rawProjects.Select(p => p.Id).ToList();
+        var performedValues = targetDuAnIds.Any()
+            ? await _context.DotThanhToans
+                .AsNoTracking()
+                .Where(dt => dt.IsPaid 
+                    && dt.HopDong != null 
+                    && dt.HopDong.IsActive 
+                    && !dt.HopDong.IsDeleted 
+                    && dt.HopDong.DuAnId.HasValue
+                    && targetDuAnIds.Contains(dt.HopDong.DuAnId.Value))
+                .Select(dt => new
+                {
+                    DuAnId = dt.HopDong.DuAnId!.Value,
+                    PaymentDate = dt.NgayThanhToanThucTe ?? dt.NgayThanhToan ?? dt.CreatedAt,
+                    dt.GiaTriThanhToan
+                })
+                .GroupBy(x => x.DuAnId)
+                .Select(g => new
+                {
+                    DuAnId = g.Key,
+                    KyTruoc = g.Where(x => x.PaymentDate < startOfPeriod).Sum(x => x.GiaTriThanhToan),
+                    TrongKy = g.Where(x => x.PaymentDate >= startOfPeriod && x.PaymentDate <= endOfPeriod).Sum(x => x.GiaTriThanhToan)
+                })
+                .ToDictionaryAsync(x => x.DuAnId, x => x)
+            : new();
+
+        // 4. Chuẩn bị danh sách dự án kèm thông số đã tính toán
+        var mappedProjects = rawProjects.Select(p =>
+        {
+            // Xác định ngày thành lập
+            DateTime ngayThanhLap = p.NgayQuyetDinhThanhLap 
+                ?? p.NgayBatDau 
+                ?? p.CreatedAt;
+
+            decimal totalNguonVonVnd = p.DanhSachNguonVon?.Sum(nv => nv.SoTien) ?? 0m;
+            decimal totalBudgetVnd = p.DuToanPheDuyet > 0 ? p.DuToanPheDuyet : totalNguonVonVnd;
+
+            decimal rawVcshVnd = 0;
+            decimal rawVayVnd = 0;
+            decimal rawKhacVnd = 0;
+
+            if (p.DanhSachNguonVon != null && p.DanhSachNguonVon.Any())
+            {
+                foreach (var nv in p.DanhSachNguonVon)
+                {
+                    var code = (nv.NguonVonCode ?? string.Empty).ToLowerInvariant();
+                    var name = (nv.NguonVonName ?? string.Empty).ToLowerInvariant();
+
+                    if (code.Contains("vay") || name.Contains("vay") || name.Contains("tín dụng") || name.Contains("tin dung"))
+                    {
+                        rawVayVnd += nv.SoTien;
+                    }
+                    else if (code.Contains("khac") || code.Contains("nv_khac") || name.Contains("khác") || name.Contains("khac"))
+                    {
+                        rawKhacVnd += nv.SoTien;
+                    }
+                    else
+                    {
+                        rawVcshVnd += nv.SoTien;
+                    }
+                }
+            }
+            else
+            {
+                rawVcshVnd = totalBudgetVnd;
+            }
+
+            if (rawVcshVnd == 0 && rawVayVnd == 0 && rawKhacVnd == 0 && totalBudgetVnd > 0)
+            {
+                rawVcshVnd = totalBudgetVnd;
+            }
+
+            performedValues.TryGetValue(p.Id, out var perf);
+            decimal performedKyTruocVnd = perf?.KyTruoc ?? 0;
+            decimal performedTrongKyVnd = perf?.TrongKy ?? 0;
+            decimal performedLuyKeVnd = performedKyTruocVnd + performedTrongKyVnd;
+
+            // Tài sản bàn giao
+            decimal taiSanBanGiaoVnd = 0;
+            if (p.TrangThai == (int)TrangThaiDuAn.HoanThanh || p.DaKetThuc)
+            {
+                var effectiveEndDate = p.NgayKetThucThucTe ?? p.NgayKetThuc ?? p.UpdatedAt;
+                if (!effectiveEndDate.HasValue || effectiveEndDate.Value <= endOfPeriod)
+                {
+                    taiSanBanGiaoVnd = performedLuyKeVnd;
+                }
+            }
+
+            // Văn bản quyết định thành lập / phê duyệt
+            string approvalDecision = !string.IsNullOrWhiteSpace(p.SoQuyetDinhThanhLap)
+                ? p.SoQuyetDinhThanhLap
+                : (!string.IsNullOrWhiteSpace(p.SoQuyetDinh) ? p.SoQuyetDinh : p.SoQuyetDinhPheDuyetDuToan ?? string.Empty);
+
+            if (!string.IsNullOrWhiteSpace(approvalDecision) && !approvalDecision.Contains("ngày"))
+            {
+                var dDate = p.NgayQuyetDinhThanhLap ?? p.NgayBatDau;
+                if (dDate.HasValue)
+                {
+                    approvalDecision = $"{approvalDecision} ngày {dDate.Value:dd/MM/yyyy}";
+                }
+            }
+
+            // Thời gian đầu tư theo KH
+            string thoiGianKh = !string.IsNullOrWhiteSpace(p.ThoiGianThucHien)
+                ? p.ThoiGianThucHien
+                : (p.NamBatDau.HasValue && p.NamKetThuc.HasValue
+                    ? $"{p.NamBatDau} - {p.NamKetThuc}"
+                    : (p.NgayBatDau.HasValue && p.NgayKetThuc.HasValue
+                        ? $"{p.NgayBatDau:dd/MM/yyyy} - {p.NgayKetThuc:dd/MM/yyyy}"
+                        : string.Empty));
+
+            // Xác định Nhóm quy mô theo Tổng mức đầu tư
+            // Nhóm A: > 800 tỷ, Nhóm B: 45 - 800 tỷ, Nhóm C: < 45 tỷ
+            string nhomQuyMo = totalBudgetVnd > 800_000_000_000m ? "A"
+                : (totalBudgetVnd >= 45_000_000_000m ? "B" : "C");
+
+            // Xác định Lĩnh vực: I. XDCB, II. CNTT, III. Khác
+            string linhVuc = "Khac";
+            var plCode = (p.PhanLoaiDuAnCode ?? string.Empty).ToLowerInvariant();
+            var plName = (p.PhanLoaiDuAnName ?? string.Empty).ToLowerInvariant();
+            if (plCode.Contains("xdcb") || plName.Contains("xây dựng") || plName.Contains("xay dung"))
+            {
+                linhVuc = "XDCB";
+            }
+            else if (plCode.Contains("cntt") || plCode.Contains("it") || plName.Contains("công nghệ") || plName.Contains("cntt") || plName.Contains("phần mềm"))
+            {
+                linhVuc = "CNTT";
+            }
+
+            return new
+            {
+                p.Id,
+                p.Name,
+                p.Code,
+                NgayThanhLap = ngayThanhLap,
+                IsTruocKy = ngayThanhLap < startOfPeriod,
+                IsTrongKy = ngayThanhLap >= startOfPeriod && ngayThanhLap <= endOfPeriod,
+                IsSauKy = ngayThanhLap > endOfPeriod,
+                NhomQuyMo = nhomQuyMo,
+                LinhVuc = linhVuc,
+                ThoiGianKh = thoiGianKh,
+                ApprovalDecision = approvalDecision,
+                DuToanPheDuyetVnd = totalBudgetVnd,
+                BudgetTotal = totalBudgetVnd / conversionFactor,
+                BudgetVcsh = rawVcshVnd / conversionFactor,
+                BudgetVay = rawVayVnd / conversionFactor,
+                BudgetKhac = rawKhacVnd / conversionFactor,
+                KhoiLuongKyTruoc = performedKyTruocVnd / conversionFactor,
+                KhoiLuongTrongKy = performedTrongKyVnd / conversionFactor,
+                KhoiLuongLuyKe = performedLuyKeVnd / conversionFactor,
+                GiaiNganKyTruoc = performedKyTruocVnd / conversionFactor, // Cột 16 = Cột 13
+                GiaiNganTrongKy = performedTrongKyVnd / conversionFactor, // Cột 17 = Cột 14
+                GiaiNganLuyKe = performedLuyKeVnd / conversionFactor,     // Cột 18 = Cột 15
+                TaiSanBanGiao = taiSanBanGiaoVnd / conversionFactor
+            };
+        })
+        .Where(x => !x.IsSauKy) // Loại bỏ các dự án thành lập sau kỳ báo cáo
+        .ToList();
+
+        // 5. Xây dựng cấu trúc danh sách dòng trả về (Phần A và Phần B)
+        var resultRows = new List<ReportRowDto>();
+
+        void BuildBlock(string blockLetter, string blockTitle, IEnumerable<dynamic> blockProjects)
+        {
+            var pList = blockProjects.ToList();
+
+            // 1. Dòng Tiêu đề Phần
+            resultRows.Add(new ReportRowDto
+            {
+                Stt = blockLetter,
+                RowType = "BlockHeader",
+                ProjectName = blockTitle
+            });
+
+            var groupKeys = new[] { ("A", "I", "Nhóm A (Tổng mức đầu tư > 800 tỷ đồng)"), 
+                                   ("B", "II", "Nhóm B (Tổng mức đầu tư từ 45 tỷ đến 800 tỷ đồng)"), 
+                                   ("C", "III", "Nhóm C (Tổng mức đầu tư < 45 tỷ đồng)") };
+
+            int projectIndexInBlock = 1;
+
+            foreach (var (gKey, roman, gTitle) in groupKeys)
+            {
+                var gProjects = pList.Where(p => p.NhomQuyMo == gKey).ToList();
+
+                // Dòng tiêu đề Nhóm quy mô
+                resultRows.Add(new ReportRowDto
+                {
+                    Stt = roman,
+                    RowType = "GroupHeader",
+                    ProjectName = $"{roman}. {gTitle}"
+                });
+
+                var domains = new[] { ("XDCB", "1. Dự án Xây dựng cơ bản"), 
+                                     ("CNTT", "2. Dự án Công nghệ thông tin"), 
+                                     ("Khac", "3. Dự án Khác") };
+
+                foreach (var (dKey, dTitle) in domains)
+                {
+                    var dProjects = gProjects.Where(p => p.LinhVuc == dKey).ToList();
+                    if (!dProjects.Any()) continue;
+
+                    // Dòng tiêu đề Lĩnh vực
+                    resultRows.Add(new ReportRowDto
+                    {
+                        Stt = string.Empty,
+                        RowType = "SubGroupHeader",
+                        ProjectName = $"   {dTitle}"
+                    });
+
+                    // Các dòng dự án
+                    foreach (var p in dProjects)
+                    {
+                        resultRows.Add(new ReportRowDto
+                        {
+                            Stt = projectIndexInBlock.ToString(),
+                            RowType = "ProjectRow",
+                            ProjectName = p.Name,
+                            MaDuAn = p.Code,
+                            ApprovalDecision = p.ApprovalDecision,
+                            ThoiGianThucHien = p.ThoiGianKh,
+                            TongMucDauTuTong = p.BudgetTotal,
+                            TongMucDauTuVCSH = p.BudgetVcsh,
+                            TongMucDauTuVay = p.BudgetVay,
+                            TongMucDauTuKhac = p.BudgetKhac,
+                            KhoiLuongKyTruoc = p.KhoiLuongKyTruoc,
+                            KhoiLuongTrongKy = p.KhoiLuongTrongKy,
+                            KhoiLuongLuyKe = p.KhoiLuongLuyKe,
+                            GiaiNganKyTruoc = p.GiaiNganKyTruoc,
+                            GiaiNganTrongKy = p.GiaiNganTrongKy,
+                            GiaiNganLuyKe = p.GiaiNganLuyKe,
+                            TaiSanBanGiao = p.TaiSanBanGiao
+                        });
+                        projectIndexInBlock++;
+                    }
+                }
+            }
+
+            // Dòng Cộng của Phần
+            resultRows.Add(new ReportRowDto
+            {
+                Stt = $"Cộng {blockLetter}",
+                RowType = "BlockFooter",
+                ProjectName = $"Cộng {blockTitle}",
+                TongMucDauTuTong = pList.Sum(p => (decimal)p.BudgetTotal),
+                TongMucDauTuVCSH = pList.Sum(p => (decimal)p.BudgetVcsh),
+                TongMucDauTuVay = pList.Sum(p => (decimal)p.BudgetVay),
+                TongMucDauTuKhac = pList.Sum(p => (decimal)p.BudgetKhac),
+                KhoiLuongKyTruoc = pList.Sum(p => (decimal)p.KhoiLuongKyTruoc),
+                KhoiLuongTrongKy = pList.Sum(p => (decimal)p.KhoiLuongTrongKy),
+                KhoiLuongLuyKe = pList.Sum(p => (decimal)p.KhoiLuongLuyKe),
+                GiaiNganKyTruoc = pList.Sum(p => (decimal)p.GiaiNganKyTruoc),
+                GiaiNganTrongKy = pList.Sum(p => (decimal)p.GiaiNganTrongKy),
+                GiaiNganLuyKe = pList.Sum(p => (decimal)p.GiaiNganLuyKe),
+                TaiSanBanGiao = pList.Sum(p => (decimal)p.TaiSanBanGiao)
+            });
+        }
+
+        // Khối PHẦN A: Dự án có QĐ thành lập trước kỳ báo cáo
+        var truocKyProjects = mappedProjects.Where(p => p.IsTruocKy).ToList();
+        BuildBlock("A", "PHẦN A: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRƯỚC KỲ BÁO CÁO", truocKyProjects);
+
+        // Khối PHẦN B: Dự án có QĐ thành lập trong kỳ báo cáo
+        var trongKyProjects = mappedProjects.Where(p => p.IsTrongKy).ToList();
+        BuildBlock("B", "PHẦN B: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRONG KỲ BÁO CÁO", trongKyProjects);
+
+        // Dòng TỔNG CỘNG TOÀN BỘ (PHẦN A + PHẦN B)
+        resultRows.Add(new ReportRowDto
+        {
+            Stt = string.Empty,
+            RowType = "GrandTotal",
+            ProjectName = "TỔNG CỘNG TOÀN BỘ (PHẦN A + PHẦN B)",
+            TongMucDauTuTong = mappedProjects.Sum(p => (decimal)p.BudgetTotal),
+            TongMucDauTuVCSH = mappedProjects.Sum(p => (decimal)p.BudgetVcsh),
+            TongMucDauTuVay = mappedProjects.Sum(p => (decimal)p.BudgetVay),
+            TongMucDauTuKhac = mappedProjects.Sum(p => (decimal)p.BudgetKhac),
+            KhoiLuongKyTruoc = mappedProjects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
+            KhoiLuongTrongKy = mappedProjects.Sum(p => (decimal)p.KhoiLuongTrongKy),
+            KhoiLuongLuyKe = mappedProjects.Sum(p => (decimal)p.KhoiLuongLuyKe),
+            GiaiNganKyTruoc = mappedProjects.Sum(p => (decimal)p.GiaiNganKyTruoc),
+            GiaiNganTrongKy = mappedProjects.Sum(p => (decimal)p.GiaiNganTrongKy),
+            GiaiNganLuyKe = mappedProjects.Sum(p => (decimal)p.GiaiNganLuyKe),
+            TaiSanBanGiao = mappedProjects.Sum(p => (decimal)p.TaiSanBanGiao)
+        });
+
+        return new ReportResponseDto
+        {
+            Title = "BÁO CÁO TỔNG HỢP TÌNH HÌNH THỰC HIỆN DỰ ÁN ĐẦU TƯ (BIỂU SỐ 02.A)",
+            Unit = unitName,
+            Year = year,
+            Period = period,
+            PeriodName = periodName,
+            FromDate = startOfPeriod,
+            ToDate = endOfPeriod,
+            Rows = resultRows
+        };
+    }
+
+    public async Task<byte[]> ExportBieuMau02AReportExcelAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Biểu 02.A - Báo cáo Đầu tư");
+
+        worksheet.ShowGridLines = true;
+        worksheet.Style.Font.FontName = "Times New Roman";
+        worksheet.Style.Font.FontSize = 11;
+
+        // 1. Header Metadata
+        worksheet.Cell("A1").Value = "NGÂN HÀNG HỢP TÁC XÃ VIỆT NĂM";
+        worksheet.Cell("A1").Style.Font.Bold = true;
+        worksheet.Cell("A2").Value = "BAN QUẢN LÝ DỰ ÁN";
+
+        worksheet.Cell("P1").Value = "Biểu số: 02.A";
+        worksheet.Cell("P1").Style.Font.Bold = true;
+        worksheet.Cell("P2").Value = "Ban hành theo TT số 200/2015/TT-BTC";
+        worksheet.Cell("P2").Style.Font.Italic = true;
+
+        // Title
+        worksheet.Cell("A4").Value = "BÁO CÁO TỔNG HỢP TÌNH HÌNH THỰC HIỆN DỰ ÁN ĐẦU TƯ";
+        worksheet.Range("A4:S4").Merge();
+        worksheet.Cell("A4").Style.Font.Bold = true;
+        worksheet.Cell("A4").Style.Font.FontSize = 14;
+        worksheet.Cell("A4").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        string periodText = report.ToDate.HasValue && report.FromDate.HasValue
+            ? $"Từ ngày {report.FromDate.Value:dd/MM/yyyy} đến ngày {report.ToDate.Value:dd/MM/yyyy}"
+            : $"Năm {year}";
+        worksheet.Cell("A5").Value = periodText;
+        worksheet.Range("A5:S5").Merge();
+        worksheet.Cell("A5").Style.Font.Italic = true;
+        worksheet.Cell("A5").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        worksheet.Cell("S6").Value = "Đơn vị tính: Tỷ đồng";
+        worksheet.Cell("S6").Style.Font.Italic = true;
+        worksheet.Cell("S6").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+        string dateStr = report.ToDate.HasValue ? report.ToDate.Value.ToString("dd/MM/yyyy") : $"31/12/{year}";
+
+        // 2. Table Headers (Row 8 to 10)
+        worksheet.Range("A8:A9").Merge().Value = "TT";
+        worksheet.Range("B8:B9").Merge().Value = "Tên dự án";
+        worksheet.Range("C8:C9").Merge().Value = "Quyết định phê duyệt";
+        worksheet.Range("D8:H8").Merge().Value = "Tổng mức vốn đầu tư";
+        worksheet.Cell("D9").Value = "Tổng";
+        worksheet.Cell("E9").Value = "Vốn CSH";
+        worksheet.Cell("F9").Value = "% Vốn CSH";
+        worksheet.Cell("G9").Value = "Vốn huy động";
+        worksheet.Cell("H9").Value = "% Vốn HĐ";
+
+        worksheet.Range("I8:I9").Merge().Value = "Thời gian đầu tư theo KH";
+
+        worksheet.Range("J8:L8").Merge().Value = "Nguồn vốn huy động";
+        worksheet.Cell("J9").Value = "Tổng số";
+        worksheet.Cell("K9").Value = "Thời hạn vay";
+        worksheet.Cell("L9").Value = "Lãi suất (%)";
+
+        worksheet.Range("M8:O8").Merge().Value = $"Giá trị khối lượng thực hiện đến {dateStr}";
+        worksheet.Cell("M9").Value = "Kỳ trước chuyển sang";
+        worksheet.Cell("N9").Value = "Thực hiện trong kỳ";
+        worksheet.Cell("O9").Value = $"Lũy kế đến {dateStr}";
+
+        worksheet.Range("P8:R8").Merge().Value = $"Giải ngân đến {dateStr}";
+        worksheet.Cell("P9").Value = "Kỳ trước chuyển sang";
+        worksheet.Cell("Q9").Value = "Thực hiện trong kỳ";
+        worksheet.Cell("R9").Value = $"Lũy kế đến {dateStr}";
+
+        worksheet.Range("S8:S9").Merge().Value = "Tài sản hoàn thành đưa vào SD";
+
+        var headerRange = worksheet.Range("A8:S9");
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        headerRange.Style.Alignment.WrapText = true;
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#1E3A8A");
+        headerRange.Style.Font.FontColor = XLColor.White;
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // Numbering row 10
+        for (int i = 1; i <= 19; i++)
+        {
+            worksheet.Cell(10, i).Value = $"({i})";
+        }
+        var numRange = worksheet.Range("A10:S10");
+        numRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        numRange.Style.Font.Italic = true;
+        numRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#E2E8F0");
+        numRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        numRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+
+        // 3. Render Data Rows
+        int currentRow = 11;
+        foreach (var r in report.Rows)
+        {
+            worksheet.Cell(currentRow, 1).Value = r.Stt;
+            worksheet.Cell(currentRow, 2).Value = r.ProjectName;
+            worksheet.Cell(currentRow, 3).Value = r.ApprovalDecision;
+
+            if (r.RowType == "BlockHeader")
+            {
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = XLColor.FromHtml("#DBEAFE");
+                worksheet.Cell(currentRow, 2).Style.Font.FontColor = XLColor.FromHtml("#1E3A8A");
+            }
+            else if (r.RowType == "GroupHeader")
+            {
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+            }
+            else if (r.RowType == "SubGroupHeader")
+            {
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Italic = true;
+            }
+            else if (r.RowType == "BlockFooter" || r.RowType == "GrandTotal")
+            {
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
+                worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = r.RowType == "GrandTotal" 
+                    ? XLColor.FromHtml("#FEF08A") 
+                    : XLColor.FromHtml("#E0E7FF");
+
+                worksheet.Cell(currentRow, 4).Value = r.TongMucDauTuTong;
+                worksheet.Cell(currentRow, 5).Value = r.TongMucDauTuVCSH;
+                worksheet.Cell(currentRow, 6).Value = r.PhanTramVCSH;
+                worksheet.Cell(currentRow, 7).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 8).Value = r.PhanTramVay;
+                worksheet.Cell(currentRow, 10).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 13).Value = r.KhoiLuongKyTruoc;
+                worksheet.Cell(currentRow, 14).Value = r.KhoiLuongTrongKy;
+                worksheet.Cell(currentRow, 15).Value = r.KhoiLuongLuyKe;
+                worksheet.Cell(currentRow, 16).Value = r.GiaiNganKyTruoc;
+                worksheet.Cell(currentRow, 17).Value = r.GiaiNganTrongKy;
+                worksheet.Cell(currentRow, 18).Value = r.GiaiNganLuyKe;
+                worksheet.Cell(currentRow, 19).Value = r.TaiSanBanGiao;
+            }
+            else // ProjectRow
+            {
+                worksheet.Cell(currentRow, 4).Value = r.TongMucDauTuTong;
+                worksheet.Cell(currentRow, 5).Value = r.TongMucDauTuVCSH;
+                worksheet.Cell(currentRow, 6).Value = r.PhanTramVCSH;
+                worksheet.Cell(currentRow, 7).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 8).Value = r.PhanTramVay;
+                worksheet.Cell(currentRow, 9).Value = r.ThoiGianThucHien ?? string.Empty;
+                worksheet.Cell(currentRow, 10).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 11).Value = r.ThoiHanVay ?? string.Empty;
+                if (r.LaiSuat.HasValue) worksheet.Cell(currentRow, 12).Value = r.LaiSuat.Value;
+
+                worksheet.Cell(currentRow, 13).Value = r.KhoiLuongKyTruoc;
+                worksheet.Cell(currentRow, 14).Value = r.KhoiLuongTrongKy;
+                worksheet.Cell(currentRow, 15).Value = r.KhoiLuongLuyKe;
+                worksheet.Cell(currentRow, 16).Value = r.GiaiNganKyTruoc;
+                worksheet.Cell(currentRow, 17).Value = r.GiaiNganTrongKy;
+                worksheet.Cell(currentRow, 18).Value = r.GiaiNganLuyKe;
+                worksheet.Cell(currentRow, 19).Value = r.TaiSanBanGiao;
+            }
+
+            // Numeric format
+            foreach (var colIdx in new[] { 4, 5, 7, 10, 13, 14, 15, 16, 17, 18, 19 })
+            {
+                var cell = worksheet.Cell(currentRow, colIdx);
+                if (cell.Value.IsNumber)
+                {
+                    cell.Style.NumberFormat.Format = "#,##0.00;(#,##0.00);\"-\"";
+                }
+            }
+            foreach (var colIdx in new[] { 6, 8, 12 })
+            {
+                var cell = worksheet.Cell(currentRow, colIdx);
+                if (cell.Value.IsNumber)
+                {
+                    cell.Style.NumberFormat.Format = "0.0\"%\";(0.0\"%\");\"-\"";
+                }
+            }
+
+            worksheet.Range(currentRow, 1, currentRow, 19).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            worksheet.Range(currentRow, 1, currentRow, 19).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
+        }
+
+        // Auto adjust columns
+        worksheet.Column(1).Width = 8;
+        worksheet.Column(2).Width = 40;
+        worksheet.Column(3).Width = 30;
+        for (int c = 4; c <= 19; c++)
+        {
+            worksheet.Column(c).Width = 16;
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<byte[]> ExportBieuMau02AReportCsvAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+        var sb = new StringBuilder();
+
+        sb.AppendLine("TT,Tên dự án,Quyết định phê duyệt,Tổng mức đầu tư Tổng,Vốn CSH,% Vốn CSH,Vốn vay,% Vốn vay,Thời gian đầu tư theo KH,Tổng số vốn vay,Thời hạn vay,Lãi suất,Khối lượng Kỳ trước,Khối lượng Trong kỳ,Khối lượng Lũy kế,Giải ngân Kỳ trước,Giải ngân Trong kỳ,Giải ngân Lũy kế,Tài sản bàn giao");
+
+        foreach (var r in report.Rows)
+        {
+            sb.AppendLine($"\"{r.Stt}\",\"{r.ProjectName}\",\"{r.ApprovalDecision}\",{r.TongMucDauTuTong},{r.TongMucDauTuVCSH},{r.PhanTramVCSH},{r.TongMucDauTuVay},{r.PhanTramVay},\"{r.ThoiGianThucHien}\",{r.TongMucDauTuVay},\"{r.ThoiHanVay}\",{r.LaiSuat ?? 0},{r.KhoiLuongKyTruoc},{r.KhoiLuongTrongKy},{r.KhoiLuongLuyKe},{r.GiaiNganKyTruoc},{r.GiaiNganTrongKy},{r.GiaiNganLuyKe},{r.TaiSanBanGiao}");
+        }
+
+        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
+    }
+
+    public async Task<byte[]> ExportBieuMau02AReportHtmlAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    {
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+        var sb = new StringBuilder();
+
+        sb.AppendLine("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Biểu số 02.A</title>");
+        sb.AppendLine("<style>body{font-family:'Times New Roman',serif;padding:20px;} table{border-collapse:collapse;width:100%;font-size:13px;} th,td{border:1px solid #999;padding:6px 8px;text-align:right;} th{background:#1E3A8A;color:white;text-align:center;} .text-left{text-align:left;} .text-center{text-align:center;} .block-header{background:#DBEAFE;font-weight:bold;text-align:left;color:#1E3A8A;} .group-header{background:#F1F5F9;font-weight:bold;text-align:left;} .footer-row{background:#E0E7FF;font-weight:bold;} .grand-total{background:#FEF08A;font-weight:bold;}</style>");
+        sb.AppendLine("</head><body>");
+        sb.AppendLine($"<h2 style='text-align:center;'>BÁO CÁO TỔNG HỢP TÌNH HÌNH THỰC HIỆN DỰ ÁN ĐẦU TƯ (BIỂU SỐ 02.A)</h2>");
+        sb.AppendLine($"<p style='text-align:center;font-style:italic;'>Năm {year} - Đơn vị tính: {report.Unit}</p>");
+        sb.AppendLine("<table>");
+        sb.AppendLine("<thead><tr><th rowspan='2'>TT</th><th rowspan='2'>Tên dự án</th><th rowspan='2'>Quyết định phê duyệt</th><th colspan='5'>Tổng mức vốn đầu tư</th><th rowspan='2'>Thời gian ĐT</th><th colspan='3'>Vốn vay</th><th colspan='3'>Khối lượng thực hiện</th><th colspan='3'>Giải ngân</th><th rowspan='2'>Tài sản bàn giao</th></tr>");
+        sb.AppendLine("<tr><th>Tổng</th><th>CSH</th><th>% CSH</th><th>Vay</th><th>% Vay</th><th>Tổng vay</th><th>Thời hạn</th><th>Lãi suất</th><th>Trước kỳ</th><th>Trong kỳ</th><th>Lũy kế</th><th>Trước kỳ</th><th>Trong kỳ</th><th>Lũy kế</th></tr></thead><tbody>");
+
+        foreach (var r in report.Rows)
+        {
+            string cls = r.RowType == "BlockHeader" ? "block-header" : (r.RowType == "GroupHeader" ? "group-header" : (r.RowType == "BlockFooter" ? "footer-row" : (r.RowType == "GrandTotal" ? "grand-total" : "")));
+            sb.AppendLine($"<tr class='{cls}'><td class='text-center'>{r.Stt}</td><td class='text-left'>{r.ProjectName}</td><td class='text-left'>{r.ApprovalDecision}</td><td>{r.TongMucDauTuTong:N2}</td><td>{r.TongMucDauTuVCSH:N2}</td><td>{r.PhanTramVCSH:N1}%</td><td>{r.TongMucDauTuVay:N2}</td><td>{r.PhanTramVay:N1}%</td><td>{r.ThoiGianThucHien}</td><td>{r.TongMucDauTuVay:N2}</td><td>{r.ThoiHanVay}</td><td>{(r.LaiSuat.HasValue ? $"{r.LaiSuat:N1}%" : "-")}</td><td>{r.KhoiLuongKyTruoc:N2}</td><td>{r.KhoiLuongTrongKy:N2}</td><td>{r.KhoiLuongLuyKe:N2}</td><td>{r.GiaiNganKyTruoc:N2}</td><td>{r.GiaiNganTrongKy:N2}</td><td>{r.GiaiNganLuyKe:N2}</td><td>{r.TaiSanBanGiao:N2}</td></tr>");
+        }
+
+        sb.AppendLine("</tbody></table></body></html>");
+        return Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    #endregion
 
 }

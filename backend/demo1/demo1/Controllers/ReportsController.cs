@@ -161,6 +161,133 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
 
     #endregion
 
+    #region 1.1. Báo cáo Biểu số 02.A (Đơn vị tính cố định: Tỷ đồng)
+
+    /// <summary>
+    /// Lấy dữ liệu Báo cáo Biểu số 02.A - Tình hình đầu tư và huy động vốn để đầu tư vào các dự án hình thành TSCĐ &amp; XDCB (Đơn vị tính cố định: Tỷ đồng).
+    /// </summary>
+    /// <param name="year">Năm báo cáo (mặc định: năm hiện tại)</param>
+    /// <param name="period">Kỳ báo cáo: 1 (Cả năm), 2 (6T đầu năm), 3 (6T cuối năm), 4-7 (Quý 1-4), 11-22 (Tháng 1-12), 0 (Tùy chọn)</param>
+    /// <param name="fromDate">Từ ngày</param>
+    /// <param name="toDate">Đến ngày</param>
+    [HttpGet("bieu-mau-02a", Name = "GetBieuMau02AReport")]
+    [HttpGet("bieu-02a")]
+    [FeatureAuthorize("BAO_CAO_02A")]
+    [ProducesResponseType(typeof(ReportResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ReportResponseDto>> GetBieuMau02AReport(
+        [FromQuery] int? year,
+        [FromQuery] int period = 1,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null)
+    {
+        var effectiveFromDate = fromDate ?? fromDateAlt;
+        var effectiveToDate = toDate ?? toDateAlt;
+        int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
+
+        if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
+        {
+            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ." });
+        }
+
+        try
+        {
+            var report = await reportService.GetBieuMau02AReportAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+            return Ok(report);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi API Báo cáo 02.A: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi tạo Báo cáo Biểu số 02.A.", detail = env.IsDevelopment() ? ex.Message : null });
+        }
+    }
+
+    /// <summary>
+    /// Xuất file Báo cáo Biểu số 02.A ra Excel / CSV / HTML (Đơn vị tính cố định: Tỷ đồng).
+    /// </summary>
+    /// <param name="year">Năm báo cáo</param>
+    /// <param name="period">Kỳ báo cáo</param>
+    /// <param name="format">Định dạng xuất: xlsx, csv, html (mặc định: xlsx)</param>
+    /// <param name="base64">Trả về chuỗi Base64 thay vì download file</param>
+    /// <param name="fromDate">Từ ngày</param>
+    /// <param name="toDate">Đến ngày</param>
+    [HttpGet("bieu-mau-02a/export", Name = "ExportBieuMau02AReport")]
+    [HttpGet("bieu-02a/export")]
+    [FeatureAuthorize("BAO_CAO_02A")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportBieuMau02AReport(
+        [FromQuery] int? year,
+        [FromQuery] int period = 1,
+        [FromQuery] string format = "xlsx",
+        [FromQuery] bool base64 = false,
+        [FromQuery] DateTime? fromDate = null,
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null)
+    {
+        var effectiveFromDate = fromDate ?? fromDateAlt;
+        var effectiveToDate = toDate ?? toDateAlt;
+        int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
+
+        if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
+        {
+            return BadRequest(new { message = "Kỳ báo cáo không hợp lệ." });
+        }
+
+        try
+        {
+            byte[] fileBytes;
+            string contentType;
+            string extension;
+            string formatLower = format?.ToLower() ?? "xlsx";
+
+            if (formatLower == "csv")
+            {
+                fileBytes = await reportService.ExportBieuMau02AReportCsvAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                contentType = "text/csv";
+                extension = "csv";
+            }
+            else if (formatLower == "html")
+            {
+                fileBytes = await reportService.ExportBieuMau02AReportHtmlAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                contentType = "text/html";
+                extension = "html";
+            }
+            else
+            {
+                fileBytes = await reportService.ExportBieuMau02AReportExcelAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                extension = "xlsx";
+            }
+
+            string timestamp = DateTime.Now.ToString("ddMMyyyy_HHmmss");
+            string periodLabel = (effectiveFromDate.HasValue || effectiveToDate.HasValue || period == 0) ? "TuyChon" : $"K{period}";
+            string fileName = $"BieuMau_02A_TTCNTT_{selectedYear}_{periodLabel}_{timestamp}.{extension}";
+
+            if (base64)
+            {
+                var base64Data = Convert.ToBase64String(fileBytes);
+                return Ok(new
+                {
+                    fileName,
+                    contentType,
+                    base64Data
+                });
+            }
+
+            return File(fileBytes, contentType, fileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lỗi API xuất Báo cáo 02.A: {Message}", ex.Message);
+            return StatusCode(500, new { message = "Đã xảy ra lỗi khi xuất Báo cáo Biểu số 02.A.", detail = env.IsDevelopment() ? ex.Message : null });
+        }
+    }
+
+    #endregion
+
     #region 2. Báo cáo Theo dõi Giải ngân & Thanh toán Hợp đồng
 
     /// <summary>
