@@ -1140,32 +1140,43 @@ public partial class ReportService
             })
             .ToListAsync();
 
-        // 3. Tải số liệu thanh toán giải ngân thực tế từ CSDL
+        // 3. Tải số liệu thanh toán giải ngân thực tế từ CSDL dựa trên các đợt thanh toán (DotThanhToan) của dự án
         var targetDuAnIds = rawProjects.Select(p => p.Id).ToList();
-        var performedValues = targetDuAnIds.Any()
+        var paymentRecords = targetDuAnIds.Any()
             ? await _context.DotThanhToans
                 .AsNoTracking()
-                .Where(dt => dt.IsPaid 
-                    && dt.HopDong != null 
+                .Where(dt => dt.HopDong != null 
                     && dt.HopDong.IsActive 
                     && !dt.HopDong.IsDeleted 
-                    && dt.HopDong.DuAnId.HasValue
-                    && targetDuAnIds.Contains(dt.HopDong.DuAnId.Value))
+                    && ((dt.HopDong.DuAnId.HasValue && targetDuAnIds.Contains(dt.HopDong.DuAnId.Value))
+                        || (dt.HopDong.GoiThau != null && dt.HopDong.GoiThau.DuAnId.HasValue && targetDuAnIds.Contains(dt.HopDong.GoiThau.DuAnId.Value))))
                 .Select(dt => new
                 {
-                    DuAnId = dt.HopDong.DuAnId!.Value,
+                    DuAnId = dt.HopDong.DuAnId ?? dt.HopDong.GoiThau!.DuAnId!.Value,
                     PaymentDate = dt.NgayThanhToanThucTe ?? dt.NgayThanhToan ?? dt.CreatedAt,
-                    dt.GiaTriThanhToan
+                    dt.GiaTriThanhToan,
+                    dt.IsPaid
                 })
-                .GroupBy(x => x.DuAnId)
-                .Select(g => new
+                .ToListAsync()
+            : new();
+
+        var performedValues = paymentRecords
+            .GroupBy(x => x.DuAnId)
+            .ToDictionary(
+                g => g.Key,
+                g => new
                 {
                     DuAnId = g.Key,
-                    KyTruoc = g.Where(x => x.PaymentDate < startOfPeriod).Sum(x => x.GiaTriThanhToan),
-                    TrongKy = g.Where(x => x.PaymentDate >= startOfPeriod && x.PaymentDate <= endOfPeriod).Sum(x => x.GiaTriThanhToan)
-                })
-                .ToDictionaryAsync(x => x.DuAnId, x => x)
-            : new();
+                    // Cột 13: Giá trị khối lượng thực hiện - Kỳ trước chuyển sang
+                    KhoiLuongKyTruoc = g.Where(x => x.PaymentDate < startOfPeriod).Sum(x => x.GiaTriThanhToan),
+                    // Cột 14: Giá trị khối lượng thực hiện - Thực hiện trong kỳ
+                    KhoiLuongTrongKy = g.Where(x => x.PaymentDate >= startOfPeriod && x.PaymentDate <= endOfPeriod).Sum(x => x.GiaTriThanhToan),
+                    // Cột 16: Giải ngân đến ngày - Kỳ trước chuyển sang
+                    GiaiNganKyTruoc = g.Where(x => x.PaymentDate < startOfPeriod).Sum(x => x.GiaTriThanhToan),
+                    // Cột 17: Giải ngân đến ngày - Thực hiện trong kỳ
+                    GiaiNganTrongKy = g.Where(x => x.PaymentDate >= startOfPeriod && x.PaymentDate <= endOfPeriod).Sum(x => x.GiaTriThanhToan)
+                }
+            );
 
         // 4. Chuẩn bị danh sách dự án kèm thông số đã tính toán
         var mappedProjects = rawProjects.Select(p =>
@@ -1213,12 +1224,17 @@ public partial class ReportService
                 rawVcshVnd = totalBudgetVnd;
             }
 
+            // Cột 13 -> 18: Lấy từ các đợt thanh toán (DotThanhToan)
             performedValues.TryGetValue(p.Id, out var perf);
-            decimal performedKyTruocVnd = perf?.KyTruoc ?? 0;
-            decimal performedTrongKyVnd = perf?.TrongKy ?? 0;
+            decimal performedKyTruocVnd = perf?.KhoiLuongKyTruoc ?? 0;
+            decimal performedTrongKyVnd = perf?.KhoiLuongTrongKy ?? 0;
             decimal performedLuyKeVnd = performedKyTruocVnd + performedTrongKyVnd;
 
-            // Tài sản bàn giao
+            decimal giaiNganKyTruocVnd = perf?.GiaiNganKyTruoc ?? 0;
+            decimal giaiNganTrongKyVnd = perf?.GiaiNganTrongKy ?? 0;
+            decimal giaiNganLuyKeVnd = giaiNganKyTruocVnd + giaiNganTrongKyVnd;
+
+            // Cột 19: Giá trị tài sản đã hình thành và đưa vào sử dụng (dựa trên đợt thanh toán của dự án hoàn thành)
             decimal taiSanBanGiaoVnd = 0;
             if (p.TrangThai == (int)TrangThaiDuAn.HoanThanh || p.DaKetThuc)
             {
@@ -1243,7 +1259,7 @@ public partial class ReportService
                 }
             }
 
-            // Thời gian đầu tư theo KH
+            // Cột 9: Thời gian đầu tư theo KH
             string thoiGianKh = !string.IsNullOrWhiteSpace(p.ThoiGianThucHien)
                 ? p.ThoiGianThucHien
                 : (p.NamBatDau.HasValue && p.NamKetThuc.HasValue
@@ -1288,13 +1304,15 @@ public partial class ReportService
                 BudgetVcsh = rawVcshVnd / conversionFactor,
                 BudgetVay = rawVayVnd / conversionFactor,
                 BudgetKhac = rawKhacVnd / conversionFactor,
+                // Cột 10: Tổng số nguồn vốn
+                TongSoNguonVon = totalBudgetVnd / conversionFactor,
                 KhoiLuongKyTruoc = performedKyTruocVnd / conversionFactor,
                 KhoiLuongTrongKy = performedTrongKyVnd / conversionFactor,
                 KhoiLuongLuyKe = performedLuyKeVnd / conversionFactor,
-                GiaiNganKyTruoc = performedKyTruocVnd / conversionFactor, // Cột 16 = Cột 13
-                GiaiNganTrongKy = performedTrongKyVnd / conversionFactor, // Cột 17 = Cột 14
-                GiaiNganLuyKe = performedLuyKeVnd / conversionFactor,     // Cột 18 = Cột 15
-                TaiSanBanGiao = taiSanBanGiaoVnd / conversionFactor
+                GiaiNganKyTruoc = giaiNganKyTruocVnd / conversionFactor, // Cột 16
+                GiaiNganTrongKy = giaiNganTrongKyVnd / conversionFactor, // Cột 17
+                GiaiNganLuyKe = giaiNganLuyKeVnd / conversionFactor,     // Cột 18
+                TaiSanBanGiao = taiSanBanGiaoVnd / conversionFactor      // Cột 19
             };
         })
         .Where(x => !x.IsSauKy) // Loại bỏ các dự án thành lập sau kỳ báo cáo
@@ -1327,11 +1345,12 @@ public partial class ReportService
                     ProjectName = p.Name,
                     MaDuAn = p.Code,
                     ApprovalDecision = p.ApprovalDecision,
-                    ThoiGianThucHien = p.ThoiGianKh,
                     TongMucDauTuTong = p.BudgetTotal,
                     TongMucDauTuVCSH = p.BudgetVcsh,
                     TongMucDauTuVay = p.BudgetVay,
                     TongMucDauTuKhac = p.BudgetKhac,
+                    ThoiGianThucHien = p.ThoiGianKh,
+                    TongSoNguonVon = p.TongSoNguonVon,
                     KhoiLuongKyTruoc = p.KhoiLuongKyTruoc,
                     KhoiLuongTrongKy = p.KhoiLuongTrongKy,
                     KhoiLuongLuyKe = p.KhoiLuongLuyKe,
@@ -1353,6 +1372,7 @@ public partial class ReportService
                     TongMucDauTuVCSH = projects.Sum(p => (decimal)p.BudgetVcsh),
                     TongMucDauTuVay = projects.Sum(p => (decimal)p.BudgetVay),
                     TongMucDauTuKhac = projects.Sum(p => (decimal)p.BudgetKhac),
+                    TongSoNguonVon = projects.Sum(p => (decimal)p.TongSoNguonVon),
                     KhoiLuongKyTruoc = projects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
                     KhoiLuongTrongKy = projects.Sum(p => (decimal)p.KhoiLuongTrongKy),
                     KhoiLuongLuyKe = projects.Sum(p => (decimal)p.KhoiLuongLuyKe),
@@ -1501,6 +1521,7 @@ public partial class ReportService
                 TongMucDauTuVCSH = mappedProjects.Sum(p => (decimal)p.BudgetVcsh),
                 TongMucDauTuVay = mappedProjects.Sum(p => (decimal)p.BudgetVay),
                 TongMucDauTuKhac = mappedProjects.Sum(p => (decimal)p.BudgetKhac),
+                TongSoNguonVon = mappedProjects.Sum(p => (decimal)p.TongSoNguonVon),
                 KhoiLuongKyTruoc = mappedProjects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
                 KhoiLuongTrongKy = mappedProjects.Sum(p => (decimal)p.KhoiLuongTrongKy),
                 KhoiLuongLuyKe = mappedProjects.Sum(p => (decimal)p.KhoiLuongLuyKe),
@@ -1642,19 +1663,24 @@ public partial class ReportService
                 worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
                 worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Italic = true;
             }
-            else if (r.RowType == "BlockFooter" || r.RowType == "GrandTotal")
+            else if (r.RowType == "BlockFooter" || r.RowType == "GrandTotal" || r.RowType == "GroupFooter")
             {
                 worksheet.Range(currentRow, 1, currentRow, 19).Style.Font.Bold = true;
-                worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = r.RowType == "GrandTotal" 
-                    ? XLColor.FromHtml("#FEF08A") 
-                    : XLColor.FromHtml("#E0E7FF");
+                if (r.RowType == "GrandTotal")
+                {
+                    worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = XLColor.FromHtml("#FEF08A");
+                }
+                else if (r.RowType == "BlockFooter")
+                {
+                    worksheet.Range(currentRow, 1, currentRow, 19).Style.Fill.BackgroundColor = XLColor.FromHtml("#E0E7FF");
+                }
 
                 worksheet.Cell(currentRow, 4).Value = r.TongMucDauTuTong;
                 worksheet.Cell(currentRow, 5).Value = r.TongMucDauTuVCSH;
                 worksheet.Cell(currentRow, 6).Value = r.PhanTramVCSH;
                 worksheet.Cell(currentRow, 7).Value = r.TongMucDauTuVay;
                 worksheet.Cell(currentRow, 8).Value = r.PhanTramVay;
-                worksheet.Cell(currentRow, 10).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 10).Value = r.TongSoNguonVon > 0 ? r.TongSoNguonVon : r.TongMucDauTuTong;
                 worksheet.Cell(currentRow, 13).Value = r.KhoiLuongKyTruoc;
                 worksheet.Cell(currentRow, 14).Value = r.KhoiLuongTrongKy;
                 worksheet.Cell(currentRow, 15).Value = r.KhoiLuongLuyKe;
@@ -1671,7 +1697,7 @@ public partial class ReportService
                 worksheet.Cell(currentRow, 7).Value = r.TongMucDauTuVay;
                 worksheet.Cell(currentRow, 8).Value = r.PhanTramVay;
                 worksheet.Cell(currentRow, 9).Value = r.ThoiGianThucHien ?? string.Empty;
-                worksheet.Cell(currentRow, 10).Value = r.TongMucDauTuVay;
+                worksheet.Cell(currentRow, 10).Value = r.TongSoNguonVon > 0 ? r.TongSoNguonVon : r.TongMucDauTuTong;
                 worksheet.Cell(currentRow, 11).Value = r.ThoiHanVay ?? string.Empty;
                 if (r.LaiSuat.HasValue) worksheet.Cell(currentRow, 12).Value = r.LaiSuat.Value;
 

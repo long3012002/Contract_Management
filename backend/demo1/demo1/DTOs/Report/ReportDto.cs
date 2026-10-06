@@ -32,6 +32,7 @@ public class ReportRowDto
     // Thông tin bổ sung cho Biểu 02.A
     public decimal PhanTramVCSH => TongMucDauTuTong > 0 ? Math.Round((TongMucDauTuVCSH / TongMucDauTuTong) * 100, 2) : 0;
     public decimal PhanTramVay => TongMucDauTuTong > 0 ? Math.Round((TongMucDauTuVay / TongMucDauTuTong) * 100, 2) : 0;
+    public decimal TongSoNguonVon { get; set; }
     public string? ThoiGianThucHien { get; set; }
     public string? ThoiHanVay { get; set; }
     public decimal? LaiSuat { get; set; }
