@@ -11,10 +11,10 @@ public interface IReportService
     Task<byte[]> ExportInvestmentReportCsvAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null);
     Task<byte[]> ExportInvestmentReportHtmlAsync(int year, int period, string? donViTinh = null, DateTime? fromDate = null, DateTime? toDate = null);
 
-    Task<ReportResponseDto> GetBieuMau02AReportAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null);
-    Task<byte[]> ExportBieuMau02AReportExcelAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null);
-    Task<byte[]> ExportBieuMau02AReportCsvAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null);
-    Task<byte[]> ExportBieuMau02AReportHtmlAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null);
+    Task<ReportResponseDto> GetBieuMau02AReportAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null);
+    Task<byte[]> ExportBieuMau02AReportExcelAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null);
+    Task<byte[]> ExportBieuMau02AReportCsvAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null);
+    Task<byte[]> ExportBieuMau02AReportHtmlAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null);
 
     Task<CongViecGoiThauReportDto> GetCongViecGoiThauReportAsync(Guid idGoiThau, string? donViTinh = null);
     Task<byte[]> ExportCongViecGoiThauReportExcelAsync(Guid idGoiThau, string? donViTinh = null);

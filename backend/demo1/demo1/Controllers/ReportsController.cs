@@ -181,10 +181,14 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
-        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null)
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null,
+        [FromQuery] string? thoiDiemThanhLap = null,
+        [FromQuery] string? type = null,
+        [FromQuery] string? block = null)
     {
         var effectiveFromDate = fromDate ?? fromDateAlt;
         var effectiveToDate = toDate ?? toDateAlt;
+        var effectiveThoiDiem = thoiDiemThanhLap ?? type ?? block;
         int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
 
         if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
@@ -194,7 +198,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
 
         try
         {
-            var report = await reportService.GetBieuMau02AReportAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+            var report = await reportService.GetBieuMau02AReportAsync(selectedYear, period, effectiveFromDate, effectiveToDate, effectiveThoiDiem);
             return Ok(report);
         }
         catch (Exception ex)
@@ -213,6 +217,7 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
     /// <param name="base64">Trả về chuỗi Base64 thay vì download file</param>
     /// <param name="fromDate">Từ ngày</param>
     /// <param name="toDate">Đến ngày</param>
+    /// <param name="thoiDiemThanhLap">Thời điểm thành lập (BEFORE: Trước kỳ, DURING: Trong kỳ, ALL: Tất cả)</param>
     [HttpGet("bieu-mau-02a/export", Name = "ExportBieuMau02AReport")]
     [HttpGet("bieu-02a/export")]
     [FeatureAuthorize("BAO_CAO_02A")]
@@ -225,10 +230,14 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery(Name = "from_date")] DateTime? fromDateAlt = null,
-        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null)
+        [FromQuery(Name = "to_date")] DateTime? toDateAlt = null,
+        [FromQuery] string? thoiDiemThanhLap = null,
+        [FromQuery] string? type = null,
+        [FromQuery] string? block = null)
     {
         var effectiveFromDate = fromDate ?? fromDateAlt;
         var effectiveToDate = toDate ?? toDateAlt;
+        var effectiveThoiDiem = thoiDiemThanhLap ?? type ?? block;
         int selectedYear = year ?? (effectiveFromDate?.Year ?? DateTime.UtcNow.Year);
 
         if (!IsValidPeriod(period, effectiveFromDate.HasValue || effectiveToDate.HasValue))
@@ -245,19 +254,19 @@ public class ReportsController(IReportService reportService, IWebHostEnvironment
 
             if (formatLower == "csv")
             {
-                fileBytes = await reportService.ExportBieuMau02AReportCsvAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                fileBytes = await reportService.ExportBieuMau02AReportCsvAsync(selectedYear, period, effectiveFromDate, effectiveToDate, effectiveThoiDiem);
                 contentType = "text/csv";
                 extension = "csv";
             }
             else if (formatLower == "html")
             {
-                fileBytes = await reportService.ExportBieuMau02AReportHtmlAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                fileBytes = await reportService.ExportBieuMau02AReportHtmlAsync(selectedYear, period, effectiveFromDate, effectiveToDate, effectiveThoiDiem);
                 contentType = "text/html";
                 extension = "html";
             }
             else
             {
-                fileBytes = await reportService.ExportBieuMau02AReportExcelAsync(selectedYear, period, effectiveFromDate, effectiveToDate);
+                fileBytes = await reportService.ExportBieuMau02AReportExcelAsync(selectedYear, period, effectiveFromDate, effectiveToDate, effectiveThoiDiem);
                 contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 extension = "xlsx";
             }

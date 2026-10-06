@@ -1071,7 +1071,7 @@ public partial class ReportService
 
     #region Biểu số 02.A (Đơn vị tính cố định: Tỷ đồng)
 
-    public async Task<ReportResponseDto> GetBieuMau02AReportAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    public async Task<ReportResponseDto> GetBieuMau02AReportAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null)
     {
         const decimal conversionFactor = 1_000_000_000m; // Cố định đơn vị tính: Tỷ đồng
         const string unitName = "Tỷ đồng";
@@ -1300,130 +1300,216 @@ public partial class ReportService
         .Where(x => !x.IsSauKy) // Loại bỏ các dự án thành lập sau kỳ báo cáo
         .ToList();
 
-        // 5. Xây dựng cấu trúc danh sách dòng trả về (Phần A và Phần B)
+        // 5. Xây dựng cấu trúc danh sách dòng trả về
         var resultRows = new List<ReportRowDto>();
 
-        void BuildBlock(string blockLetter, string blockTitle, IEnumerable<dynamic> blockProjects)
+        void BuildBlock(string? blockLetter, string? blockTitle, IEnumerable<dynamic> blockProjects, bool isSingleBlock = false)
         {
             var pList = blockProjects.ToList();
 
-            // 1. Dòng Tiêu đề Phần
-            resultRows.Add(new ReportRowDto
+            // 1. Dòng Tiêu đề Phần (chỉ thêm khi hiển thị nhiều khối gộp ALL)
+            if (!isSingleBlock && !string.IsNullOrWhiteSpace(blockTitle))
             {
-                Stt = blockLetter,
-                RowType = "BlockHeader",
-                ProjectName = blockTitle
-            });
-
-            var groupKeys = new[] { ("A", "I", "Nhóm A (Tổng mức đầu tư > 800 tỷ đồng)"), 
-                                   ("B", "II", "Nhóm B (Tổng mức đầu tư từ 45 tỷ đến 800 tỷ đồng)"), 
-                                   ("C", "III", "Nhóm C (Tổng mức đầu tư < 45 tỷ đồng)") };
-
-            int projectIndexInBlock = 1;
-
-            foreach (var (gKey, roman, gTitle) in groupKeys)
-            {
-                var gProjects = pList.Where(p => p.NhomQuyMo == gKey).ToList();
-
-                // Dòng tiêu đề Nhóm quy mô
                 resultRows.Add(new ReportRowDto
                 {
-                    Stt = roman,
-                    RowType = "GroupHeader",
-                    ProjectName = $"{roman}. {gTitle}"
+                    Stt = blockLetter ?? string.Empty,
+                    RowType = "BlockHeader",
+                    ProjectName = blockTitle
                 });
-
-                var domains = new[] { ("XDCB", "1. Dự án Xây dựng cơ bản"), 
-                                     ("CNTT", "2. Dự án Công nghệ thông tin"), 
-                                     ("Khac", "3. Dự án Khác") };
-
-                foreach (var (dKey, dTitle) in domains)
-                {
-                    var dProjects = gProjects.Where(p => p.LinhVuc == dKey).ToList();
-                    if (!dProjects.Any()) continue;
-
-                    // Dòng tiêu đề Lĩnh vực
-                    resultRows.Add(new ReportRowDto
-                    {
-                        Stt = string.Empty,
-                        RowType = "SubGroupHeader",
-                        ProjectName = $"   {dTitle}"
-                    });
-
-                    // Các dòng dự án
-                    foreach (var p in dProjects)
-                    {
-                        resultRows.Add(new ReportRowDto
-                        {
-                            Stt = projectIndexInBlock.ToString(),
-                            RowType = "ProjectRow",
-                            ProjectName = p.Name,
-                            MaDuAn = p.Code,
-                            ApprovalDecision = p.ApprovalDecision,
-                            ThoiGianThucHien = p.ThoiGianKh,
-                            TongMucDauTuTong = p.BudgetTotal,
-                            TongMucDauTuVCSH = p.BudgetVcsh,
-                            TongMucDauTuVay = p.BudgetVay,
-                            TongMucDauTuKhac = p.BudgetKhac,
-                            KhoiLuongKyTruoc = p.KhoiLuongKyTruoc,
-                            KhoiLuongTrongKy = p.KhoiLuongTrongKy,
-                            KhoiLuongLuyKe = p.KhoiLuongLuyKe,
-                            GiaiNganKyTruoc = p.GiaiNganKyTruoc,
-                            GiaiNganTrongKy = p.GiaiNganTrongKy,
-                            GiaiNganLuyKe = p.GiaiNganLuyKe,
-                            TaiSanBanGiao = p.TaiSanBanGiao
-                        });
-                        projectIndexInBlock++;
-                    }
-                }
             }
 
-            // Dòng Cộng của Phần
+            ReportRowDto CreateProjectRow(dynamic p, string stt)
+            {
+                return new ReportRowDto
+                {
+                    Stt = stt,
+                    RowType = "ProjectRow",
+                    ProjectName = p.Name,
+                    MaDuAn = p.Code,
+                    ApprovalDecision = p.ApprovalDecision,
+                    ThoiGianThucHien = p.ThoiGianKh,
+                    TongMucDauTuTong = p.BudgetTotal,
+                    TongMucDauTuVCSH = p.BudgetVcsh,
+                    TongMucDauTuVay = p.BudgetVay,
+                    TongMucDauTuKhac = p.BudgetKhac,
+                    KhoiLuongKyTruoc = p.KhoiLuongKyTruoc,
+                    KhoiLuongTrongKy = p.KhoiLuongTrongKy,
+                    KhoiLuongLuyKe = p.KhoiLuongLuyKe,
+                    GiaiNganKyTruoc = p.GiaiNganKyTruoc,
+                    GiaiNganTrongKy = p.GiaiNganTrongKy,
+                    GiaiNganLuyKe = p.GiaiNganLuyKe,
+                    TaiSanBanGiao = p.TaiSanBanGiao
+                };
+            }
+
+            ReportRowDto CreateSummaryRow(string title, List<dynamic> projects, bool isGrandTotal = false)
+            {
+                return new ReportRowDto
+                {
+                    Stt = string.Empty,
+                    RowType = isGrandTotal ? (isSingleBlock ? "GrandTotal" : "BlockFooter") : "GroupFooter",
+                    ProjectName = title,
+                    TongMucDauTuTong = projects.Sum(p => (decimal)p.BudgetTotal),
+                    TongMucDauTuVCSH = projects.Sum(p => (decimal)p.BudgetVcsh),
+                    TongMucDauTuVay = projects.Sum(p => (decimal)p.BudgetVay),
+                    TongMucDauTuKhac = projects.Sum(p => (decimal)p.BudgetKhac),
+                    KhoiLuongKyTruoc = projects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
+                    KhoiLuongTrongKy = projects.Sum(p => (decimal)p.KhoiLuongTrongKy),
+                    KhoiLuongLuyKe = projects.Sum(p => (decimal)p.KhoiLuongLuyKe),
+                    GiaiNganKyTruoc = projects.Sum(p => (decimal)p.GiaiNganKyTruoc),
+                    GiaiNganTrongKy = projects.Sum(p => (decimal)p.GiaiNganTrongKy),
+                    GiaiNganLuyKe = projects.Sum(p => (decimal)p.GiaiNganLuyKe),
+                    TaiSanBanGiao = projects.Sum(p => (decimal)p.TaiSanBanGiao)
+                };
+            }
+
+            // 1. Nhóm A
             resultRows.Add(new ReportRowDto
             {
-                Stt = $"Cộng {blockLetter}",
-                RowType = "BlockFooter",
-                ProjectName = $"Cộng {blockTitle}",
-                TongMucDauTuTong = pList.Sum(p => (decimal)p.BudgetTotal),
-                TongMucDauTuVCSH = pList.Sum(p => (decimal)p.BudgetVcsh),
-                TongMucDauTuVay = pList.Sum(p => (decimal)p.BudgetVay),
-                TongMucDauTuKhac = pList.Sum(p => (decimal)p.BudgetKhac),
-                KhoiLuongKyTruoc = pList.Sum(p => (decimal)p.KhoiLuongKyTruoc),
-                KhoiLuongTrongKy = pList.Sum(p => (decimal)p.KhoiLuongTrongKy),
-                KhoiLuongLuyKe = pList.Sum(p => (decimal)p.KhoiLuongLuyKe),
-                GiaiNganKyTruoc = pList.Sum(p => (decimal)p.GiaiNganKyTruoc),
-                GiaiNganTrongKy = pList.Sum(p => (decimal)p.GiaiNganTrongKy),
-                GiaiNganLuyKe = pList.Sum(p => (decimal)p.GiaiNganLuyKe),
-                TaiSanBanGiao = pList.Sum(p => (decimal)p.TaiSanBanGiao)
+                Stt = "A",
+                RowType = "GroupHeader",
+                ProjectName = "Các dự án nhóm A"
             });
+            var nhomAProjects = pList.Where(p => p.NhomQuyMo == "A").ToList();
+            if (!nhomAProjects.Any())
+            {
+                resultRows.Add(new ReportRowDto
+                {
+                    Stt = string.Empty,
+                    RowType = "EmptyPlaceholder",
+                    ProjectName = "(Không có)"
+                });
+            }
+            else
+            {
+                int pIdxA = 1;
+                foreach (var p in nhomAProjects)
+                {
+                    resultRows.Add(CreateProjectRow(p, (pIdxA++).ToString()));
+                }
+                resultRows.Add(CreateSummaryRow("Tổng (A)", nhomAProjects));
+            }
+
+            // 2. Nhóm B
+            resultRows.Add(new ReportRowDto
+            {
+                Stt = "B",
+                RowType = "GroupHeader",
+                ProjectName = "Các dự án nhóm B"
+            });
+            var nhomBProjects = pList.Where(p => p.NhomQuyMo == "B").ToList();
+            var bXDCB = nhomBProjects.Where(p => p.LinhVuc == "XDCB").ToList();
+            var bCNTT = nhomBProjects.Where(p => p.LinhVuc == "CNTT").ToList();
+            var bKhac = nhomBProjects.Where(p => p.LinhVuc == "Khac").ToList();
+
+            if (!nhomBProjects.Any())
+            {
+                resultRows.Add(new ReportRowDto
+                {
+                    Stt = "III",
+                    RowType = "SubGroupHeader",
+                    ProjectName = "Dự án khác"
+                });
+                resultRows.Add(new ReportRowDto
+                {
+                    Stt = string.Empty,
+                    RowType = "EmptyPlaceholder",
+                    ProjectName = "(Không có)"
+                });
+            }
+            else
+            {
+                int pIdxB = 1;
+                if (bXDCB.Any())
+                {
+                    resultRows.Add(new ReportRowDto { Stt = "I", RowType = "SubGroupHeader", ProjectName = "Dự án đầu tư xây dựng" });
+                    foreach (var p in bXDCB) resultRows.Add(CreateProjectRow(p, (pIdxB++).ToString()));
+                }
+                if (bCNTT.Any())
+                {
+                    resultRows.Add(new ReportRowDto { Stt = "II", RowType = "SubGroupHeader", ProjectName = "Dự án công nghệ thông tin" });
+                    foreach (var p in bCNTT) resultRows.Add(CreateProjectRow(p, (pIdxB++).ToString()));
+                }
+                if (bKhac.Any())
+                {
+                    resultRows.Add(new ReportRowDto { Stt = "III", RowType = "SubGroupHeader", ProjectName = "Dự án khác" });
+                    foreach (var p in bKhac) resultRows.Add(CreateProjectRow(p, (pIdxB++).ToString()));
+                }
+            }
+            resultRows.Add(CreateSummaryRow("Tổng (B)", nhomBProjects));
+
+            // 3. Nhóm C
+            resultRows.Add(new ReportRowDto
+            {
+                Stt = "C",
+                RowType = "GroupHeader",
+                ProjectName = "Các dự án khác"
+            });
+            var nhomCProjects = pList.Where(p => p.NhomQuyMo == "C").ToList();
+            var cXDCB = nhomCProjects.Where(p => p.LinhVuc == "XDCB").ToList();
+            var cCNTT = nhomCProjects.Where(p => p.LinhVuc == "CNTT").ToList();
+            var cKhac = nhomCProjects.Where(p => p.LinhVuc == "Khac").ToList();
+
+            int pIdxC = 1;
+            // I. Dự án đầu tư xây dựng
+            resultRows.Add(new ReportRowDto { Stt = "I", RowType = "SubGroupHeader", ProjectName = "Dự án đầu tư xây dựng" });
+            foreach (var p in cXDCB) resultRows.Add(CreateProjectRow(p, (pIdxC++).ToString()));
+
+            // II. Dự án công nghệ thông tin
+            resultRows.Add(new ReportRowDto { Stt = "II", RowType = "SubGroupHeader", ProjectName = "Dự án công nghệ thông tin" });
+            foreach (var p in cCNTT) resultRows.Add(CreateProjectRow(p, (pIdxC++).ToString()));
+
+            // III. Dự án khác
+            resultRows.Add(new ReportRowDto { Stt = "III", RowType = "SubGroupHeader", ProjectName = "Dự án khác" });
+            foreach (var p in cKhac) resultRows.Add(CreateProjectRow(p, (pIdxC++).ToString()));
+
+            resultRows.Add(CreateSummaryRow("Tổng (C)", nhomCProjects));
+
+            // 4. Tổng (A+B+C)
+            resultRows.Add(CreateSummaryRow("Tổng (A+B+C)", pList, isGrandTotal: true));
         }
 
-        // Khối PHẦN A: Dự án có QĐ thành lập trước kỳ báo cáo
-        var truocKyProjects = mappedProjects.Where(p => p.IsTruocKy).ToList();
-        BuildBlock("A", "PHẦN A: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRƯỚC KỲ BÁO CÁO", truocKyProjects);
+        var filterMode = (thoiDiemThanhLap ?? "BEFORE").Trim().ToUpperInvariant();
 
-        // Khối PHẦN B: Dự án có QĐ thành lập trong kỳ báo cáo
-        var trongKyProjects = mappedProjects.Where(p => p.IsTrongKy).ToList();
-        BuildBlock("B", "PHẦN B: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRONG KỲ BÁO CÁO", trongKyProjects);
-
-        // Dòng TỔNG CỘNG TOÀN BỘ (PHẦN A + PHẦN B)
-        resultRows.Add(new ReportRowDto
+        if (filterMode == "BEFORE" || filterMode == "A" || filterMode == "TRUOCKY" || filterMode == "TRUOC_KY")
         {
-            Stt = string.Empty,
-            RowType = "GrandTotal",
-            ProjectName = "TỔNG CỘNG TOÀN BỘ (PHẦN A + PHẦN B)",
-            TongMucDauTuTong = mappedProjects.Sum(p => (decimal)p.BudgetTotal),
-            TongMucDauTuVCSH = mappedProjects.Sum(p => (decimal)p.BudgetVcsh),
-            TongMucDauTuVay = mappedProjects.Sum(p => (decimal)p.BudgetVay),
-            TongMucDauTuKhac = mappedProjects.Sum(p => (decimal)p.BudgetKhac),
-            KhoiLuongKyTruoc = mappedProjects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
-            KhoiLuongTrongKy = mappedProjects.Sum(p => (decimal)p.KhoiLuongTrongKy),
-            KhoiLuongLuyKe = mappedProjects.Sum(p => (decimal)p.KhoiLuongLuyKe),
-            GiaiNganKyTruoc = mappedProjects.Sum(p => (decimal)p.GiaiNganKyTruoc),
-            GiaiNganTrongKy = mappedProjects.Sum(p => (decimal)p.GiaiNganTrongKy),
-            GiaiNganLuyKe = mappedProjects.Sum(p => (decimal)p.GiaiNganLuyKe),
-            TaiSanBanGiao = mappedProjects.Sum(p => (decimal)p.TaiSanBanGiao)
-        });
+            // Chỉ lấy Khối PHẦN A: Dự án có QĐ thành lập trước kỳ báo cáo
+            var truocKyProjects = mappedProjects.Where(p => p.IsTruocKy).ToList();
+            BuildBlock(null, null, truocKyProjects, isSingleBlock: true);
+        }
+        else if (filterMode == "DURING" || filterMode == "B" || filterMode == "TRONGKY" || filterMode == "TRONG_KY")
+        {
+            // Chỉ lấy Khối PHẦN B: Dự án có QĐ thành lập trong kỳ báo cáo
+            var trongKyProjects = mappedProjects.Where(p => p.IsTrongKy).ToList();
+            BuildBlock(null, null, trongKyProjects, isSingleBlock: true);
+        }
+        else
+        {
+            // Chế độ ALL: Hiển thị cả 2 khối
+            var truocKyProjects = mappedProjects.Where(p => p.IsTruocKy).ToList();
+            BuildBlock("A", "PHẦN A: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRƯỚC KỲ BÁO CÁO", truocKyProjects, isSingleBlock: false);
+
+            var trongKyProjects = mappedProjects.Where(p => p.IsTrongKy).ToList();
+            BuildBlock("B", "PHẦN B: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRONG KỲ BÁO CÁO", trongKyProjects, isSingleBlock: false);
+
+            resultRows.Add(new ReportRowDto
+            {
+                Stt = string.Empty,
+                RowType = "GrandTotal",
+                ProjectName = "Tổng (A+B+C)",
+                TongMucDauTuTong = mappedProjects.Sum(p => (decimal)p.BudgetTotal),
+                TongMucDauTuVCSH = mappedProjects.Sum(p => (decimal)p.BudgetVcsh),
+                TongMucDauTuVay = mappedProjects.Sum(p => (decimal)p.BudgetVay),
+                TongMucDauTuKhac = mappedProjects.Sum(p => (decimal)p.BudgetKhac),
+                KhoiLuongKyTruoc = mappedProjects.Sum(p => (decimal)p.KhoiLuongKyTruoc),
+                KhoiLuongTrongKy = mappedProjects.Sum(p => (decimal)p.KhoiLuongTrongKy),
+                KhoiLuongLuyKe = mappedProjects.Sum(p => (decimal)p.KhoiLuongLuyKe),
+                GiaiNganKyTruoc = mappedProjects.Sum(p => (decimal)p.GiaiNganKyTruoc),
+                GiaiNganTrongKy = mappedProjects.Sum(p => (decimal)p.GiaiNganTrongKy),
+                GiaiNganLuyKe = mappedProjects.Sum(p => (decimal)p.GiaiNganLuyKe),
+                TaiSanBanGiao = mappedProjects.Sum(p => (decimal)p.TaiSanBanGiao)
+            });
+        }
 
         return new ReportResponseDto
         {
@@ -1438,9 +1524,9 @@ public partial class ReportService
         };
     }
 
-    public async Task<byte[]> ExportBieuMau02AReportExcelAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    public async Task<byte[]> ExportBieuMau02AReportExcelAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null)
     {
-        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate, thoiDiemThanhLap);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Biểu 02.A - Báo cáo Đầu tư");
@@ -1635,9 +1721,9 @@ public partial class ReportService
         return stream.ToArray();
     }
 
-    public async Task<byte[]> ExportBieuMau02AReportCsvAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    public async Task<byte[]> ExportBieuMau02AReportCsvAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null)
     {
-        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate, thoiDiemThanhLap);
         var sb = new StringBuilder();
 
         sb.AppendLine("TT,Tên dự án,Quyết định phê duyệt,Tổng mức đầu tư Tổng,Vốn CSH,% Vốn CSH,Vốn vay,% Vốn vay,Thời gian đầu tư theo KH,Tổng số vốn vay,Thời hạn vay,Lãi suất,Khối lượng Kỳ trước,Khối lượng Trong kỳ,Khối lượng Lũy kế,Giải ngân Kỳ trước,Giải ngân Trong kỳ,Giải ngân Lũy kế,Tài sản bàn giao");
@@ -1650,9 +1736,9 @@ public partial class ReportService
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
     }
 
-    public async Task<byte[]> ExportBieuMau02AReportHtmlAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null)
+    public async Task<byte[]> ExportBieuMau02AReportHtmlAsync(int year, int period, DateTime? fromDate = null, DateTime? toDate = null, string? thoiDiemThanhLap = null)
     {
-        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate);
+        var report = await GetBieuMau02AReportAsync(year, period, fromDate, toDate, thoiDiemThanhLap);
         var sb = new StringBuilder();
 
         sb.AppendLine("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Biểu số 02.A</title>");
