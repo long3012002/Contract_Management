@@ -139,20 +139,24 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             var mType = filter.MergeType.Trim().ToLower();
             if (mType == "merged" || mType == "source")
             {
-                // Dự án bị gộp
-                query = query.Where(item => item.TrangThai == (int)TrangThaiDuAn.Merged);
+                // Dự án bị gộp: Có liên kết gộp vào dự án khác (SourceDuAnId trong DuAnGopLinks) HOẶC mang trạng thái Merged
+                var sourceProjectIds = DbContext.DuAnGopLinks.Select(l => l.SourceDuAnId).Distinct();
+                query = query.Where(item => item.TrangThai == (int)TrangThaiDuAn.Merged || sourceProjectIds.Contains(item.Id));
             }
             else if (mType == "parent" || mType == "target")
             {
-                // Dự án nhận gộp (Dự án cha)
+                // Dự án nhận gộp (Dự án cha): Là đích nhận gộp (TargetDuAnId) và không phải là dự án bị gộp
                 var targetProjectIds = DbContext.DuAnGopLinks.Select(l => l.TargetDuAnId).Distinct();
-                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && targetProjectIds.Contains(item.Id));
+                var sourceProjectIds = DbContext.DuAnGopLinks.Select(l => l.SourceDuAnId).Distinct();
+                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && targetProjectIds.Contains(item.Id) && !sourceProjectIds.Contains(item.Id));
             }
             else if (mType == "normal")
             {
-                // Dự án thông thường (Không bị gộp và không phải dự án cha nhận gộp)
-                var targetProjectIds = DbContext.DuAnGopLinks.Select(l => l.TargetDuAnId).Distinct();
-                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && !targetProjectIds.Contains(item.Id));
+                // Dự án thông thường: Không mang trạng thái Merged và không xuất hiện trong DuAnGopLinks (cả nguồn lẫn đích)
+                var allGopProjectIds = DbContext.DuAnGopLinks.Select(l => l.TargetDuAnId)
+                    .Union(DbContext.DuAnGopLinks.Select(l => l.SourceDuAnId))
+                    .Distinct();
+                query = query.Where(item => item.TrangThai != (int)TrangThaiDuAn.Merged && !allGopProjectIds.Contains(item.Id));
             }
         }
 
