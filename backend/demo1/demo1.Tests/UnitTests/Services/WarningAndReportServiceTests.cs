@@ -859,6 +859,8 @@ namespace demo1.Tests.UnitTests.Services
                 Code = "GT-01",
                 Name = "Gói thầu thiết bị",
                 DuAnId = proj.Id,
+                SoQuyetDinhKHLCNT = "QĐ-KHLCNT-01",
+                SoQuyetDinhKQLCNT = "QĐ-KQLCNT-01",
                 GiaTriGoiThau = 500000000m,
                 HinhThucLcnt = "Chào hàng cạnh tranh",
                 IsActive = true
@@ -900,6 +902,8 @@ namespace demo1.Tests.UnitTests.Services
             report.Summary.TyLeTietKiemChungPercent.Should().Be(3.0);
 
             var row = report.Rows.First();
+            row.SoQuyetDinhKHLCNT.Should().Be("QĐ-KHLCNT-01");
+            row.SoQuyetDinhKQLCNT.Should().Be("QĐ-KQLCNT-01");
             row.HinhThucLcnt.Should().Be("Chào hàng cạnh tranh");
             row.TenNhaThauTrungThau.Should().Be("Công ty CP Công nghệ X");
             row.TrangThaiGoiThau.Should().Be("Đã hoàn thành LCNT");
@@ -1043,7 +1047,9 @@ namespace demo1.Tests.UnitTests.Services
                 var ws = wbB3.Worksheet("Lựa chọn Nhà thầu");
                 ws.Cell("C3").GetString().Should().Be("STT");
                 ws.Cell("D3").GetString().Should().Be("Mã dự án");
-                ws.Cell("M3").GetString().Should().Be("Trạng thái gói thầu");
+                ws.Cell("G3").GetString().Should().Be("Số QĐ phê duyệt KHLCNT");
+                ws.Cell("K3").GetString().Should().Be("Số QĐ phê duyệt KQLCNT");
+                ws.Cell("O3").GetString().Should().Be("Trạng thái gói thầu");
             }
 
             // 4. Test Báo cáo 4: Quản lý Hợp đồng (V1 vs V2)

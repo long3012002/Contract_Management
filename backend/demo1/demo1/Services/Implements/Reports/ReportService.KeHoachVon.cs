@@ -227,9 +227,8 @@ public partial class ReportService
                 worksheet.Cell(row, 5).Value = "Vốn điều lệ & Quỹ dự trữ";
                 worksheet.Cell(row, 6).Value = "Quỹ phúc lợi / Khác";
                 worksheet.Cell(row, 7).Value = "Tổng đề xuất phê duyệt";
-                worksheet.Cell(row, 8).Value = "Ghi chú";
 
-                var headerRange = worksheet.Range(row, 1, row, 8);
+                var headerRange = worksheet.Range(row, 1, row, 7);
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F2F2F2");
 
@@ -240,7 +239,7 @@ public partial class ReportService
                     {
                         // Row Header Nhóm Kỹ Thuật
                         worksheet.Cell(row, 1).Value = nhom.TenNhomKyThuat;
-                        var groupHeaderRange = worksheet.Range(row, 1, row, 8);
+                        var groupHeaderRange = worksheet.Range(row, 1, row, 7);
                         groupHeaderRange.Merge();
                         groupHeaderRange.Style.Font.Bold = true;
                         groupHeaderRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#E6F0FA");
@@ -255,7 +254,6 @@ public partial class ReportService
                             worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
                             worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
                             worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
-                            worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
 
                             worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
                             worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
@@ -269,7 +267,7 @@ public partial class ReportService
                         worksheet.Cell(row, 6).Value = nhom.TongQuyPhucLoi + nhom.TongQuyDauTuPhatTrien + nhom.TongNguonKhac;
                         worksheet.Cell(row, 7).Value = nhom.TongCongDeXuat;
 
-                        var groupSubtotalRange = worksheet.Range(row, 1, row, 8);
+                        var groupSubtotalRange = worksheet.Range(row, 1, row, 7);
                         groupSubtotalRange.Style.Font.Bold = true;
                         groupSubtotalRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F9F9F9");
                         worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
@@ -289,7 +287,6 @@ public partial class ReportService
                         worksheet.Cell(row, 5).Value = r.VonDieuLeVaQuyDuTru;
                         worksheet.Cell(row, 6).Value = r.QuyPhucLoi + r.QuyDauTuPhatTrien + r.NguonKhac;
                         worksheet.Cell(row, 7).Value = r.TongDeXuatPheDuyet;
-                        worksheet.Cell(row, 8).Value = r.GhiChu ?? "";
 
                         worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
                         worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.##";
@@ -304,7 +301,7 @@ public partial class ReportService
                 worksheet.Cell(row, 6).Value = pl.TongQuyPhucLoi + pl.TongQuyDauTuPhatTrien + pl.TongNguonKhac;
                 worksheet.Cell(row, 7).Value = pl.TongCongDeXuat;
 
-                var grandTotalRange = worksheet.Range(row, 1, row, 8);
+                var grandTotalRange = worksheet.Range(row, 1, row, 7);
                 grandTotalRange.Style.Font.Bold = true;
                 grandTotalRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#E0E0E0");
                 worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.##";
@@ -337,10 +334,10 @@ public partial class ReportService
                 foreach (var pl in report.PhuLucs)
                 {
                     await writer.WriteLineAsync($"\"{pl.TenPhuLuc}\"");
-                    await writer.WriteLineAsync($"\"STT\",\"Đơn vị\",\"Tên dự án\",\"Quy mô\",\"Vốn ĐL & Quỹ DT\",\"Quỹ phúc lợi/Khác\",\"Tổng đề xuất\",\"Ghi chú\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Đơn vị\",\"Tên dự án\",\"Quy mô\",\"Vốn ĐL & Quỹ DT\",\"Quỹ phúc lợi/Khác\",\"Tổng đề xuất\"");
                     foreach (var r in pl.Rows)
                     {
-                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.DonViChiNhanh ?? "")}\",\"{EscapeCsvField(r.TenDuAn)}\",\"{EscapeCsvField(r.QuyMoXaydung ?? "-")}\",\"{r.VonDieuLeVaQuyDuTru}\",\"{r.QuyPhucLoi}\",\"{r.TongDeXuatPheDuyet}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.DonViChiNhanh ?? "")}\",\"{EscapeCsvField(r.TenDuAn)}\",\"{EscapeCsvField(r.QuyMoXaydung ?? "-")}\",\"{r.VonDieuLeVaQuyDuTru}\",\"{r.QuyPhucLoi}\",\"{r.TongDeXuatPheDuyet}\"");
                     }
                     await writer.WriteLineAsync();
                 }
@@ -361,10 +358,10 @@ public partial class ReportService
         foreach (var pl in report.PhuLucs)
         {
             html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(pl.TenPhuLuc)}</h3>");
-            html.AppendLine("<table><thead><tr><th>STT</th><th>Đơn vị</th><th>Tên dự án</th><th>Quy mô</th><th>Tổng đề xuất</th><th>Ghi chú</th></tr></thead><tbody>");
+            html.AppendLine("<table><thead><tr><th>STT</th><th>Đơn vị</th><th>Tên dự án</th><th>Quy mô</th><th>Tổng đề xuất</th></tr></thead><tbody>");
             foreach (var r in pl.Rows)
             {
-                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.DonViChiNhanh ?? "")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TenDuAn)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.QuyMoXaydung ?? "-")}</td><td>{r.TongDeXuatPheDuyet:#,##0.##}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.DonViChiNhanh ?? "")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.TenDuAn)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.QuyMoXaydung ?? "-")}</td><td>{r.TongDeXuatPheDuyet:#,##0.##}</td></tr>");
             }
             html.AppendLine("</tbody></table>");
         }
@@ -373,6 +370,4 @@ public partial class ReportService
     }
 
     #endregion
-
-
 }

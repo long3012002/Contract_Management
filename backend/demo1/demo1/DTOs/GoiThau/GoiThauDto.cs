@@ -15,6 +15,8 @@ public class GoiThauDto : IHasId
     public decimal GiaTriGoiThau { get; set; }
     public decimal TongGiaTriHopDong { get; set; }
     
+    public string? SoQuyetDinhKHLCNT { get; set; }
+    public DateTime? NgayPheDuyetKHLCNT { get; set; }
     public string? SoQuyetDinhKQLCNT { get; set; }
     public DateTime? NgayPheDuyetKQLCNT { get; set; }
 

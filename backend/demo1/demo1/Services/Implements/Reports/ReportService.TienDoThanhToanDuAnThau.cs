@@ -190,7 +190,7 @@ public partial class ReportService
         var worksheet = workbook.Worksheets.Add("BaoCaoTienDoThanhToan");
 
         int maxLan = reportData.MaxDotThanhToanCount;
-        int totalCols = 14 + maxLan + 1; // 14 fixed columns + maxLan payment columns + 1 note column
+        int totalCols = 14 + maxLan; // 14 fixed columns + maxLan payment columns
 
         // Title
         var titleCell = worksheet.Cell(1, 1);
@@ -231,8 +231,6 @@ public partial class ReportService
         {
             headers.Add($"Lần {i}");
         }
-
-        headers.Add("Ghi chú");
 
         for (int col = 0; col < headers.Count; col++)
         {
@@ -301,9 +299,6 @@ public partial class ReportService
                 }
             }
 
-            // Note
-            worksheet.Cell(currentRow, 14 + maxLan + 1).Value = row.GhiChu ?? string.Empty;
-
             // Borders for data row
             for (int col = 1; col <= totalCols; col++)
             {
@@ -363,10 +358,10 @@ public partial class ReportService
         var reportData = await GetTienDoThanhToanDuAnThauReportAsync(year, duAnId, search, donViTinh);
         var sb = new System.Text.StringBuilder();
 
-        sb.AppendLine("STT,NguonVon,TenDuAn,SoQuyetDinhPheDuyetDuToan,TenGoiThau,SoQuyetDinhKQLCNT,TenNhaThau,MaSoThue,DiaChi,SoHopDong,NgayKy,ThoiGianThucHien,GiaTriHopDong,TamUng,GhiChu");
+        sb.AppendLine("STT,NguonVon,TenDuAn,SoQuyetDinhPheDuyetDuToan,TenGoiThau,SoQuyetDinhKQLCNT,TenNhaThau,MaSoThue,DiaChi,SoHopDong,NgayKy,ThoiGianThucHien,GiaTriHopDong,TamUng");
         foreach (var r in reportData.Rows)
         {
-            sb.AppendLine($"\"{r.SttDisplay}\",\"{r.NguonVon}\",\"{r.TenDuAn}\",\"{r.SoQuyetDinhPheDuyetDuToan}\",\"{r.TenGoiThau}\",\"{r.SoQuyetDinhKQLCNT}\",\"{r.TenNhaThau}\",\"{r.MaSoThue}\",\"{r.DiaChi}\",\"{r.SoHopDong}\",\"{r.NgayKy:dd/MM/yyyy}\",\"{r.ThoiGianThucHien}\",{r.GiaTriHopDong},{r.TamUng},\"{r.GhiChu}\"");
+            sb.AppendLine($"\"{r.SttDisplay}\",\"{r.NguonVon}\",\"{r.TenDuAn}\",\"{r.SoQuyetDinhPheDuyetDuToan}\",\"{r.TenGoiThau}\",\"{r.SoQuyetDinhKQLCNT}\",\"{r.TenNhaThau}\",\"{r.MaSoThue}\",\"{r.DiaChi}\",\"{r.SoHopDong}\",\"{r.NgayKy:dd/MM/yyyy}\",\"{r.ThoiGianThucHien}\",{r.GiaTriHopDong},{r.TamUng}");
         }
 
         return System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
@@ -379,11 +374,11 @@ public partial class ReportService
 
         sb.AppendLine("<html><head><meta charset='utf-8'/><style>table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ccc; padding: 6px; text-align: left; } th { background-color: #d9e1f2; }</style></head><body>");
         sb.AppendLine($"<h2>{reportData.Title}</h2>");
-        sb.AppendLine("<table><thead><tr><th>STT</th><th>Nguồn vốn</th><th>Dự án</th><th>QĐ Phê duyệt dự toán</th><th>Tên gói thầu</th><th>QĐ KQLCNT</th><th>Công ty</th><th>Mã số thuế</th><th>Số HĐ</th><th>Ngày ký</th><th>Giá trị HĐ</th><th>Tạm ứng</th><th>Ghi chú</th></tr></thead><tbody>");
+        sb.AppendLine("<table><thead><tr><th>STT</th><th>Nguồn vốn</th><th>Dự án</th><th>QĐ Phê duyệt dự toán</th><th>Tên gói thầu</th><th>QĐ KQLCNT</th><th>Công ty</th><th>Mã số thuế</th><th>Số HĐ</th><th>Ngày ký</th><th>Giá trị HĐ</th><th>Tạm ứng</th></tr></thead><tbody>");
 
         foreach (var r in reportData.Rows)
         {
-            sb.AppendLine($"<tr><td>{r.SttDisplay}</td><td>{r.NguonVon}</td><td>{r.TenDuAn}</td><td>{r.SoQuyetDinhPheDuyetDuToan}</td><td>{r.TenGoiThau}</td><td>{r.SoQuyetDinhKQLCNT}</td><td>{r.TenNhaThau}</td><td>{r.MaSoThue}</td><td>{r.SoHopDong}</td><td>{r.NgayKy:dd/MM/yyyy}</td><td>{r.GiaTriHopDong:N0}</td><td>{r.TamUng:N0}</td><td>{r.GhiChu}</td></tr>");
+            sb.AppendLine($"<tr><td>{r.SttDisplay}</td><td>{r.NguonVon}</td><td>{r.TenDuAn}</td><td>{r.SoQuyetDinhPheDuyetDuToan}</td><td>{r.TenGoiThau}</td><td>{r.SoQuyetDinhKQLCNT}</td><td>{r.TenNhaThau}</td><td>{r.MaSoThue}</td><td>{r.SoHopDong}</td><td>{r.NgayKy:dd/MM/yyyy}</td><td>{r.GiaTriHopDong:N0}</td><td>{r.TamUng:N0}</td></tr>");
         }
 
         sb.AppendLine("</tbody></table></body></html>");

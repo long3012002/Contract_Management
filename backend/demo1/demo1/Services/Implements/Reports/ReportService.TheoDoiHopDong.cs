@@ -226,9 +226,8 @@ public partial class ReportService
             worksheet.Cell("G2").Value = "Giá trị đã\n thanh toán";
             worksheet.Cell("H2").Value = "Giá trị còn lại của \nhợp đồng";
             worksheet.Cell("I2").Value = $"Dự Kiến Thanh Toán Đến {report.CutoffDate:dd/MM/yyyy}";
-            worksheet.Cell("J2").Value = "Ghi Chú";
 
-            var headerRange = worksheet.Range("A2:J2");
+            var headerRange = worksheet.Range("A2:I2");
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
@@ -287,9 +286,7 @@ public partial class ReportService
                     worksheet.Cell(currentRow, 9).Value = string.Empty;
                 }
 
-                worksheet.Cell(currentRow, 10).Value = row.GhiChu ?? string.Empty;
-
-                var rowRange = worksheet.Range(currentRow, 1, currentRow, 10);
+                var rowRange = worksheet.Range(currentRow, 1, currentRow, 9);
                 rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
@@ -330,7 +327,6 @@ public partial class ReportService
             worksheet.Column(7).Width = 18;  // Giá trị đã TT
             worksheet.Column(8).Width = 22;  // Giá trị còn lại
             worksheet.Column(9).Width = 24;  // Dự kiến TT
-            worksheet.Column(10).Width = 20; // Ghi chú
 
             using (var memoryStream = new MemoryStream())
             {
@@ -356,13 +352,13 @@ public partial class ReportService
                 await writer.WriteLineAsync($"\"Mốc thời gian: {report.CutoffDate:dd/MM/yyyy} | Đơn vị tính: {report.Unit}\"");
                 await writer.WriteLineAsync();
 
-                await writer.WriteLineAsync($"\"STT\",\"Số hợp đồng\",\"Tên hợp đồng\",\"Ngày ký\",\"Ngày kết thúc DK\",\"Giá trị HĐ ({report.Unit})\",\"Đã thanh toán ({report.Unit})\",\"Còn lại ({report.Unit})\",\"Dự kiến TT đến mốc ({report.Unit})\",\"Ghi chú\"");
+                await writer.WriteLineAsync($"\"STT\",\"Số hợp đồng\",\"Tên hợp đồng\",\"Ngày ký\",\"Ngày kết thúc DK\",\"Giá trị HĐ ({report.Unit})\",\"Đã thanh toán ({report.Unit})\",\"Còn lại ({report.Unit})\",\"Dự kiến TT đến mốc ({report.Unit})\"");
 
                 foreach (var r in report.Rows)
                 {
                     string ngayKy = r.NgayKyHopDong.HasValue ? r.NgayKyHopDong.Value.ToString("dd/MM/yyyy") : "-";
                     string ngayKt = r.NgayKetThucDuKien.HasValue ? r.NgayKetThucDuKien.Value.ToString("dd/MM/yyyy") : "-";
-                    await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.SoHopDong)}\",\"{EscapeCsvField(r.TenHopDong)}\",\"{ngayKy}\",\"{ngayKt}\",\"{r.GiaTriHopDong}\",\"{r.GiaTriDaThanhToan}\",\"{r.GiaTriConLai}\",\"{r.DuKienThanhToanDenMoc}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                    await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.SoHopDong)}\",\"{EscapeCsvField(r.TenHopDong)}\",\"{ngayKy}\",\"{ngayKt}\",\"{r.GiaTriHopDong}\",\"{r.GiaTriDaThanhToan}\",\"{r.GiaTriConLai}\",\"{r.DuKienThanhToanDenMoc}\"");
                 }
 
                 await writer.FlushAsync();
@@ -409,7 +405,6 @@ public partial class ReportService
         htmlBuilder.AppendLine("      <th>Đã thanh toán</th>");
         htmlBuilder.AppendLine("      <th>Còn lại</th>");
         htmlBuilder.AppendLine("      <th>Dự kiến TT</th>");
-        htmlBuilder.AppendLine("      <th>Ghi chú</th>");
         htmlBuilder.AppendLine("    </tr>");
         htmlBuilder.AppendLine("  </thead>");
         htmlBuilder.AppendLine("  <tbody>");
@@ -428,7 +423,6 @@ public partial class ReportService
             htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.GiaTriDaThanhToan:#,##0.##}</td>");
             htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.GiaTriConLai:#,##0.##}</td>");
             htmlBuilder.AppendLine($"      <td class=\"text-right\">{r.DuKienThanhToanDenMoc:#,##0.##}</td>");
-            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td>");
             htmlBuilder.AppendLine("    </tr>");
         }
 

@@ -388,7 +388,7 @@ public partial class ReportService
 
             int numYears = report.ToYear >= report.FromYear ? (report.ToYear - report.FromYear + 1) : 0;
             int nvColCount = report.DanhSachNguonVon.Any() ? report.DanhSachNguonVon.Count : 2;
-            int totalCols = 4 + nvColCount + numYears + 2;
+            int totalCols = 4 + nvColCount + numYears + 1;
 
             int row = 4;
             worksheet.Cell(row, 1).Value = "STT";
@@ -416,7 +416,6 @@ public partial class ReportService
             }
 
             worksheet.Cell(row, col++).Value = "Trạng thái";
-            worksheet.Cell(row, col++).Value = "Ghi chú";
 
             var headerRange = worksheet.Range(row, 1, row, totalCols);
             headerRange.Style.Font.Bold = true;
@@ -466,7 +465,6 @@ public partial class ReportService
                     }
 
                     worksheet.Cell(row, col++).Value = r.TrangThaiText ?? "-";
-                    worksheet.Cell(row, col++).Value = r.GhiChu ?? "";
 
                     row++;
                 }
@@ -580,7 +578,7 @@ public partial class ReportService
                 foreach (var g in report.Groups)
                 {
                     await writer.WriteLineAsync($"\"{g.TenNhom}\"");
-                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",{nvHeaderNames},{yearHeaderNames},\"Trạng thái\",\"Ghi chú\"");
+                    await writer.WriteLineAsync($"\"STT\",\"Nội dung\",\"Phân loại dự án\",\"Tổng mức đầu tư\",{nvHeaderNames},{yearHeaderNames},\"Trạng thái\"");
                     foreach (var r in g.Rows)
                     {
                         var nvVals = report.DanhSachNguonVon.Any()
@@ -592,7 +590,7 @@ public partial class ReportService
                             return $"\"{pk?.GiaTri ?? 0m}\"";
                         }));
 
-                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",{nvVals},{yearVals},\"{EscapeCsvField(r.TrangThaiText ?? "-")}\",\"{EscapeCsvField(r.GhiChu ?? "")}\"");
+                        await writer.WriteLineAsync($"\"{r.Stt}\",\"{EscapeCsvField(r.NoiDung)}\",\"{EscapeCsvField(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}\",\"{r.TongMucDauTu}\",{nvVals},{yearVals},\"{EscapeCsvField(r.TrangThaiText ?? "-")}\"");
                     }
                     await writer.WriteLineAsync();
                 }
@@ -625,7 +623,7 @@ public partial class ReportService
         foreach (var g in report.Groups)
         {
             html.AppendLine($"<h3>{System.Web.HttpUtility.HtmlEncode(g.TenNhom)}</h3>");
-            html.AppendLine($"<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th>{nvThs}{yearThs}<th>Trạng thái</th><th>Ghi chú</th></tr></thead><tbody>");
+            html.AppendLine($"<table><thead><tr><th>STT</th><th>Nội dung</th><th>Phân loại dự án</th><th>Tổng mức đầu tư</th>{nvThs}{yearThs}<th>Trạng thái</th></tr></thead><tbody>");
             foreach (var r in g.Rows)
             {
                 var nvTds = report.DanhSachNguonVon.Any()
@@ -637,7 +635,7 @@ public partial class ReportService
                     return $"<td>{(pk?.GiaTri ?? 0m):#,##0.##}</td>";
                 }));
 
-                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td>{nvTds}{yearTds}<td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td><td>{System.Web.HttpUtility.HtmlEncode(r.GhiChu ?? "")}</td></tr>");
+                html.AppendLine($"<tr><td>{r.Stt}</td><td>{System.Web.HttpUtility.HtmlEncode(r.NoiDung)}</td><td>{System.Web.HttpUtility.HtmlEncode(r.LoaiDuAn ?? r.TenPhanLoaiDuAn ?? "Chưa phân loại")}</td><td>{r.TongMucDauTu:#,##0.##}</td>{nvTds}{yearTds}<td>{System.Web.HttpUtility.HtmlEncode(r.TrangThaiText ?? "-")}</td></tr>");
             }
             html.AppendLine("</tbody></table>");
         }

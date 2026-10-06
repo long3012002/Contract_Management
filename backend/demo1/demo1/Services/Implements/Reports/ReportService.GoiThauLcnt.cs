@@ -83,6 +83,8 @@ public partial class ReportService
                 TenDuAn = gt.DuAn?.Name ?? string.Empty,
                 MaGoiThau = gt.Code,
                 TenGoiThau = gt.Name,
+                SoQuyetDinhKHLCNT = gt.SoQuyetDinhKHLCNT ?? gt.DuAn?.SoQuyetDinh ?? string.Empty,
+                SoQuyetDinhKQLCNT = gt.SoQuyetDinhKQLCNT ?? string.Empty,
                 GiaTriDuToan = giaTriDuToan,
                 HinhThucLcnt = gt.HinhThucLcnt ?? string.Empty,
                 PhuongThucLcnt = gt.PhuongThucLcnt ?? string.Empty,
@@ -146,19 +148,19 @@ public partial class ReportService
         worksheet.Cell("C1").Style.Font.FontSize = 14;
         worksheet.Cell("C1").Style.Font.FontColor = XLColor.FromHtml("#1F4E78");
         worksheet.Cell("C1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("C1:M1").Merge();
+        worksheet.Range("C1:O1").Merge();
 
         // Subtitle Row 2
         worksheet.Cell("C2").Value = $"(Đơn vị tính: {report.Unit})";
         worksheet.Cell("C2").Style.Font.Italic = true;
         worksheet.Cell("C2").Style.Font.FontSize = 10;
         worksheet.Cell("C2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        worksheet.Range("C2:M2").Merge();
+        worksheet.Range("C2:O2").Merge();
 
         // Header Row 3
         string[] headers = [
-            "STT", "Mã dự án", "Mã gói thầu", "Tên gói thầu", $"Giá trị dự toán ({report.Unit})",
-            "Hình thức LCNT", "Phương thức LCNT", $"Tổng giá trị HĐ đã ký ({report.Unit})",
+            "STT", "Mã dự án", "Mã gói thầu", "Tên gói thầu", "Số QĐ phê duyệt KHLCNT", $"Giá trị dự toán ({report.Unit})",
+            "Hình thức LCNT", "Phương thức LCNT", "Số QĐ phê duyệt KQLCNT", $"Tổng giá trị HĐ đã ký ({report.Unit})",
             // $"Giá trị tiết kiệm ({report.Unit})",
             "Tỷ lệ sử dụng dự toán (%)", "Tên nhà Thầu", "Trạng thái gói thầu"
         ];
@@ -194,35 +196,37 @@ public partial class ReportService
             worksheet.Cell(currentRow, 6).Value = row.TenGoiThau;
             worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-            worksheet.Cell(currentRow, 7).Value = row.GiaTriDuToan;
-            worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
-            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 7).Value = row.SoQuyetDinhKHLCNT ?? string.Empty;
+            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 8).Value = row.HinhThucLcnt ?? string.Empty;
-            worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Cell(currentRow, 8).Value = row.GiaTriDuToan;
+            worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 9).Value = row.PhuongThucLcnt ?? string.Empty;
+            worksheet.Cell(currentRow, 9).Value = row.HinhThucLcnt ?? string.Empty;
             worksheet.Cell(currentRow, 9).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 10).Value = row.TongGiaTriHopDongDaKy;
-            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
-            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 10).Value = row.PhuongThucLcnt ?? string.Empty;
+            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            // worksheet.Cell(currentRow, 11).Value = row.GiaTriTietKiem;
-            // worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "#,##0";
-            // worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 11).Value = row.SoQuyetDinhKQLCNT ?? string.Empty;
+            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 11).Value = row.TyLeSuDungDuToanPercent / 100.0;
-            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "0.0%";
-            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 12).Value = row.TongGiaTriHopDongDaKy;
+            worksheet.Cell(currentRow, 12).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 12).Value = row.TenNhaThauTrungThau;
-            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            worksheet.Cell(currentRow, 13).Value = row.TyLeSuDungDuToanPercent / 100.0;
+            worksheet.Cell(currentRow, 13).Style.NumberFormat.Format = "0.0%";
+            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 13).Value = row.TrangThaiGoiThau;
-            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            worksheet.Cell(currentRow, 14).Value = row.TenNhaThauTrungThau;
+            worksheet.Cell(currentRow, 14).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-            var rowRange = worksheet.Range(currentRow, 3, currentRow, 13);
+            worksheet.Cell(currentRow, 15).Value = row.TrangThaiGoiThau;
+            worksheet.Cell(currentRow, 15).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var rowRange = worksheet.Range(currentRow, 3, currentRow, 15);
             rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
@@ -234,28 +238,29 @@ public partial class ReportService
             int startRow = 4;
             int endRow = currentRow - 1;
             worksheet.Cell(currentRow, 3).Value = "TỔNG CỘNG";
-            worksheet.Range(currentRow, 3, currentRow, 6).Merge();
+            worksheet.Range(currentRow, 3, currentRow, 7).Merge();
             worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-            worksheet.Cell(currentRow, 7).FormulaA1 = $"=SUM(G{startRow}:G{endRow})";
-            worksheet.Cell(currentRow, 7).Style.NumberFormat.Format = "#,##0";
-            worksheet.Cell(currentRow, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 8).FormulaA1 = $"=SUM(H{startRow}:H{endRow})";
+            worksheet.Cell(currentRow, 8).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 8).Value = string.Empty;
             worksheet.Cell(currentRow, 9).Value = string.Empty;
+            worksheet.Cell(currentRow, 10).Value = string.Empty;
+            worksheet.Cell(currentRow, 11).Value = string.Empty;
 
-            worksheet.Cell(currentRow, 10).FormulaA1 = $"=SUM(J{startRow}:J{endRow})";
-            worksheet.Cell(currentRow, 10).Style.NumberFormat.Format = "#,##0";
-            worksheet.Cell(currentRow, 10).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 12).FormulaA1 = $"=SUM(L{startRow}:L{endRow})";
+            worksheet.Cell(currentRow, 12).Style.NumberFormat.Format = "#,##0";
+            worksheet.Cell(currentRow, 12).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 11).FormulaA1 = $"=IF(G{currentRow}>0, J{currentRow}/G{currentRow}, 0)";
-            worksheet.Cell(currentRow, 11).Style.NumberFormat.Format = "0.0%";
-            worksheet.Cell(currentRow, 11).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            worksheet.Cell(currentRow, 13).FormulaA1 = $"=IF(H{currentRow}>0, L{currentRow}/H{currentRow}, 0)";
+            worksheet.Cell(currentRow, 13).Style.NumberFormat.Format = "0.0%";
+            worksheet.Cell(currentRow, 13).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
 
-            worksheet.Cell(currentRow, 12).Value = string.Empty;
-            worksheet.Cell(currentRow, 13).Value = string.Empty;
+            worksheet.Cell(currentRow, 14).Value = string.Empty;
+            worksheet.Cell(currentRow, 15).Value = string.Empty;
 
-            var totalRowRange = worksheet.Range(currentRow, 3, currentRow, 13);
+            var totalRowRange = worksheet.Range(currentRow, 3, currentRow, 15);
             totalRowRange.Style.Font.Bold = true;
             totalRowRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F3F4F6");
             totalRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
@@ -263,12 +268,11 @@ public partial class ReportService
             currentRow++;
         }
 
-        worksheet.Columns(3, 13).AdjustToContents(10.0, 50.0);
+        worksheet.Columns(3, 15).AdjustToContents(10.0, 50.0);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
     }
-
 
     #endregion
 }

@@ -9,6 +9,8 @@ public class GoiThau : BaseEntity
     public virtual DuAn? DuAn { get; set; }
     
     public decimal GiaTriGoiThau { get; set; }
+    public string? SoQuyetDinhKHLCNT { get; set; }
+    public DateTime? NgayPheDuyetKHLCNT { get; set; }
     public string? SoQuyetDinhKQLCNT { get; set; }
     public DateTime? NgayPheDuyetKQLCNT { get; set; }
 

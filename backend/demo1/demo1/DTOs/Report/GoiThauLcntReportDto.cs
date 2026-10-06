@@ -15,6 +15,8 @@ public class GoiThauLcntReportRowDto
     public string TenDuAn { get; set; } = string.Empty;
     public string MaGoiThau { get; set; } = string.Empty;
     public string TenGoiThau { get; set; } = string.Empty;
+    public string? SoQuyetDinhKHLCNT { get; set; }
+    public string? SoQuyetDinhKQLCNT { get; set; }
     public decimal GiaTriDuToan { get; set; }
     public string HinhThucLcnt { get; set; } = string.Empty;
     public string PhuongThucLcnt { get; set; } = string.Empty;

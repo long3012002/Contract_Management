@@ -100,14 +100,14 @@ public partial class ReportService
             worksheet.Cell("A1").Style.Font.Bold = true;
             worksheet.Cell("A1").Style.Font.FontSize = 14;
             worksheet.Cell("A1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            worksheet.Range("A1:F1").Merge();
+            worksheet.Range("A1:E1").Merge();
 
             // Package Name
             worksheet.Cell("A2").Value = report.TenGoiThau;
             worksheet.Cell("A2").Style.Font.Bold = true;
             worksheet.Cell("A2").Style.Font.FontSize = 12;
             worksheet.Cell("A2").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            worksheet.Range("A2:F2").Merge();
+            worksheet.Range("A2:E2").Merge();
 
             // Headers row 4
             worksheet.Cell("A4").Value = "STT";
@@ -115,9 +115,8 @@ public partial class ReportService
             worksheet.Cell("C4").Value = "Ngày ký";
             worksheet.Cell("D4").Value = "Loại văn bản";
             worksheet.Cell("E4").Value = "Tình trạng";
-            worksheet.Cell("F4").Value = "Ghi chú";
 
-            var headerRange = worksheet.Range("A4:F4");
+            var headerRange = worksheet.Range("A4:E4");
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
@@ -133,9 +132,8 @@ public partial class ReportService
                 worksheet.Cell(currentRow, 3).Value = item.NgayKy.HasValue ? item.NgayKy.Value.ToString("dd/MM/yyyy") : "";
                 worksheet.Cell(currentRow, 4).Value = item.LoaiVanBan ?? "";
                 worksheet.Cell(currentRow, 5).Value = item.TinhTrang ?? "";
-                worksheet.Cell(currentRow, 6).Value = item.GhiChu ?? "";
 
-                var rowRange = worksheet.Range(currentRow, 1, currentRow, 6);
+                var rowRange = worksheet.Range(currentRow, 1, currentRow, 5);
                 rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
 
@@ -144,7 +142,6 @@ public partial class ReportService
                 worksheet.Cell(currentRow, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 worksheet.Cell(currentRow, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 worksheet.Cell(currentRow, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                worksheet.Cell(currentRow, 6).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
                 currentRow++;
             }
@@ -165,7 +162,6 @@ public partial class ReportService
             worksheet.Column(3).Width = 15;  // Ngày ký
             worksheet.Column(4).Width = 18;  // Loại văn bản
             worksheet.Column(5).Width = 18;  // Tình trạng
-            worksheet.Column(6).Width = 30;  // Ghi chú
 
             using (var memoryStream = new MemoryStream())
             {
@@ -194,12 +190,12 @@ public partial class ReportService
                 await writer.WriteLineAsync($"\"Đơn vị tính: {report.Unit}\"");
                 await writer.WriteLineAsync();
 
-                await writer.WriteLineAsync($"\"STT\",\"Tên tài liệu\",\"Ngày ký\",\"Loại văn bản\",\"Tình trạng\",\"Ghi chú\"");
+                await writer.WriteLineAsync($"\"STT\",\"Tên tài liệu\",\"Ngày ký\",\"Loại văn bản\",\"Tình trạng\"");
 
                 foreach (var c in report.CongViecs)
                 {
                     string ngayKy = c.NgayKy.HasValue ? c.NgayKy.Value.ToString("dd/MM/yyyy") : "-";
-                    await writer.WriteLineAsync($"\"{c.Stt}\",\"{EscapeCsvField(c.TenTaiLieu)}\",\"{ngayKy}\",\"{EscapeCsvField(c.LoaiVanBan ?? "-")}\",\"{EscapeCsvField(c.TinhTrang ?? "-")}\",\"{EscapeCsvField(c.GhiChu ?? "-")}\"");
+                    await writer.WriteLineAsync($"\"{c.Stt}\",\"{EscapeCsvField(c.TenTaiLieu)}\",\"{ngayKy}\",\"{EscapeCsvField(c.LoaiVanBan ?? "-")}\",\"{EscapeCsvField(c.TinhTrang ?? "-")}\"");
                 }
 
                 await writer.FlushAsync();
@@ -242,7 +238,6 @@ public partial class ReportService
         htmlBuilder.AppendLine("      <th>Ngày ký</th>");
         htmlBuilder.AppendLine("      <th>Loại văn bản</th>");
         htmlBuilder.AppendLine("      <th>Tình trạng</th>");
-        htmlBuilder.AppendLine("      <th>Ghi chú</th>");
         htmlBuilder.AppendLine("    </tr>");
         htmlBuilder.AppendLine("  </thead>");
         htmlBuilder.AppendLine("  <tbody>");
@@ -256,7 +251,6 @@ public partial class ReportService
             htmlBuilder.AppendLine($"      <td class=\"text-center\">{ngayKy}</td>");
             htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.LoaiVanBan ?? "-")}</td>");
             htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.TinhTrang ?? "-")}</td>");
-            htmlBuilder.AppendLine($"      <td>{System.Web.HttpUtility.HtmlEncode(c.GhiChu ?? "")}</td>");
             htmlBuilder.AppendLine("    </tr>");
         }
 
