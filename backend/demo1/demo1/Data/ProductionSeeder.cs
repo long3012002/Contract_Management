@@ -32,13 +32,19 @@ public static class ProductionSeeder
         // 4. Seed / Sync Nhóm dự án
         await SeedNhomDuAnsAsync(context, logger);
 
-        // 5. Seed / Sync Chức vụ
+        // 5. Seed / Sync Hình thức LCNT
+        await SeedHinhThucLcntsAsync(context, logger);
+
+        // 6. Seed / Sync Phương thức LCNT
+        await SeedPhuongThucLcntsAsync(context, logger);
+
+        // 7. Seed / Sync Chức vụ
         await SeedChucVusAsync(context, logger);
 
-        // 6. Seed / Sync Phòng ban
+        // 8. Seed / Sync Phòng ban
         await SeedPhongBansAsync(context, logger);
 
-        // 7. Seed / Sync System Features & Roles & Permissions
+        // 9. Seed / Sync System Features & Roles & Permissions
         await SeedSystemCatalogAsync(context, logger);
 
         logger?.LogInformation("=== [PROD SEEDER] Hoàn tất khởi tạo dữ liệu Production ===");
@@ -215,7 +221,95 @@ public static class ProductionSeeder
     }
 
     /// <summary>
-    /// 5. Danh mục Chức vụ
+    /// 5. Danh mục Hình thức LCNT (10 hình thức)
+    /// </summary>
+    public static async Task SeedHinhThucLcntsAsync(AppDbContext context, ILogger? logger = null)
+    {
+        var defaultHinhThucLcnts = new List<(string Code, string Name, string Description)>
+        {
+            ("HT_DTRR", "Đấu thầu rộng rãi", "Đấu thầu rộng rãi"),
+            ("HT_DTHC", "Đấu thầu hạn chế", "Đấu thầu hạn chế"),
+            ("HT_CDT", "Chỉ định thầu", "Chỉ định thầu"),
+            ("HT_CHCT", "Chào hàng cạnh tranh", "Chào hàng cạnh tranh"),
+            ("HT_MSTT", "Mua sắm trực tiếp", "Mua sắm trực tiếp"),
+            ("HT_TTH", "Tự thực hiện", "Tự thực hiện"),
+            ("HT_TGTHCD", "Tham gia thực hiện của cộng đồng", "Tham gia thực hiện của cộng đồng"),
+            ("HT_DPG", "Đàm phán giá", "Đàm phán giá"),
+            ("HT_DH", "Đặt hàng", "Đặt hàng"),
+            ("HT_THDB", "Lựa chọn nhà thầu trong trường hợp đặc biệt", "Lựa chọn nhà thầu trong trường hợp đặc biệt")
+        };
+
+        int countAdded = 0;
+        foreach (var item in defaultHinhThucLcnts)
+        {
+            var existing = await context.HinhThucLcnts.FirstOrDefaultAsync(x => x.Code == item.Code || x.Name == item.Name);
+            if (existing == null)
+            {
+                context.HinhThucLcnts.Add(new HinhThucLcnt
+                {
+                    Id = Guid.NewGuid(),
+                    Code = item.Code,
+                    Name = item.Name,
+                    Description = item.Description,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                countAdded++;
+            }
+            else
+            {
+                existing.Name = item.Name;
+                if (!string.IsNullOrEmpty(item.Description)) existing.Description = item.Description;
+                existing.IsActive = true;
+            }
+        }
+        await context.SaveChangesAsync();
+        logger?.LogInformation("Đã đồng bộ {Count} bản ghi Hình thức LCNT.", countAdded);
+    }
+
+    /// <summary>
+    /// 6. Danh mục Phương thức LCNT (4 phương thức)
+    /// </summary>
+    public static async Task SeedPhuongThucLcntsAsync(AppDbContext context, ILogger? logger = null)
+    {
+        var defaultPhuongThucLcnts = new List<(string Code, string Name, string Description)>
+        {
+            ("PT_1G1T", "Phương thức một giai đoạn một túi hồ sơ", "Phương thức một giai đoạn một túi hồ sơ"),
+            ("PT_1G2T", "Phương thức một giai đoạn hai túi hồ sơ", "Phương thức một giai đoạn hai túi hồ sơ"),
+            ("PT_2G1T", "Phương thức hai giai đoạn một túi hồ sơ", "Phương thức hai giai đoạn một túi hồ sơ"),
+            ("PT_2G2T", "Phương thức hai giai đoạn hai túi hồ sơ", "Phương thức hai giai đoạn hai túi hồ sơ")
+        };
+
+        int countAdded = 0;
+        foreach (var item in defaultPhuongThucLcnts)
+        {
+            var existing = await context.PhuongThucLcnts.FirstOrDefaultAsync(x => x.Code == item.Code || x.Name == item.Name);
+            if (existing == null)
+            {
+                context.PhuongThucLcnts.Add(new PhuongThucLcnt
+                {
+                    Id = Guid.NewGuid(),
+                    Code = item.Code,
+                    Name = item.Name,
+                    Description = item.Description,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                countAdded++;
+            }
+            else
+            {
+                existing.Name = item.Name;
+                if (!string.IsNullOrEmpty(item.Description)) existing.Description = item.Description;
+                existing.IsActive = true;
+            }
+        }
+        await context.SaveChangesAsync();
+        logger?.LogInformation("Đã đồng bộ {Count} bản ghi Phương thức LCNT.", countAdded);
+    }
+
+    /// <summary>
+    /// 7. Danh mục Chức vụ
     /// </summary>
     public static async Task SeedChucVusAsync(AppDbContext context, ILogger? logger = null)
     {

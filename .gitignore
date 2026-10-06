@@ -76,4 +76,6 @@ remove-360-*.ps1
 # Uploads
 uploads/
 **/uploads/
+scratch/
+
 

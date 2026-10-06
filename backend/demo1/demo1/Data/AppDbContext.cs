@@ -58,6 +58,8 @@ namespace demo1.Data
         public DbSet<PhanLoaiDuAn> PhanLoaiDuAns { get; set; } = null!;
         public DbSet<NguonVon> NguonVons { get; set; } = null!;
         public DbSet<LoaiHopDong> LoaiHopDongs { get; set; } = null!;
+        public DbSet<HinhThucLcnt> HinhThucLcnts { get; set; } = null!;
+        public DbSet<PhuongThucLcnt> PhuongThucLcnts { get; set; } = null!;
         public DbSet<GoiThau> GoiThaus { get; set; } = null!;
         public DbSet<HopDong> HopDongs { get; set; } = null!;
         public DbSet<PhuLucHopDong> PhuLucHopDongs { get; set; } = null!;
@@ -176,6 +178,132 @@ namespace demo1.Data
                         Code = "99",
                         Name = "Khác",
                         Description = "Các loại hợp đồng khác",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    }
+                );
+            });
+
+            modelBuilder.Entity<HinhThucLcnt>(entity =>
+            {
+                ConfigureBaseEntity(entity);
+                entity.HasData(
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000001"),
+                        Code = "HT_DTRR",
+                        Name = "Đấu thầu rộng rãi",
+                        Description = "Đấu thầu rộng rãi",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000002"),
+                        Code = "HT_DTHC",
+                        Name = "Đấu thầu hạn chế",
+                        Description = "Đấu thầu hạn chế",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000003"),
+                        Code = "HT_CDT",
+                        Name = "Chỉ định thầu",
+                        Description = "Chỉ định thầu",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000004"),
+                        Code = "HT_CHCT",
+                        Name = "Chào hàng cạnh tranh",
+                        Description = "Chào hàng cạnh tranh",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000005"),
+                        Code = "HT_MSTT",
+                        Name = "Mua sắm trực tiếp",
+                        Description = "Mua sắm trực tiếp",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000006"),
+                        Code = "HT_TTH",
+                        Name = "Tự thực hiện",
+                        Description = "Tự thực hiện",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000007"),
+                        Code = "HT_TGTHCD",
+                        Name = "Tham gia thực hiện của cộng đồng",
+                        Description = "Tham gia thực hiện của cộng đồng",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000008"),
+                        Code = "HT_DPG",
+                        Name = "Đàm phán giá",
+                        Description = "Đàm phán giá",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000009"),
+                        Code = "HT_DH",
+                        Name = "Đặt hàng",
+                        Description = "Đặt hàng",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new HinhThucLcnt
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-000000000010"),
+                        Code = "HT_THDB",
+                        Name = "Lựa chọn nhà thầu trong trường hợp đặc biệt",
+                        Description = "Lựa chọn nhà thầu trong trường hợp đặc biệt",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    }
+                );
+            });
+
+            modelBuilder.Entity<PhuongThucLcnt>(entity =>
+            {
+                ConfigureBaseEntity(entity);
+                entity.HasData(
+                    new PhuongThucLcnt
+                    {
+                        Id = Guid.Parse("22222222-2222-2222-2222-000000000001"),
+                        Code = "PT_1G1T",
+                        Name = "Phương thức một giai đoạn một túi hồ sơ",
+                        Description = "Phương thức một giai đoạn một túi hồ sơ",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new PhuongThucLcnt
+                    {
+                        Id = Guid.Parse("22222222-2222-2222-2222-000000000002"),
+                        Code = "PT_1G2T",
+                        Name = "Phương thức một giai đoạn hai túi hồ sơ",
+                        Description = "Phương thức một giai đoạn hai túi hồ sơ",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new PhuongThucLcnt
+                    {
+                        Id = Guid.Parse("22222222-2222-2222-2222-000000000003"),
+                        Code = "PT_2G1T",
+                        Name = "Phương thức hai giai đoạn một túi hồ sơ",
+                        Description = "Phương thức hai giai đoạn một túi hồ sơ",
+                        CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                    },
+                    new PhuongThucLcnt
+                    {
+                        Id = Guid.Parse("22222222-2222-2222-2222-000000000004"),
+                        Code = "PT_2G2T",
+                        Name = "Phương thức hai giai đoạn hai túi hồ sơ",
+                        Description = "Phương thức hai giai đoạn hai túi hồ sơ",
                         CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                     }
                 );
@@ -1715,6 +1843,8 @@ namespace demo1.Data
                 "phanloaiduan" => "phân loại dự án",
                 "nguonvon" => "nguồn vốn",
                 "loaihopdong" => "loại hợp đồng",
+                "hinhthuclcnt" => "hình thức LCNT",
+                "phuongthuclcnt" => "phương thức LCNT",
                 _ => entityType.ToLowerInvariant()
             };
         }

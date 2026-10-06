@@ -8,6 +8,7 @@ namespace demo1.Controllers.DanhMuc;
 /// API Quản lý Danh mục Đơn vị tính (vd: Cái, Bộ, Máy, Gói, Tháng...).
 /// </summary>
 [Route("api/DanhMuc/don-vi-tinh")]
+[FeatureAuthorize("DANH_MUC")]
 public class DonViTinhsController : CrudControllerBase<DonViTinhDto, CreateDonViTinhDto, UpdateDonViTinhDto>
 {
     public DonViTinhsController(IDonViTinhService service) : base(service)

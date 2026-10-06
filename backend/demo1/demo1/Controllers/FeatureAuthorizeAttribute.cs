@@ -138,7 +138,7 @@ namespace demo1.Controllers
             // 1. GET requests
             if (httpMethod == "GET")
             {
-                // Danh mục (Lookup / Category catalogs) is read-accessible to all authenticated users
+                // Bỏ FeatureAuthorize đối với các API GET của Danh mục: Cho phép tất cả người dùng đã đăng nhập đọc danh mục
                 if (_featureCode == "DANH_MUC")
                 {
                     return;

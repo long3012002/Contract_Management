@@ -86,7 +86,7 @@ namespace demo1.Tests.UnitTests.Controllers
             // Act
             await filter.OnAuthorizationAsync(context);
 
-            // Assert: Should return 403 Forbidden
+            // Assert: Should return 403 Forbidden for business features like DU_AN
             context.Result.Should().NotBeNull();
             context.Result.Should().BeOfType<JsonResult>();
             var jsonResult = (JsonResult)context.Result!;

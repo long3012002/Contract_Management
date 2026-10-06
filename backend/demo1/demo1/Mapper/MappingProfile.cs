@@ -1,6 +1,7 @@
 using AutoMapper;
 using demo1.DTOs;
 using demo1.Entity;
+using demo1.Entity.DanhMuc;
 using demo1.DTOs.HangHoaDichVu;
 
 namespace demo1.Mapper
@@ -294,6 +295,26 @@ namespace demo1.Mapper
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
             CreateMap<UpdateNguonVonDto, NguonVon>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
+            // HinhThucLcnt mappings
+            CreateMap<HinhThucLcnt, HinhThucLcntDto>();
+            CreateMap<CreateHinhThucLcntDto, HinhThucLcnt>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdateHinhThucLcntDto, HinhThucLcnt>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+
+            // PhuongThucLcnt mappings
+            CreateMap<PhuongThucLcnt, PhuongThucLcntDto>();
+            CreateMap<CreatePhuongThucLcntDto, PhuongThucLcnt>()
+                .ForMember(dest => dest.Code, opt => opt.MapFrom(src => MapperHelpers.NormalizeCode(src.Code)))
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
+                .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
+            CreateMap<UpdatePhuongThucLcntDto, PhuongThucLcnt>()
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => MapperHelpers.TrimRequired(src.Name)))
                 .ForMember(dest => dest.Description, opt => opt.MapFrom(src => MapperHelpers.TrimOptional(src.Description)));
 
