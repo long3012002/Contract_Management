@@ -115,7 +115,7 @@ public class DoiTacService : DbCrudService<DoiTac, DoiTacDto, CreateDoiTacDto, U
         return await base.CreateAsync(dto);
     }
 
-    public override async Task<DoiTacDto?> UpdateAsync(Guid id, UpdateDoiTacDto dto)
+    public override async Task<bool> UpdateAsync(Guid id, UpdateDoiTacDto dto)
     {
         if (!string.IsNullOrWhiteSpace(dto.TaxCode))
         {

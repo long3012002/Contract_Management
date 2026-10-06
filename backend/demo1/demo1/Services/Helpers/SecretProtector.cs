@@ -6,7 +6,7 @@ using System.Text;
 namespace demo1.Services.Helpers
 {
     /// <summary>
-    /// Tiện ích mã hóa & giải mã mật khẩu nhạy cảm (như Password Email) bằng AES-256-CBC.
+    /// Tiện ích mã hóa &amp; giải mã mật khẩu nhạy cảm (như Password Email) bằng AES-256-CBC.
     /// Giúp che giấu mật khẩu trong file cấu hình, tránh bị đọc trực tiếp dưới dạng plain-text.
     /// </summary>
     public static class SecretProtector

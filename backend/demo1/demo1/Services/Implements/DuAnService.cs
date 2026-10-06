@@ -1196,39 +1196,13 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         return await _cascadeService.RestoreAsync(idList);
     }
 
-    private static IQueryable<DuAn> ApplySearchFilter(IQueryable<DuAn> query, string keyword)
+    protected override IQueryable<DuAn> ApplySearchFilter(IQueryable<DuAn> query, string keyword)
     {
         return query.Where(item =>
             item.Code.ToLower().Contains(keyword.ToLower()) ||
             item.Name.ToLower().Contains(keyword.ToLower()) ||
             (item.ChuDauTu != null && item.ChuDauTu.ToLower().Contains(keyword.ToLower())) ||
             (item.NoiDung != null && item.NoiDung.ToLower().Contains(keyword.ToLower())));
-    }
-
-    private static bool TryParseCursor(string? cursor, out DateTime createdAt, out Guid id)
-    {
-        createdAt = DateTime.MinValue;
-        id = Guid.Empty;
-        if (string.IsNullOrWhiteSpace(cursor)) return false;
-
-        try
-        {
-            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            var parts = decoded.Split('|');
-            if (parts.Length == 2 && DateTime.TryParse(parts[0], out createdAt) && Guid.TryParse(parts[1], out id))
-            {
-                return true;
-            }
-        }
-        catch { }
-
-        return false;
-    }
-
-    private static string EncodeCursor(DateTime createdAt, Guid id)
-    {
-        var raw = $"{createdAt:o}|{id}";
-        return Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw));
     }
 
     private async Task<(Guid UserId, string ActorName)> ResolveCurrentUserAsync(Guid currentUserId)
