@@ -323,7 +323,7 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task ReportService_GetInvestmentReportAsync_Should_Group_Projects_Without_GroupABC_Headers()
+        public async Task ReportService_GetInvestmentReportAsync_Should_Group_Projects_With_GroupABC_Headers()
         {
             // Arrange
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
@@ -336,11 +336,10 @@ namespace demo1.Tests.UnitTests.Services
             // Act: period 1 = Cả năm
             var report = await service.GetInvestmentReportAsync(2026, 1, "đồng");
 
-            // Assert: No Group B or Group C headers
-            report.Rows.Any(r => r.Stt == "B" && r.RowType == "GroupHeader").Should().BeFalse();
-            report.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeFalse();
-            report.Rows.Any(r => r.ProjectName == "Tổng (B)").Should().BeFalse();
-            report.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeFalse();
+            // Assert: Group B exists with project
+            report.Rows.Any(r => r.Stt == "B" && r.RowType == "GroupHeader" && r.ProjectName == "Các dự án nhóm B").Should().BeTrue();
+            report.Rows.Any(r => r.ProjectName == "Tổng (B)").Should().BeTrue();
+            report.Rows.Any(r => r.ProjectName == "Tổng (A+B+C)").Should().BeTrue();
 
             var projectRow = report.Rows.FirstOrDefault(r => r.ProjectName == "Dự án nhóm B quy mô lớn");
             projectRow.Should().NotBeNull();
@@ -348,17 +347,18 @@ namespace demo1.Tests.UnitTests.Services
         }
 
         [Fact]
-        public async Task ReportService_GetInvestmentReportAsync_Should_Exclude_Empty_Project_Categories()
+        public async Task ReportService_GetInvestmentReportAsync_Should_Include_Empty_Placeholders_For_Empty_Groups()
         {
             // Arrange
             var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<demo1.Services.Implements.ReportService>.Instance;
             var service = new demo1.Services.Implements.ReportService(_dbContext, logger);
 
-            // Case 1: No projects at all -> Rows should be empty
+            // Case 1: No projects at all -> Rows should have Groups A, B, C headers with (Không có)
             var emptyReport = await service.GetInvestmentReportAsync(2026, 1, "đồng");
-            emptyReport.Rows.Should().BeEmpty();
+            emptyReport.Rows.Should().NotBeEmpty();
+            emptyReport.Rows.Count(r => r.ProjectName == "(Không có)").Should().Be(3);
 
-            // Case 2: Project with category -> Project row exists, no Group B/C
+            // Case 2: Project with category in Group C (< 45B)
             var pl = new PhanLoaiDuAn { Id = Guid.NewGuid(), Code = "PL_TEST", Name = "Phân loại Test", IsActive = true };
             var proj = new DuAn { Id = Guid.NewGuid(), Code = "DA-TEST", Name = "Dự án Test", DuToanPheDuyet = 10000000000m, PhanLoaiDuAnId = pl.Id, TrangThai = 1 };
             _dbContext.PhanLoaiDuAns.Add(pl);
@@ -366,8 +366,9 @@ namespace demo1.Tests.UnitTests.Services
             await _dbContext.SaveChangesAsync();
 
             var reportWithProj = await service.GetInvestmentReportAsync(2026, 1, "đồng");
-            reportWithProj.Rows.Any(r => r.Stt == "B" || r.Stt == "C").Should().BeFalse();
+            reportWithProj.Rows.Any(r => r.Stt == "C" && r.RowType == "GroupHeader").Should().BeTrue();
             reportWithProj.Rows.Any(r => r.ProjectName == "Dự án Test").Should().BeTrue();
+            reportWithProj.Rows.Any(r => r.ProjectName == "Tổng (C)").Should().BeTrue();
         }
 
         [Fact]

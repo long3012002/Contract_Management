@@ -162,6 +162,7 @@ public partial class ReportService
         }
 
         var categoryProjectsMap = categoryList.ToDictionary(c => c.Id, _ => new List<ReportRowDto>());
+        var projectItemsList = new List<(ReportRowDto Row, string GroupKey, string SubCatName)>();
 
         foreach (var project in projectsData)
         {
@@ -299,15 +300,37 @@ public partial class ReportService
                                "🟢 Đúng tiến độ"
             };
 
-            var catId = GetCategoryIdForProject(project.PhanLoaiDuAnId, project.PhanLoaiDuAnCode, project.PhanLoaiDuAnName);
-            if (categoryProjectsMap.TryGetValue(catId, out var pList))
+            // Phân nhóm dự án: Nhóm A (> 800 tỷ), Nhóm B (45 - 800 tỷ), Nhóm C (< 45 tỷ)
+            decimal projectTmDtVnd = totalBudgetVnd;
+            var nhomCode = (project.NhomDuAnCode ?? string.Empty).ToUpperInvariant();
+
+            string groupKey = "C";
+            if (projectTmDtVnd > 800_000_000_000m || nhomCode == "NHOM_A" || nhomCode == "A")
             {
-                pList.Add(row);
+                groupKey = "A";
+            }
+            else if ((projectTmDtVnd >= 45_000_000_000m && projectTmDtVnd <= 800_000_000_000m) || nhomCode == "NHOM_B" || nhomCode == "B")
+            {
+                groupKey = "B";
             }
             else
             {
-                categoryProjectsMap[categoryList.First().Id].Add(row);
+                groupKey = "C";
             }
+
+            // Tên tiểu mục phân loại
+            string subCatName = !string.IsNullOrWhiteSpace(project.PhanLoaiDuAnName) ? project.PhanLoaiDuAnName : "Dự án khác";
+            var plCode = (project.PhanLoaiDuAnCode ?? string.Empty).ToUpperInvariant();
+            if (plCode.Contains("XDCB") || subCatName.ToLower().Contains("xây dựng") || subCatName.ToLower().Contains("xay dung"))
+            {
+                subCatName = "Dự án đầu tư xây dựng";
+            }
+            else if (plCode.Contains("CNTT") || plCode.Contains("IT") || subCatName.ToLower().Contains("công nghệ") || subCatName.ToLower().Contains("phần mềm"))
+            {
+                subCatName = "Dự án công nghệ thông tin";
+            }
+
+            projectItemsList.Add((row, groupKey, subCatName));
         }
 
         // Chuyển đổi số nguyên sang Chữ số La Mã (I, II, III, IV, V...)
@@ -332,48 +355,90 @@ public partial class ReportService
             return sb.ToString();
         }
 
-        // 6. Danh sách dự án (Đã bỏ/comment dòng gom nhóm và dòng tổng cộng theo yêu cầu)
+        // 6. Xây dựng danh sách dòng trả về gom theo 3 Nhóm A, B, C chuẩn 2 cột
         var rows = new List<ReportRowDto>();
-        // var subHeaders = new List<ReportRowDto>();
-        // int catIdx = 1;
-        int pIdx = 1;
 
-        foreach (var cat in categoryList)
+        var groupsConfig = new[]
         {
-            var pList = categoryProjectsMap.GetValueOrDefault(cat.Id, new List<ReportRowDto>());
-            if (!pList.Any()) continue;
+            ("A", "Các dự án nhóm A"),
+            ("B", "Các dự án nhóm B"),
+            ("C", "Các dự án khác")
+        };
 
-            // [COMMENTED] Bỏ dòng gom nhóm phân loại dự án (SubGroupHeader)
-            /*
-            var subHeader = new ReportRowDto
+        foreach (var (gKey, gTitle) in groupsConfig)
+        {
+            // 1. Dòng Nhóm lớn: Stt = "A", "B", "C"; Tên dự án = "Các dự án nhóm A", "Các dự án nhóm B", "Các dự án khác"
+            rows.Add(new ReportRowDto
             {
-                Stt = ToRomanNumber(catIdx++),
-                RowType = "SubGroupHeader",
-                ProjectName = cat.Name
-            };
-            PopulateSubGroupSummary(subHeader, pList);
-            subHeaders.Add(subHeader);
-            rows.Add(subHeader);
-            */
+                Stt = gKey,
+                RowType = "GroupHeader",
+                ProjectName = gTitle
+            });
 
-            foreach (var pRow in pList)
+            var gItems = projectItemsList.Where(x => x.GroupKey == gKey).ToList();
+
+            if (!gItems.Any())
             {
-                pRow.Stt = pIdx++.ToString();
+                // Nếu nhóm không có dự án: Thêm dòng (Không có), Stt = ""
+                rows.Add(new ReportRowDto
+                {
+                    Stt = string.Empty,
+                    RowType = "EmptyPlaceholder",
+                    ProjectName = "(Không có)"
+                });
             }
+            else
+            {
+                int subCatIdx = 1;
+                int pIdxInGroup = 1;
 
-            rows.AddRange(pList);
+                // Gom theo tiểu mục (ưu tiên Dự án đầu tư xây dựng trước, rồi đến Công nghệ thông tin, rồi đến Khác)
+                var subGroups = gItems
+                    .GroupBy(x => x.SubCatName)
+                    .OrderBy(g => g.Key.Contains("xây dựng") ? 1 : (g.Key.Contains("công nghệ") ? 2 : 3))
+                    .ToList();
+
+                foreach (var subG in subGroups)
+                {
+                    // Dòng tiểu mục phân loại: Trả về chữ số La Mã I, II, III...
+                    rows.Add(new ReportRowDto
+                    {
+                        Stt = ToRomanNumber(subCatIdx++),
+                        RowType = "SubGroupHeader",
+                        ProjectName = subG.Key
+                    });
+
+                    // Dòng dự án cụ thể: Đánh số 1, 2, 3... (đánh lại từ 1 theo từng nhóm)
+                    foreach (var item in subG)
+                    {
+                        item.Row.Stt = (pIdxInGroup++).ToString();
+                        item.Row.RowType = "ProjectRow";
+                        rows.Add(item.Row);
+                    }
+                }
+
+                // Dòng tổng nhóm: Ghi Tổng (A), Tổng (B), Tổng (C) kèm tổng tiền của nhóm, Stt = ""
+                var groupFooter = new ReportRowDto
+                {
+                    Stt = string.Empty,
+                    RowType = "GroupFooter",
+                    ProjectName = $"Tổng ({gKey})"
+                };
+                PopulateSubGroupSummary(groupFooter, gItems.Select(x => x.Row).ToList());
+                rows.Add(groupFooter);
+            }
         }
 
-        // --- GRAND TOTAL (Dòng tổng cộng cho các cột giá trị số tiền) ---
-        if (rows.Any())
+        // Dòng tổng cuối bảng: Ghi Tổng (A+B+C) kèm tổng tiền toàn bộ, Stt = ""
+        if (projectItemsList.Any())
         {
             var grandTotal = new ReportRowDto
             {
-                Stt = "",
+                Stt = string.Empty,
                 RowType = "GrandTotal",
-                ProjectName = "TỔNG CỘNG"
+                ProjectName = "Tổng (A+B+C)"
             };
-            PopulateSubGroupSummary(grandTotal, rows);
+            PopulateSubGroupSummary(grandTotal, projectItemsList.Select(x => x.Row).ToList());
             rows.Add(grandTotal);
         }
 
