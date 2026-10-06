@@ -538,6 +538,7 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
         if (dto.NewNhaThau != null && !dto.NhaThauId.HasValue)
         {
             createdInlineContractor = Mapper.Map<DoiTac>(dto.NewNhaThau);
+            createdInlineContractor.Code = demo1.Validator.CodePrefixValidator.FormatDoiTacCode(createdInlineContractor.Code);
             createdInlineContractor.Id = Guid.NewGuid();
             createdInlineContractor.CreatedAt = DateTime.UtcNow;
             var codeExists = await DbContext.DoiTacs.AnyAsync(dt => dt.Code.ToLower() == createdInlineContractor.Code.ToLower());

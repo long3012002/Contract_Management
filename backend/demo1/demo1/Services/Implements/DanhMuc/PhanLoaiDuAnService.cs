@@ -12,4 +12,10 @@ public class PhanLoaiDuAnService : DbCrudService<PhanLoaiDuAn, PhanLoaiDuAnDto, 
     public PhanLoaiDuAnService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
     }
+
+    public override async Task<PhanLoaiDuAnDto> CreateAsync(CreatePhanLoaiDuAnDto dto)
+    {
+        dto.Code = demo1.Validator.CodePrefixValidator.FormatPhanLoaiDuAnCode(dto.Code);
+        return await base.CreateAsync(dto);
+    }
 }

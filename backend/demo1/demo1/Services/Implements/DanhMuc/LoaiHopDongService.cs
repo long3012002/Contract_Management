@@ -18,6 +18,12 @@ public class LoaiHopDongService : DbCrudService<LoaiHopDong, LoaiHopDongDto, Cre
     {
     }
 
+    public override async Task<LoaiHopDongDto> CreateAsync(CreateLoaiHopDongDto dto)
+    {
+        dto.Code = demo1.Validator.CodePrefixValidator.FormatLoaiHopDongCode(dto.Code);
+        return await base.CreateAsync(dto);
+    }
+
     public override async Task<bool> UpdateAsync(Guid id, UpdateLoaiHopDongDto dto)
     {
         var entity = await DbSet.FindAsync(id);

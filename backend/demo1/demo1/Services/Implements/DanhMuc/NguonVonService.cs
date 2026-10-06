@@ -11,4 +11,10 @@ public class NguonVonService : DbCrudService<NguonVon, NguonVonDto, CreateNguonV
     public NguonVonService(AppDbContext dbContext, IMapper mapper) : base(dbContext, mapper)
     {
     }
+
+    public override async Task<NguonVonDto> CreateAsync(CreateNguonVonDto dto)
+    {
+        dto.Code = demo1.Validator.CodePrefixValidator.FormatNguonVonCode(dto.Code);
+        return await base.CreateAsync(dto);
+    }
 }

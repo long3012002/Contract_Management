@@ -165,15 +165,15 @@ public class CodeGeneratorService : ICodeGeneratorService
         string clean = RemoveAccentsAndFormatting(nameOrAbbr);
         if (clean.StartsWith("LDA")) clean = clean.Substring(3).TrimStart('-', '_', ' ');
         else if (clean.StartsWith("PL")) clean = clean.Substring(2).TrimStart('-', '_', ' ');
-        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "LDA-LOAIDA" : $"LDA-{clean}");
+        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "PL-LOAIDA" : $"PL-{clean}");
     }
 
     public Task<string> GenerateLoaiHopDongCodeAsync(string nameOrAbbr)
     {
         string clean = RemoveAccentsAndFormatting(nameOrAbbr);
-        if (clean.StartsWith("LHD")) clean = clean.Substring(3).TrimStart('-', '_', ' ');
-        else if (clean.StartsWith("PLHD")) clean = clean.Substring(4).TrimStart('-', '_', ' ');
-        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "LHD-LOAIHD" : $"LHD-{clean}");
+        if (clean.StartsWith("PLHD")) clean = clean.Substring(4).TrimStart('-', '_', ' ');
+        else if (clean.StartsWith("LHD")) clean = clean.Substring(3).TrimStart('-', '_', ' ');
+        return Task.FromResult(string.IsNullOrWhiteSpace(clean) ? "PLHD-LOAIHD" : $"PLHD-{clean}");
     }
 
     public async Task<int> MigrateAllLegacyCodesAsync()

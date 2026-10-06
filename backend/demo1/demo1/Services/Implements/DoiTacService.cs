@@ -103,6 +103,8 @@ public class DoiTacService : DbCrudService<DoiTac, DoiTacDto, CreateDoiTacDto, U
 
     public override async Task<DoiTacDto> CreateAsync(CreateDoiTacDto dto)
     {
+        dto.Code = demo1.Validator.CodePrefixValidator.FormatDoiTacCode(dto.Code);
+
         if (!string.IsNullOrWhiteSpace(dto.TaxCode))
         {
             var existing = await CheckTaxCodeAsync(dto.TaxCode);
