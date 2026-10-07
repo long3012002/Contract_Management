@@ -38,6 +38,7 @@ public class ReportRowDto
     public decimal? LaiSuat { get; set; }
 
     // Thông tin bổ sung theo Mẫu Báo Cáo 1 (Tiến độ Dự án triển khai)
+    public int? ProjectId { get; set; }
     public string? MaDuAn { get; set; }
     public string? DonViChuTri { get; set; }
     public string? PmPhuTrach { get; set; }

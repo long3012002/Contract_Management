@@ -1338,6 +1338,7 @@ public partial class ReportService
             {
                 return new ReportRowDto
                 {
+                    ProjectId = p.Id,
                     Stt = stt,
                     RowType = "ProjectRow",
                     ProjectName = p.Name,
