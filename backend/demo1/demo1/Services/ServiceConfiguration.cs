@@ -262,6 +262,7 @@ public static class ServiceConfiguration
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ISystemConfigService, SystemConfigService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<ISsoService, SsoService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IPhongBanService, PhongBanService>();
         services.AddScoped<IToNhomService, ToNhomService>();

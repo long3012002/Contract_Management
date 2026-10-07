@@ -215,6 +215,7 @@ public static class DatabaseSeederExtensions
             {
                 Username = "admin",
                 FullName = "System Administrator",
+                Email = "admin@co-opbank.vn",
                 IsActive = true,
                 IsSystemAdmin = true,
                 CreatedAt = DateTime.UtcNow
@@ -226,6 +227,7 @@ public static class DatabaseSeederExtensions
             {
                 Username = "quangmd",
                 FullName = "Mai Duy Quang",
+                Email = "quangmd@co-opbank.vn",
                 IsActive = true,
                 IsSystemAdmin = true,
                 CreatedAt = DateTime.UtcNow
@@ -250,6 +252,7 @@ public static class DatabaseSeederExtensions
                 Id = Guid.NewGuid(),
                 Username = "anhld2",
                 FullName = "Lê Đức Anh",
+                Email = "anhld2@co-opbank.vn",
                 IsActive = true,
                 IsSystemAdmin = true,
                 IsTwoFactorEnabled = false,
@@ -264,6 +267,7 @@ public static class DatabaseSeederExtensions
                 Id = Guid.NewGuid(),
                 Username = "anhlt",
                 FullName = "Lê Tuấn Anh",
+                Email = "anhlt@co-opbank.vn",
                 IsActive = true,
                 IsSystemAdmin = true,
                 IsTwoFactorEnabled = false,

@@ -27,5 +27,11 @@ namespace demo1.Entity
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public bool CanViewHopDong { get; set; } = false;
+
+        /// <summary>
+        /// Khóa định danh cố định của người dùng từ SSO Server (claim 'sub').
+        /// </summary>
+        public string? SsoSub { get; set; }
     }
 }
+
