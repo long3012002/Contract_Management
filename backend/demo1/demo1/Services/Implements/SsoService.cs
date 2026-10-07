@@ -92,25 +92,55 @@ namespace demo1.Services.Implements
 
                 // 2. Phân tích ID Token lấy Subject ID ('sub') và Email / Preferred Username
                 var handler = new JwtSecurityTokenHandler();
-                if (!handler.CanReadToken(ssoTokens.IdToken))
+                string? sub = null;
+                string? email = null;
+                string? preferredUsername = null;
+
+                if (!string.IsNullOrWhiteSpace(ssoTokens.IdToken) && handler.CanReadToken(ssoTokens.IdToken))
                 {
-                    return AuthResult.Fail(400, "Định dạng ID Token từ SSO không hợp lệ.");
+                    var jwtToken = handler.ReadJwtToken(ssoTokens.IdToken);
+                    sub = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
+                    email = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
+                    preferredUsername = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
                 }
 
-                var jwtToken = handler.ReadJwtToken(ssoTokens.IdToken);
+                // Fallback: Nếu ID Token không có đủ 'sub' hoặc thông tin người dùng, gọi sang UserInfo Endpoint của SSO
+                if (string.IsNullOrWhiteSpace(sub) && !string.IsNullOrWhiteSpace(ssoTokens.AccessToken))
+                {
+                    try
+                    {
+                        var userInfoUrl = _configuration["SSO:UserInfoUrl"] ?? "http://103.143.207.168:32081/api/v1/oauth2/userinfo";
+                        using var userInfoReq = new HttpRequestMessage(HttpMethod.Get, userInfoUrl);
+                        userInfoReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ssoTokens.AccessToken);
 
-                var sub = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
-                var email = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
-                var preferredUsername = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
+                        var userInfoResp = await httpClient.SendAsync(userInfoReq);
+                        if (userInfoResp.IsSuccessStatusCode)
+                        {
+                            var userInfoJson = await userInfoResp.Content.ReadAsStringAsync();
+                            using var doc = JsonDocument.Parse(userInfoJson);
+                            var root = doc.RootElement;
+
+                            if (root.TryGetProperty("sub", out var subProp)) sub = subProp.GetString();
+                            if (string.IsNullOrWhiteSpace(email) && root.TryGetProperty("email", out var emailProp)) email = emailProp.GetString();
+                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("preferred_username", out var prefProp)) preferredUsername = prefProp.GetString();
+                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("username", out var uProp)) preferredUsername = uProp.GetString();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Không thể lấy thông tin từ UserInfo Endpoint, sử dụng thông tin từ ID Token.");
+                    }
+                }
 
                 if (string.IsNullOrWhiteSpace(sub))
                 {
-                    return AuthResult.Fail(400, "ID Token không chứa định danh duy nhất của người dùng (claim 'sub').");
+                    return AuthResult.Fail(400, "Không trích xuất được định danh cố định (claim 'sub') từ ID Token hoặc UserInfo Endpoint của SSO.");
                 }
 
                 // 3. Tra cứu người dùng trong cơ sở dữ liệu hệ thống
-                // Ưu tiên 1: Tra cứu theo SsoSub đã được liên kết trước đó
+                // Ưu tiên 1: Tra cứu theo SsoSub đã được liên kết trước đó (Khóa duy nhất cố định theo tài liệu SSO)
                 var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.SsoSub == sub);
+
 
                 // Ưu tiên 2 (Lần đầu đăng nhập): Liên kết theo Email hoặc Username
                 if (user == null)
