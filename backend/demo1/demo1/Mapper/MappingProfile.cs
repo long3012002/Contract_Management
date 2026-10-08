@@ -22,10 +22,7 @@ namespace demo1.Mapper
 
             // DuAn mappings
             CreateMap<DuAn, DuAnDto>()
-                .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
-                    (src.KeHoachVonDuAns != null && src.KeHoachVonDuAns.Any(k => k.KeHoachVon != null && k.KeHoachVon.TrangThai == 3))
-                        ? src.KeHoachVonDuAns.Where(k => k.KeHoachVon != null && k.KeHoachVon.TrangThai == 3).Sum(k => k.SoTienDuocDuyet)
-                        : src.DuToanPheDuyet))
+                .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => src.DuToanPheDuyet))
                 .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
                 .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
                 .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null))

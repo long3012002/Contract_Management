@@ -1,28 +1,27 @@
 services:
-  backend:
-    image: qlda-backend:latest
-    build:
-      context: .
-      dockerfile: demo1/Dockerfile
-    container_name: qlda-backend-container
-    ports:
-      - "64950:8080"
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=${DB_HOST:-qlda-postgres-container};Port=${DB_PORT:-5432};Database=${DB_NAME:-QLDA};Username=${DB_USER:-quangmd};Password=${DB_PASSWORD:-31122001};
-      - Database__AutoMigrate=false
-      - Database__SeedSampleData=true
-      - Auth__EnableDevBypass=true
-      - Auth__EnableLocalPasswordLogin=true
-      - Radius__Enabled=false
-    networks:
-      - qlda-network
-    restart: always
+    backend:
+        image: qlda-backend:latest
+        build:
+            context: .
+            dockerfile: demo1/Dockerfile
+        container_name: qlda-backend
+        ports:
+            - '64950:8080'
+        env_file:
+            - path: .env
+              required: false
+        environment:
+            - ASPNETCORE_ENVIRONMENT=Development
+            # - ConnectionStrings__DefaultConnection=Host=${DB_HOST:-qlda-postgres-container};Port=${DB_PORT:-5432};Database=${DB_NAME:-QLDA};Username=${DB_USER:-quangmd};Password=${DB_PASSWORD:-31122001};
+            - Database__AutoMigrate=false
+            - Database__SeedSampleData=true
+            - Auth__EnableDevBypass=true
+            - Auth__EnableLocalPasswordLogin=true
+            - Radius__Enabled=false
+        networks:
+            - qlda-network
+        restart: always
 
 networks:
-  qlda-network:
-    external: true
-
+    qlda-network:
+        external: true

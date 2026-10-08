@@ -83,6 +83,10 @@ namespace demo1.Services.Implements
                 }
 
                 var tokenJson = await tokenResponseMsg.Content.ReadAsStringAsync();
+                _logger.LogInformation("==================== [SSO TOKEN RESPONSE TỪ SSO SERVER] ====================");
+                _logger.LogInformation("{TokenJson}", tokenJson);
+                _logger.LogInformation("============================================================================");
+
                 var ssoTokens = JsonSerializer.Deserialize<SsoTokenResponse>(tokenJson);
 
                 if (ssoTokens == null || string.IsNullOrWhiteSpace(ssoTokens.IdToken))
@@ -99,6 +103,11 @@ namespace demo1.Services.Implements
                 if (!string.IsNullOrWhiteSpace(ssoTokens.IdToken) && handler.CanReadToken(ssoTokens.IdToken))
                 {
                     var jwtToken = handler.ReadJwtToken(ssoTokens.IdToken);
+                    var allClaims = jwtToken.Claims.Select(c => $"{c.Type}: {c.Value}").ToList();
+                    _logger.LogInformation("==================== [SSO ID TOKEN CLAIMS ĐÃ GIẢI MÃ] ====================");
+                    _logger.LogInformation("{Claims}", string.Join(Environment.NewLine, allClaims));
+                    _logger.LogInformation("=========================================================================");
+
                     sub = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
                     email = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
                     preferredUsername = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
@@ -117,6 +126,10 @@ namespace demo1.Services.Implements
                         if (userInfoResp.IsSuccessStatusCode)
                         {
                             var userInfoJson = await userInfoResp.Content.ReadAsStringAsync();
+                            _logger.LogInformation("==================== [SSO USERINFO RESPONSE] ====================");
+                            _logger.LogInformation("{UserInfoJson}", userInfoJson);
+                            _logger.LogInformation("===============================================================");
+
                             using var doc = JsonDocument.Parse(userInfoJson);
                             var root = doc.RootElement;
 
