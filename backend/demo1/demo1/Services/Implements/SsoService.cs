@@ -205,6 +205,7 @@ namespace demo1.Services.Implements
                     IsSystemAdmin = user.IsSystemAdmin,
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
+                    IdToken = ssoTokens.IdToken,
                     Permissions = await GetEffectivePermissionsAsync(user.Id)
                 });
             }

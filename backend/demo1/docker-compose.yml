@@ -12,7 +12,7 @@ services:
               required: false
         environment:
             - ASPNETCORE_ENVIRONMENT=Development
-            # - ConnectionStrings__DefaultConnection=Host=${DB_HOST:-qlda-postgres-container};Port=${DB_PORT:-5432};Database=${DB_NAME:-QLDA};Username=${DB_USER:-quangmd};Password=${DB_PASSWORD:-31122001};
+            - ConnectionStrings__DefaultConnection=Host=${DB_HOST:-postgres};Port=${DB_PORT:-5432};Database=${DB_NAME:-QLDA};Username=${DB_USER:-quangmd};Password=${DB_PASSWORD:-31122001};
             - Database__AutoMigrate=false
             - Database__SeedSampleData=true
             - Auth__EnableDevBypass=true

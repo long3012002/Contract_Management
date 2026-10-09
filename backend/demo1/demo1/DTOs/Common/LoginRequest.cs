@@ -43,6 +43,11 @@ namespace demo1.DTOs
         public string? RefreshToken { get; set; }
 
         /// <summary>
+        /// ID Token nhận từ hệ thống SSO (dùng làm id_token_hint khi đăng xuất khỏi SSO)
+        /// </summary>
+        public string? IdToken { get; set; }
+
+        /// <summary>
         /// Tên đăng nhập của tài khoản
         /// </summary>
         public string Username { get; set; } = string.Empty;

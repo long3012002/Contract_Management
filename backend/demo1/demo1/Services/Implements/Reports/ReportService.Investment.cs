@@ -1080,7 +1080,7 @@ public partial class ReportService
         var (startOfPeriod, endOfPeriod, periodDisplayName, periodName) = CalculateReportPeriod(year, period, fromDate, toDate);
 
         // 2. Tải danh sách dự án hợp lệ
-        // QUY TẮC BẮT BUỘC: Chỉ lấy các dự án ĐÃ CÓ QUYẾT ĐỊNH THÀNH LẬP DỰ ÁN
+        // QUY TẮC BẮT BUỘC: Chỉ lấy các dự án ĐÃ CÓ QUYẾT ĐỊNH PHÊ DUYỆT DỰ TOÁN
         var query = _context.DuAns
             .AsNoTracking()
             .Where(da => da.IsActive && !da.IsDeleted && da.TrangThai != (int)TrangThaiDuAn.Merged)
@@ -1506,10 +1506,10 @@ public partial class ReportService
         {
             // Chế độ ALL: Hiển thị cả 2 khối
             var truocKyProjects = mappedProjects.Where(p => p.IsTruocKy).ToList();
-            BuildBlock("A", "PHẦN A: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRƯỚC KỲ BÁO CÁO", truocKyProjects, isSingleBlock: false);
+            BuildBlock("A", "PHẦN A: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH PHÊ DUYỆT DỰ TOÁN TRƯỚC KỲ BÁO CÁO", truocKyProjects, isSingleBlock: false);
 
             var trongKyProjects = mappedProjects.Where(p => p.IsTrongKy).ToList();
-            BuildBlock("B", "PHẦN B: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH THÀNH LẬP TRONG KỲ BÁO CÁO", trongKyProjects, isSingleBlock: false);
+            BuildBlock("B", "PHẦN B: CÁC DỰ ÁN CÓ QUYẾT ĐỊNH PHÊ DUYỆT DỰ TOÁN TRONG KỲ BÁO CÁO", trongKyProjects, isSingleBlock: false);
 
             resultRows.Add(new ReportRowDto
             {
