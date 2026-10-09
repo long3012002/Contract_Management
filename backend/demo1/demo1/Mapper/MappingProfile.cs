@@ -222,6 +222,7 @@ namespace demo1.Mapper
 
             // HopDong mappings
             CreateMap<HopDong, HopDongDto>()
+                .ForMember(dest => dest.GoiThauCode, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Code : null))
                 .ForMember(dest => dest.GoiThauName, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Name : null))
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
                 .ForMember(dest => dest.LoaiHopDongName, opt => opt.MapFrom(src => src.LoaiHopDongNavigation != null ? src.LoaiHopDongNavigation.Name : null))

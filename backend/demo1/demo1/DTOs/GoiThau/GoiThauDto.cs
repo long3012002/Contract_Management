@@ -47,4 +47,25 @@ public class GoiThauDto : IHasId
 
     /// <summary>Trạng thái gói thầu (Đã hoàn thành LCNT, Đang lựa chọn nhà thầu...)</summary>
     public string TrangThaiGoiThau { get; set; } = "Đang thực hiện";
+
+    /// <summary>Số hợp đồng hoặc chuỗi các số hợp đồng liên kết với gói thầu</summary>
+    public string? SoHopDong { get; set; }
+
+    /// <summary>ID hợp đồng liên kết (hợp đồng đầu tiên nếu có)</summary>
+    public Guid? HopDongId { get; set; }
+
+    /// <summary>Mã hợp đồng liên kết (hợp đồng đầu tiên nếu có)</summary>
+    public string? HopDongCode { get; set; }
+
+    /// <summary>Danh sách thông tin tóm tắt các hợp đồng thuộc gói thầu</summary>
+    public List<GoiThauHopDongSummaryDto> HopDongs { get; set; } = new();
+}
+
+public class GoiThauHopDongSummaryDto
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string? SoHopDong { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal GiaTriHopDong { get; set; }
 }

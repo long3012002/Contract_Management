@@ -173,6 +173,105 @@ namespace demo1.Tests.UnitTests.Services
             hasContract.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task UpdateAsync_Should_Validate_Against_Project_DuToanPheDuyet_Even_With_KeHoachVon()
+        {
+            // Arrange: Dự án có tổng mức đầu tư 125 tỷ (125,000,000,000 VNĐ)
+            // Kế hoạch vốn có phân bổ một đợt 125,000 (ví dụ tính theo triệu đồng hoặc đợt)
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-125B",
+                Name = "Dự án CNTT 125 tỷ",
+                DuToanPheDuyet = 125000000000m
+            };
+            _dbContext.DuAns.Add(project);
+
+            var khv = new KeHoachVon
+            {
+                Id = Guid.NewGuid(),
+                Code = "KHV-2026-01",
+                Name = "Kế hoạch vốn 2026",
+                NamKeHoach = 2026,
+                TrangThai = 3
+            };
+            _dbContext.KeHoachVons.Add(khv);
+
+            var khvDuAn = new KeHoachVonDuAn
+            {
+                KeHoachVonId = khv.Id,
+                DuAnId = project.Id,
+                SoTienDeNghi = 125000m,
+                SoTienDuocDuyet = 125000m
+            };
+            _dbContext.KeHoachVonDuAns.Add(khvDuAn);
+
+            var goiThau = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                DuAnId = project.Id,
+                Code = "GT-01",
+                Name = "Gói thầu thiết bị",
+                GiaTriGoiThau = 10000000000m // 10 tỷ
+            };
+            _dbContext.GoiThaus.Add(goiThau);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: Cập nhật gói thầu lên 113,081,040,000 VNĐ (Tổng gói thầu 113 tỷ <= 125 tỷ)
+            var updateDto = new UpdateGoiThauDto
+            {
+                Code = "GT-01",
+                Name = "Gói thầu thiết bị",
+                DuAnId = project.Id,
+                GiaTriGoiThau = 113081040000m
+            };
+            var result = await _goiThauService.UpdateAsync(goiThau.Id, updateDto);
+
+            // Assert: Thành công, không bị chặn bởi 125,000 VNĐ của Kế hoạch vốn
+            result.Should().BeTrue();
+            var reloaded = await _dbContext.GoiThaus.FindAsync(goiThau.Id);
+            reloaded!.GiaTriGoiThau.Should().Be(113081040000m);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_Should_Throw_When_Exceeding_Project_DuToanPheDuyet()
+        {
+            // Arrange: Dự án có tổng mức đầu tư 125 tỷ
+            var project = new DuAn
+            {
+                Id = Guid.NewGuid(),
+                Code = "DA-EXCEED",
+                Name = "Dự án kiểm tra vượt dự toán",
+                DuToanPheDuyet = 125000000000m
+            };
+            _dbContext.DuAns.Add(project);
+
+            var goiThau = new GoiThau
+            {
+                Id = Guid.NewGuid(),
+                DuAnId = project.Id,
+                Code = "GT-OVER",
+                Name = "Gói thầu quá hạn mức",
+                GiaTriGoiThau = 10000000000m
+            };
+            _dbContext.GoiThaus.Add(goiThau);
+            await _dbContext.SaveChangesAsync();
+
+            // Act: Cập nhật gói thầu lên 130 tỷ (Vượt quá 125 tỷ của dự án)
+            var updateDto = new UpdateGoiThauDto
+            {
+                Code = "GT-OVER",
+                Name = "Gói thầu quá hạn mức",
+                DuAnId = project.Id,
+                GiaTriGoiThau = 130000000000m
+            };
+
+            // Assert: Ném lỗi vượt quá tổng mức đầu tư
+            Func<Task> act = async () => await _goiThauService.UpdateAsync(goiThau.Id, updateDto);
+            await act.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*vượt quá tổng mức đầu tư của dự án (125,000,000,000 VNĐ)*");
+        }
+
         public void Dispose()
         {
             _dbContext.Dispose();

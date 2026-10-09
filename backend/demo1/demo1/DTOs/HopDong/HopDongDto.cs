@@ -13,6 +13,7 @@ public class HopDongDto : IHasId
     public string? Description { get; set; }
 
     public Guid? GoiThauId { get; set; }
+    public string? GoiThauCode { get; set; }
     public string? GoiThauName { get; set; }
 
     public Guid? DuAnId { get; set; }

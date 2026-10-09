@@ -307,11 +307,35 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                     dto.TenNhaThauTrungThau = firstNhaThau;
                 }
                 dto.TrangThaiGoiThau = "Đã hoàn thành LCNT";
+
+                var firstHd = hds.First();
+                dto.HopDongId = firstHd.Id;
+                dto.HopDongCode = firstHd.Code;
+
+                var soHdList = hds
+                    .Select(h => !string.IsNullOrWhiteSpace(h.SoHopDong) ? h.SoHopDong.Trim() : (!string.IsNullOrWhiteSpace(h.Code) ? h.Code.Trim() : h.Name?.Trim()))
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct()
+                    .ToList();
+                dto.SoHopDong = soHdList.Any() ? string.Join(", ", soHdList) : null;
+
+                dto.HopDongs = hds.Select(h => new GoiThauHopDongSummaryDto
+                {
+                    Id = h.Id,
+                    Code = h.Code,
+                    SoHopDong = !string.IsNullOrWhiteSpace(h.SoHopDong) ? h.SoHopDong : h.Code,
+                    Name = h.Name,
+                    GiaTriHopDong = h.GiaTriHopDong
+                }).ToList();
             }
             else
             {
                 dto.TongGiaTriHopDong = 0;
                 dto.TrangThaiGoiThau = "Đang lựa chọn nhà thầu";
+                dto.SoHopDong = null;
+                dto.HopDongId = null;
+                dto.HopDongCode = null;
+                dto.HopDongs = new List<GoiThauHopDongSummaryDto>();
             }
         }
     }
@@ -347,9 +371,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             }
             else
             {
-                project = await DbContext.DuAns.Include(da => da.KeHoachVonDuAns)
-                                                     .ThenInclude(kd => kd.KeHoachVon)
-                                                 .Include(da => da.GoiThaus)
+                project = await DbContext.DuAns.Include(da => da.GoiThaus)
                                                  .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
             }
 
@@ -394,8 +416,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                     throw new UnauthorizedAccessException("Bạn không có quyền tạo gói thầu trong dự án này.");
                 }
             }
-            var approvedCap = project.KeHoachVonDuAns?.Where(k => k.KeHoachVon != null).Sum(k => k.SoTienDuocDuyet > 0 ? k.SoTienDuocDuyet : k.SoTienDeNghi) ?? 0;
-            var projectBudget = approvedCap > 0 ? approvedCap : project.DuToanPheDuyet;
+            var projectBudget = project.DuToanPheDuyet;
             var existingPackagesSum = project.GoiThaus?.Sum(gt => gt.GiaTriGoiThau) ?? 0;
 
             decimal batchSumForProject = 0;
@@ -404,7 +425,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
                 batchSumForProject = sum;
             }
 
-            if (existingPackagesSum + batchSumForProject + dto.GiaTriGoiThau > projectBudget)
+            if (projectBudget > 0 && existingPackagesSum + batchSumForProject + dto.GiaTriGoiThau > projectBudget)
             {
                 throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + batchSumForProject + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
             }
@@ -505,8 +526,6 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
             if (projectIds.Any())
             {
                 var projectList = await DbContext.DuAns
-                    .Include(da => da.KeHoachVonDuAns)
-                        .ThenInclude(kd => kd.KeHoachVon)
                     .Include(da => da.GoiThaus)
                     .Where(da => projectIds.Contains(da.Id))
                     .ToListAsync();
@@ -598,20 +617,17 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
 
             if (dto.DuAnId.HasValue)
             {
-                var project = await DbContext.DuAns.Include(da => da.KeHoachVonDuAns)
-                                                    .ThenInclude(kd => kd.KeHoachVon)
-                                                .Include(da => da.GoiThaus)
-                                                .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
+                var project = await DbContext.DuAns.Include(da => da.GoiThaus)
+                                                   .FirstOrDefaultAsync(da => da.Id == dto.DuAnId.Value);
                 if (project == null)
                 {
                     throw new KeyNotFoundException("Không tìm thấy dự án được liên kết.");
                 }
 
-                var approvedCap = project.KeHoachVonDuAns?.Where(k => k.KeHoachVon != null).Sum(k => k.SoTienDuocDuyet > 0 ? k.SoTienDuocDuyet : k.SoTienDeNghi) ?? 0;
-                var projectBudget = approvedCap > 0 ? approvedCap : project.DuToanPheDuyet;
+                var projectBudget = project.DuToanPheDuyet;
                 var existingPackagesSum = project.GoiThaus?.Where(gt => gt.Id != id).Sum(gt => gt.GiaTriGoiThau) ?? 0;
 
-                if (existingPackagesSum + dto.GiaTriGoiThau > projectBudget)
+                if (projectBudget > 0 && existingPackagesSum + dto.GiaTriGoiThau > projectBudget)
                 {
                     throw new InvalidOperationException($"Tổng giá trị các gói thầu ({existingPackagesSum + dto.GiaTriGoiThau:N0} VNĐ) vượt quá tổng mức đầu tư của dự án ({projectBudget:N0} VNĐ).");
                 }
