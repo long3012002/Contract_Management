@@ -312,9 +312,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
             {
                 if (string.IsNullOrWhiteSpace(dto.Code))
                 {
-                    // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
-                    // dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync();
-                    throw new ArgumentException("Vui lòng nhập Mã dự án.");
+                    dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync();
                 }
                 else
                 {
@@ -789,7 +787,7 @@ public class DuAnService : DbCrudService<DuAn, DuAnDto, CreateDuAnDto, UpdateDuA
         // Validate thông tin dự án mới
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            throw new ArgumentException("Vui lòng nhập Mã dự án mới.");
+            dto.Code = await _codeGeneratorService.GenerateDuAnCodeAsync();
         }
         else
         {

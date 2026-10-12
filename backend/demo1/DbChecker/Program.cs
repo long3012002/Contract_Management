@@ -17,47 +17,63 @@ namespace DbChecker
 
             using var db = new AppDbContext(options);
 
-            var projects = db.DuAns
-                .Include(d => d.DanhSachNguonVon).ThenInclude(nv => nv.NguonVon)
-                .Include(d => d.GoiThaus)
-                .OrderBy(d => d.CreatedAt)
-                .ToList();
+            var duAns = db.DuAns.ToList();
+            int countPk = 0;
 
-            Console.WriteLine($"\n==================== BÁO CÁO DỮ LIỆU ĐÃ NHẬP VÀO CSDL ({projects.Count} DỰ ÁN) ====================");
-            
-            int idx = 1;
-            foreach (var duAn in projects)
+            foreach (var da in duAns)
             {
-                var hopDongs = db.HopDongs
-                    .Include(h => h.NhaThau)
-                    .Include(h => h.DotThanhToans)
-                    .Where(h => h.DuAnId == duAn.Id)
-                    .ToList();
-
-                var nvNames = string.Join(", ", duAn.DanhSachNguonVon.Select(x => x.NguonVon?.Name ?? ""));
-
-                Console.WriteLine($"\n[{idx++}] Dự án: [{duAn.Code}] {duAn.Name}");
-                Console.WriteLine($"     - Dự toán: {duAn.DuToanPheDuyet:N0} đ | Trạng thái: {(duAn.DaKetThuc ? "Đã quyết toán / Hoàn thành" : "Đang thực hiện")} | Nguồn vốn: {nvNames}");
-                if (!string.IsNullOrEmpty(duAn.SoQuyetDinhPheDuyetDuToan))
+                int year = da.NamBatDau ?? 2025;
+                bool exists = db.DuAnPhanKyVons.Any(x => x.DuAnId == da.Id);
+                if (!exists && da.DuToanPheDuyet > 0)
                 {
-                    Console.WriteLine($"     - QĐ Phê duyệt dự toán: {duAn.SoQuyetDinhPheDuyetDuToan}");
-                }
-                Console.WriteLine($"     - Số Gói thầu: {duAn.GoiThaus.Count} | Số Hợp đồng: {hopDongs.Count}");
+                    if (da.DuToanPheDuyet > 50_000_000_000m)
+                    {
+                        decimal p1 = Math.Round(da.DuToanPheDuyet * 0.6m, 0);
+                        decimal p2 = da.DuToanPheDuyet - p1;
 
-                foreach (var hd in hopDongs)
-                {
-                    var payments = string.Join(", ", hd.DotThanhToans.Select(p => $"{p.TenDot}: {p.GiaTriThanhToan:N0} đ"));
-                    Console.WriteLine($"       * HĐ [{hd.SoHopDong}] | Giá trị: {hd.GiaTriHopDong:N0} đ | Nhà thầu: {hd.NhaThau?.Name ?? "Chưa có"}");
-                    if (!string.IsNullOrEmpty(payments))
-                    {
-                        Console.WriteLine($"         Thanh toán: {payments}");
+                        db.DuAnPhanKyVons.Add(new DuAnPhanKyVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = da.Id,
+                            Nam = year,
+                            SoTienPhanKy = p1,
+                            TyLePercent = 60,
+                            GhiChu = $"Kế hoạch vốn năm {year} (60%)",
+                            CreatedAt = DateTime.UtcNow
+                        });
+
+                        db.DuAnPhanKyVons.Add(new DuAnPhanKyVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = da.Id,
+                            Nam = year + 1,
+                            SoTienPhanKy = p2,
+                            TyLePercent = 40,
+                            GhiChu = $"Kế hoạch vốn năm {year + 1} (40%)",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                        countPk += 2;
                     }
-                    if (!string.IsNullOrEmpty(hd.Description))
+                    else
                     {
-                        Console.WriteLine($"         Ghi chú: {hd.Description.Replace("\n", " - ")}");
+                        db.DuAnPhanKyVons.Add(new DuAnPhanKyVon
+                        {
+                            Id = Guid.NewGuid(),
+                            DuAnId = da.Id,
+                            Nam = year,
+                            SoTienPhanKy = da.DuToanPheDuyet,
+                            TyLePercent = 100,
+                            GhiChu = $"Bố trí vốn năm {year} (100%)",
+                            CreatedAt = DateTime.UtcNow
+                        });
+                        countPk++;
                     }
+                    db.SaveChanges();
                 }
             }
+
+            Console.WriteLine($"Đã bổ sung thành công {countPk} bản ghi Phân kỳ vốn cho các dự án.");
+            Console.WriteLine($"Tổng Phân kỳ vốn hiện tại: {db.DuAnPhanKyVons.Count()}");
         }
     }
 }

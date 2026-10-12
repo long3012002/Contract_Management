@@ -67,6 +67,8 @@ logs/
 .tmp_migration_*.sql
 .tmp_weekly_report_style.json
 ~$*
+~*
+*.tmp
 database/backups/
 *.dump
 

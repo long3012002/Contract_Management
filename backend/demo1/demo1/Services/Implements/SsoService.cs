@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ namespace demo1.Services.Implements
 {
     /// <summary>
     /// Service độc lập phụ trách toàn bộ nghiệp vụ xác thực SSO (OAuth2 / OIDC Authorization Code Flow + PKCE).
+    /// Tuân thủ tiêu chuẩn kỹ thuật tài liệu Hướng dẫn tích hợp SSO v2.1.
     /// </summary>
     public class SsoService : ISsoService
     {
@@ -32,6 +34,7 @@ namespace demo1.Services.Implements
         private readonly ILogger<SsoService> _logger;
         private readonly IWebHostEnvironment? _env;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IMemoryCache? _cache;
 
         public SsoService(
             IConfiguration configuration,
@@ -39,6 +42,7 @@ namespace demo1.Services.Implements
             IHttpContextAccessor httpContextAccessor,
             ILogger<SsoService> logger,
             IHttpClientFactory httpClientFactory,
+            IMemoryCache? cache = null,
             IWebHostEnvironment? env = null)
         {
             _configuration = configuration;
@@ -46,6 +50,7 @@ namespace demo1.Services.Implements
             _httpContextAccessor = httpContextAccessor;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _cache = cache;
             _env = env;
         }
 
@@ -53,16 +58,17 @@ namespace demo1.Services.Implements
         {
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.CodeVerifier))
+                // 1. Kiểm tra tính toàn vẹn của tham số Callback (bắt buộc có code, code_verifier và state chống CSRF)
+                if (request == null || string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.CodeVerifier) || string.IsNullOrWhiteSpace(request.State))
                 {
-                    return AuthResult.Fail(400, "Mã xác thực (code) và code_verifier không được để trống.");
+                    return AuthResult.Fail(400, "Mã xác thực (code), code_verifier và state không được để trống.");
                 }
 
                 var tokenUrl = _configuration["SSO:TokenUrl"] ?? "http://103.143.207.168:32081/api/v1/oauth2/token";
                 var clientId = _configuration["SSO:ClientId"] ?? "qlcv";
                 var clientSecret = _configuration["SSO:ClientSecret"] ?? "FLaMbsZ2r0qdcSWytHcgHqfR44vgcXs8";
 
-                // 1. Trao đổi Authorization Code + PKCE code_verifier lấy Token từ SSO Server
+                // 2. Trao đổi Authorization Code + PKCE code_verifier lấy Token từ SSO Server (phương thức client_secret_post theo mục A.3)
                 var httpClient = _httpClientFactory.CreateClient("SsoClient");
                 var tokenParams = new Dictionary<string, string>
                 {
@@ -90,22 +96,20 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(400, "Không nhận được ID Token từ hệ thống SSO.");
                 }
 
-                // 2. Phân tích ID Token lấy Subject ID ('sub') và Email / Preferred Username
-                var handler = new JwtSecurityTokenHandler();
-                string? sub = null;
-                string? email = null;
-                string? preferredUsername = null;
-
-                if (!string.IsNullOrWhiteSpace(ssoTokens.IdToken) && handler.CanReadToken(ssoTokens.IdToken))
+                // 3. Xác minh chữ ký số ID Token bằng JWKS và bóc tách các Claims định danh (sub, email, preferred_username)
+                var tokenValidation = await ValidateIdTokenAsync(ssoTokens.IdToken, httpClient);
+                if (!tokenValidation.IsValid)
                 {
-                    var jwtToken = handler.ReadJwtToken(ssoTokens.IdToken);
-                    sub = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
-                    email = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
-                    preferredUsername = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
+                    _logger.LogWarning("Xác thực ID Token không thành công: {Error}", tokenValidation.ErrorMessage);
+                    return AuthResult.Fail(400, tokenValidation.ErrorMessage ?? "Xác thực chữ ký ID Token không thành công.");
                 }
 
-                // Fallback: Nếu ID Token không có đủ 'sub' hoặc thông tin người dùng, gọi sang UserInfo Endpoint của SSO
-                if (string.IsNullOrWhiteSpace(sub) && !string.IsNullOrWhiteSpace(ssoTokens.AccessToken))
+                string? sub = tokenValidation.Sub;
+                string? email = tokenValidation.Email;
+                string? preferredUsername = tokenValidation.PreferredUsername;
+
+                // 4. Fallback: Nếu ID Token thiếu thông tin hoặc cấu hình PA2 cần lấy thêm danh sách quyền
+                if ((string.IsNullOrWhiteSpace(sub) || string.IsNullOrWhiteSpace(preferredUsername)) && !string.IsNullOrWhiteSpace(ssoTokens.AccessToken))
                 {
                     try
                     {
@@ -117,18 +121,18 @@ namespace demo1.Services.Implements
                         if (userInfoResp.IsSuccessStatusCode)
                         {
                             var userInfoJson = await userInfoResp.Content.ReadAsStringAsync();
-                            using var doc = JsonDocument.Parse(userInfoJson);
-                            var root = doc.RootElement;
-
-                            if (root.TryGetProperty("sub", out var subProp)) sub = subProp.GetString();
-                            if (string.IsNullOrWhiteSpace(email) && root.TryGetProperty("email", out var emailProp)) email = emailProp.GetString();
-                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("preferred_username", out var prefProp)) preferredUsername = prefProp.GetString();
-                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("username", out var uProp)) preferredUsername = uProp.GetString();
+                            var userInfo = JsonSerializer.Deserialize<SsoUserInfoResponse>(userInfoJson);
+                            if (userInfo != null)
+                            {
+                                if (string.IsNullOrWhiteSpace(sub)) sub = userInfo.Sub ?? userInfo.Id;
+                                if (string.IsNullOrWhiteSpace(email)) email = userInfo.Email ?? userInfo.Attributes?.EmailAddress;
+                                if (string.IsNullOrWhiteSpace(preferredUsername)) preferredUsername = userInfo.PreferredUsername ?? userInfo.Username;
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Không thể lấy thông tin từ UserInfo Endpoint, sử dụng thông tin từ ID Token.");
+                        _logger.LogWarning(ex, "Không thể lấy thông tin từ UserInfo Endpoint, tiếp tục với dữ liệu từ ID Token.");
                     }
                 }
 
@@ -137,12 +141,11 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(400, "Không trích xuất được định danh cố định (claim 'sub') từ ID Token hoặc UserInfo Endpoint của SSO.");
                 }
 
-                // 3. Tra cứu người dùng trong cơ sở dữ liệu hệ thống
-                // Ưu tiên 1: Tra cứu theo SsoSub đã được liên kết trước đó (Khóa duy nhất cố định theo tài liệu SSO)
+                // 5. Tra cứu người dùng trong cơ sở dữ liệu hệ thống
+                // Ưu tiên 1: Tra cứu theo SsoSub đã được liên kết trước đó (Khóa định danh bất biến theo mục A.5.2)
                 var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.SsoSub == sub);
 
-
-                // Ưu tiên 2 (Lần đầu đăng nhập): Liên kết theo Email hoặc Username
+                // Ưu tiên 2 (Lần đầu đăng nhập): Tự động liên kết theo Email hoặc Username
                 if (user == null)
                 {
                     user = await _dbContext.Users.FirstOrDefaultAsync(u =>
@@ -170,7 +173,7 @@ namespace demo1.Services.Implements
                     return AuthResult.Fail(403, "Tài khoản của bạn đang bị khóa hoặc ngưng hoạt động.");
                 }
 
-                // 4. Phát hành JWT Access Token và Refresh Token nội bộ của ứng dụng
+                // 6. Phát hành JWT Access Token và Refresh Token nội bộ của ứng dụng
                 var accessToken = GenerateJwtToken(user.Username, 180, false, user.Id);
                 var refreshToken = GenerateJwtToken(user.Username, 10080, false, user.Id);
 
@@ -178,10 +181,10 @@ namespace demo1.Services.Implements
                 user.RefreshTokenExpiryTime = DateTime.UtcNow.AddMinutes(10080);
                 await _dbContext.SaveChangesAsync();
 
-                // Lưu cookies HttpOnly
+                // Lưu cookies HttpOnly an toàn (mục 4.5 & 8.1)
                 SetAuthCookies(accessToken, refreshToken, 180, 10080);
 
-                await LogAuthEventAsync(user.Username, "SSO_LOGIN_SUCCESS", "Đăng nhập thành công qua SSO", user.Id.ToString());
+                await LogAuthEventAsync(user.Username, "SSO_LOGIN_SUCCESS", "Đăng nhập thành công qua SSO OIDC PKCE", user.Id.ToString());
 
                 return AuthResult.Success(new LoginResponse
                 {
@@ -199,6 +202,113 @@ namespace demo1.Services.Implements
             {
                 _logger.LogError(ex, "Lỗi xảy ra trong quá trình xử lý SSO Callback.");
                 return AuthResult.Fail(500, "Đã có lỗi xảy ra trong quá trình xác thực với hệ thống SSO.");
+            }
+        }
+
+        private async Task<(bool IsValid, string? Sub, string? Email, string? PreferredUsername, string? ErrorMessage)> ValidateIdTokenAsync(string idToken, HttpClient httpClient)
+        {
+            var handler = new JwtSecurityTokenHandler();
+            if (!handler.CanReadToken(idToken))
+            {
+                return (false, null, null, null, "Định dạng ID Token không hợp lệ.");
+            }
+
+            var validateSignature = _configuration.GetValue<bool>("SSO:ValidateTokenSignature", true);
+            if (!validateSignature)
+            {
+                var jwt = handler.ReadJwtToken(idToken);
+                var subVal = jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
+                var emailVal = jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
+                var prefVal = jwt.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
+                return (true, subVal, emailVal, prefVal, null);
+            }
+
+            var jwksUrl = _configuration["SSO:JwksUrl"] ?? "http://103.143.207.168:32081/api/v1/oauth2/jwks";
+            var issuer = _configuration["SSO:IssuerUrl"] ?? "http://103.143.207.168:32081/api/v1";
+            var clientId = _configuration["SSO:ClientId"] ?? "qlcv";
+            var clockSkewMinutes = _configuration.GetValue<int>("SSO:ClockSkewMinutes", 2);
+
+            var jwks = await GetJwksAsync(jwksUrl, httpClient);
+            if (jwks == null || jwks.Keys.Count == 0)
+            {
+                return (false, null, null, null, "Không thể xác thực chữ ký token: Không tải được danh sách khóa công khai JWKS từ SSO.");
+            }
+
+            var validationParams = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = jwks.GetSigningKeys(),
+                ValidateIssuer = !string.IsNullOrWhiteSpace(issuer),
+                ValidIssuer = issuer,
+                ValidateAudience = !string.IsNullOrWhiteSpace(clientId),
+                ValidAudience = clientId,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromMinutes(clockSkewMinutes)
+            };
+
+            try
+            {
+                var principal = handler.ValidateToken(idToken, validationParams, out _);
+                var sub = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                          ?? principal.FindFirst("sub")?.Value
+                          ?? principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var email = principal.FindFirst(ClaimTypes.Email)?.Value
+                            ?? principal.FindFirst("email")?.Value
+                            ?? principal.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
+                var preferredUsername = principal.FindFirst("preferred_username")?.Value
+                                        ?? principal.FindFirst("username")?.Value;
+
+                return (true, sub, email, preferredUsername, null);
+            }
+            catch (SecurityTokenExpiredException ex)
+            {
+                _logger.LogWarning(ex, "ID Token từ SSO đã hết hạn.");
+                return (false, null, null, null, "ID Token từ hệ thống SSO đã hết hạn.");
+            }
+            catch (SecurityTokenInvalidSignatureException ex)
+            {
+                _logger.LogError(ex, "Chữ ký ID Token từ SSO không hợp lệ.");
+                return (false, null, null, null, "Chữ ký số của ID Token không hợp lệ hoặc không khớp với JWKS.");
+            }
+            catch (SecurityTokenInvalidIssuerException ex)
+            {
+                _logger.LogError(ex, "Issuer của ID Token không khớp cấu hình.");
+                return (false, null, null, null, "Nguồn phát hành (Issuer) của ID Token không hợp lệ.");
+            }
+            catch (SecurityTokenInvalidAudienceException ex)
+            {
+                _logger.LogError(ex, "Audience của ID Token không khớp Client ID.");
+                return (false, null, null, null, "Đối tượng nhận (Audience) của ID Token không khớp với Client ID đã đăng ký.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi xác minh chữ ký và thông tin ID Token.");
+                return (false, null, null, null, $"Xác thực ID Token không thành công: {ex.Message}");
+            }
+        }
+
+        private async Task<JsonWebKeySet?> GetJwksAsync(string jwksUrl, HttpClient httpClient)
+        {
+            const string cacheKey = "SSO_JWKS_CACHE";
+            if (_cache != null && _cache.TryGetValue(cacheKey, out JsonWebKeySet? cachedJwks) && cachedJwks != null)
+            {
+                return cachedJwks;
+            }
+
+            try
+            {
+                var response = await httpClient.GetStringAsync(jwksUrl);
+                var jwks = new JsonWebKeySet(response);
+                if (_cache != null && jwks.Keys.Count > 0)
+                {
+                    _cache.Set(cacheKey, jwks, TimeSpan.FromHours(1));
+                }
+                return jwks;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Không thể tải JWKS từ SSO endpoint: {JwksUrl}", jwksUrl);
+                return null;
             }
         }
 

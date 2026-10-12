@@ -327,9 +327,7 @@ public class GoiThauService : DbCrudService<GoiThau, GoiThauDto, CreateGoiThauDt
     {
         if (string.IsNullOrWhiteSpace(dto.Code))
         {
-            // Tạm comment code tự sinh mã để cho phép người dùng tự nhập:
-            // dto.Code = await _codeGeneratorService.GenerateGoiThauCodeAsync();
-            throw new ArgumentException("Vui lòng nhập Mã gói thầu.");
+            dto.Code = await _codeGeneratorService.GenerateGoiThauCodeAsync();
         }
         else
         {

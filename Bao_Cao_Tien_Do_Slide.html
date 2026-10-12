@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo Cáo Tiến Độ Website Quản Lý Dự Án - Co-opBank</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --coop-green: #006838;
+      --coop-dark-green: #004D2C;
+      --coop-gold: #E5A118;
+      --coop-mint-bg: #EBF7F0;
+    }
+    body {
+      font-family: 'Segoe UI', 'Plus Jakarta Sans', sans-serif;
+    }
+    .slide {
+      display: none;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .slide.active {
+      display: flex;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.995); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .coop-bg-gradient {
+      background: linear-gradient(135deg, #004D2C 0%, #006838 50%, #00361E 100%);
+    }
+    .coop-header-banner {
+      background-color: #006838;
+      border-bottom: 3px solid #E5A118;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-800 h-screen w-screen flex flex-col justify-between overflow-hidden select-none">
+
+  <!-- Main Slide Viewport (16:9 Widescreen) -->
+  <main class="flex-1 flex items-center justify-center p-3 md:p-6">
+    <div id="slide-viewport" class="w-full max-w-6xl aspect-[16/9] bg-[#F4F9F5] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative border border-emerald-900/30">
+
+      <!-- ================= SLIDE 1: COVER ================= -->
+      <section class="slide active w-full h-full flex-col justify-between p-10 coop-bg-gradient text-white relative">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3 bg-white/10 px-4 py-1.5 rounded-full border border-white/20">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#E5A118] animate-pulse"></span>
+            <span class="text-xs text-white font-bold uppercase tracking-wider">CO-OPBANK • BÁO CÁO CÔNG VIỆC</span>
+          </div>
+          <span class="text-amber-300 font-mono text-sm font-bold bg-black/20 px-3 py-1 rounded-md border border-amber-400/30">10-2026</span>
+        </div>
+
+        <div class="my-auto space-y-4 max-w-4xl text-center mx-auto">
+          <div class="inline-block px-5 py-1.5 rounded-full bg-[#E5A118] text-slate-950 font-bold text-sm tracking-wide shadow-md">
+            BÁO CÁO TIẾN ĐỘ
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight leading-tight text-white drop-shadow-sm">
+            WEBSITE QUẢN LÝ DỰ ÁN <br/>
+            <span class="text-emerald-200">& HỢP ĐỒNG ĐẦU TƯ TẬP TRUNG</span>
+          </h1>
+          <div class="pt-3 text-emerald-100 text-lg font-semibold">
+            Phòng Ứng Dụng Nội Bộ Và Kế Hoạch
+          </div>
+        </div>
+
+        <div class="flex justify-between items-end border-t border-emerald-500/40 pt-4 text-xs text-emerald-200">
+          <div>Ngân hàng Hợp tác xã Việt Nam (Co-opBank)</div>
+          <div>Dùng phím &larr; &rarr; để chuyển slide | F11 để toàn màn hình</div>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 2: AGENDA (NEW SLIDE) ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <!-- Header -->
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">TỔNG QUAN NỘI DUNG</div>
+            <h2 class="text-lg font-bold tracking-wide">NỘI DUNG TRÌNH BÀY (AGENDA)</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">02</span>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 px-8 py-4 grid grid-cols-1 gap-2.5 content-center">
+          <div class="flex items-center gap-4 px-4 py-3 bg-white rounded-xl border border-emerald-200 shadow-sm hover:border-[#006838] transition">
+            <div class="w-10 h-10 rounded-lg bg-[#006838] text-amber-300 font-bold flex items-center justify-center text-sm shrink-0 border border-[#E5A118]">01</div>
+            <div>
+              <div class="font-bold text-[#006838] text-sm">ĐẶT VẤN ĐỀ & MỤC TIÊU HỆ THỐNG</div>
+              <div class="text-xs text-slate-600">Thực trạng dữ liệu phân tán & mục tiêu xây dựng giải pháp số hóa tập trung</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 px-4 py-3 bg-white rounded-xl border border-emerald-200 shadow-sm hover:border-[#006838] transition">
+            <div class="w-10 h-10 rounded-lg bg-[#006838] text-amber-300 font-bold flex items-center justify-center text-sm shrink-0 border border-[#E5A118]">02</div>
+            <div>
+              <div class="font-bold text-[#006838] text-sm">ĐĂNG NHẬP & XÁC THỰC SSO TẬP TRUNG</div>
+              <div class="text-xs text-slate-600">Chuyển đổi phương thức Radius sang Single Sign-On bảo mật chuẩn ngân hàng</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 px-4 py-3 bg-white rounded-xl border border-emerald-200 shadow-sm hover:border-[#006838] transition">
+            <div class="w-10 h-10 rounded-lg bg-[#006838] text-amber-300 font-bold flex items-center justify-center text-sm shrink-0 border border-[#E5A118]">03</div>
+            <div>
+              <div class="font-bold text-[#006838] text-sm">CÁC PHÂN HỆ NGHIỆP VỤ CỐT LÕI</div>
+              <div class="text-xs text-slate-600">Kế hoạch vốn, Dự án, Gói thầu, Hợp đồng và Giám sát giải ngân dòng tiền</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 px-4 py-3 bg-white rounded-xl border border-emerald-200 shadow-sm hover:border-[#006838] transition">
+            <div class="w-10 h-10 rounded-lg bg-[#006838] text-amber-300 font-bold flex items-center justify-center text-sm shrink-0 border border-[#E5A118]">04</div>
+            <div>
+              <div class="font-bold text-[#006838] text-sm">TRUNG TÂM CẢNH BÁO NHẮC HẠN TỰ ĐỘNG</div>
+              <div class="text-xs text-slate-600">Cơ chế phát hiện và cảnh báo hạn hiệu lực HĐ, bảo lãnh và đợt thanh toán</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 px-4 py-3 bg-white rounded-xl border border-emerald-200 shadow-sm hover:border-[#006838] transition">
+            <div class="w-10 h-10 rounded-lg bg-[#006838] text-amber-300 font-bold flex items-center justify-center text-sm shrink-0 border border-[#E5A118]">05</div>
+            <div>
+              <div class="font-bold text-[#006838] text-sm">HỆ THỐNG BÁO CÁO & XUẤT DỮ LIỆU</div>
+              <div class="text-xs text-slate-600">Danh mục 6 mẫu báo cáo phân tích đầu tư, vốn và đối soát thanh toán</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 2 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 3: ĐẶT VẤN ĐỀ ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">BỐI CẢNH DỰ ÁN</div>
+            <h2 class="text-lg font-bold tracking-wide">ĐẶT VẤN ĐỀ: THỰC TRẠNG & MỤC TIÊU</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">03</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-5 content-center">
+          <!-- Thực trạng -->
+          <div class="bg-white rounded-xl border-2 border-red-200 p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-red-50 text-red-700 font-bold text-xs uppercase mb-3 border border-red-200">
+                ⚠️ THỰC TRẠNG QUẢN LÝ
+              </div>
+              <ul class="space-y-3.5 text-xs text-slate-700">
+                <li class="flex items-start gap-2">
+                  <span class="text-red-500 font-bold">•</span>
+                  <span><strong>Thông tin phân tán:</strong> Dự án, gói thầu và hợp đồng lưu trữ rải rác ở văn bản giấy và thư mục riêng của từng cán bộ.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-red-500 font-bold">•</span>
+                  <span><strong>Khó kiểm soát mốc trọng yếu:</strong> Khó kiểm soát tức thời các mốc thời gian trọng yếu (thời hạn hiệu lực, hạn bảo lãnh thực hiện hợp đồng, hạn bảo hành, các mốc nghiệm thu).</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-red-500 font-bold">•</span>
+                  <span><strong>Thiếu liên kết dòng tiền:</strong> Dữ liệu về giá trị hợp đồng, số tiền tạm ứng, giải ngân và nghĩa vụ thanh toán chưa được liên kết trực tiếp theo thời gian thực với từng gói thầu/dự án.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Mục tiêu -->
+          <div class="bg-white rounded-xl border-2 border-emerald-300 p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs uppercase mb-3 border border-emerald-200">
+                🎯 MỤC TIÊU HỆ THỐNG
+              </div>
+              <ul class="space-y-3 text-xs text-slate-700">
+                <li class="flex items-start gap-2">
+                  <span class="text-[#006838] font-bold">✔</span>
+                  <span><strong>Gom toàn bộ dữ liệu</strong> của dự án về một nơi duy nhất.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-[#006838] font-bold">✔</span>
+                  <span><strong>Theo dõi vòng đời</strong> trọn vẹn của một dự án từ đầu tư đến quyết toán.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-[#006838] font-bold">✔</span>
+                  <span><strong>Nhắc nhở tự động</strong> về các thời hạn của hợp đồng, đợt thanh toán, hàng hoá dịch vụ.</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-[#006838] font-bold">✔</span>
+                  <span><strong>Tra cứu dữ liệu</strong> và đối soát nhanh chóng, chính xác.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 3 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 4: CÁC PHÂN HỆ CHÍNH ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">KIẾN TRÚC TỔNG QUAN</div>
+            <h2 class="text-lg font-bold tracking-wide">CÁC PHÂN HỆ CHÍNH CỦA PHẦN MỀM</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">04</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-5 gap-3 items-stretch content-center">
+          <div class="bg-white rounded-xl border-2 border-[#006838] p-3.5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="bg-[#006838] text-white font-bold text-[11px] px-2 py-1 rounded text-center mb-2">PHÂN HỆ 1</div>
+              <h3 class="font-bold text-[#006838] text-xs mb-1.5 leading-tight text-center">QUẢN LÝ KẾ HOẠCH VỐN & DỰ ÁN</h3>
+              <p class="text-[11px] text-slate-600 leading-relaxed text-center">Lập, phân bổ kế hoạch vốn và số hoá hồ sơ dự án.</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-3.5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="bg-[#E5A118] text-slate-950 font-bold text-[11px] px-2 py-1 rounded text-center mb-2">PHÂN HỆ 2</div>
+              <h3 class="font-bold text-[#006838] text-xs mb-1.5 leading-tight text-center">QUẢN LÝ GÓI THẦU & HỢP ĐỒNG</h3>
+              <p class="text-[11px] text-slate-600 leading-relaxed text-center">Quản lý LCNT, giá trị ký kết và hàng hoá dịch vụ.</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-3.5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="bg-[#006838] text-white font-bold text-[11px] px-2 py-1 rounded text-center mb-2">PHÂN HỆ 3</div>
+              <h3 class="font-bold text-[#006838] text-xs mb-1.5 leading-tight text-center">GIẢI NGÂN & TIẾN ĐỘ THANH TOÁN</h3>
+              <p class="text-[11px] text-slate-600 leading-relaxed text-center">Lập đợt thanh toán, quản lý thực chi & đối soát.</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-3.5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="bg-[#E5A118] text-slate-950 font-bold text-[11px] px-2 py-1 rounded text-center mb-2">PHÂN HỆ 4</div>
+              <h3 class="font-bold text-[#006838] text-xs mb-1.5 leading-tight text-center">CẢNH BÁO NHẮC HẠN</h3>
+              <p class="text-[11px] text-slate-600 leading-relaxed text-center">Nhắc hạn hợp đồng, đợt thanh toán và tiến độ chậm.</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-3.5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="bg-[#006838] text-white font-bold text-[11px] px-2 py-1 rounded text-center mb-2">PHÂN HỆ 5</div>
+              <h3 class="font-bold text-[#006838] text-xs mb-1.5 leading-tight text-center">TỔNG HỢP & BÁO CÁO</h3>
+              <p class="text-[11px] text-slate-600 leading-relaxed text-center">Hệ thống 6 mẫu báo cáo trích xuất đa chiều.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 4 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 5: ĐĂNG NHẬP SSO ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">HẠ TẦNG & BẢO MẬT</div>
+            <h2 class="text-lg font-bold tracking-wide">ĐĂNG NHẬP HỆ THỐNG</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">05</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-5 content-center">
+          <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div class="inline-block px-3 py-1 rounded bg-slate-100 text-slate-600 font-bold text-xs uppercase mb-4">
+              Phương án cũ: Đăng nhập qua Radius
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Xác thực theo cơ chế riêng lẻ truyền thống, chưa đồng bộ với hệ thống danh bạ và định danh tập trung của toàn ngân hàng.
+            </p>
+          </div>
+
+          <div class="bg-white rounded-xl border-2 border-[#006838] p-6 shadow-sm">
+            <div class="inline-block px-3 py-1 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs uppercase mb-4 border border-emerald-200">
+              ⭐ Phương án mới: Xác thực SSO tập trung
+            </div>
+            <p class="text-xs text-slate-800 font-medium leading-relaxed">
+              Hệ thống đăng nhập tích hợp cơ chế xác thực SSO tập trung, đồng bộ tài khoản ngân hàng Co-opBank, nâng cao an toàn thông tin và thuận tiện cho người dùng.
+            </p>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 5 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 6: PHÂN HỆ 1 ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">CHI TIẾT PHÂN HỆ 1</div>
+            <h2 class="text-lg font-bold tracking-wide">QUẢN LÝ KẾ HOẠCH VỐN & DỰ ÁN</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">06</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-4 content-center">
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Kế hoạch vốn</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Lập, phân bổ và điều chỉnh kế hoạch vốn.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Quản lý dự án</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Số hoá hồ sơ, hợp đồng, gói thầu và các thông tin của dự án.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Kiểm soát</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Nắm bắt tổng thể tình hình sử dụng vốn và triển khai dự án.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Theo dõi thực hiện</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Giám sát chặt chẽ tiến độ thanh toán và các mốc giải ngân thực tế.</p>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 6 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 7: PHÂN HỆ 2 ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">CHI TIẾT PHÂN HỆ 2</div>
+            <h2 class="text-lg font-bold tracking-wide">QUẢN LÝ GÓI THẦU VÀ HỢP ĐỒNG</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">07</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-4 content-center">
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Gói thầu</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Quản lý hình thức LCNT giá trị dự toán, phân bổ nguồn vốn và trình tự thực hiện gói thầu.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Hợp đồng</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Quản lý giá trị ký kết, các mốc bảo cần phải thanh toán và hàng hoá dịch vụ đi kèm.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Tiến độ</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Theo dõi tình trạng thực hiện hợp đồng theo thời gian thực.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-emerald-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-[#EBF7F0] text-[#006838] font-bold text-xs mb-2">Liên kết</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Quản lý xuyên suốt và liên kết trực tiếp: Dự án / Gói thầu / Hợp đồng.</p>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 7 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 8: PHÂN HỆ 3 ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">CHI TIẾT PHÂN HỆ 3</div>
+            <h2 class="text-lg font-bold tracking-wide">GIẢI NGÂN & TIẾN ĐỘ THANH TOÁN</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">08</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-4 content-center">
+          <div class="bg-white p-4.5 rounded-xl border border-amber-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-amber-50 text-[#E5A118] font-bold text-xs mb-2 border border-amber-200">Đợt thanh toán</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Lập lịch trình và theo dõi hạn thanh toán chi tiết theo từng hợp đồng.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-amber-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-amber-50 text-[#E5A118] font-bold text-xs mb-2 border border-amber-200">Giá trị</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Theo dõi giá trị đề nghị, phê duyệt và thực tế thanh toán.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-amber-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-amber-50 text-[#E5A118] font-bold text-xs mb-2 border border-amber-200">Tiến độ</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Tự động tính toán tỷ lệ giải ngân so với giá trị hợp đồng và kế hoạch vốn được giao theo thời gian thực.</p>
+          </div>
+          <div class="bg-white p-4.5 rounded-xl border border-amber-200 shadow-sm">
+            <div class="inline-block px-2.5 py-0.5 rounded bg-amber-50 text-[#E5A118] font-bold text-xs mb-2 border border-amber-200">Đối soát</div>
+            <p class="text-xs text-slate-700 leading-relaxed">Đối chiếu đa chiều giữa kế hoạch vốn – hợp đồng – thanh toán thực tế.</p>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 8 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 9: PHÂN HỆ 4 ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">CHI TIẾT PHÂN HỆ 4</div>
+            <h2 class="text-lg font-bold tracking-wide">CẢNH BÁO NHẮC HẠN & THÔNG BÁO</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">09</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-3 gap-5 content-center">
+          <div class="bg-white rounded-xl border-2 border-[#006838] p-5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="w-10 h-10 rounded-lg bg-[#EBF7F0] text-[#006838] flex items-center justify-center text-lg mb-3">🔔</div>
+              <h3 class="font-bold text-[#006838] text-sm mb-2">Nhắc hạn hợp đồng</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Cảnh báo hợp đồng sắp đến hạn, hạn bảo lãnh thực hiện HĐ và bảo lãnh bảo hành.
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-lg mb-3">💳</div>
+              <h3 class="font-bold text-slate-900 text-sm mb-2">Nhắc hạn thanh toán</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Theo dõi các đợt thanh toán đến hạn, tạm ứng và mốc nghiệm thu chi tiết.
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-emerald-200 p-5 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg mb-3">⏳</div>
+              <h3 class="font-bold text-slate-900 text-sm mb-2">Cảnh báo tiến độ</h3>
+              <p class="text-xs text-slate-600 leading-relaxed">
+                Phát hiện các trường hợp chậm tiến độ để kịp thời đôn đốc và xử lý.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 9 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 10: BÁO CÁO & XUẤT DỮ LIỆU ================= -->
+      <section class="slide w-full h-full flex-col justify-between bg-[#F4F9F5] text-slate-800">
+        <div class="coop-header-banner px-8 py-3.5 text-white flex justify-between items-center shadow-md">
+          <div>
+            <div class="text-[10px] font-bold text-amber-300 uppercase tracking-widest">HỆ THỐNG BÁO CÁO</div>
+            <h2 class="text-lg font-bold tracking-wide">BÁO CÁO & XUẤT DỮ LIỆU</h2>
+          </div>
+          <span class="bg-[#E5A118] text-slate-950 font-mono font-bold text-xs px-2.5 py-1 rounded-md shadow">10</span>
+        </div>
+
+        <div class="flex-1 p-6 grid grid-cols-2 gap-4 content-center">
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">1</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo tiến độ triển khai dự án</span>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">2</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo phân bổ kế hoạch vốn</span>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">3</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo kế hoạch & kết quả đấu thầu</span>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">4</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo theo dõi thực hiện hợp đồng</span>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">5</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo tiến độ thanh toán & giải ngân</span>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 bg-white rounded-xl border border-emerald-200 shadow-sm">
+            <span class="w-7 h-7 rounded-md bg-[#EBF7F0] text-[#006838] font-bold text-xs flex items-center justify-center shrink-0">6</span>
+            <span class="font-bold text-[#006838] text-xs">Báo cáo tổng hợp tình hình đầu tư</span>
+          </div>
+        </div>
+
+        <div class="px-8 py-2 text-[11px] text-slate-500 border-t border-emerald-100 flex justify-between bg-white">
+          <span>Co-opBank • Phòng Ứng Dụng Nội Bộ Và Kế Hoạch</span>
+          <span>Trang 10 / 11</span>
+        </div>
+      </section>
+
+      <!-- ================= SLIDE 11: CLOSING ================= -->
+      <section class="slide w-full h-full flex-col justify-between p-10 coop-bg-gradient text-white text-center">
+        <div class="text-right text-xs text-amber-300 font-mono font-bold">11 / 11</div>
+        <div class="my-auto space-y-5">
+          <div class="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto text-3xl shadow-inner">
+            🤝
+          </div>
+          <h1 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">CẢM ƠN ĐÃ LẮNG NGHE!</h1>
+          <p class="text-emerald-100 text-sm md:text-base max-w-xl mx-auto">
+            Kính chúc Quý Ban Lãnh đạo và các Anh/Chị nhiều sức khỏe & thành công!
+          </p>
+          <div class="inline-block px-6 py-2 rounded-full bg-[#E5A118] text-slate-950 font-bold text-sm shadow-lg">
+            Q & A / THẢO LUẬN & ĐÓNG GÓP Ý KIẾN
+          </div>
+        </div>
+        <div class="text-xs text-emerald-200/80">
+          Ngân hàng Hợp tác xã Việt Nam (Co-opBank)
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Navigation Control Bar -->
+  <footer class="bg-slate-950/90 backdrop-blur border-t border-slate-800 px-6 py-3 flex items-center justify-between z-10 text-white">
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-semibold text-slate-400">Trang:</span>
+      <span id="slide-indicator" class="text-xs font-mono font-bold text-[#E5A118] bg-slate-900 border border-slate-700 px-2.5 py-1 rounded">1 / 11</span>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <button onclick="prevSlide()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1">
+        <span>&larr;</span> Trước
+      </button>
+      <button onclick="nextSlide()" class="px-4 py-1.5 rounded-lg bg-[#006838] hover:bg-[#007d43] text-white text-xs font-semibold transition flex items-center gap-1 border border-[#E5A118]/40">
+        Sau <span>&rarr;</span>
+      </button>
+    </div>
+
+    <div class="text-xs text-slate-400 hidden sm:block">
+      Phím tắt: &larr; / &rarr; | Trình chiếu F11
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const indicator = document.getElementById('slide-indicator');
+
+    function showSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= slides.length) index = slides.length - 1;
+      
+      slides.forEach((s, idx) => {
+        if (idx === index) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+
+      currentSlide = index;
+      indicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+    }
+
+    function nextSlide() {
+      showSlide(currentSlide + 1);
+    }
+
+    function prevSlide() {
+      showSlide(currentSlide - 1);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'Home') {
+        showSlide(0);
+      } else if (e.key === 'End') {
+        showSlide(slides.length - 1);
+      }
+    });
+  </script>
+</body>
+</html>
