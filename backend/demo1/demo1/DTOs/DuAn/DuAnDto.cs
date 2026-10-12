@@ -43,6 +43,11 @@ public class DuAnDto : IHasId
     public decimal TongDuToanHienTai { get; set; }
     
     /// <summary>
+    /// Giá trị đã thanh/quyết toán (VNĐ) - Tổng giá trị các đợt thanh toán đã thanh toán (IsPaid = true) của các hợp đồng thuộc dự án
+    /// </summary>
+    public decimal GiaTriDaThanhToan { get; set; }
+    
+    /// <summary>
     /// Trạng thái thực hiện dự án
     /// </summary>
     public int TrangThai { get; set; }

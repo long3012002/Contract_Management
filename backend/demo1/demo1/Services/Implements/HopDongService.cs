@@ -1181,9 +1181,9 @@ public class HopDongService : DbCrudService<HopDong, HopDongDto, CreateHopDongDt
 
         dotThanhToan.IsPaid = true;
         dotThanhToan.NgayThanhToanThucTe = dto?.NgayThanhToanThucTe ?? DateTime.UtcNow;
-        if (!string.IsNullOrWhiteSpace(dto?.GhiChuThanhToan))
+        if (dto != null && dto.GhiChuThanhToan != null)
         {
-            dotThanhToan.GhiChuThanhToan = dto.GhiChuThanhToan;
+            dotThanhToan.GhiChuThanhToan = string.IsNullOrWhiteSpace(dto.GhiChuThanhToan) ? null : dto.GhiChuThanhToan.Trim();
         }
         dotThanhToan.UpdatedAt = DateTime.UtcNow;
 

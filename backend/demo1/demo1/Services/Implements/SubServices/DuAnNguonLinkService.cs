@@ -101,6 +101,52 @@ public class DuAnNguonLinkService : IDuAnNguonLinkService
                 };
             }
         }
+
+        // Tính toán Giá trị đã thanh/quyết toán cho danh sách dự án
+        // Lấy tất cả hợp đồng thuộc các dự án (trực tiếp qua DuAnId hoặc gián tiếp qua GoiThau.DuAnId)
+        var directContracts = await _dbContext.HopDongs
+            .AsNoTracking()
+            .Where(h => !h.IsDeleted && h.DuAnId.HasValue && projectIds.Contains(h.DuAnId.Value))
+            .Select(h => new { h.Id, DuAnId = h.DuAnId!.Value })
+            .ToListAsync();
+
+        var packageContracts = await _dbContext.HopDongs
+            .AsNoTracking()
+            .Where(h => !h.IsDeleted && !h.DuAnId.HasValue && h.GoiThauId.HasValue && h.GoiThau != null && h.GoiThau.DuAnId.HasValue && projectIds.Contains(h.GoiThau.DuAnId.Value))
+            .Select(h => new { h.Id, DuAnId = h.GoiThau!.DuAnId!.Value })
+            .ToListAsync();
+
+        var contractProjectMap = directContracts
+            .Concat(packageContracts)
+            .GroupBy(x => x.Id)
+            .ToDictionary(g => g.Key, g => g.First().DuAnId);
+
+        var contractIds = contractProjectMap.Keys.ToList();
+
+        if (contractIds.Any())
+        {
+            var paidMilestones = await _dbContext.DotThanhToans
+                .AsNoTracking()
+                .Where(dt => dt.IsPaid && contractIds.Contains(dt.HopDongId))
+                .Select(dt => new { dt.HopDongId, dt.GiaTriThanhToan })
+                .ToListAsync();
+
+            var paidSums = paidMilestones
+                .GroupBy(dt => contractProjectMap[dt.HopDongId])
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.GiaTriThanhToan));
+
+            foreach (var dto in dtos)
+            {
+                dto.GiaTriDaThanhToan = paidSums.TryGetValue(dto.Id, out var sum) ? sum : 0m;
+            }
+        }
+        else
+        {
+            foreach (var dto in dtos)
+            {
+                dto.GiaTriDaThanhToan = 0m;
+            }
+        }
     }
 
     public async Task<HashSet<Guid>> GetLinkedSourceProjectIdsAsync(Guid? excludeTrienKhaiProjectId = null)

@@ -22,10 +22,7 @@ namespace demo1.Mapper
 
             // DuAn mappings
             CreateMap<DuAn, DuAnDto>()
-                .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => 
-                    (src.KeHoachVonDuAns != null && src.KeHoachVonDuAns.Any(k => k.KeHoachVon != null && k.KeHoachVon.TrangThai == 3))
-                        ? src.KeHoachVonDuAns.Where(k => k.KeHoachVon != null && k.KeHoachVon.TrangThai == 3).Sum(k => k.SoTienDuocDuyet)
-                        : src.DuToanPheDuyet))
+                .ForMember(dest => dest.TongDuToanHienTai, opt => opt.MapFrom(src => src.DuToanPheDuyet))
                 .ForMember(dest => dest.NhomDuAnName, opt => opt.MapFrom(src => src.NhomDuAn != null ? src.NhomDuAn.Name : null))
                 .ForMember(dest => dest.PhanLoaiDuAnName, opt => opt.MapFrom(src => src.PhanLoaiDuAn != null ? src.PhanLoaiDuAn.Name : null))
                 .ForMember(dest => dest.ChuDuAnName, opt => opt.MapFrom(src => src.ChuDuAn != null ? src.ChuDuAn.FullName : null))
@@ -225,6 +222,7 @@ namespace demo1.Mapper
 
             // HopDong mappings
             CreateMap<HopDong, HopDongDto>()
+                .ForMember(dest => dest.GoiThauCode, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Code : null))
                 .ForMember(dest => dest.GoiThauName, opt => opt.MapFrom(src => src.GoiThau != null ? src.GoiThau.Name : null))
                 .ForMember(dest => dest.DuAnName, opt => opt.MapFrom(src => src.DuAn != null ? src.DuAn.Name : null))
                 .ForMember(dest => dest.LoaiHopDongName, opt => opt.MapFrom(src => src.LoaiHopDongNavigation != null ? src.LoaiHopDongNavigation.Name : null))

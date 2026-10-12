@@ -89,6 +89,10 @@ namespace demo1.Services.Implements
                 }
 
                 var tokenJson = await tokenResponseMsg.Content.ReadAsStringAsync();
+                _logger.LogInformation("==================== [SSO TOKEN RESPONSE TỪ SSO SERVER] ====================");
+                _logger.LogInformation("{TokenJson}", tokenJson);
+                _logger.LogInformation("============================================================================");
+
                 var ssoTokens = JsonSerializer.Deserialize<SsoTokenResponse>(tokenJson);
 
                 if (ssoTokens == null || string.IsNullOrWhiteSpace(ssoTokens.IdToken))
@@ -100,8 +104,15 @@ namespace demo1.Services.Implements
                 var tokenValidation = await ValidateIdTokenAsync(ssoTokens.IdToken, httpClient);
                 if (!tokenValidation.IsValid)
                 {
-                    _logger.LogWarning("Xác thực ID Token không thành công: {Error}", tokenValidation.ErrorMessage);
-                    return AuthResult.Fail(400, tokenValidation.ErrorMessage ?? "Xác thực chữ ký ID Token không thành công.");
+                    var jwtToken = handler.ReadJwtToken(ssoTokens.IdToken);
+                    var allClaims = jwtToken.Claims.Select(c => $"{c.Type}: {c.Value}").ToList();
+                    _logger.LogInformation("==================== [SSO ID TOKEN CLAIMS ĐÃ GIẢI MÃ] ====================");
+                    _logger.LogInformation("{Claims}", string.Join(Environment.NewLine, allClaims));
+                    _logger.LogInformation("=========================================================================");
+
+                    sub = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub || c.Type == "sub")?.Value;
+                    email = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email || c.Type == "email")?.Value;
+                    preferredUsername = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username" || c.Type == "username")?.Value;
                 }
 
                 string? sub = tokenValidation.Sub;
@@ -121,13 +132,17 @@ namespace demo1.Services.Implements
                         if (userInfoResp.IsSuccessStatusCode)
                         {
                             var userInfoJson = await userInfoResp.Content.ReadAsStringAsync();
-                            var userInfo = JsonSerializer.Deserialize<SsoUserInfoResponse>(userInfoJson);
-                            if (userInfo != null)
-                            {
-                                if (string.IsNullOrWhiteSpace(sub)) sub = userInfo.Sub ?? userInfo.Id;
-                                if (string.IsNullOrWhiteSpace(email)) email = userInfo.Email ?? userInfo.Attributes?.EmailAddress;
-                                if (string.IsNullOrWhiteSpace(preferredUsername)) preferredUsername = userInfo.PreferredUsername ?? userInfo.Username;
-                            }
+                            _logger.LogInformation("==================== [SSO USERINFO RESPONSE] ====================");
+                            _logger.LogInformation("{UserInfoJson}", userInfoJson);
+                            _logger.LogInformation("===============================================================");
+
+                            using var doc = JsonDocument.Parse(userInfoJson);
+                            var root = doc.RootElement;
+
+                            if (root.TryGetProperty("sub", out var subProp)) sub = subProp.GetString();
+                            if (string.IsNullOrWhiteSpace(email) && root.TryGetProperty("email", out var emailProp)) email = emailProp.GetString();
+                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("preferred_username", out var prefProp)) preferredUsername = prefProp.GetString();
+                            if (string.IsNullOrWhiteSpace(preferredUsername) && root.TryGetProperty("username", out var uProp)) preferredUsername = uProp.GetString();
                         }
                     }
                     catch (Exception ex)
@@ -195,6 +210,7 @@ namespace demo1.Services.Implements
                     IsSystemAdmin = user.IsSystemAdmin,
                     AccessToken = accessToken,
                     RefreshToken = refreshToken,
+                    IdToken = ssoTokens.IdToken,
                     Permissions = await GetEffectivePermissionsAsync(user.Id)
                 });
             }

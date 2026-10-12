@@ -43,17 +43,8 @@ public class BudgetBoundaryValidationService : IBudgetBoundaryValidationService
             throw new InvalidOperationException($"Dự án [{duAn.Code}] đã ở trạng thái Đã gộp (Merged), không thể thêm/chỉnh sửa gói thầu.");
         }
 
-        // Tính tổng ngân sách được duyệt từ các Kế hoạch vốn đã Approved
-        var tongNganSachDuocDuyet = await _context.KeHoachVonDuAns
-            .AsNoTracking()
-            .Where(k => k.DuAnId == duAnId && k.KeHoachVon.TrangThai == 3) // Approved
-            .SumAsync(k => (decimal?)k.SoTienDuocDuyet) ?? duAn.DuToanPheDuyet;
-
-        // Nếu dự án chưa có KHV được duyệt, lấy tạm DuToanPheDuyet nếu > 0
-        if (tongNganSachDuocDuyet <= 0 && duAn.DuToanPheDuyet > 0)
-        {
-            tongNganSachDuocDuyet = duAn.DuToanPheDuyet;
-        }
+        // Ngân sách được duyệt của dự án (Tổng mức đầu tư / Dự toán phê duyệt)
+        var tongNganSachDuocDuyet = duAn.DuToanPheDuyet;
 
         // Tính tổng giá trị các gói thầu hiện có của dự án
         var tongGiaTriGoiThauHienTai = await _context.GoiThaus

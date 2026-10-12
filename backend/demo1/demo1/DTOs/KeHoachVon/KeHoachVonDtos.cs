@@ -31,6 +31,7 @@ public class KeHoachVonDto : IHasId
 
     public decimal TongMucDeNghi { get; set; }
     public decimal TongMucDuocDuyet { get; set; }
+    public decimal TongTien { get; set; }
     public string? GhiChu { get; set; }
 
     public Guid? CreatedByUserId { get; set; }

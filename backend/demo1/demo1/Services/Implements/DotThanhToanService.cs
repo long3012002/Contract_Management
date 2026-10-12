@@ -17,7 +17,7 @@ public class DotThanhToanService(AppDbContext context) : IDotThanhToanService
                 .ThenInclude(h => h.GoiThau)
             .Include(d => d.HopDong)
                 .ThenInclude(h => h.DuAn)
-            .Where(d => d.HopDong.IsActive) // Chỉ lấy các đợt thanh toán thuộc hợp đồng đang hoạt động
+            .Where(d => d.HopDong != null && !d.HopDong.IsDeleted) // Hiển thị tất cả đợt thanh toán của hợp đồng chưa bị xóa mềm
             .AsQueryable();
 
         // 1. Lọc theo năm

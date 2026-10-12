@@ -549,6 +549,7 @@ public class KeHoachVonService : IKeHoachVonService
         // Tính tổng trực tiếp từ danh sách dự án, không đọc field cached trên entity
         var tongDeNghi = danhSachDuAn.Sum(da => da.SoTienDeNghi);
         var tongDuocDuyet = danhSachDuAn.Sum(da => da.SoTienDuocDuyet);
+        var tongNguonVon = tongTheoNguonVon.Sum(x => x.TongSoTien);
 
         return new KeHoachVonDto
         {
@@ -562,6 +563,7 @@ public class KeHoachVonService : IKeHoachVonService
             // Ưu tiên giá trị tính thực tế, fallback về field cached nếu chưa có dự án nào
             TongMucDeNghi = tongDeNghi > 0 ? tongDeNghi : k.TongMucDeNghi / factor,
             TongMucDuocDuyet = tongDuocDuyet > 0 ? tongDuocDuyet : k.TongMucDuocDuyet / factor,
+            TongTien = tongNguonVon,
             GhiChu = k.GhiChu,
             CreatedByUserId = k.CreatedByUserId,
             CreatedByUserName = k.CreatedByUser?.FullName,
